@@ -1,114 +1,135 @@
 "use strict";
 "require view";
 "require form";
-"require baseclass";
-"require network";
 "require view.podkop.main as main";
-
-// Settings content
-"require view.podkop.settings as settings";
-
-// Sections content
 "require view.podkop.section as section";
-
-// Dashboard content
+"require view.podkop.settings as settings";
 "require view.podkop.dashboard as dashboard";
-
-// Diagnostic content
 "require view.podkop.diagnostic as diagnostic";
+/**
+ * Creates a fixed tab backed by a named UCI section.
+ *
+ * @param {object} map - LuCI form.Map instance
+ * @param {string} type - UCI section type and section ID
+ * @param {string} title - Tab title
+ * @param {Function} configure - Callback to create tab content
+ * @returns {object} Created section
+ */
+function createFixedSection(map, type, title, configure) {
+  const section = map.section(
+    form.TypedSection,
+    type,
+    title,
+  );
+
+  section.anonymous = true;
+  section.addremove = false;
+  section.cfgsections = function () {
+    return [type];
+  };
+
+  configure(section);
+
+  return section;
+}
 
 const EntryPoint = {
   async render() {
     main.injectGlobalStyles();
 
-    // Options of features the installed sing-box does not have are not created
-    const singBoxFeatures = await main.CustomPodkopMethods.getSingBoxFeatures();
+    // Detect features supported by the installed sing-box.
+    const singBoxFeatures =
+      await main.CustomPodkopMethods.getSingBoxFeatures();
 
     const podkopMap = new form.Map(
       "podkop",
       _("Podkop Settings"),
       _("Configuration for Podkop service"),
     );
-    // Enable tab views
-    podkopMap.tabbed = true;
 
-    // A save by the user first asks the router about the proxy links of every section: one
-    // its engine refuses keeps the settings from being saved, with its field and the reason.
-    // The silent saves of LuCI (a section added or removed) are left alone.
+    // Enable tabbed layout.
+    podkopMap.tabbed = true;
+    
+    // Validate proxy links before saving settings.
     const save = podkopMap.save;
+    
     podkopMap.save = function (cb, silent) {
       if (silent) {
         return save.call(this, cb, silent);
       }
+    
       return main.checkLinksBeforeSave(this).then((problems) => {
         if (problems.length) {
           main.showLinkProblems(problems);
-          return Promise.reject(new Error("proxy links refused by the router"));
+          return Promise.reject(
+            new Error("proxy links refused by the router"),
+          );
         }
+    
         return save.call(this, cb, silent);
       });
     };
 
-    // Sections tab
+    // Sections tab.
     const sectionsSection = podkopMap.section(
-      form.TypedSection,
+      form.GridSection,
       "section",
       _("Sections"),
     );
+
     sectionsSection.anonymous = false;
     sectionsSection.addremove = true;
-    sectionsSection.template = "cbi/simpleform";
+    sectionsSection.sortable = true;
+    sectionsSection.modalpopup = true;
 
-    // Render section content
-    section.createSectionContent(sectionsSection, singBoxFeatures);
+    sectionsSection.modaltitle = function (sectionId) {
+      return _("Section") + ": " + sectionId;
+    };
 
-    // Settings tab
-    const settingsSection = podkopMap.section(
-      form.TypedSection,
+    section.createSectionContent(
+      sectionsSection,
+      singBoxFeatures,
+    );
+
+    // Keep section options inside the edit modal.
+    sectionsSection.children.forEach(function (option) {
+      option.modalonly = true;
+    });
+
+    // Settings tab.
+    createFixedSection(
+      podkopMap,
       "settings",
       _("Settings"),
+      function (settingsSection) {
+        settings.createSettingsContent(
+          settingsSection,
+          singBoxFeatures,
+        );
+      },
     );
-    settingsSection.anonymous = true;
-    settingsSection.addremove = false;
-    // Make it named [ config settings 'settings' ]
-    settingsSection.cfgsections = function () {
-      return ["settings"];
-    };
 
-    // Render settings content
-    settings.createSettingsContent(settingsSection, singBoxFeatures);
-
-    // Diagnostic tab
-    const diagnosticSection = podkopMap.section(
-      form.TypedSection,
+    // Diagnostics tab.
+    createFixedSection(
+      podkopMap,
       "diagnostic",
       _("Diagnostics"),
+      function (diagnosticSection) {
+        diagnostic.createDiagnosticContent(diagnosticSection);
+      },
     );
-    diagnosticSection.anonymous = true;
-    diagnosticSection.addremove = false;
-    diagnosticSection.cfgsections = function () {
-      return ["diagnostic"];
-    };
 
-    // Render diagnostic content
-    diagnostic.createDiagnosticContent(diagnosticSection);
-
-    // Dashboard tab
-    const dashboardSection = podkopMap.section(
-      form.TypedSection,
+    // Dashboard tab.
+    createFixedSection(
+      podkopMap,
       "dashboard",
       _("Dashboard"),
+      function (dashboardSection) {
+        dashboard.createDashboardContent(dashboardSection);
+      },
     );
-    dashboardSection.anonymous = true;
-    dashboardSection.addremove = false;
-    dashboardSection.cfgsections = function () {
-      return ["dashboard"];
-    };
 
-    // Render dashboard content
-    dashboard.createDashboardContent(dashboardSection);
-
-    // Inject core service
+    // Initialize core services.
     main.coreService();
 
     return podkopMap.render();
