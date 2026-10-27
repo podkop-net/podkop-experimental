@@ -91,28 +91,50 @@ const EntryPoint = {
 
     // Groups tab: servers of subscriptions chosen by their names
     const groupsSection = podkopMap.section(
-      form.TypedSection,
+      form.GridSection,
       "group",
       _("Groups"),
     );
     groupsSection.anonymous = false;
     groupsSection.addremove = true;
+    groupsSection.sortable = true;
+    groupsSection.modalpopup = true;
+
+    groupsSection.modaltitle = function (sectionId) {
+      return _("Group") + ": " + sectionId;
+    };
+
     group.createGroupContent(groupsSection);
     uniqueNames(groupsSection);
 
+    // Keep group options inside the edit modal.
+    groupsSection.children.forEach(function (option) {
+      option.modalonly = true;
+    });
+
     // Sections tab
     const sectionsSection = podkopMap.section(
-      form.TypedSection,
+      form.GridSection,
       "section",
       _("Sections"),
     );
     sectionsSection.anonymous = false;
     sectionsSection.addremove = true;
-    sectionsSection.template = "cbi/simpleform";
+    sectionsSection.sortable = true;
+    sectionsSection.modalpopup = true;
+
+    sectionsSection.modaltitle = function (sectionId) {
+      return _("Section") + ": " + sectionId;
+    };
 
     // Render section content
     section.createSectionContent(sectionsSection, singBoxFeatures);
     uniqueNames(sectionsSection);
+
+    // Keep section options inside the edit modal.
+    sectionsSection.children.forEach(function (option) {
+      option.modalonly = true;
+    });
 
     // Settings tab
     const settingsSection = podkopMap.section(
