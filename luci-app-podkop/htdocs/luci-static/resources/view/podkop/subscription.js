@@ -130,7 +130,7 @@ function tryReason(attempt) {
     case "timeout":
       return _("no answer in %d s").format(+args[0] || 0);
     case "stalled":
-      return _("the transfer stopped at %s KB").format(args[0]);
+      return _("the transfer stopped at %s").format(bytes(attempt.bytes || (+args[0] || 0) * 1024));
     case "dns":
       return _("the name is not found in DNS");
     case "refused-connection":
@@ -268,7 +268,7 @@ function stateBlock(state) {
       lines.push(_("No list yet: the groups of the subscription go by their rule for no server"));
     }
   } else if (state.checked) {
-    const took = state.took_ms ? ", " + _("%s s").format(seconds(state.took_ms)) : "";
+    const took = state.took_ms >= 100 ? ", " + _("%s s").format(seconds(state.took_ms)) : "";
     lines.push(lineWith(_("Last check: %s, %s"), timeOf(state.checked, now), wayOf(state.route) + took));
   } else if (state.changed) {
     lines.push(_("Last check: none since podkop started"));

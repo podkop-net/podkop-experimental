@@ -2388,8 +2388,8 @@
     ]
   },
   {
-    "call": "the transfer stopped at %s KB",
-    "key": "the transfer stopped at %s KB",
+    "call": "the transfer stopped at %s",
+    "key": "the transfer stopped at %s",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:133"
     ]

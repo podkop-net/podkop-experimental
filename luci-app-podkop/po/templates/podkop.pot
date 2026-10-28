@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-28 17:59+0000\n"
-"PO-Revision-Date: 2026-10-28 17:59+0000\n"
+"POT-Creation-Date: 2026-10-28 18:21+0000\n"
+"PO-Revision-Date: 2026-10-28 18:21+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -1415,7 +1415,7 @@ msgid "The subscriptions the group chooses servers from"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:133
-msgid "the transfer stopped at %s KB"
+msgid "the transfer stopped at %s"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/section.js:523
