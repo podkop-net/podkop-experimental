@@ -80,19 +80,32 @@ func TestParseIDIgnoresName(t *testing.T) {
 
 func TestParseRefusesWhatIsNoList(t *testing.T) {
 	t.Parallel()
-	for body, want := range map[string]string{
-		"":                                    "no servers",
-		"   \n":                               "no servers",
-		"<!doctype html><html>blocked</html>": ErrPage.Error(),
-		`{"outbounds":[]}`:                    "JSON",
-		`[{"remarks":"a"}]`:                   "JSON",
-		"proxies:\n  - name: a\n":             "Clash",
-		"just some words\n":                   "no proxy links",
-		base64.StdEncoding.EncodeToString([]byte("<html></html>")): ErrPage.Error(),
+	for body, code := range map[string]string{
+		"":                                    "empty",
+		"   \n":                               "empty",
+		"<!doctype html><html>blocked</html>": "page",
+		`{"outbounds":[]}`:                    "json",
+		`[{"remarks":"a"}]`:                   "json",
+		"proxies:\n  - name: a\n":             "clash",
+		"just some words\n":                   "nolinks",
+		base64.StdEncoding.EncodeToString([]byte("<html></html>")): "page",
 	} {
 		_, err := Parse([]byte(body), fakeDecode)
-		require.ErrorContains(t, err, want, body)
+		require.Equal(t, code, err.(*Failure).Code, body)
 	}
+}
+
+// What Remnawave sends instead of the servers of an ended subscription: links to 0.0.0.0,
+// its notes in the names. The list there was stays.
+func TestParsePlaceholderNotes(t *testing.T) {
+	t.Parallel()
+	_, err := Parse([]byte("vless://00000000-0000-0000-0000-000000000000@0.0.0.0:1?security=none#%E2%8C%9B%20Subscription%20expired\n"+
+		"vless://00000000-0000-0000-0000-000000000000@0.0.0.0:1?security=none#Contact%20support\n"), fakeDecode)
+	require.Equal(t, "placeholder", err.(*Failure).Code)
+	require.Equal(t, []string{"⌛ Subscription expired; Contact support"}, err.(*Failure).Args)
+	servers, err := Parse([]byte("vless://u@0.0.0.0:1#Note\nvless://u2@a.example:443#A\n"), fakeDecode)
+	require.NoError(t, err, "one real server: a list")
+	require.Len(t, servers, 2)
 }
 
 func TestSameServersIgnoresOrder(t *testing.T) {

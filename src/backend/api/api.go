@@ -125,13 +125,49 @@ type SubscriptionState struct {
 	Changed *time.Time `json:"changed,omitempty"`
 	Checked *time.Time `json:"checked,omitempty"`
 	Route   string     `json:"route,omitempty"`
-	// Error is why the last download failed; empty when it did not.
-	Error string `json:"error,omitempty"`
+	// Error is why the last download failed; empty when it did not. ErrorCode and ErrorArgs
+	// are the same for the page to translate.
+	Error     string   `json:"error,omitempty"`
+	ErrorCode string   `json:"error_code,omitempty"`
+	ErrorArgs []string `json:"error_args,omitempty"`
+	// Attempted is when the last download ended, whatever it came to; Took how long the last
+	// one that brought a list took; Attempts the tries of the last download.
+	Attempted *time.Time `json:"attempted,omitempty"`
+	Took      int64      `json:"took_ms,omitempty"`
+	Attempts  []Attempt  `json:"attempts,omitempty"`
 	// Next is when the next download is due; Busy tells that one is under way.
 	Next *time.Time `json:"next,omitempty"`
 	Busy bool       `json:"busy,omitempty"`
 	// Provider is what the provider told of the subscription with the last list.
 	Provider *ProviderInfo `json:"provider,omitempty"`
+	// Now is the time of the router: the page counts how long ago by it.
+	Now *time.Time `json:"now,omitempty"`
+}
+
+// Attempt is a try of a download by one way: the way, how far it came (connect, tls, wait,
+// body, done, failed, canceled), how long it took and how much came, and why it failed (the
+// English text, and a code with its arguments for the page).
+type Attempt struct {
+	Route     string   `json:"route"`
+	Phase     string   `json:"phase"`
+	Took      int64    `json:"ms"`
+	FirstByte int64    `json:"first_byte_ms,omitempty"`
+	Bytes     int64    `json:"bytes,omitempty"`
+	Error     string   `json:"error,omitempty"`
+	Code      string   `json:"code,omitempty"`
+	Args      []string `json:"args,omitempty"`
+}
+
+// LoadJob is a download of a list for the page (Load), under way or done: the page starts
+// it and asks how it goes, so the download is not bound by how long LuCI waits for a call.
+type LoadJob struct {
+	ID string `json:"id"`
+	// State is running, done, failed or canceled.
+	State    string    `json:"state"`
+	Elapsed  int64     `json:"elapsed_ms"`
+	Attempts []Attempt `json:"attempts"`
+	// Preview is what the download came to, once it ended.
+	Preview *SubscriptionPreview `json:"preview,omitempty"`
 }
 
 // ProviderInfo is what a provider tells of a subscription in the headers of its list
@@ -146,6 +182,8 @@ type ProviderInfo struct {
 	Traffic bool `json:"traffic,omitempty"`
 	// Expire is when the subscription ends; none when it does not, or is not told.
 	Expire *time.Time `json:"expire,omitempty"`
+	// Refill is when the traffic is counted from 0 again (subscription-refill-date).
+	Refill *time.Time `json:"refill,omitempty"`
 	// UpdateHours is how often the provider asks the list to be downloaded again.
 	UpdateHours int `json:"update_hours,omitempty"`
 	// SupportURL and WebPageURL are pages of the provider (HTTP or HTTPS only).
@@ -157,10 +195,15 @@ type ProviderInfo struct {
 
 // SubscriptionPreview is a list downloaded to be shown, not taken.
 type SubscriptionPreview struct {
-	// Route is the way it came; Error why no list came.
-	Route   string          `json:"route,omitempty"`
-	Error   string          `json:"error,omitempty"`
-	Servers []PreviewServer `json:"servers"`
+	// Route is the way it came; Error why no list came, ErrorCode and ErrorArgs the same for
+	// the page to translate; Took how long it took; Attempts the tries of the download.
+	Route     string          `json:"route,omitempty"`
+	Error     string          `json:"error,omitempty"`
+	ErrorCode string          `json:"error_code,omitempty"`
+	ErrorArgs []string        `json:"error_args,omitempty"`
+	Took      int64           `json:"took_ms,omitempty"`
+	Attempts  []Attempt       `json:"attempts,omitempty"`
+	Servers   []PreviewServer `json:"servers"`
 	// Provider is what the provider told of the subscription with the list.
 	Provider *ProviderInfo `json:"provider,omitempty"`
 }
@@ -222,6 +265,11 @@ type Backend interface {
 	UpdateSubscriptions(ctx context.Context, name string) []SubscriptionState
 	// LoadSubscription downloads a list from an address to be shown.
 	LoadSubscription(ctx context.Context, address string) SubscriptionPreview
+	// StartLoad starts a download of a list from an address to be shown; LoadState tells how
+	// it goes, CancelLoad stops it. A job not known tells false.
+	StartLoad(ctx context.Context, address string) LoadJob
+	LoadState(ctx context.Context, id string) (LoadJob, bool)
+	CancelLoad(ctx context.Context, id string) (LoadJob, bool)
 	// CheckGroup tells which servers a group would choose.
 	CheckGroup(ctx context.Context, check GroupCheck) GroupPreview
 }
@@ -297,6 +345,32 @@ func Serve(ctx context.Context, path string, backend Backend, logs *logbuf.Buffe
 			return
 		}
 		answer(writer, backend.LoadSubscription(request.Context(), asked.Address))
+	})
+	mux.HandleFunc("POST /subscriptions/load/start", func(writer http.ResponseWriter, request *http.Request) {
+		var asked struct {
+			Address string `json:"address"`
+		}
+		if json.NewDecoder(io.LimitReader(request.Body, 64<<10)).Decode(&asked) != nil {
+			http.Error(writer, "the request is not JSON", http.StatusBadRequest)
+			return
+		}
+		answer(writer, backend.StartLoad(request.Context(), asked.Address))
+	})
+	mux.HandleFunc("GET /subscriptions/load/state", func(writer http.ResponseWriter, request *http.Request) {
+		job, known := backend.LoadState(request.Context(), request.URL.Query().Get("id"))
+		if !known {
+			http.Error(writer, "no such download", http.StatusNotFound)
+			return
+		}
+		answer(writer, job)
+	})
+	mux.HandleFunc("POST /subscriptions/load/cancel", func(writer http.ResponseWriter, request *http.Request) {
+		job, known := backend.CancelLoad(request.Context(), request.URL.Query().Get("id"))
+		if !known {
+			http.Error(writer, "no such download", http.StatusNotFound)
+			return
+		}
+		answer(writer, job)
 	})
 	mux.HandleFunc("POST /groups/check", func(writer http.ResponseWriter, request *http.Request) {
 		var check GroupCheck
@@ -477,6 +551,36 @@ func (c Client) LoadSubscription(address string, timeout time.Duration) (*Subscr
 		return nil, err
 	}
 	return preview, nil
+}
+
+// StartLoad makes the backend start a download of a list from an address to be shown.
+func (c Client) StartLoad(address string) (*LoadJob, error) {
+	job := new(LoadJob)
+	err := c.send(http.MethodPost, "/subscriptions/load/start", 5*time.Second, map[string]string{"address": address}, job)
+	if err != nil {
+		return nil, err
+	}
+	return job, nil
+}
+
+// LoadState asks the backend how a download of a list for the page goes.
+func (c Client) LoadState(id string) (*LoadJob, error) {
+	job := new(LoadJob)
+	err := c.call(http.MethodGet, "/subscriptions/load/state?id="+url.QueryEscape(id), 5*time.Second, job)
+	if err != nil {
+		return nil, err
+	}
+	return job, nil
+}
+
+// CancelLoad makes the backend stop a download of a list for the page.
+func (c Client) CancelLoad(id string) (*LoadJob, error) {
+	job := new(LoadJob)
+	err := c.call(http.MethodPost, "/subscriptions/load/cancel?id="+url.QueryEscape(id), 5*time.Second, job)
+	if err != nil {
+		return nil, err
+	}
+	return job, nil
 }
 
 // CheckGroup asks the backend which servers a group would choose.

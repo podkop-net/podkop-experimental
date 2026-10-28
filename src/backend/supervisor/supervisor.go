@@ -202,7 +202,7 @@ type Options struct {
 	Device  subscription.Device
 	Version string
 	// Download downloads a list in place of subscription.Download (a test).
-	Download func(ctx context.Context, address string, header http.Header, routes []subscription.Route, each time.Duration) (*subscription.Answer, error)
+	Download func(ctx context.Context, address string, header http.Header, routes []subscription.Route, plan subscription.Plan, report func([]subscription.Try)) (*subscription.Answer, []subscription.Try, error)
 }
 
 // The files of Options.ConfigDir (api.RunningConfig, api.LastConfig, api.RejectedConfig).

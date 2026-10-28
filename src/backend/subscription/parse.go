@@ -17,8 +17,6 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
-
-	E "github.com/sagernet/sing/common/exceptions"
 )
 
 // Server is a server a subscription lists.
@@ -48,10 +46,6 @@ func (s *Server) Usable() bool {
 // link, and the warnings about it (engine.DecodeLink).
 type Decoder func(link string) (outbound []byte, warnings []string, err error)
 
-// ErrPage is a web page in place of a list: as a rule the page an ISP shows for a site it
-// blocks. Another way to the provider may get the list.
-var ErrPage = E.New("the provider sent a web page, not a list of servers")
-
 // Parse takes the body of an answer of a provider apart into its servers, in its order. A
 // line that is not a proxy link is skipped: the comments some providers put in (#…) and the
 // lines for other programs (happ://…). Links that cannot be decoded are servers with a
@@ -59,7 +53,7 @@ var ErrPage = E.New("the provider sent a web page, not a list of servers")
 func Parse(body []byte, decode Decoder) ([]Server, error) {
 	text := strings.TrimSpace(strings.TrimPrefix(string(body), "\ufeff"))
 	if text == "" {
-		return nil, E.New("the provider sent no servers")
+		return nil, fail("empty", true, "the provider sent an empty list")
 	}
 	if !strings.Contains(text, "://") {
 		if decoded, isBase64 := decodeBase64(text); isBase64 {
@@ -68,11 +62,11 @@ func Parse(body []byte, decode Decoder) ([]Server, error) {
 	}
 	switch {
 	case strings.HasPrefix(text, "<"):
-		return nil, ErrPage
+		return nil, fail("page", true, "the provider sent a web page, not a list of servers")
 	case strings.HasPrefix(text, "{"), strings.HasPrefix(text, "["):
-		return nil, E.New("the provider sent a configuration in JSON, not a list of links: other formats are not read yet")
+		return nil, fail("json", true, "the provider sent a configuration in JSON (sing-box or Xray): podkop reads only a list of links so far")
 	case isClashYAML(text):
-		return nil, E.New("the provider sent a configuration of Clash, not a list of links: other formats are not read yet")
+		return nil, fail("clash", true, "the provider sent a configuration of Clash (YAML): podkop reads only a list of links so far")
 	}
 	var servers []Server
 	for _, line := range strings.Split(text, "\n") {
@@ -87,9 +81,31 @@ func Parse(body []byte, decode Decoder) ([]Server, error) {
 		servers = append(servers, parseLink(line, len(servers)+1, decode))
 	}
 	if len(servers) == 0 {
-		return nil, E.New("the provider sent no proxy links")
+		return nil, fail("nolinks", true, "the answer of the provider has no links of servers")
+	}
+	if notes := placeholderNotes(servers); notes != nil {
+		return nil, fail("placeholder", true, "the provider sent notes instead of servers: "+strings.Join(notes, "; "), strings.Join(notes, "; "))
 	}
 	return servers, nil
+}
+
+// placeholderNotes are the names of a list whose every server is the address 0.0.0.0: what
+// Remnawave sends in place of the servers (an ended subscription, a device it does not take,
+// "contact support"), its notes in the names. None for a list of servers.
+func placeholderNotes(servers []Server) []string {
+	var notes []string
+	for index := range servers {
+		_, address := servers[index].Endpoint()
+		host, _, err := net.SplitHostPort(address)
+		if err != nil {
+			host = address
+		}
+		if host != "0.0.0.0" {
+			return nil
+		}
+		notes = append(notes, servers[index].Name)
+	}
+	return notes
 }
 
 // decodeBase64 reads a body in base64, with or without padding, of either alphabet, broken

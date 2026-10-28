@@ -26,24 +26,40 @@ type (
 	GroupPreview        = api.GroupPreview
 )
 
-// How the lists of the subscriptions are downloaded. A download in the background has a
-// minute, each way to the provider 10 s of it; one asked for by the page has what LuCI waits
-// for a call (20 s) less the rest of the call, each way 5 s. The ways through proxies are
-// the fastest few the URL tests found.
+// How the lists of the subscriptions are downloaded: the ways to the provider start as the
+// history of the address plans them (subscription.Plan); these bound the whole. A download in
+// the background has 2 minutes, nobody waits for it; Load of the page a minute, as a job the
+// page asks about (LuCI waits for a call 20 s); Check of a group, a call itself, what LuCI
+// waits less the rest of the call. The ways through proxies are the fastest few the URL tests
+// found.
 const (
-	downloadBudget     = time.Minute
-	downloadEach       = 10 * time.Second
+	downloadBudget     = 2 * time.Minute
 	downloadProxies    = 8
+	loadBudget         = time.Minute
 	previewBudget      = 17 * time.Second
-	previewEach        = 5 * time.Second
 	previewProxies     = 3
 	subscriptionTick   = 15 * time.Second
 	firstDownloadDelay = 10 * time.Second
-	// a list that could not be downloaded is tried again sooner than at its interval
+	// a list that could not be downloaded is tried again sooner than at its interval; a
+	// subscription with no list at all after 1, 2, 4 and 8 minutes (downloadBackoff)
 	downloadRetry = 10 * time.Minute
 	// how long a list downloaded for the page is used again by the page
 	previewKept = 10 * time.Minute
+	// at most this many downloads in the background and for the page at once: all the
+	// subscriptions are due in one tick at the start, and would go through one server
+	mostDownloads = 2
+	mostLoads     = 2
+	// the downloads that brought a list a history keeps
+	historyKept = 8
 )
+
+// downloadBackoff is when a subscription with no list is tried again after its failures.
+func downloadBackoff(failures int) time.Duration {
+	if failures < 1 {
+		failures = 1
+	}
+	return min(time.Minute<<(failures-1), downloadRetry)
+}
 
 // subscriptions is what the supervisor knows of the subscriptions of the settings. The
 // goroutine of Run changes it; the previews of other goroutines read it under access.
@@ -69,6 +85,14 @@ type subscriptions struct {
 	// applied again once no download is under way, once for all the lists of a round, and
 	// no download loses the sing-box it goes through to a new configuration meanwhile
 	changed bool
+	// histories are how the downloads of each address went, by the key of the address
+	histories map[string]*history
+	// jobs are the downloads for the page (Load), by their ID, for a while after they end
+	jobs map[string]*loadJob
+	// forced are the subscriptions asked to be downloaded now that wait for a place
+	forced map[string]bool
+	// failures are how many downloads of each subscription failed in a row
+	failures map[string]int
 }
 
 // downloaded is what a download in the background came to.
@@ -76,6 +100,7 @@ type downloaded struct {
 	name    string
 	address string
 	list    *subscription.Saved
+	tries   []subscription.Try
 	err     error
 	// through is the instance whose outbounds the download went through; none directly
 	through Instance
@@ -112,6 +137,7 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config) {
 		}
 		t.addresses[item.Name] = item.URL
 		delete(t.lists, item.Name)
+		delete(t.failures, item.Name)
 		next := now.Add(firstDownloadDelay)
 		state := &SubscriptionState{Name: item.Name, Next: &next}
 		t.states[item.Name] = state
@@ -150,6 +176,8 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config) {
 			delete(t.intervals, name)
 			delete(t.lists, name)
 			delete(t.states, name)
+			delete(t.forced, name)
+			delete(t.failures, name)
 		}
 	}
 	if s.options.SubscriptionDir != "" {
@@ -202,7 +230,7 @@ func parseInterval(text string) time.Duration {
 // servers of the configuration that runs, the fastest first as the URL tests found them,
 // those not tested after. Directly is through direct-out of sing-box while it runs: the
 // resolver of the system answers the names of the lists from FakeIP then.
-func (s *Supervisor) routes(proxies int) ([]subscription.Route, Instance) {
+func (s *Supervisor) routes(proxies int, first string) ([]subscription.Route, Instance) {
 	s.statusAccess.Lock()
 	live, links := s.live, s.liveLinks
 	s.statusAccess.Unlock()
@@ -215,14 +243,25 @@ func (s *Supervisor) routes(proxies int) ([]subscription.Route, Instance) {
 		}
 	}
 	routes := []subscription.Route{{Name: "direct", Direct: true, Dial: through("direct-out")}}
+	// a way is named as the page names the outbound: the name of the server of a subscription,
+	// the section and number of a link
 	var tags []string
+	names := make(map[string]string)
 	for _, link := range links {
 		if !slices.Contains(tags, link.Tag) {
 			tags = append(tags, link.Tag)
+			names[link.Tag] = link.Name
 		}
 	}
 	delays := s.options.Engine.Delays(tags)
 	slices.SortStableFunc(tags, func(left string, right string) int {
+		// the way of the last download first: it brought the list then
+		switch {
+		case names[left] == first && names[right] != first:
+			return -1
+		case names[right] == first && names[left] != first:
+			return 1
+		}
 		leftDelay, leftTested := delays[left]
 		rightDelay, rightTested := delays[right]
 		switch {
@@ -236,27 +275,31 @@ func (s *Supervisor) routes(proxies int) ([]subscription.Route, Instance) {
 		return 0
 	})
 	for _, tag := range tags[:min(len(tags), proxies)] {
-		routes = append(routes, subscription.Route{Name: tag, Dial: through(tag)})
+		routes = append(routes, subscription.Route{Name: names[tag], Dial: through(tag)})
 	}
 	return routes, live
 }
 
 // fetch downloads and reads a list: the servers with their reasons, those built before taking
-// the verdicts they had. It tells the instance it went through.
-func (s *Supervisor) fetch(ctx context.Context, address string, proxies int, each time.Duration) (*subscription.Saved, Instance, error) {
+// the verdicts they had. The ways start as the history of the address plans them, and what
+// the download came to goes into it. It tells the instance it went through and the tries.
+func (s *Supervisor) fetch(ctx context.Context, address string, proxies int, report func([]subscription.Try)) (*subscription.Saved, Instance, []subscription.Try, error) {
 	header := s.options.Device.Headers(s.options.Version)
 	download := s.options.Download
 	if download == nil {
 		download = subscription.Download
 	}
-	routes, through := s.routes(proxies)
-	answer, err := download(ctx, address, header, routes, each)
+	key := subscription.AddressKey(address)
+	plan, first := s.planOf(key)
+	routes, through := s.routes(proxies, first)
+	answer, tries, err := download(ctx, address, header, routes, plan, report)
+	s.remember(key, tries)
 	if err != nil {
-		return nil, through, err
+		return nil, through, tries, err
 	}
 	servers, err := subscription.Parse(answer.Body, engine.DecodeLink)
 	if err != nil {
-		return nil, through, err
+		return nil, through, tries, err
 	}
 	t := &s.subscriptions
 	t.access.Lock()
@@ -274,30 +317,63 @@ func (s *Supervisor) fetch(ctx context.Context, address string, proxies int, eac
 		t.verdicts[id] = reason
 	}
 	t.access.Unlock()
-	return &subscription.Saved{Address: subscription.AddressKey(address), Changed: time.Now().UTC(), Route: answer.Route, Servers: servers, Info: answer.Info()}, through, nil
+	return &subscription.Saved{Address: key, Changed: time.Now().UTC(), Route: answer.Route, Servers: servers, Info: answer.Info()}, through, tries, nil
 }
 
-// downloadDue starts the downloads that are due, each in a goroutine of its own; what they
-// come to comes back to the goroutine of Run (takeList).
+// downloadDue starts the downloads that are due, at most mostDownloads at once, each in a
+// goroutine of its own; what they come to comes back to the goroutine of Run (takeList),
+// which starts those that waited for a place. A subscription asked to be downloaded now
+// waits for its place too.
 func (s *Supervisor) downloadDue(now time.Time, force string) {
 	t := &s.subscriptions
 	t.access.Lock()
 	defer t.access.Unlock()
+	if t.forced == nil {
+		t.forced = make(map[string]bool)
+	}
+	busy := 0
+	var names []string
 	for name, state := range t.states {
+		if (force == name || force == "*") && !state.Busy {
+			t.forced[name] = true
+		}
+		if state.Busy {
+			busy++
+		}
+		names = append(names, name)
+	}
+	// the asked ones first, then the longest due
+	slices.SortFunc(names, func(left string, right string) int {
+		switch {
+		case t.forced[left] != t.forced[right] && t.forced[left]:
+			return -1
+		case t.forced[left] != t.forced[right]:
+			return 1
+		}
+		leftNext, rightNext := t.states[left].Next, t.states[right].Next
+		if leftNext != nil && rightNext != nil {
+			return leftNext.Compare(*rightNext)
+		}
+		return strings.Compare(left, right)
+	})
+	for _, name := range names {
+		state := t.states[name]
 		due := state.Next != nil && !now.Before(*state.Next)
-		if state.Busy || !(due || force == name || force == "*") {
+		if state.Busy || !(due || t.forced[name]) || busy >= mostDownloads {
 			continue
 		}
+		busy++
+		delete(t.forced, name)
 		state.Busy = true
 		address := t.addresses[name]
 		go func() {
 			defer s.survive("the download of subscription "+name, func() {
-				s.downloads <- downloaded{name: name, address: address, err: E.New("a fault of the backend")}
+				s.downloads <- downloaded{name: name, address: address, err: &subscription.Failure{Code: "fault", Text: "the download stopped on a fault of podkop: see the log"}}
 			})
 			ctx, cancel := context.WithTimeout(context.Background(), downloadBudget)
 			defer cancel()
-			list, through, err := s.fetch(ctx, address, downloadProxies, downloadEach)
-			s.downloads <- downloaded{name: name, address: address, list: list, err: err, through: through}
+			list, through, tries, err := s.fetch(ctx, address, downloadProxies, nil)
+			s.downloads <- downloaded{name: name, address: address, list: list, tries: tries, err: err, through: through}
 		}()
 	}
 }
@@ -313,34 +389,50 @@ func (s *Supervisor) takeList(result downloaded) {
 	if state == nil || t.addresses[result.name] != result.address {
 		// the settings changed meanwhile: the list of another address is not taken
 		t.access.Unlock()
+		s.downloadDue(time.Now(), "")
 		s.applyTaken()
 		return
 	}
 	state.Busy = false
 	now := time.Now()
 	next := now.Add(t.intervals[result.name])
+	state.Attempted, state.Attempts = &now, attempts(result.tries)
 	if result.err != nil {
+		if t.failures == nil {
+			t.failures = make(map[string]int)
+		}
+		t.failures[result.name]++
 		next = now.Add(min(downloadRetry, t.intervals[result.name]))
+		if t.lists[result.name] == nil {
+			// no list at all: the groups of the subscription go by their rule for no server
+			next = now.Add(min(downloadBackoff(t.failures[result.name]), t.intervals[result.name]))
+		}
 		if result.through != nil && result.through != s.liveInstance() {
 			// the sing-box it went through was replaced meanwhile: again at the next tick
 			next = now
 		}
-		state.Error, state.Next = oneLine(result.err.Error()), &next
+		state.Next = &next
+		state.Error, state.ErrorCode, state.ErrorArgs = failureOf(result.err)
 		t.access.Unlock()
-		s.log("warn", "subscription ", result.name, ": ", oneLine(result.err.Error()))
+		s.log("warn", "subscription ", result.name, ": ", state.Error)
+		s.downloadDue(time.Now(), "")
 		s.applyTaken()
 		s.answerWaiting(result.name)
 		return
 	}
-	state.Error, state.Next, state.Checked, state.Route = "", &next, &now, result.list.Route
+	delete(t.failures, result.name)
+	state.Error, state.ErrorCode, state.ErrorArgs = "", "", nil
+	state.Next, state.Checked, state.Route, state.Took = &next, &now, result.list.Route, tookOf(result.tries)
 	state.Provider = subscription.ReadInfo(result.list.Info)
+	way := waysLine(result.tries)
 	old := t.lists[result.name]
 	if old != nil && subscription.SameServers(old.Servers, result.list.Servers) && !s.choiceChanged(result.name, old.Servers, result.list.Servers) {
 		// the traffic and the end the provider tells change with every list: kept in memory,
 		// the file is written only when the servers change
 		old.Info = result.list.Info
 		t.access.Unlock()
-		s.log("info", "subscription ", result.name, ": the list has not changed (", result.list.Route, ")")
+		s.log("info", "subscription ", result.name, ": the list has not changed (", way, ")")
+		s.downloadDue(time.Now(), "")
 		s.applyTaken()
 		s.answerWaiting(result.name)
 		return
@@ -350,15 +442,36 @@ func (s *Supervisor) takeList(result downloaded) {
 	state.Changed, state.Servers, state.Usable = &changed, len(result.list.Servers), usable(result.list.Servers)
 	t.changed = true
 	t.access.Unlock()
-	s.log("info", "subscription ", result.name, ": ", state.Servers, " servers, ", state.Usable, " can be used (", result.list.Route, ")")
+	s.log("info", "subscription ", result.name, ": ", state.Servers, " servers, ", state.Usable, " can be used (", way, ")")
 	if s.options.SubscriptionDir != "" {
 		err := s.store().Save(result.name, result.list)
 		if err != nil {
 			s.log("warn", "subscription ", result.name, ": ", err)
 		}
 	}
+	s.downloadDue(time.Now(), "")
 	s.applyTaken()
 	s.answerWaiting(result.name)
+}
+
+// waysLine tells how a list came for the log: the way and the time, and why the ways tried
+// before or beside it did not bring it ("through main-2 in 6.4 s; direct: the transfer stopped
+// at 16 KB").
+func waysLine(tries []subscription.Try) string {
+	var won string
+	var others []string
+	for _, item := range tries {
+		switch {
+		case item.Phase == subscription.PhaseDone:
+			won = item.Route + " in " + strconv.FormatFloat(item.Took.Seconds(), 'f', 1, 64) + " s"
+			if item.Route != "direct" {
+				won = "through " + won
+			}
+		case item.Failure != nil && item.Failure.Code != "canceled":
+			others = append(others, item.Route+": "+item.Failure.Text)
+		}
+	}
+	return strings.Join(append([]string{won}, others...), "; ")
 }
 
 // applyTaken applies the settings again with the lists taken, once no download is under way.
@@ -393,8 +506,11 @@ func (s *Supervisor) subscriptionStates() []SubscriptionState {
 	t.access.Lock()
 	defer t.access.Unlock()
 	states := []SubscriptionState{}
+	now := time.Now()
 	for _, state := range t.states {
-		states = append(states, *state)
+		told := *state
+		told.Now = &now
+		states = append(states, told)
 	}
 	slices.SortFunc(states, func(left SubscriptionState, right SubscriptionState) int {
 		return strings.Compare(left.Name, right.Name)
@@ -471,23 +587,9 @@ func (s *Supervisor) askDownload(request subscriptionRequest) {
 // LoadSubscription downloads a list to be shown: the page asks with the address of its form,
 // saved or not. Nothing is taken. It is for callers outside the goroutine of Run.
 func (s *Supervisor) LoadSubscription(ctx context.Context, address string) SubscriptionPreview {
-	ctx, cancel := context.WithTimeout(ctx, previewBudget)
+	ctx, cancel := context.WithTimeout(ctx, loadBudget)
 	defer cancel()
-	preview := SubscriptionPreview{Servers: []api.PreviewServer{}}
-	address = strings.TrimSpace(address)
-	list, _, err := s.fetch(ctx, address, previewProxies, previewEach)
-	if err != nil {
-		preview.Error = oneLine(err.Error())
-		return preview
-	}
-	s.keepPreview(list)
-	preview.Route = list.Route
-	preview.Provider = subscription.ReadInfo(list.Info)
-	for _, server := range list.Servers {
-		scheme, endpoint := server.Endpoint()
-		preview.Servers = append(preview.Servers, api.PreviewServer{Name: server.Name, Scheme: scheme, Address: endpoint, Link: server.Link, Reason: server.Reason, Notes: server.Notes})
-	}
-	return preview
+	return s.loadPreview(ctx, address, nil)
 }
 
 // CheckGroup tells which servers a group would choose. A subscription's list is the one
@@ -544,7 +646,7 @@ func (s *Supervisor) groupList(ctx context.Context, name string, address string)
 	if kept != nil && time.Since(kept.Changed) < previewKept {
 		return kept, nil
 	}
-	list, _, err := s.fetch(ctx, address, previewProxies, previewEach)
+	list, _, _, err := s.fetch(ctx, address, previewProxies, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -34,6 +34,7 @@ func ReadInfo(info map[string]string) *api.ProviderInfo {
 	if hours, err := strconv.Atoi(strings.TrimSpace(info["profile-update-interval"])); err == nil && hours > 0 && hours <= 24*30 {
 		read.UpdateHours = hours
 	}
+	read.Refill = unixTime(info["subscription-refill-date"])
 	if read == (api.ProviderInfo{}) {
 		return nil
 	}
@@ -62,16 +63,23 @@ func readUserInfo(value string, read *api.ProviderInfo) {
 		case "total":
 			read.Total, read.Traffic = amount, true
 		case "expire":
-			if amount == 0 {
-				continue
-			}
-			if amount > 100_000_000_000 {
-				amount /= 1000
-			}
-			expire := time.Unix(amount, 0).UTC()
-			read.Expire = &expire
+			read.Expire = unixTime(strconv.FormatInt(amount, 10))
 		}
 	}
+}
+
+// unixTime reads a time a provider writes as Unix seconds (some in milliseconds); 0 is none.
+func unixTime(value string) *time.Time {
+	number, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+	if err != nil || number <= 0 || math.IsInf(number, 0) || number > math.MaxInt64/2 {
+		return nil
+	}
+	seconds := int64(number)
+	if seconds > 100_000_000_000 {
+		seconds /= 1000
+	}
+	read := time.Unix(seconds, 0).UTC()
+	return &read
 }
 
 // providerText is a text of a provider as the page may show it: "base64:" is decoded, what

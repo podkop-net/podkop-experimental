@@ -25,6 +25,7 @@ type provider struct {
 	refused []string
 	asked   []string
 	headers []http.Header
+	plans   []subscription.Plan
 }
 
 func (p *provider) serve(body string) {
@@ -33,10 +34,12 @@ func (p *provider) serve(body string) {
 	p.access.Unlock()
 }
 
-func (p *provider) download(ctx context.Context, address string, header http.Header, routes []subscription.Route, each time.Duration) (*subscription.Answer, error) {
+func (p *provider) download(ctx context.Context, address string, header http.Header, routes []subscription.Route, plan subscription.Plan, report func([]subscription.Try)) (*subscription.Answer, []subscription.Try, error) {
 	p.access.Lock()
 	defer p.access.Unlock()
 	p.headers = append(p.headers, header)
+	p.plans = append(p.plans, plan)
+	var tries []subscription.Try
 	for _, route := range routes {
 		p.asked = append(p.asked, route.Name)
 		refused := false
@@ -44,10 +47,12 @@ func (p *provider) download(ctx context.Context, address string, header http.Hea
 			refused = refused || name == route.Name
 		}
 		if !refused {
-			return &subscription.Answer{Body: []byte(p.body), Header: http.Header{}, Route: route.Name}, nil
+			tries = append(tries, subscription.Try{Route: route.Name, Phase: subscription.PhaseDone, Took: 800 * time.Millisecond, FirstByte: 700 * time.Millisecond, Pause: 10 * time.Millisecond, Bytes: int64(len(p.body))})
+			return &subscription.Answer{Body: []byte(p.body), Header: http.Header{}, Route: route.Name}, tries, nil
 		}
+		tries = append(tries, subscription.Try{Route: route.Name, Phase: subscription.PhaseFailed, Took: 5 * time.Second, Failure: &subscription.Failure{Code: "timeout", Args: []string{"5"}, Text: "no answer in 5 s"}})
 	}
-	return nil, os.ErrDeadlineExceeded
+	return nil, tries, &subscription.Failure{Code: "unreachable", Text: "the provider could not be reached"}
 }
 
 func subscriptionSettings(directory string, empty string) string {
@@ -165,12 +170,16 @@ func TestSubscriptionRoutes(t *testing.T) {
 	require.True(t, s.Boot().OK)
 	downloadNow(t, s)
 	require.Equal(t, []string{"direct"}, source.asked)
-	routes, _ := s.routes(3)
+	routes, _ := s.routes(3, "")
 	var names []string
 	for _, route := range routes {
 		names = append(names, route.Name)
 	}
-	require.Equal(t, []string{"direct", "prov1: NL 2", "prov1: NL 1", "main-out"}, names)
+	// a way is named as the page names the outbound: the server, or the section of a link
+	require.Equal(t, []string{"direct", "prov1: NL 2", "prov1: NL 1", "main"}, names)
+	// the way that brought the list the last time first among the servers
+	routes, _ = s.routes(3, "main")
+	require.Equal(t, "main", routes[1].Name)
 	// direct goes through direct-out of sing-box while it runs
 	fake.dial = func(ctx context.Context, tag string, address string) (net.Conn, error) { return nil, os.ErrClosed }
 	_, _ = routes[0].Dial(context.Background(), "tcp", "sub.example:443")
@@ -182,15 +191,82 @@ func TestSubscriptionRoutes(t *testing.T) {
 	source.serve("vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\n")
 	downloadNow(t, s)
 	require.Equal(t, []string{"direct", "prov1: NL 2"}, source.asked)
-	require.Equal(t, "prov1: NL 2", s.subscriptionStates()[0].Route)
-
-	// nothing reaches it: the list there was stays, the error is told
-	source.refused = []string{"direct", "prov1: NL 1", "prov1: NL 2", "main-out"}
-	downloadNow(t, s)
 	state := s.subscriptionStates()[0]
+	require.Equal(t, "prov1: NL 2", state.Route)
+	require.Equal(t, int64(800), state.Took)
+	require.Len(t, state.Attempts, 2)
+	require.Equal(t, "timeout", state.Attempts[0].Code)
+	require.NotNil(t, state.Attempted)
+	require.NotNil(t, state.Now)
+	// the plan of the next download: by the downloads that brought a list (0.7 s to the first
+	// byte, 0.8 s in all: the floors), the direct way beside the server that brought it now
+	plan, first := s.planOf(subscription.AddressKey("https://sub.example/api/sub/TOKEN"))
+	require.Equal(t, subscription.Plan{Wait: 2 * time.Second, Body: 2 * time.Second, Total: 5 * time.Second, Together: true}, plan)
+	require.Equal(t, "prov1: NL 2", first)
+
+	// nothing reaches it: the list there was stays, the error is told with its code (the
+	// server that brought the list is gone with it: the order of the delays)
+	source.asked = nil
+	source.refused = []string{"direct", "prov1: NL 1", "prov1: NL 2", "main"}
+	downloadNow(t, s)
+	require.Equal(t, []string{"direct", "prov1: NL 1", "main"}, source.asked)
+	require.True(t, source.plans[len(source.plans)-1].Together)
+	state = s.subscriptionStates()[0]
 	require.NotEmpty(t, state.Error)
+	require.Equal(t, "unreachable", state.ErrorCode)
 	require.Equal(t, 1, state.Servers)
+	require.WithinDuration(t, time.Now().Add(10*time.Minute), *state.Next, 5*time.Second, "a list there was: again in 10 minutes")
 	require.Contains(t, string(s.current.result.Config), `"prov1: NL 1"`)
+	s.Stop()
+}
+
+// A subscription with no list is tried again after 1, 2, 4, 8 and then every 10 minutes; at
+// most two downloads run at once, the others wait for a place.
+func TestSubscriptionRetriesAndPlaces(t *testing.T) {
+	require.Equal(t, []time.Duration{time.Minute, time.Minute, 2 * time.Minute, 4 * time.Minute, 8 * time.Minute, 10 * time.Minute, 10 * time.Minute},
+		[]time.Duration{downloadBackoff(0), downloadBackoff(1), downloadBackoff(2), downloadBackoff(3), downloadBackoff(4), downloadBackoff(5), downloadBackoff(9)})
+
+	directory := t.TempDir()
+	fake, system := &fakeEngine{refuse: map[string]error{}}, new(recorder)
+	source := &provider{body: "vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\n", refused: []string{"direct", "main"}}
+	options := Options{
+		SettingsPath: filepath.Join(directory, "podkop"), RuleSetDir: filepath.Join(directory, "rulesets"),
+		StagingDir: filepath.Join(directory, "candidate"), StatePath: filepath.Join(directory, "state"),
+		ConfigDir: filepath.Join(directory, "run"), ReadyTimeout: time.Second, System: system, Engine: fake,
+		Download: source.download,
+	}
+	settings := subscriptionSettings(directory, "block")
+	for _, name := range []string{"prov2", "prov3"} {
+		settings += "\nconfig subscription '" + name + "'\n\toption url 'https://other.example/sub/" + name + "'\n"
+	}
+	require.NoError(t, os.WriteFile(options.SettingsPath, []byte(settings), 0o644))
+	s := New(options)
+	require.True(t, s.Boot().OK)
+	s.downloadDue(time.Now(), "*")
+	busy := 0
+	for _, state := range s.subscriptionStates() {
+		if state.Busy {
+			busy++
+		}
+	}
+	require.Equal(t, 2, busy, "two at once")
+	first := <-s.downloads
+	s.takeList(first)
+	state := s.subscriptions.states[first.name]
+	require.Equal(t, "unreachable", state.ErrorCode)
+	require.WithinDuration(t, time.Now().Add(time.Minute), *state.Next, 5*time.Second, "no list: again in a minute")
+	busy = 0
+	for _, state := range s.subscriptionStates() {
+		if state.Busy {
+			busy++
+		}
+	}
+	require.Equal(t, 2, busy, "the third took the place that came free")
+	s.takeList(<-s.downloads)
+	s.takeList(<-s.downloads)
+	s.downloadDue(time.Now(), first.name)
+	s.takeList(<-s.downloads)
+	require.WithinDuration(t, time.Now().Add(2*time.Minute), *s.subscriptions.states[first.name].Next, 5*time.Second, "the second failure: 2 minutes")
 	s.Stop()
 }
 

@@ -57,6 +57,23 @@ func (b *backend) LoadSubscription(_ context.Context, address string) api.Subscr
 	b.loaded = append(b.loaded, address)
 	return b.preview
 }
+func (b *backend) StartLoad(_ context.Context, address string) api.LoadJob {
+	b.loaded = append(b.loaded, address)
+	return api.LoadJob{ID: "job1", State: "running", Attempts: []api.Attempt{{Route: "direct", Phase: "wait", Took: 300}}}
+}
+func (b *backend) LoadState(_ context.Context, id string) (api.LoadJob, bool) {
+	if id != "job1" {
+		return api.LoadJob{}, false
+	}
+	preview := b.preview
+	return api.LoadJob{ID: id, State: "done", Attempts: []api.Attempt{{Route: "direct", Phase: "done", Took: 800}}, Preview: &preview}, true
+}
+func (b *backend) CancelLoad(_ context.Context, id string) (api.LoadJob, bool) {
+	if id != "job1" {
+		return api.LoadJob{}, false
+	}
+	return api.LoadJob{ID: id, State: "canceled", Attempts: []api.Attempt{}}, true
+}
 func (b *backend) CheckGroup(_ context.Context, check api.GroupCheck) api.GroupPreview {
 	b.checked = append(b.checked, check)
 	return b.group
@@ -409,6 +426,19 @@ func TestSubscriptionCommands(t *testing.T) {
 	var preview api.SubscriptionPreview
 	require.NoError(t, json.Unmarshal([]byte(output), &preview))
 	require.Equal(t, "NL 1", preview.Servers[0].Name)
+	output, status = run(env, "subscription_load_start", "https://sub.example/sub/TOKEN")
+	require.Zero(t, status)
+	require.JSONEq(t, `{"id":"job1","state":"running","elapsed_ms":0,"attempts":[{"route":"direct","phase":"wait","ms":300}]}`, output)
+	output, status = run(env, "subscription_load_state", "job1")
+	require.Zero(t, status)
+	require.Contains(t, output, `"state":"done"`)
+	require.Contains(t, output, `"name":"NL 1"`)
+	output, status = run(env, "subscription_load_cancel", "job1")
+	require.Zero(t, status)
+	require.Contains(t, output, `"state":"canceled"`)
+	output, status = run(env, "subscription_load_state", "nojob")
+	require.Zero(t, status)
+	require.Contains(t, output, `"error_code":"nojob"`)
 	output, status = run(env, "group_check", `{"subscriptions":["prov1"],"include":["NL"],"exclude":[]}`)
 	require.Zero(t, status)
 	require.Equal(t, []string{"NL"}, running.checked[0].Include)

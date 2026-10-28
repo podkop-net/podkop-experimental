@@ -95,3 +95,30 @@ func takenAgo(passed time.Duration) string {
 	}
 	return ago(passed) + " ago"
 }
+
+// loadAndWait downloads a list to be shown as a job of the backend, and waits for it: the
+// command line has no limit of LuCI.
+func loadAndWait(client api.Client, address string) *api.SubscriptionPreview {
+	job, err := client.StartLoad(address)
+	if err != nil {
+		return notRunning()
+	}
+	deadline := time.Now().Add(2 * time.Minute)
+	for job.State == "running" && job.ID != "" && time.Now().Before(deadline) {
+		time.Sleep(500 * time.Millisecond)
+		next, err := client.LoadState(job.ID)
+		if err != nil {
+			return notRunning()
+		}
+		job = next
+	}
+	if job.Preview == nil {
+		return &api.SubscriptionPreview{Servers: []api.PreviewServer{}, Error: "the download did not end in time", ErrorCode: "timeout"}
+	}
+	return job.Preview
+}
+
+// notRunning is the preview when there is no backend to download a list.
+func notRunning() *api.SubscriptionPreview {
+	return &api.SubscriptionPreview{Servers: []api.PreviewServer{}, Error: "podkop does not run: a subscription is downloaded by its backend", ErrorCode: "notrunning"}
+}

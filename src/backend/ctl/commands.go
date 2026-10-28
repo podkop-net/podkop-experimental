@@ -88,7 +88,10 @@ var Commands = [][2]string{
 	{"yacd_builtin", "The dashboard YACD of the package served again in place of the one upgraded from GitHub"},
 	{"global_check", "[label port]: every check as one report; with the label of a check name and a port the device that asks opens connections to meanwhile, also what came of its DNS question and its connections"},
 	{"check_links", "<link>...: each proxy link as the engine of this build takes it when the settings run, as JSON: [{ok, error}]"},
-	{"subscription_load", "<address>: download the list of a subscription to be shown, not taken, as JSON: {route, error, servers: [{name, scheme, address, link, reason, notes}]}"},
+	{"subscription_load", "<address>: download the list of a subscription to be shown, not taken, as JSON: {route, error, error_code, took_ms, attempts, provider, servers: [{name, scheme, address, link, reason, notes}]}"},
+	{"subscription_load_start", "<address>: start a download of the list of a subscription to be shown, as JSON: {id, state, elapsed_ms, attempts}"},
+	{"subscription_load_state", "<id>: how a download started by subscription_load_start goes, as JSON: {id, state (running, done, failed, canceled), elapsed_ms, attempts, preview}"},
+	{"subscription_load_cancel", "<id>: stop a download started by subscription_load_start"},
 	{"group_check", "<JSON {subscriptions, include, exclude}>: the servers a group would choose, as JSON: {chosen, total, missing}"},
 	{"subscription_status", "Each subscription of the settings, as JSON: its servers, when its list was taken and checked, the way it came, the last error, the next download"},
 	{"subscription_update", "[name]: download the list of a subscription now (every one without a name)"},
@@ -177,11 +180,29 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 		if len(arguments) < 2 {
 			return usage(errorOutput)
 		}
-		preview, err := client.LoadSubscription(arguments[1], 19*time.Second)
-		if err != nil {
-			preview = &api.SubscriptionPreview{Servers: []api.PreviewServer{}, Error: "podkop does not run: a subscription is downloaded by its backend"}
+		return compact(loadAndWait(client, arguments[1]))
+	case "subscription_load_start", "subscription_load_state", "subscription_load_cancel":
+		if len(arguments) < 2 {
+			return usage(errorOutput)
 		}
-		return compact(preview)
+		var job *api.LoadJob
+		var err error
+		switch arguments[0] {
+		case "subscription_load_start":
+			job, err = client.StartLoad(arguments[1])
+		case "subscription_load_state":
+			job, err = client.LoadState(arguments[1])
+		default:
+			job, err = client.CancelLoad(arguments[1])
+		}
+		if err != nil {
+			job = &api.LoadJob{State: "failed", Attempts: []api.Attempt{}, Preview: notRunning()}
+			if _, down := client.Status(); down == nil {
+				// the backend runs: the job ended long ago, or the backend started anew
+				job.Preview = &api.SubscriptionPreview{Servers: []api.PreviewServer{}, Error: "the download is not known to podkop: it ended long ago, or podkop restarted", ErrorCode: "nojob"}
+			}
+		}
+		return compact(job)
 	case "group_check":
 		var check api.GroupCheck
 		if len(arguments) < 2 || json.Unmarshal([]byte(arguments[1]), &check) != nil {
