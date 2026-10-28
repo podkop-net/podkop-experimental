@@ -204,12 +204,12 @@ func (d *download) run(ctx context.Context, report func([]Try)) (*Answer, []Try,
 			d.running--
 			if finished.answer != nil {
 				cancel(errSuperseded)
-				return finished.answer, d.ended(report, canceledTry), nil
+				return finished.answer, d.ended(report, d.superseded), nil
 			}
 			failure := finished.result()
 			if failure.final {
 				cancel(errSuperseded)
-				return nil, d.ended(report, canceledTry), failure
+				return nil, d.ended(report, d.superseded), failure
 			}
 			if failure.Code == "status" {
 				// a status of the provider: one more way, then it is the answer
@@ -217,7 +217,7 @@ func (d *download) run(ctx context.Context, report func([]Try)) (*Answer, []Try,
 				status = providerStatus(failure)
 				if statuses >= 2 {
 					cancel(errSuperseded)
-					return nil, d.ended(report, canceledTry), status
+					return nil, d.ended(report, d.superseded), status
 				}
 			}
 			if d.next < len(d.ways) {
@@ -238,7 +238,7 @@ func (d *download) run(ctx context.Context, report func([]Try)) (*Answer, []Try,
 			for _, item := range d.tries {
 				item.stop(context.Cause(ctx))
 			}
-			tries := d.ended(report, timedOut)
+			tries := d.ended(report, expired)
 			if status != nil {
 				return nil, tries, status
 			}
@@ -303,18 +303,20 @@ func (d *download) watch(ctx context.Context) {
 
 // ended is the tries when the download ends: those still under way are told as they end
 // now (stopping is theirs to finish in their goroutines), and report is told them.
-func (d *download) ended(report func([]Try), as func(took time.Duration) *Failure) []Try {
-	tries := d.snapshot(nil)
-	for index := range tries {
-		switch tries[index].Phase {
+func (d *download) ended(report func([]Try), as func(item *try, view Try) *Failure) []Try {
+	tries := make([]Try, 0, len(d.tries))
+	for _, item := range d.tries {
+		view := item.view()
+		switch view.Phase {
 		case PhaseDone, PhaseFailed, PhaseCanceled:
-			continue
+		default:
+			view.Failure = as(item, view)
+			view.Phase = PhaseFailed
+			if view.Failure.Code == "canceled" {
+				view.Phase = PhaseCanceled
+			}
 		}
-		tries[index].Failure = as(tries[index].Took)
-		tries[index].Phase = PhaseFailed
-		if tries[index].Failure.Code == "canceled" {
-			tries[index].Phase = PhaseCanceled
-		}
+		tries = append(tries, view)
 	}
 	if report != nil {
 		report(tries)
@@ -322,8 +324,22 @@ func (d *download) ended(report func([]Try), as func(took time.Duration) *Failur
 	return tries
 }
 
-func canceledTry(time.Duration) *Failure {
+// superseded is why a try under way did not bring the list another way brought: a body that
+// stopped for longer than the plan waits in a body is a fault of its way; a try still waiting
+// for the provider is only slower (a slow provider is slow on every way).
+func (d *download) superseded(item *try, view Try) *Failure {
+	item.access.Lock()
+	idle := time.Since(item.last)
+	item.access.Unlock()
+	if view.Phase == PhaseBody && idle >= d.plan.Body {
+		kib := strconv.FormatInt((view.Bytes+512)/1024, 10)
+		return fail("stalled", false, "the transfer stopped at "+kib+" KB", kib)
+	}
 	return fail("canceled", false, "another way brought the list first")
+}
+
+func expired(_ *try, view Try) *Failure {
+	return timedOut(view.Took)
 }
 
 // snapshot is the tries as they are; report is told them.

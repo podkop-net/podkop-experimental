@@ -212,7 +212,10 @@ func TestDownloadLeavesAStoppedBody(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "px", answer.Route)
 	require.Less(t, time.Since(start), 3*time.Second)
-	require.Equal(t, PhaseCanceled, tries[0].Phase)
+	// the direct way is told by why it was left: its body stopped
+	require.Equal(t, PhaseFailed, tries[0].Phase)
+	require.Equal(t, "stalled", tries[0].Failure.Code)
+	require.Equal(t, []string{"15"}, tries[0].Failure.Args)
 	require.Positive(t, tries[0].Bytes)
 	require.Positive(t, reports.Load())
 }
