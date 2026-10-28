@@ -54,6 +54,13 @@ func TestReadInfo(t *testing.T) {
 	require.Nil(t, read, "nothing can be read")
 	require.Nil(t, ReadInfo(nil))
 
+	// a time in micro- or nanoseconds is read as seconds; one past 9999 is none (JSON cannot
+	// write it, and the whole answer of the states would be lost)
+	require.Equal(t, time.Unix(1767225600, 0).UTC(), *unixTime("1767225600000000"))
+	require.Equal(t, time.Unix(1767225600, 0).UTC(), *unixTime("1767225600000000000"))
+	require.Nil(t, unixTime("0"))
+	require.Nil(t, unixTime("-5"))
+
 	long := strings.Repeat("я", 300)
 	require.Equal(t, maxTitle+1, len([]rune(ReadInfo(map[string]string{"profile-title": long}).Title)), "cut, with an ellipsis")
 }

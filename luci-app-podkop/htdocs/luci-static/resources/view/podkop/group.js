@@ -93,7 +93,9 @@ function createGroupContent(section) {
     _("Subscriptions"),
     _("The subscriptions the group chooses servers from"),
   );
-  o.load = function (section_id) {
+  // the choices are made for each group as it is drawn: the list of choices is one for all the
+  // groups, and what one group adds (a deleted subscription it has) is not the others'
+  o.renderWidget = function (section_id, option_index, cfgvalue) {
     this.keylist = [];
     this.vallist = [];
     uci.sections("podkop", "subscription").forEach((item) => {
@@ -104,12 +106,17 @@ function createGroupContent(section) {
       this.value("", _("No subscription yet: add one on the tab Subscriptions"));
     }
     // a subscription that is no longer there stays shown, and validate tells why
-    L.toArray(uci.get("podkop", section_id, "subscription")).forEach((name) => {
+    L.toArray(cfgvalue).forEach((name) => {
       if (name && !this.keylist.includes(name)) {
         this.value(name, name + " (" + _("deleted") + ")");
       }
     });
-    return form.MultiValue.prototype.load.call(this, section_id);
+    return form.MultiValue.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue,
+    );
   };
   o.rmempty = false;
   // LuCI would refuse an empty choice as "Expecting: non-empty value": validate tells why
@@ -171,7 +178,7 @@ function createGroupContent(section) {
     _("The section whose way the connections take"),
   );
   o.depends("empty", "section");
-  o.load = function (section_id) {
+  o.renderWidget = function (section_id, option_index, cfgvalue) {
     this.keylist = [];
     this.vallist = [];
     uci
@@ -187,12 +194,16 @@ function createGroupContent(section) {
     }
     // the section chosen before stays shown: one turned block or exclusion is followed (no
     // connection, or directly), one that is no longer there is told by validate
-    const value = uci.get("podkop", section_id, "empty_section");
-    if (value && !this.keylist.includes(value)) {
-      const type = uci.get("podkop", value, "connection_type");
-      this.value(value, value + " (" + (type ? type : _("deleted")) + ")");
+    if (cfgvalue && !this.keylist.includes(cfgvalue)) {
+      const type = uci.get("podkop", cfgvalue, "connection_type");
+      this.value(cfgvalue, cfgvalue + " (" + (type ? type : _("deleted")) + ")");
     }
-    return form.ListValue.prototype.load.call(this, section_id);
+    return form.ListValue.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue,
+    );
   };
   o.optional = true;
   o.validate = function (section_id, value) {

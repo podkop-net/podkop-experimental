@@ -143,9 +143,10 @@ type Try struct {
 }
 
 var (
-	errConnect    = errors.New("no connection in time")
-	errStall      = errors.New("no progress in time")
-	errSuperseded = errors.New("another way brought the list")
+	errConnect       = errors.New("no connection in time")
+	errStall         = errors.New("no progress in time")
+	errSuperseded    = errors.New("another way brought the list")
+	errPlainRedirect = errors.New("a redirect to plain HTTP")
 )
 
 // Download asks the provider at the address, with the headers, by the routes as the plan
@@ -225,7 +226,7 @@ func (d *download) run(ctx context.Context, report func([]Try)) (*Answer, []Try,
 			} else if d.running == 0 {
 				tries := d.snapshot(report)
 				if status != nil {
-					return nil, tries, status
+					return nil, tries, d.statusOf(status, tries)
 				}
 				return nil, tries, unreachable(tries)
 			}
@@ -240,7 +241,7 @@ func (d *download) run(ctx context.Context, report func([]Try)) (*Answer, []Try,
 			}
 			tries := d.ended(report, expired)
 			if status != nil {
-				return nil, tries, status
+				return nil, tries, d.statusOf(status, tries)
 			}
 			return nil, tries, unreachable(tries)
 		}
@@ -371,6 +372,28 @@ func unreachable(tries []Try) *Failure {
 		return fail("page", true, "every way got a web page instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP")
 	}
 	return fail("unreachable", false, "the provider could not be reached ("+strings.Join(reasons, "; ")+")")
+}
+
+// statusOf is the failure of a download that ended with one status of the provider: its
+// answer when it was the only way, else a status of one way only, the other ways not reaching
+// the provider (it may be the answer of a CDN to the address of that way).
+func (d *download) statusOf(status *Failure, tries []Try) *Failure {
+	if len(d.ways) == 1 {
+		return status
+	}
+	way := ""
+	var reasons []string
+	for _, item := range tries {
+		switch {
+		case item.Failure == nil:
+		case item.Failure.Code == "status" && way == "":
+			way = item.Route
+		default:
+			reasons = append(reasons, item.Route+": "+item.Failure.Text)
+		}
+	}
+	code := status.Args[0]
+	return fail("status-one", false, "HTTP "+code+" came by one way only ("+way+"); the other ways did not reach the provider ("+strings.Join(reasons, "; ")+")", code, way)
 }
 
 // providerStatus is the failure of a download whose provider answered a status that is no
@@ -512,7 +535,16 @@ func (t *try) ask(ctx context.Context, target *url.URL, header http.Header) (*An
 		return nil, fail("address", true, "the address of the subscription cannot be asked")
 	}
 	request.Header = header.Clone()
-	response, err := (&http.Client{Transport: transport}).Do(request)
+	client := &http.Client{Transport: transport, CheckRedirect: func(next *http.Request, via []*http.Request) error {
+		switch {
+		case len(via) >= 10:
+			return errors.New("stopped after 10 redirects")
+		case next.URL.Scheme != "https" && !t.route.Direct:
+			return errPlainRedirect
+		}
+		return nil
+	}}
+	response, err := client.Do(request)
 	if err != nil {
 		return nil, t.reason(err, target)
 	}
@@ -584,7 +616,7 @@ func (t *try) stopped(ctx context.Context, failure *Failure) *Failure {
 	case errors.Is(cause, errSuperseded):
 		return fail("canceled", false, "another way brought the list first")
 	case errors.Is(cause, errConnect):
-		return fail("timeout", false, "no connection in "+strconv.Itoa(int(connectLimit/time.Second))+" s", strconv.Itoa(int(connectLimit/time.Second)))
+		return fail("connect-timeout", false, "no connection in "+strconv.Itoa(int(connectLimit/time.Second))+" s", strconv.Itoa(int(connectLimit/time.Second)))
 	case errors.Is(cause, errStall) && phase == PhaseBody:
 		kib := strconv.FormatInt((bytes+512)/1024, 10)
 		return fail("stalled", false, "the transfer stopped at "+kib+" KB", kib)
@@ -606,6 +638,8 @@ func (t *try) reason(err error, target *url.URL) *Failure {
 	var hostname x509.HostnameError
 	var record tls.RecordHeaderError
 	switch {
+	case errors.Is(err, errPlainRedirect):
+		return fail("plain-redirect", false, "the provider redirects to plain HTTP, which goes directly only")
 	case errors.As(err, &dnsError):
 		return fail("dns", false, "the name of the provider is not found")
 	case errors.Is(err, syscall.ECONNREFUSED):
@@ -614,7 +648,7 @@ func (t *try) reason(err error, target *url.URL) *Failure {
 		return fail("cert", false, "the certificate is not valid by the router's clock: check the clock")
 	case strings.Contains(message, "TLS handshake timeout"):
 		seconds := strconv.Itoa(int(tlsLimit / time.Second))
-		return fail("timeout", false, "no secure connection in "+seconds+" s", seconds)
+		return fail("tls-timeout", false, "no secure connection in "+seconds+" s", seconds)
 	case errors.Is(err, syscall.ECONNRESET), errors.Is(err, syscall.EPIPE),
 		phase == PhaseTLS && (errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)):
 		return fail("reset", false, "the connection is reset")

@@ -21,6 +21,8 @@ import (
 type provider struct {
 	access sync.Mutex
 	body   string
+	// block, when set, holds every download until it is closed or the download ends
+	block chan struct{}
 	// refused are the routes that do not reach it
 	refused []string
 	asked   []string
@@ -35,6 +37,13 @@ func (p *provider) serve(body string) {
 }
 
 func (p *provider) download(ctx context.Context, address string, header http.Header, routes []subscription.Route, plan subscription.Plan, report func([]subscription.Try)) (*subscription.Answer, []subscription.Try, error) {
+	if p.block != nil {
+		select {
+		case <-p.block:
+		case <-ctx.Done():
+			return nil, nil, &subscription.Failure{Code: "unreachable", Text: "the provider could not be reached"}
+		}
+	}
 	p.access.Lock()
 	defer p.access.Unlock()
 	p.headers = append(p.headers, header)
@@ -225,6 +234,10 @@ func TestSubscriptionRoutes(t *testing.T) {
 func TestSubscriptionRetriesAndPlaces(t *testing.T) {
 	require.Equal(t, []time.Duration{time.Minute, time.Minute, 2 * time.Minute, 4 * time.Minute, 8 * time.Minute, 10 * time.Minute, 10 * time.Minute},
 		[]time.Duration{downloadBackoff(0), downloadBackoff(1), downloadBackoff(2), downloadBackoff(3), downloadBackoff(4), downloadBackoff(5), downloadBackoff(9)})
+	// a subscription that never brings a list: the shift would overflow after 28 failures
+	for _, failures := range []int{29, 54, 64, 1000} {
+		require.Equal(t, downloadRetry, downloadBackoff(failures), failures)
+	}
 
 	directory := t.TempDir()
 	fake, system := &fakeEngine{refuse: map[string]error{}}, new(recorder)
@@ -379,4 +392,49 @@ func TestParseInterval(t *testing.T) {
 	for text, want := range map[string]time.Duration{"1h": time.Hour, "12h": 12 * time.Hour, "1d": 24 * time.Hour, "30m": 30 * time.Minute, "1m": 10 * time.Minute, "": 12 * time.Hour, "x": 12 * time.Hour, "-1h": 12 * time.Hour} {
 		require.Equal(t, want, parseInterval(text), text)
 	}
+}
+
+// Load is a job: the same address under way is that job, at most two run at once, a canceled
+// one tells the cancel (whatever its download comes to after), and a done one its list.
+func TestSubscriptionLoadJobs(t *testing.T) {
+	directory := t.TempDir()
+	fake, system := &fakeEngine{refuse: map[string]error{}}, new(recorder)
+	source := &provider{body: "vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\n", block: make(chan struct{})}
+	options := Options{
+		SettingsPath: filepath.Join(directory, "podkop"), RuleSetDir: filepath.Join(directory, "rulesets"),
+		StagingDir: filepath.Join(directory, "candidate"), StatePath: filepath.Join(directory, "state"),
+		ConfigDir: filepath.Join(directory, "run"), ReadyTimeout: time.Second, System: system, Engine: fake,
+		Download: source.download,
+	}
+	require.NoError(t, os.WriteFile(options.SettingsPath, []byte(subscriptionSettings(directory, "all")), 0o644))
+	s := New(options)
+	require.True(t, s.Boot().OK)
+	ctx := context.Background()
+	first := s.StartLoad(ctx, "https://one.example/sub/A")
+	require.Equal(t, "running", first.State)
+	require.NotEmpty(t, first.ID)
+	require.Equal(t, first.ID, s.StartLoad(ctx, " https://one.example/sub/A ").ID, "the same address: the same job")
+	second := s.StartLoad(ctx, "https://two.example/sub/B")
+	require.NotEqual(t, first.ID, second.ID)
+	busy := s.StartLoad(ctx, "https://three.example/sub/C")
+	require.Equal(t, "failed", busy.State)
+	require.Equal(t, "busy", busy.Preview.ErrorCode)
+
+	canceled, known := s.CancelLoad(ctx, first.ID)
+	require.True(t, known)
+	require.Equal(t, "canceled", canceled.State)
+	require.Equal(t, "canceled", canceled.Preview.ErrorCode, "told at once")
+	close(source.block)
+	require.Eventually(t, func() bool {
+		job, _ := s.LoadState(ctx, second.ID)
+		return job.State == "done"
+	}, 5*time.Second, 20*time.Millisecond)
+	job, _ := s.LoadState(ctx, second.ID)
+	require.Equal(t, "NL 1", job.Preview.Servers[0].Name)
+	job, _ = s.LoadState(ctx, first.ID)
+	require.Equal(t, "canceled", job.State)
+	require.Equal(t, "canceled", job.Preview.ErrorCode)
+	_, known = s.LoadState(ctx, "nosuchjob")
+	require.False(t, known)
+	s.Stop()
 }

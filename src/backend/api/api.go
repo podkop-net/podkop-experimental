@@ -290,8 +290,13 @@ func Serve(ctx context.Context, path string, backend Backend, logs *logbuf.Buffe
 	}
 	_ = os.Chmod(path, 0o600)
 	answer := func(writer http.ResponseWriter, value any) {
+		var encoded bytes.Buffer
+		if err := json.NewEncoder(&encoded).Encode(value); err != nil {
+			http.Error(writer, "the answer cannot be encoded: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 		writer.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(writer).Encode(value)
+		_, _ = writer.Write(encoded.Bytes())
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /status", func(writer http.ResponseWriter, request *http.Request) {

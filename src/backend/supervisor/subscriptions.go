@@ -51,13 +51,14 @@ const (
 	mostLoads     = 2
 	// the downloads that brought a list a history keeps
 	historyKept = 8
+	// how long UpdateSubscriptions waits for the downloads it asked: less than its callers
+	// wait (api.Client.UpdateSubscriptions)
+	updateWait = 170 * time.Second
 )
 
 // downloadBackoff is when a subscription with no list is tried again after its failures.
 func downloadBackoff(failures int) time.Duration {
-	if failures < 1 {
-		failures = 1
-	}
+	failures = min(max(failures, 1), 5)
 	return min(time.Minute<<(failures-1), downloadRetry)
 }
 
@@ -302,21 +303,26 @@ func (s *Supervisor) fetch(ctx context.Context, address string, proxies int, rep
 		return nil, through, tries, err
 	}
 	t := &s.subscriptions
-	t.access.Lock()
-	known := make(map[string]string, len(t.verdicts))
-	for id, reason := range t.verdicts {
-		known[id] = reason
-	}
-	t.access.Unlock()
+	known := func() map[string]string {
+		t.access.Lock()
+		defer t.access.Unlock()
+		known := make(map[string]string, len(t.verdicts))
+		for id, reason := range t.verdicts {
+			known[id] = reason
+		}
+		return known
+	}()
 	verdicts := s.options.Engine.CheckServers(servers, known)
-	t.access.Lock()
-	if len(t.verdicts) > 10000 {
-		t.verdicts = make(map[string]string)
-	}
-	for id, reason := range verdicts {
-		t.verdicts[id] = reason
-	}
-	t.access.Unlock()
+	func() {
+		t.access.Lock()
+		defer t.access.Unlock()
+		if t.verdicts == nil || len(t.verdicts) > 10000 {
+			t.verdicts = make(map[string]string)
+		}
+		for id, reason := range verdicts {
+			t.verdicts[id] = reason
+		}
+	}()
 	return &subscription.Saved{Address: key, Changed: time.Now().UTC(), Route: answer.Route, Servers: servers, Info: answer.Info()}, through, tries, nil
 }
 
@@ -549,6 +555,10 @@ func (s *Supervisor) Subscriptions(context.Context) []SubscriptionState {
 // UpdateSubscriptions downloads the list of a subscription now (of all of them with no name)
 // and waits for what it came to. It is for callers outside the goroutine of Run.
 func (s *Supervisor) UpdateSubscriptions(ctx context.Context, name string) []SubscriptionState {
+	// the caller waits 3 minutes; two rounds of downloads of a provider that never answers
+	// take longer: the states are told before, those under way still busy
+	ctx, cancel := context.WithTimeout(ctx, updateWait)
+	defer cancel()
 	reply := make(chan []SubscriptionState, 1)
 	select {
 	case s.subscriptionRequests <- subscriptionRequest{name: name, reply: reply}:

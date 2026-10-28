@@ -129,6 +129,12 @@ function tryReason(attempt) {
   switch (attempt.code) {
     case "timeout":
       return _("no answer in %d s").format(+args[0] || 0);
+    case "connect-timeout":
+      return _("no connection in %d s").format(+args[0] || 0);
+    case "tls-timeout":
+      return _("no secure connection in %d s").format(+args[0] || 0);
+    case "plain-redirect":
+      return _("the provider redirects to plain HTTP, which goes directly only");
     case "stalled":
       return _("the transfer stopped at %s").format(bytes(attempt.bytes || (+args[0] || 0) * 1024));
     case "dns":
@@ -166,6 +172,17 @@ function failureText(code, args, text, attempts) {
         .filter((attempt) => attempt.code !== "canceled")
         .map((attempt) => wayOf(attempt.route) + ": " + tryReason(attempt));
       return _("The provider could not be reached (%s)").format(reasons.join("; "));
+    }
+    case "status-one": {
+      // the status may be that of a CDN to the address of the one way that got it
+      const reasons = (attempts || [])
+        .filter((attempt) => attempt.code !== "canceled" && attempt.code !== "status")
+        .map((attempt) => wayOf(attempt.route) + ": " + tryReason(attempt));
+      return _("HTTP %s came by one way only (%s); the other ways did not reach the provider (%s)").format(
+        args[0],
+        wayOf(args[1]),
+        reasons.join("; "),
+      );
     }
     case "page":
       return _("A web page came instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP");
@@ -445,7 +462,7 @@ function renderPreview(preview) {
       failureText(preview.error_code, preview.error_args, preview.error, preview.attempts),
     ]);
   }
-  return E("div", {}, [providerBlock(preview.provider), renderServers(preview)]);
+  return E("div", {}, [providerBlock(preview.provider) || "", renderServers(preview)]);
 }
 
 // The groups of the form that take a subscription.
@@ -457,6 +474,14 @@ function groupsOf(name) {
 }
 
 function createSubscriptionContent(section) {
+  // the form is loaded again when a section is added or removed and at Save: the states are
+  // asked anew then, their times counted by the clock of the router at that moment
+  const load = section.load;
+  section.load = function () {
+    states = null;
+    return load.apply(this, arguments);
+  };
+
   let o = section.option(
     form.Value,
     "url",
@@ -520,10 +545,12 @@ function createSubscriptionContent(section) {
         typeof line === "string" ? E("div", {}, [line]) : line,
       );
       if (state && state.provider) {
-        // the data of the provider is of the last check that brought a list; after a failure
-        // or since the start, of the list as it was kept
+        // the data of the provider is of the last check that brought a list: after a failure it
+        // is marked with its time; since the start, with the time of the list kept on flash
         const stale =
-          state.error || !state.checked ? when(state.changed, state.now) : null;
+          state.error || !state.checked
+            ? when(state.checked || state.changed, state.now)
+            : null;
         children.push(providerBlock(state.provider, stale));
       }
       block.replaceChildren(...children);
@@ -581,7 +608,11 @@ function createSubscriptionContent(section) {
       result.replaceChildren(
         state.preview
           ? renderPreview(state.preview)
-          : E("div", { class: "pdk-sub-error" }, [_("The router did not answer")]),
+          : E("div", { class: "pdk-sub-error" }, [
+              state.state === "canceled"
+                ? failureText("canceled")
+                : _("The router did not answer"),
+            ]),
       );
     };
     const finish = () => {

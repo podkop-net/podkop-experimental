@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-28 18:21+0000\n"
-"PO-Revision-Date: 2026-10-28 18:21+0000\n"
+"POT-Creation-Date: 2026-10-28 18:56+0000\n"
+"PO-Revision-Date: 2026-10-28 18:56+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -419,6 +419,9 @@ msgstr "Группы"
 msgid "How often the router downloads the list again. A list whose servers only changed their names or order changes nothing"
 msgstr "Как часто роутер загружает список заново. Если у серверов поменялись только имена или порядок, ничего не меняется"
 
+msgid "HTTP %s came by one way only (%s); the other ways did not reach the provider (%s)"
+msgstr "HTTP %s пришёл только одним путём (%s); остальные пути до провайдера не дошли (%s)"
+
 msgid "HTTP error"
 msgstr "Ошибка HTTP"
 
@@ -551,6 +554,9 @@ msgstr "Следующая попытка: %s"
 msgid "no answer in %d s"
 msgstr "нет ответа за %d с"
 
+msgid "no connection in %d s"
+msgstr "нет соединения за %d с"
+
 msgid "No end date"
 msgstr "Без срока"
 
@@ -574,6 +580,9 @@ msgstr "Другие правила маркировки не найдены"
 
 msgid "No section with an outbound yet"
 msgstr "Пока нет секции с выходом"
+
+msgid "no secure connection in %d s"
+msgstr "нет защищённого соединения за %d с"
 
 msgid "No server is chosen (of %d): %s"
 msgstr "Не выбран ни один сервер (из %d): %s"
@@ -952,6 +961,9 @@ msgstr "Провайдер не принял это устройство (HWID)"
 
 msgid "The provider has no subscription at this address (HTTP %s): the address is wrong, or the subscription was removed"
 msgstr "У провайдера нет подписки по этому адресу (HTTP %s): адрес неверен или подписку удалили"
+
+msgid "the provider redirects to plain HTTP, which goes directly only"
+msgstr "провайдер перенаправляет на HTTP без шифрования, а это только напрямую"
 
 msgid "The provider refused the address (HTTP %s): it is wrong or out of date, or the subscription is blocked"
 msgstr "Провайдер отклонил адрес (HTTP %s): он неверен или устарел, либо подписка заблокирована"

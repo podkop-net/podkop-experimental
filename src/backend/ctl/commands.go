@@ -226,7 +226,11 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 		}
 		states, err := client.UpdateSubscriptions(name)
 		if err != nil {
-			io.WriteString(errorOutput, "podkop does not run: "+err.Error()+"\n")
+			if _, down := client.Status(); down == nil {
+				io.WriteString(errorOutput, "podkop runs, its downloads go on: the wait for them ended ("+err.Error()+")\n")
+			} else {
+				io.WriteString(errorOutput, "podkop does not run: "+err.Error()+"\n")
+			}
 			return 1
 		}
 		io.WriteString(output, strings.Join(subscriptionLines(states, time.Now()), "\n")+"\n")

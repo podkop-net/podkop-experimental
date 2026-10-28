@@ -38,6 +38,9 @@ func subscriptionLines(states []api.SubscriptionState, now time.Time) []string {
 				line = "✅ " + line
 			}
 		}
+		if state.Busy {
+			line += "; downloading now"
+		}
 		if told := providerLine(state.Provider, now); told != "" {
 			line += "; " + told
 		}

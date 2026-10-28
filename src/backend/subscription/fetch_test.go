@@ -163,6 +163,50 @@ func TestDownloadFinalAnswers(t *testing.T) {
 	require.Equal(t, []string{"403"}, tries[0].Failure.Args)
 }
 
+// A status that came by one way only, the other ways not reaching the provider, is told as
+// such: it may be the answer of a CDN to the address of that way.
+func TestDownloadStatusOfOneWay(t *testing.T) {
+	forbidding := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) { writer.WriteHeader(http.StatusForbidden) }))
+	t.Cleanup(forbidding.Close)
+	direct := func(ctx context.Context, network string, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, network, forbidding.Listener.Addr().String())
+	}
+	_, tries, err := Download(context.Background(), "https://example.com/sub/"+token, nil, []Route{{Name: "direct", Direct: true, Dial: direct}, {Name: "px", Dial: refused}}, turnPlan, nil)
+	require.Equal(t, "status-one", err.(*Failure).Code)
+	require.Equal(t, []string{"403", "direct"}, err.(*Failure).Args)
+	require.Contains(t, err.Error(), "px: the name of the provider is not found")
+	require.Len(t, tries, 2)
+	// the only way: the answer of the provider
+	_, _, err = Download(context.Background(), "https://example.com/sub/"+token, nil, []Route{{Name: "direct", Direct: true, Dial: direct}}, turnPlan, nil)
+	require.Equal(t, "refused", err.(*Failure).Code)
+}
+
+// A redirect to plain HTTP is not followed through a proxy: the token would go as it is.
+func TestDownloadPlainRedirectGoesDirectOnly(t *testing.T) {
+	address, reach := provider(t, true, func(writer http.ResponseWriter, request *http.Request) {
+		http.Redirect(writer, request, "http://example.com/sub/"+token+"/", http.StatusMovedPermanently)
+	})
+	_, tries, err := Download(context.Background(), address, nil, []Route{{Name: "direct", Direct: true, Dial: refused}, {Name: "px", Dial: reach}}, turnPlan, nil)
+	require.Error(t, err)
+	require.Equal(t, "plain-redirect", tries[1].Failure.Code)
+	require.NotContains(t, err.Error(), token)
+}
+
+// A way that does not connect in 5 s is told as no connection, not as no answer.
+func TestDownloadConnectLimit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("takes 5 s")
+	}
+	hanging := func(ctx context.Context, _ string, _ string) (net.Conn, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	_, tries, err := Download(context.Background(), "https://example.com/sub/"+token, nil, []Route{{Name: "direct", Direct: true, Dial: hanging}}, turnPlan, nil)
+	require.Error(t, err)
+	require.Equal(t, "connect-timeout", tries[0].Failure.Code)
+	require.Equal(t, []string{"5"}, tries[0].Failure.Args)
+}
+
 // A slow provider is waited for: the next way starts beside the first after the plan's wait,
 // the first goes on and brings the list. With a long enough wait, no second request.
 func TestDownloadWaitsForASlowProvider(t *testing.T) {

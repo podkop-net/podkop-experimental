@@ -143,7 +143,8 @@ func (s *Supervisor) StartLoad(ctx context.Context, address string) LoadJob {
 			view := job.view()
 			t.access.Unlock()
 			return view
-		case job.state == loadRunning:
+		case job.finished.IsZero():
+			// under way, or canceled with its goroutine still at work
 			running++
 		case now.Sub(job.finished) > previewKept:
 			delete(t.jobs, id)
@@ -175,13 +176,14 @@ func (s *Supervisor) StartLoad(ctx context.Context, address string) LoadJob {
 		})
 		t.access.Lock()
 		defer t.access.Unlock()
-		job.preview, job.finished = &preview, time.Now()
+		job.finished = time.Now()
 		switch {
 		case job.state == loadCanceled:
+			// the preview of the cancel stays: the user asked for no list
 		case preview.Error != "":
-			job.state = loadFailed
+			job.state, job.preview = loadFailed, &preview
 		default:
-			job.state = loadDone
+			job.state, job.preview = loadDone, &preview
 		}
 	}()
 	return view
@@ -211,6 +213,7 @@ func (s *Supervisor) CancelLoad(ctx context.Context, id string) (LoadJob, bool) 
 	}
 	if job.state == loadRunning {
 		job.state = loadCanceled
+		job.preview = &SubscriptionPreview{Servers: []api.PreviewServer{}, Error: "the download was canceled", ErrorCode: "canceled"}
 		job.cancel()
 	}
 	return job.view(), true

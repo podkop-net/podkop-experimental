@@ -135,7 +135,9 @@ function createSectionContent(section, singBoxFeatures = []) {
   o.rmempty = false;
   // LuCI would refuse an empty choice as "Expecting: non-empty value": validate tells why
   o.optional = true;
-  o.load = function (section_id) {
+  // the choices are made for each section as it is drawn: what one section adds (a deleted
+  // group it has) is not the others'
+  o.renderWidget = function (section_id, option_index, cfgvalue) {
     this.keylist = [];
     this.vallist = [];
     uci.sections("podkop", "group").forEach((item) => {
@@ -145,12 +147,16 @@ function createSectionContent(section, singBoxFeatures = []) {
     if (!this.keylist.length) {
       this.value("", _("No group yet: make one on the tab Groups"));
     }
-    const value = uci.get("podkop", section_id, "group");
     // a group that is no longer there stays shown, and validate tells why
-    if (value && !this.keylist.includes(value)) {
-      this.value(value, value + " (" + _("deleted") + ")");
+    if (cfgvalue && !this.keylist.includes(cfgvalue)) {
+      this.value(cfgvalue, cfgvalue + " (" + _("deleted") + ")");
     }
-    return form.ListValue.prototype.load.call(this, section_id);
+    return form.ListValue.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue,
+    );
   };
   o.validate = function (section_id, value) {
     if (!value) {

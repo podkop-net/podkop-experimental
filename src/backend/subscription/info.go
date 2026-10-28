@@ -75,8 +75,16 @@ func unixTime(value string) *time.Time {
 		return nil
 	}
 	seconds := int64(number)
-	if seconds > 100_000_000_000 {
-		seconds /= 1000
+	for _, scale := range []int64{1000, 1000, 1000} {
+		// milliseconds, micro- or nanoseconds: a second count of a time before the year 5138
+		if seconds <= 100_000_000_000 {
+			break
+		}
+		seconds /= scale
+	}
+	if seconds > 253402300799 {
+		// past 9999-12-31: JSON cannot write it
+		return nil
 	}
 	read := time.Unix(seconds, 0).UTC()
 	return &read
