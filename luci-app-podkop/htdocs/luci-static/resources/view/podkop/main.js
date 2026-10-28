@@ -775,19 +775,20 @@ async function getDashboardSections() {
       const selector = proxies.find(
         (proxy) => proxy.code === `${section[".name"]}-out`
       );
-      const members = (selector?.value?.all ?? []).map(
-        (code) => proxies.find((item) => item.code === code)
-      );
+      const members = (selector?.value?.all ?? []).map((code) => ({
+        code,
+        item: proxies.find((item) => item.code === code)
+      }));
       return {
         withTagSelect: true,
         code: selector?.code || section[".name"],
         displayName: section[".name"],
-        outbounds: members.map((item) => ({
-          code: item?.code || "",
-          displayName: item?.value?.type === "URLTest" ? _("Fastest") : item?.code || item?.value?.name || "",
+        outbounds: members.map(({ code, item }) => ({
+          code,
+          displayName: code === "block-out" ? _("Refused: the group has no server") : item?.value?.type === "URLTest" ? _("Fastest") : code || item?.value?.name || "",
           latency: item?.value?.history?.[0]?.delay || 0,
           type: item?.value?.type || "",
-          selected: selector?.value?.now === item?.code
+          selected: selector?.value?.now === code
         }))
       };
     }

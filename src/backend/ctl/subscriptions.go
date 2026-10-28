@@ -29,6 +29,10 @@ func subscriptionLines(states []api.SubscriptionState, now time.Time) []string {
 			}
 			if state.Checked != nil {
 				line += "; checked " + takenAgo(now.Sub(*state.Checked)) + way + "; servers changed " + takenAgo(now.Sub(*state.Changed))
+				if changes := state.Changes; changes != nil {
+					line += " (renamed " + strconv.Itoa(changes.Renamed) + ", changed " + strconv.Itoa(changes.Changed) + fieldsOf(changes.Fields) +
+						", removed " + strconv.Itoa(changes.Removed) + ", added " + strconv.Itoa(changes.Added) + ")"
+				}
 			} else {
 				line += "; servers changed " + takenAgo(now.Sub(*state.Changed)) + way + "; not checked since the start"
 			}
@@ -47,6 +51,14 @@ func subscriptionLines(states []api.SubscriptionState, now time.Time) []string {
 		lines = append(lines, line)
 	}
 	return lines
+}
+
+// fieldsOf names the options of the servers that changed: " (tls.server_name, server_port)".
+func fieldsOf(fields []string) string {
+	if len(fields) == 0 {
+		return ""
+	}
+	return ": " + strings.Join(fields, ", ")
 }
 
 // providerLine tells what the provider told of a subscription, as `"My VPN", traffic 12.5 GiB

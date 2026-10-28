@@ -432,9 +432,9 @@ func (s *Supervisor) takeList(result downloaded) {
 	state.Provider = subscription.ReadInfo(result.list.Info)
 	way := waysLine(result.tries)
 	old := t.lists[result.name]
-	if old != nil && subscription.SameServers(old.Servers, result.list.Servers) && !s.choiceChanged(result.name, old.Servers, result.list.Servers) {
+	if old != nil && subscription.SameList(old.Servers, result.list.Servers) {
 		// the traffic and the end the provider tells change with every list: kept in memory,
-		// the file is written only when the servers change
+		// the file is written only when the servers or their names change
 		old.Info = result.list.Info
 		t.access.Unlock()
 		s.log("info", "subscription ", result.name, ": the list has not changed (", way, ")")
@@ -446,9 +446,18 @@ func (s *Supervisor) takeList(result downloaded) {
 	t.lists[result.name] = result.list
 	changed := result.list.Changed
 	state.Changed, state.Servers, state.Usable = &changed, len(result.list.Servers), usable(result.list.Servers)
+	state.Changes = nil
+	if old != nil {
+		changes := subscription.Compare(old.Servers, result.list.Servers, engine.DecodeLink)
+		state.Changes = &changes
+	}
 	t.changed = true
 	t.access.Unlock()
-	s.log("info", "subscription ", result.name, ": ", state.Servers, " servers, ", state.Usable, " can be used (", way, ")")
+	if state.Changes != nil {
+		s.log("info", "subscription ", result.name, ": ", changesLine(state.Changes), "; ", state.Servers, " servers, ", state.Usable, " can be used (", way, ")")
+	} else {
+		s.log("info", "subscription ", result.name, ": ", state.Servers, " servers, ", state.Usable, " can be used (", way, ")")
+	}
 	if s.options.SubscriptionDir != "" {
 		err := s.store().Save(result.name, result.list)
 		if err != nil {
@@ -458,6 +467,16 @@ func (s *Supervisor) takeList(result downloaded) {
 	s.downloadDue(time.Now(), "")
 	s.applyTaken()
 	s.answerWaiting(result.name)
+}
+
+// changesLine tells how a list differs from the one before, for the log: "renamed 2, changed
+// 1 (tls.reality.short_id), removed 0, added 3".
+func changesLine(changes *api.ListChanges) string {
+	line := "renamed " + strconv.Itoa(changes.Renamed) + ", changed " + strconv.Itoa(changes.Changed)
+	if len(changes.Fields) > 0 {
+		line += " (" + strings.Join(changes.Fields, ", ") + ")"
+	}
+	return line + ", removed " + strconv.Itoa(changes.Removed) + ", added " + strconv.Itoa(changes.Added)
 }
 
 // waysLine tells how a list came for the log: the way and the time, and why the ways tried
@@ -678,29 +697,4 @@ func (s *Supervisor) keepPreview(list *subscription.Saved) {
 		}
 	}
 	t.previews[list.Address] = list
-}
-
-// choiceChanged tells whether the groups of the settings that run would choose other servers
-// of a subscription by the names of its new list than by those of the old one.
-func (s *Supervisor) choiceChanged(name string, old []subscription.Server, fresh []subscription.Server) bool {
-	if s.current == nil {
-		return false
-	}
-	chosen := func(group *model.Group, servers []subscription.Server) []string {
-		var ids []string
-		for index := range servers {
-			if servers[index].Usable() && group.Takes(servers[index].Name) {
-				ids = append(ids, servers[index].ID)
-			}
-		}
-		slices.Sort(ids)
-		return ids
-	}
-	for index := range s.current.settings.Groups {
-		group := &s.current.settings.Groups[index]
-		if slices.Contains(group.Subscriptions, name) && !slices.Equal(chosen(group, old), chosen(group, fresh)) {
-			return true
-		}
-	}
-	return false
 }

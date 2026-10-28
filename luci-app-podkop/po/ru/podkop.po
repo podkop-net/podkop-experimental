@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-28 19:13+0000\n"
-"PO-Revision-Date: 2026-10-28 19:13+0000\n"
+"POT-Creation-Date: 2026-10-28 21:09+0000\n"
+"PO-Revision-Date: 2026-10-28 21:09+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -611,6 +611,9 @@ msgstr "Одна ссылка на поле"
 msgid "Operation timed out"
 msgstr "Время ожидания истекло"
 
+msgid "Options that changed: %s"
+msgstr "Изменились параметры: %s"
+
 msgid "Outbound Config"
 msgstr "Конфигурация Outbound"
 
@@ -667,6 +670,9 @@ msgstr "URL конфигурации прокси"
 
 msgid "Refuse the connections"
 msgstr "Блокировать"
+
+msgid "Refused: the group has no server"
+msgstr "Блокируется: в группе нет серверов"
 
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
@@ -779,8 +785,8 @@ msgstr "Серверы"
 msgid "Servers changed: %s"
 msgstr "Серверы изменились: %s"
 
-msgid "Servers changed: when a check first found the servers the router uses now. New names or order alone do not count"
-msgstr "Серверы изменились — когда проверка впервые нашла серверы, которые роутер использует сейчас. Новые имена или порядок сами по себе не в счёт"
+msgid "Servers changed: when a check last found other servers or names than the router had. A new order alone does not count. The router takes the new servers without a restart: the connections that are open stay"
+msgstr "Серверы изменились: когда проверка в последний раз нашла другие серверы или имена, чем были у роутера. Одна только смена порядка не считается. Роутер берёт новые серверы без перезапуска: открытые соединения остаются"
 
 msgid "Servers: %d, usable: %d"
 msgstr "Серверов: %d, годных: %d"
@@ -1180,6 +1186,9 @@ msgstr "Предупреждение: %s нельзя использовать �
 
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr "Предупреждение: Russia inside может быть использован только с %s. %s уже есть в Russia inside и будет удален из выбранных."
+
+msgid "What changed: renamed %d, other server under the name %d, removed %d, added %d"
+msgstr "Что изменилось: переименовано %d, другой сервер под тем же именем %d, удалено %d, добавлено %d"
 
 msgid "When no server is chosen"
 msgstr "Если не выбран ни один сервер"

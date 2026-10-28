@@ -24,6 +24,7 @@ import (
 
 const (
 	tagDirectOutbound     = "direct-out"
+	tagBlockOutbound      = "block-out"
 	tagListsHTTPClient    = "lists"
 	tagTProxyInbound      = "tproxy-in"
 	tagDNSInbound         = "dns-in"
@@ -138,6 +139,11 @@ type Result struct {
 	// Facts are those the configuration was built of: a later look tells by them whether
 	// the router has changed under it (the address of the LAN, the device a name stands for).
 	Facts Facts
+	// Swappable are the tags of the outbounds sing-box may replace while it runs: the servers
+	// of the subscriptions, the URL tests of the groups and the selectors of the sections of
+	// the type group. A configuration that differs from another only by these is applied
+	// without a new sing-box.
+	Swappable map[string]bool
 }
 
 // Dataplane is what the router needs around a configuration, made of the settings: the
@@ -312,6 +318,7 @@ type builder struct {
 	decoded          map[string]*object
 	servers          map[string]bool
 	groups           map[string]bool
+	swappable        map[string]bool
 }
 
 // rule is a route or a DNS rule while it is built: later steps find it by its name to add
@@ -333,7 +340,8 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 		return nil, E.New("no decoder of proxy links")
 	}
 	b := &builder{config: config, facts: facts, options: options, experimental: new(object), files: make(map[string]*object),
-		exits: make(map[string]groupExit), subscriptionTags: make(map[string][]string), decoded: make(map[string]*object), servers: make(map[string]bool), groups: make(map[string]bool)}
+		exits: make(map[string]groupExit), subscriptionTags: make(map[string][]string), decoded: make(map[string]*object), servers: make(map[string]bool), groups: make(map[string]bool),
+		swappable: make(map[string]bool)}
 	b.buildInbounds()
 	err := b.buildOutbounds()
 	if err != nil {
@@ -392,7 +400,8 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 	if err != nil {
 		return nil, E.Cause(err, "encode the configuration")
 	}
-	result := &Result{Config: content, Files: make(map[string][]byte), FileOrder: b.fileOrder, Warnings: b.warnings, Links: b.links, Dataplane: b.dataplane(), Facts: b.facts}
+	result := &Result{Config: content, Files: make(map[string][]byte), FileOrder: b.fileOrder, Warnings: b.warnings, Links: b.links, Dataplane: b.dataplane(), Facts: b.facts,
+		Swappable: b.swappable}
 	for _, entry := range b.ruleSets {
 		fields := entry.(*object)
 		tag, _ := fields.get("tag")
@@ -438,6 +447,12 @@ func (b *builder) buildOutbounds() error {
 		return err
 	}
 	b.outbounds = append(b.outbounds, newObject("type", "direct", "tag", tagDirectOutbound))
+	// what a section of the type group whose group has no server refuses its connections
+	// with: the selector of the section changes while sing-box runs, a rule does not. There
+	// whenever a section is of the type group, so that it does not come and go with it.
+	if slices.ContainsFunc(b.config.Sections, func(section model.Section) bool { return section.ConnectionType == "group" }) {
+		b.outbounds = append(b.outbounds, newObject("type", "block", "tag", tagBlockOutbound))
+	}
 	for index := range b.config.Sections {
 		section := &b.config.Sections[index]
 		var err error

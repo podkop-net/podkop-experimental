@@ -121,6 +121,8 @@ type Instance interface {
 	FakeIPAddress(name string) (netip.Addr, bool, error)
 	Traffic() (engine.Traffic, error)
 	Dial(ctx context.Context, tag string, address string) (net.Conn, error)
+	// Swap replaces outbounds while the instance runs (hot.go).
+	Swap(configuration []byte, swap engine.Swap, limit int) (engine.Swapped, error)
 }
 
 var _ Instance = (*engine.Instance)(nil)
@@ -1000,6 +1002,8 @@ func sameKeys(left map[listKey]bool, right map[listKey]bool) bool {
 type candidate struct {
 	settings *model.Config
 	result   *plan.Result
+	// hot is set when sing-box can take the configuration while it runs (hotPlan)
+	hot *hotSwap
 }
 
 // prepare reads the settings and makes the configuration and the files of them. The
@@ -1075,6 +1079,14 @@ func (s *Supervisor) prepare() (next *candidate, err error) {
 	if s.current != nil && bytes.Equal(result.Config, s.current.result.Config) && sameKeys(used, s.checkedLists) {
 		s.forgetLists(used)
 		return &candidate{settings: settings, result: result}, nil
+	}
+	// Nor is a configuration whose only change are servers of the groups, which sing-box takes
+	// while it runs: it built each server when the list was taken (subscription.Check).
+	if s.current != nil && sameKeys(used, s.checkedLists) {
+		if hot, _ := hotPlan(s.current.result, result); hot != nil {
+			s.forgetLists(used)
+			return &candidate{settings: settings, result: result, hot: hot}, nil
+		}
 	}
 	staged, err := build(filepath.Join(s.options.StagingDir, "rulesets"))
 	if err != nil {
@@ -1645,6 +1657,12 @@ func (s *Supervisor) apply(force bool) Result {
 		}
 		s.log("info", "the settings are applied in ", time.Since(started).Milliseconds(), " ms, sing-box keeps running")
 		return s.done(true, false, "applied in ", time.Since(started).Milliseconds(), " ms, sing-box keeps running")
+	}
+	if !force && next.hot != nil {
+		result, swapped := s.swap(current, next, started)
+		if swapped {
+			return result
+		}
 	}
 	// another configuration. The cache file belongs to one instance at a time, so the
 	// running one is closed before the next is started.

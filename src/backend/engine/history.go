@@ -70,8 +70,9 @@ func dialersOf(configuration []byte) map[string]dialer {
 
 // forgetChanged is called before a configuration starts: the results of the dialers that
 // are not in it as they were in the configuration started before are forgotten, and of
-// those that dial through one of them. Nothing is forgotten at the first start of the
-// process: the history is empty then.
+// those that dial through one of them. A dialer that is the same but for its tag (a server
+// the provider renamed) takes the result of the tag it had. Nothing is forgotten at the first
+// start of the process: the history is empty then.
 func (h *sharedHistory) forgetChanged(next map[string]dialer) {
 	h.access.Lock()
 	defer h.access.Unlock()
@@ -80,6 +81,7 @@ func (h *sharedHistory) forgetChanged(next map[string]dialer) {
 	if previous == nil {
 		return
 	}
+	h.carryRenamed(previous, next)
 	changed := make(map[string]bool)
 	for tag, before := range previous {
 		now, kept := next[tag]
@@ -112,4 +114,48 @@ func Delays(tags []string) map[string]uint16 {
 		}
 	}
 	return result
+}
+
+// carryRenamed gives a dialer of a tag that is new the result of the one gone of the same
+// content but for the tag: a renamed server is not tested again.
+func (h *sharedHistory) carryRenamed(previous map[string]dialer, next map[string]dialer) {
+	gone := make(map[string]string)
+	for tag, before := range previous {
+		if _, kept := next[tag]; !kept {
+			if body := withoutTag(before.content); body != "" {
+				gone[body] = tag
+			}
+		}
+	}
+	if len(gone) == 0 {
+		return
+	}
+	for tag, now := range next {
+		if _, existed := previous[tag]; existed {
+			continue
+		}
+		before, renamed := gone[withoutTag(now.content)]
+		if !renamed {
+			continue
+		}
+		delete(gone, withoutTag(now.content))
+		if result := h.storage.LoadURLTestHistory(before); result != nil {
+			h.storage.StoreURLTestHistory(tag, result)
+		}
+	}
+}
+
+// withoutTag is the JSON of an outbound without its tag, its keys in order; empty when it
+// cannot be read.
+func withoutTag(content []byte) string {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(content, &fields) != nil {
+		return ""
+	}
+	delete(fields, "tag")
+	body, err := json.Marshal(fields)
+	if err != nil {
+		return ""
+	}
+	return string(body)
 }

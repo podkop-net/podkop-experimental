@@ -295,6 +295,20 @@ function stateBlock(state) {
   if (state.changed) {
     lines.push(lineWith(_("Servers changed: %s"), timeOf(state.changed, now)));
   }
+  const changes = state.changes;
+  if (changes) {
+    lines.push(
+      _("What changed: renamed %d, other server under the name %d, removed %d, added %d").format(
+        changes.renamed,
+        changes.changed,
+        changes.removed,
+        changes.added,
+      ),
+    );
+    if (changes.fields && changes.fields.length) {
+      lines.push(_("Options that changed: %s").format(changes.fields.join(", ")));
+    }
+  }
   if (state.next && !state.busy) {
     lines.push(lineWith(failed ? _("Next try: %s") : _("Next check: %s"), timeOf(state.next, now)));
   }
@@ -533,7 +547,7 @@ function createSubscriptionContent(section) {
     "_state",
     _("State"),
     _(
-      "Servers changed: when a check first found the servers the router uses now. New names or order alone do not count",
+      "Servers changed: when a check last found other servers or names than the router had. A new order alone does not count. The router takes the new servers without a restart: the connections that are open stay",
     ),
   );
   o.rawhtml = true;

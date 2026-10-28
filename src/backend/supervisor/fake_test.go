@@ -48,6 +48,10 @@ type fakeEngine struct {
 	dial     func(ctx context.Context, tag string, address string) (net.Conn, error)
 	dialed   []string
 	access   sync.Mutex
+	// swaps are what the instances were asked to replace while they run; swapRefused texts of
+	// configurations they refuse to take so
+	swaps       []engine.Swap
+	swapRefused []string
 }
 
 type fakeInstance struct {
@@ -174,6 +178,19 @@ func (i *fakeInstance) Dial(ctx context.Context, tag string, address string) (ne
 		return nil, E.New("no way through ", tag)
 	}
 	return dial(ctx, tag, address)
+}
+
+// Swap takes the configuration when it has none of the texts of swapRefused: the instance
+// runs it from then on.
+func (i *fakeInstance) Swap(configuration []byte, swap engine.Swap, limit int) (engine.Swapped, error) {
+	i.engine.access.Lock()
+	defer i.engine.access.Unlock()
+	i.engine.swaps = append(i.engine.swaps, swap)
+	if has(configuration, i.engine.swapRefused) {
+		return engine.Swapped{}, os.ErrInvalid
+	}
+	i.config = configuration
+	return engine.Swapped{Added: len(swap.Put), Removed: len(swap.Remove)}, nil
 }
 
 func (i *fakeInstance) Traffic() (engine.Traffic, error) {

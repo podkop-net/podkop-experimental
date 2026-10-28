@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/api"
 	"github.com/podkop-net/podkop-experimental/src/backend/subscription"
 
 	"github.com/stretchr/testify/require"
@@ -87,9 +88,9 @@ func downloadNow(t *testing.T, s *Supervisor) {
 	}
 }
 
-// The list of a subscription is taken, kept on flash and used at the next start; a list
-// that only renamed its servers changes nothing; one with another server makes a new
-// configuration.
+// The list of a subscription is taken, kept on flash and used at the next start; sing-box
+// takes the servers while it runs, renamed ones too; a list the provider only reordered changes
+// nothing; when sing-box does not take the servers, the configuration starts anew.
 func TestSubscriptionLists(t *testing.T) {
 	directory := t.TempDir()
 	fake, system := &fakeEngine{refuse: map[string]error{}}, new(recorder)
@@ -109,7 +110,9 @@ func TestSubscriptionLists(t *testing.T) {
 	require.Equal(t, 1, len(fake.built))
 
 	downloadNow(t, s)
-	require.Len(t, fake.built, 2, "the list makes a new configuration")
+	require.Len(t, fake.built, 1, "sing-box takes the servers while it runs")
+	require.Len(t, fake.swaps, 1)
+	require.Equal(t, string(s.current.result.Config), string(fake.built[0].config))
 	config := string(s.current.result.Config)
 	require.Contains(t, config, `"prov1: NL 1"`)
 	require.NotContains(t, config, `"prov1: DE 1"`, "a server the group does not choose has no outbound")
@@ -123,28 +126,41 @@ func TestSubscriptionLists(t *testing.T) {
 	require.NoError(t, err)
 	written := file.ModTime()
 
-	// only the names changed: nothing is written, nothing restarts
-	source.serve("vless://u2@de1.example:443?security=tls&sni=de1.example#DE%201%20(29%20days)\nvless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201%20(29%20days)\n")
+	// only the order changed: nothing is written, nothing changes
+	source.serve("vless://u2@de1.example:443?security=tls&sni=de1.example#DE%201\nvless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\n")
 	time.Sleep(10 * time.Millisecond)
 	downloadNow(t, s)
-	require.Len(t, fake.built, 2)
+	require.Len(t, fake.swaps, 1)
 	file, err = os.Stat(filepath.Join(directory, "subscriptions", "prov1.json"))
 	require.NoError(t, err)
 	require.Equal(t, written, file.ModTime())
-	require.Contains(t, string(s.current.result.Config), `"prov1: NL 1"`)
 
-	// the same servers, the names swapped: what the group chooses changes, and the list is taken
+	// only the names changed: the list is taken and its names shown, sing-box keeps running
+	source.serve("vless://u2@de1.example:443?security=tls&sni=de1.example#DE%201%20(29%20days)\nvless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201%20(29%20days)\n")
+	downloadNow(t, s)
+	require.Len(t, fake.built, 1)
+	require.Len(t, fake.swaps, 2)
+	require.Equal(t, []string{"prov1: NL 1"}, fake.swaps[1].Remove)
+	file, err = os.Stat(filepath.Join(directory, "subscriptions", "prov1.json"))
+	require.NoError(t, err)
+	require.NotEqual(t, written, file.ModTime())
+	require.Contains(t, string(s.current.result.Config), `"prov1: NL 1 (29 days)"`)
+	require.Equal(t, &api.ListChanges{Renamed: 2}, s.subscriptionStates()[0].Changes)
+
+	// the same servers, the names swapped: what the group chooses changes
 	source.serve("vless://u1@nl1.example:443?security=tls&sni=nl1.example#DE%201\nvless://u2@de1.example:443?security=tls&sni=de1.example#NL%201\n")
 	downloadNow(t, s)
-	require.Len(t, fake.built, 3)
+	require.Len(t, fake.built, 1)
 	require.Contains(t, string(s.current.result.Config), `"server": "de1.example"`)
 	require.NotContains(t, string(s.current.result.Config), `"server": "nl1.example"`)
 
-	// another server: a new configuration
+	// another server, which sing-box does not take while it runs: a new configuration
+	fake.swapRefused = []string{"NL 2"}
 	source.serve("vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\nvless://u3@nl2.example:443?security=tls&sni=nl2.example#NL%202\n")
 	downloadNow(t, s)
-	require.Len(t, fake.built, 4)
+	require.Len(t, fake.built, 2)
 	require.Contains(t, string(s.current.result.Config), `"prov1: NL 2"`)
+	require.Equal(t, &api.ListChanges{Renamed: 1, Removed: 1, Added: 1}, s.subscriptionStates()[0].Changes)
 	s.Stop()
 
 	// the next start has the list before any download
@@ -373,7 +389,8 @@ func TestSubscriptionRoundAppliesOnce(t *testing.T) {
 	require.Len(t, fake.built, 1, "the other download is under way")
 	second := <-s.downloads
 	s.takeList(second)
-	require.Len(t, fake.built, 2)
+	require.Len(t, fake.built, 1)
+	require.Len(t, fake.swaps, 1, "one change for both lists")
 	config := string(s.current.result.Config)
 	require.Contains(t, config, `"prov1: NL 1"`)
 	require.Contains(t, config, `"prov2: NL 1"`)

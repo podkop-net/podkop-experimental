@@ -17,8 +17,12 @@ import (
 // LuCI gives a call, and the tests run beside its other checks.
 const outboundWait = 5 * time.Second
 
-// directTag is the outbound of what goes without a proxy (plan: tagDirectOutbound).
-const directTag = "direct-out"
+// directTag is the outbound of what goes without a proxy (plan: tagDirectOutbound), blockTag
+// the one a section of the type group whose group has no server refuses with (tagBlockOutbound).
+const (
+	directTag = "direct-out"
+	blockTag  = "block-out"
+)
 
 // outboundLines tests the outbound of every section that has one, and the direct one, as
 // the dashboard of the page does: the delay of a request through it to delayTestURL; for a
@@ -47,7 +51,7 @@ func outboundLines(caller *clashCaller, sections []model.Section) []string {
 		}
 		tag := section.Name + "-out"
 		proxy, found := listed.Proxies[tag]
-		if !found {
+		if !found || section.ConnectionType == "group" && proxy.Now == blockTag {
 			if section.ConnectionType == "group" {
 				refused = append(refused, "⛔ "+section.Name+": its group chooses no server, and its connections are refused")
 			}

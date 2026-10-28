@@ -233,8 +233,8 @@ func (b *builder) emptyExit(section *model.Section, group *model.Group, path []s
 // buildGroupSection makes the outbound of a section of the type group: a selector of its
 // group and the servers of the group, the group first and chosen, as a section of URL tests
 // has it; the dashboard switches it. The servers and the group are made once, whichever
-// sections use them. A section whose connections are refused has no outbound: its rules
-// reject (isRefused).
+// sections use them. A section whose connections are refused has a selector of the block
+// outbound (isRefused). sing-box replaces these while it runs (Result.Swappable).
 func (b *builder) buildGroupSection(section *model.Section) error {
 	exit, err := b.sectionExit(section, nil)
 	if err != nil {
@@ -243,7 +243,7 @@ func (b *builder) buildGroupSection(section *model.Section) error {
 	var members []string
 	switch exit.kind {
 	case exitBlock:
-		return nil
+		members = []string{tagBlockOutbound}
 	case exitDirect:
 		members = []string{tagDirectOutbound}
 	case exitSection:
@@ -255,6 +255,7 @@ func (b *builder) buildGroupSection(section *model.Section) error {
 		}
 	}
 	b.outbounds = append(b.outbounds, newObject("type", "selector", "tag", outboundTag(section.Name), "outbounds", stringsToAny(members), "default", members[0]))
+	b.swappable[outboundTag(section.Name)] = true
 	return nil
 }
 
@@ -276,6 +277,7 @@ func (b *builder) addGroup(section *model.Section, exit groupExit) string {
 		group.set("download_url", b.options.DownloadURL)
 	}
 	b.outbounds = append(b.outbounds, group)
+	b.swappable[tag] = true
 	return tag
 }
 
@@ -286,20 +288,19 @@ func (b *builder) addServer(section *model.Section, server groupServer) {
 		return
 	}
 	b.servers[server.tag] = true
+	b.swappable[server.tag] = true
 	b.outbounds = append(b.outbounds, b.serverOutbound(server.subscription, server.index))
 	b.links = append(b.links, Link{Section: section.Name, Name: server.tag, Tag: server.tag, Text: b.options.Servers[server.subscription][server.index].Link})
 }
 
 // isRefused tells whether the connections of a section are refused: a section of the type
-// group whose group chose no server and says so.
+// group whose group chose no server and says so. Its outbound is a selector of the block
+// outbound: the lists are not downloaded through it.
 func (b *builder) isRefused(section *model.Section) bool {
 	return section.ConnectionType == "group" && b.exits[section.Name].kind == exitBlock
 }
 
-// sectionRoute is the route rule of a section: to its outbound, or refused.
+// sectionRoute is the route rule of a section: to its outbound.
 func (b *builder) sectionRoute(section *model.Section, inbound string) *object {
-	if b.isRefused(section) {
-		return newObject("action", "reject", "inbound", inbound)
-	}
 	return newObject("action", "route", "inbound", inbound, "outbound", outboundTag(section.Name))
 }

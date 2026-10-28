@@ -140,8 +140,21 @@ type SubscriptionState struct {
 	Busy bool       `json:"busy,omitempty"`
 	// Provider is what the provider told of the subscription with the last list.
 	Provider *ProviderInfo `json:"provider,omitempty"`
+	// Changes are how the list taken differs from the one before it (Changed).
+	Changes *ListChanges `json:"changes,omitempty"`
 	// Now is the time of the router: the page counts how long ago by it.
 	Now *time.Time `json:"now,omitempty"`
+}
+
+// ListChanges are how a list of a subscription differs from the one before: servers the
+// provider renamed, servers of a name that are other servers now, with the options that
+// changed ("tls.server_name"), servers taken out and servers put in.
+type ListChanges struct {
+	Renamed int      `json:"renamed"`
+	Changed int      `json:"changed"`
+	Removed int      `json:"removed"`
+	Added   int      `json:"added"`
+	Fields  []string `json:"fields,omitempty"`
 }
 
 // Attempt is a try of a download by one way: the way, how far it came (connect, tls, wait,
