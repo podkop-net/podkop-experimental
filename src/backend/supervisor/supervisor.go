@@ -123,6 +123,9 @@ type Instance interface {
 	Dial(ctx context.Context, tag string, address string) (net.Conn, error)
 	// Swap replaces outbounds while the instance runs (hot.go).
 	Swap(configuration []byte, swap engine.Swap, limit int) (engine.Swapped, error)
+	// CarrySelections moves the choices of the selectors to the new tags of renamed servers,
+	// for the instance that takes the cache file over.
+	CarrySelections(configuration []byte)
 }
 
 var _ Instance = (*engine.Instance)(nil)
@@ -1012,7 +1015,7 @@ type candidate struct {
 // faultWhileReading lets a test fault where the settings are read.
 var faultWhileReading func()
 
-func (s *Supervisor) prepare() (next *candidate, err error) {
+func (s *Supervisor) prepare(checked bool) (next *candidate, err error) {
 	// A fault while the settings are read (the UCI file, a link, a list) must not end the
 	// process: procd would start it again, the same settings would fault again, and the
 	// DNS of the LAN would point at a backend that is never there. The settings are
@@ -1069,8 +1072,11 @@ func (s *Supervisor) prepare() (next *candidate, err error) {
 	}
 	// what was left out or cannot be honoured is told on every apply: who made a typo
 	// looks at the log after the change
-	for _, warning := range result.Warnings {
-		s.log("warn", warning)
+	// told once an apply: a configuration checked after a swap sing-box refused is built again
+	if !checked {
+		for _, warning := range result.Warnings {
+			s.log("warn", warning)
+		}
 	}
 	// The configuration that runs, with the same local lists, was built by sing-box
 	// already: it is not built again, a big list read again for it
@@ -1081,11 +1087,16 @@ func (s *Supervisor) prepare() (next *candidate, err error) {
 		return &candidate{settings: settings, result: result}, nil
 	}
 	// Nor is a configuration whose only change are servers of the groups, which sing-box takes
-	// while it runs: it built each server when the list was taken (subscription.Check).
-	if s.current != nil && sameKeys(used, s.checkedLists) {
-		if hot, _ := hotPlan(s.current.result, result); hot != nil {
+	// while it runs: it built each server when the list was taken (subscription.Check). With
+	// checked it is: it is to start anew.
+	if s.current != nil && sameKeys(used, s.checkedLists) && !checked {
+		hot, why := hotPlan(s.current.result, result)
+		if hot != nil {
 			s.forgetLists(used)
 			return &candidate{settings: settings, result: result, hot: hot}, nil
+		}
+		if strings.HasPrefix(why, "outbound ") {
+			s.log("info", "the outbounds change in a way sing-box does not take while it runs (", why, "): a new sing-box is needed")
 		}
 	}
 	staged, err := build(filepath.Join(s.options.StagingDir, "rulesets"))
@@ -1308,7 +1319,7 @@ func (s *Supervisor) Boot() Result {
 	s.writeState(stateBooting)
 	// what a backend before this one kept is what ran last, not what runs
 	s.retireConfig()
-	next, err := s.prepare()
+	next, err := s.prepare(false)
 	if err != nil {
 		s.log("error", "the settings cannot be used: ", err)
 		s.failed, s.failures = false, 0
@@ -1633,7 +1644,11 @@ func (s *Supervisor) apply(force bool) Result {
 	started := time.Now()
 	s.writeState(stateApplying)
 	current := s.current
-	next, err := s.prepare()
+	next, err := s.prepare(false)
+	if err == nil && next.hot != nil && force {
+		// not to be taken while sing-box runs: checked as any configuration that starts
+		next, err = s.prepare(true)
+	}
 	if err != nil {
 		if !force {
 			s.log("error", "the settings cannot be used, nothing is changed: ", err)
@@ -1663,9 +1678,18 @@ func (s *Supervisor) apply(force bool) Result {
 		if swapped {
 			return result
 		}
+		// sing-box did not take it: the configuration is checked before it replaces the one
+		// that runs, as any other, and settings that cannot be used change nothing
+		next, err = s.prepare(true)
+		if err != nil {
+			s.log("error", "the settings cannot be used, nothing is changed: ", err)
+			return s.done(false, false, "the settings cannot be used, nothing is changed: ", err)
+		}
 	}
 	// another configuration. The cache file belongs to one instance at a time, so the
-	// running one is closed before the next is started.
+	// running one is closed before the next is started; what the dashboard chose goes with
+	// the servers renamed.
+	current.instance.CarrySelections(next.result.Config)
 	closing := time.Now()
 	if !s.close(current.instance) {
 		return s.done(false, false, "sing-box does not close: the router is given back, the process has to end")

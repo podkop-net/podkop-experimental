@@ -179,7 +179,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
           outbounds: members.map(({ code, item }) => ({
             code,
             displayName:
-              code === 'block-out'
+              code === 'block'
                 ? _('Refused: the group has no server')
                 : item?.value?.type === 'URLTest'
                   ? _('Fastest')

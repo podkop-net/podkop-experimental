@@ -156,11 +156,11 @@ func TestEmptyGroups(t *testing.T) {
 		"block": func(config configuration, byTag map[string]outbound, result *Result) {
 			// refused through a selector of the block outbound, which sing-box replaces while
 			// it runs when the group has servers again
-			require.Equal(t, []string{"block-out"}, byTag["youtube-out"].Outbounds)
-			require.Equal(t, "block", byTag["block-out"].Type)
+			require.Equal(t, []string{"block"}, byTag["youtube-out"].Outbounds)
+			require.Equal(t, "block", byTag["block"].Type)
 			require.Equal(t, "youtube-out", sectionRule(config, "youtube")["outbound"])
 			require.True(t, result.Swappable["youtube-out"])
-			require.False(t, result.Swappable["block-out"])
+			require.False(t, result.Swappable["block"])
 		},
 	} {
 		settings := head + "\nconfig group 'nl'\n\tlist subscription 'prov1'\n\tlist include 'NL'\n\toption empty '" + empty + "'\n\toption empty_section 'main'\n" +
@@ -173,7 +173,7 @@ func TestEmptyGroups(t *testing.T) {
 	// the section for no server turned block or exclusion after the group was set: followed
 	for kind, check := range map[string]func(configuration, map[string]outbound){
 		"block": func(config configuration, byTag map[string]outbound) {
-			require.Equal(t, []string{"block-out"}, byTag["youtube-out"].Outbounds)
+			require.Equal(t, []string{"block"}, byTag["youtube-out"].Outbounds)
 		},
 		"exclusion": func(config configuration, byTag map[string]outbound) {
 			require.Equal(t, []string{"direct-out"}, byTag["youtube-out"].Outbounds)
@@ -193,7 +193,7 @@ func TestEmptyGroups(t *testing.T) {
 		"\toption mixed_proxy_enabled '1'\n\toption mixed_proxy_port '2080'\n", nil)
 	require.NoError(t, err)
 	config, byTag := parsed(t, result)
-	require.Equal(t, []string{"block-out"}, byTag["youtube-out"].Outbounds)
+	require.Equal(t, []string{"block"}, byTag["youtube-out"].Outbounds)
 	require.Equal(t, "youtube-out", sectionRule(config, "youtube")["outbound"])
 	require.Contains(t, strings.Join(result.Warnings, "\n"), "prov1 has no servers yet")
 }
@@ -242,12 +242,25 @@ func TestGroupLeavesOutWhatIsNotDecoded(t *testing.T) {
 
 // What sing-box may replace while it runs: the servers of the groups, the groups, the
 // selectors of the sections of the type group; not the outbounds of other sections, nor
-// direct-out and block-out.
+// direct-out and the block outbound.
 func TestSwappable(t *testing.T) {
 	settings := twoSubscriptions + proxySection("main", "") + "\nconfig group 'nl'\n\tlist subscription 'prov1'\n" + groupSection("youtube", "nl")
 	result, err := buildGroups(t, settings, map[string][]SubscriptionServer{"prov1": servers("NL 1", "NL 2")})
 	require.NoError(t, err)
 	require.Equal(t, map[string]bool{"prov1: NL 1": true, "prov1: NL 2": true, "nl-group": true, "youtube-out": true}, result.Swappable)
 	_, byTag := parsed(t, result)
-	require.Equal(t, "block", byTag["block-out"].Type, "there with a section of the type group, servers or not")
+	require.Equal(t, "block", byTag["block"].Type, "there with a section of the type group, servers or not")
+}
+
+// A section may be named block: its outbound is block-out, and the block outbound of the groups is
+// another tag.
+func TestSectionNamedBlock(t *testing.T) {
+	settings := twoSubscriptions + proxySection("block", "") + "\nconfig group 'nl'\n\tlist subscription 'prov1'\n\tlist include 'XX'\n\toption empty 'block'\n" +
+		groupSection("youtube", "nl")
+	result, err := buildGroups(t, settings, map[string][]SubscriptionServer{"prov1": servers("NL 1")})
+	require.NoError(t, err)
+	_, byTag := parsed(t, result)
+	require.Equal(t, "vless", byTag["block-out"].Type, "the stub decoder of the tests gives vless")
+	require.Equal(t, "block", byTag["block"].Type)
+	require.Equal(t, []string{"block"}, byTag["youtube-out"].Outbounds)
 }

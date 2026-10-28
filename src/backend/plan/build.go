@@ -24,7 +24,8 @@ import (
 
 const (
 	tagDirectOutbound     = "direct-out"
-	tagBlockOutbound      = "block-out"
+	// no "-out": the outbound of a section is "<name>-out", and a section may be named block
+	tagBlockOutbound      = "block"
 	tagListsHTTPClient    = "lists"
 	tagTProxyInbound      = "tproxy-in"
 	tagDNSInbound         = "dns-in"

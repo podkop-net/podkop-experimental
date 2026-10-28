@@ -51,6 +51,7 @@ func hotPlan(current *plan.Result, next *plan.Result) (*hotSwap, string) {
 	hot := &hotSwap{}
 	// the tags that change or go: nothing that stays may go through one of them
 	moved := make(map[string]bool)
+	gone := make(map[string]bool)
 	for _, tag := range newOrder {
 		content := newByTag[tag]
 		previous, existed := oldByTag[tag]
@@ -79,34 +80,60 @@ func hotPlan(current *plan.Result, next *plan.Result) (*hotSwap, string) {
 			return nil, "outbound " + tag + " is gone"
 		}
 		hot.removed++
-		moved[tag] = true
+		moved[tag], gone[tag] = true, true
 		hot.swap.Remove = append(hot.swap.Remove, tag)
 	}
 	if len(hot.swap.Put)+len(hot.swap.Remove) == 0 {
 		return nil, "only the order of the outbounds changed"
 	}
-	for _, tag := range newOrder {
-		if previous, existed := oldByTag[tag]; !existed || !bytes.Equal(previous, newByTag[tag]) {
-			// built anew
-			continue
-		}
-		for _, reference := range outboundReferences(newByTag[tag]) {
-			if moved[reference] {
-				return nil, "outbound " + tag + " goes through " + reference + ", which changes"
+	// What stays the same but goes through what changes is replaced too, when sing-box may
+	// replace it: a group and a selector name their members by tag, and do not change when a
+	// member changes under its tag. What sing-box may not replace needs a new sing-box: it keeps
+	// the outbound it found at its start.
+	for grew := true; grew; {
+		grew = false
+		for _, tag := range newOrder {
+			if previous, existed := oldByTag[tag]; !existed || !bytes.Equal(previous, newByTag[tag]) || moved[tag] {
+				// built anew already
+				continue
+			}
+			for _, reference := range outboundReferences(newByTag[tag]) {
+				if !moved[reference] {
+					continue
+				}
+				if !current.Swappable[tag] || !next.Swappable[tag] {
+					return nil, "outbound " + tag + " goes through " + reference + ", which changes"
+				}
+				hot.swap.Put = append(hot.swap.Put, newByTag[tag])
+				hot.changed++
+				moved[tag], grew = true, true
+				break
 			}
 		}
 	}
-	// a DNS server or an HTTP client finds the outbound it dials through at its start
+	// A DNS server and the HTTP client of the lists find the outbound of their detour at every
+	// dial (podkop-engine r19); what else has one may keep the outbound it found at its start.
+	// Nothing may name an outbound that goes.
 	for key, content := range after {
 		if key == "outbounds" {
 			continue
 		}
-		if reference := detourTo(content, moved); reference != "" {
-			return nil, "its " + key + " go through " + reference + ", which changes"
+		if key != "dns" && key != "http_clients" {
+			if reference := referenceTo(content, detourKeys, moved); reference != "" {
+				return nil, "outbound " + reference + " changes, and the " + key + " of the configuration go through it"
+			}
+		}
+		if reference := referenceTo(content, outboundKeys, gone); reference != "" {
+			return nil, "outbound " + reference + " goes, and the " + key + " of the configuration name it"
 		}
 	}
 	return hot, ""
 }
+
+var (
+	detourKeys   = map[string]bool{"detour": true, "download_detour": true}
+	outboundKeys = map[string]bool{"detour": true, "download_detour": true, "outbound": true, "final": true}
+)
 
 func merged(left map[string]json.RawMessage, right map[string]json.RawMessage) map[string]bool {
 	keys := make(map[string]bool, len(left)+len(right))
@@ -144,22 +171,24 @@ func outboundsOf(content json.RawMessage) ([]string, map[string]json.RawMessage,
 	return order, byTag, nil
 }
 
-// outboundReferences are the tags an outbound goes through: the members of a group, its
-// default, the outbound it dials through.
+// outboundReferences are the tags an outbound goes through: the members and the fallbacks of a
+// group, its default, the outbound it dials through.
 func outboundReferences(content json.RawMessage) []string {
 	var fields struct {
 		Outbounds []string `json:"outbounds"`
+		Fallbacks []string `json:"fallbacks"`
 		Default   string   `json:"default"`
 		Detour    string   `json:"detour"`
 	}
 	if json.Unmarshal(content, &fields) != nil {
 		return nil
 	}
-	return append(fields.Outbounds, fields.Default, fields.Detour)
+	return append(append(fields.Outbounds, fields.Fallbacks...), fields.Default, fields.Detour)
 }
 
-// detourTo finds in a part of the configuration a detour to one of the tags.
-func detourTo(content json.RawMessage, tags map[string]bool) string {
+// referenceTo finds in a part of the configuration a value of one of the keys that is one of the
+// tags.
+func referenceTo(content json.RawMessage, keys map[string]bool, tags map[string]bool) string {
 	var value any
 	if json.Unmarshal(content, &value) != nil {
 		return ""
@@ -169,7 +198,7 @@ func detourTo(content json.RawMessage, tags map[string]bool) string {
 		switch typed := value.(type) {
 		case map[string]any:
 			for key, item := range typed {
-				if text, isText := item.(string); isText && (key == "detour" || key == "download_detour") && tags[text] {
+				if text, isText := item.(string); isText && keys[key] && tags[text] {
 					return text
 				}
 				if found := walk(item); found != "" {
@@ -196,9 +225,9 @@ func (s *Supervisor) swap(current *running, next *candidate, started time.Time) 
 	swapped, err := current.instance.Swap(next.result.Config, next.hot.swap, limit)
 	if err != nil {
 		if errors.Is(err, engine.ErrTooManyKept) {
-			s.log("info", "sing-box still keeps more than ", limit, " servers of the changes before for their connections: it starts anew with the new servers")
+			s.log("info", "sing-box keeps more than ", limit, " servers replaced in the last minutes (each is closed 2 minutes after the change at the earliest, later while a connection uses it): the configuration is checked to start anew")
 		} else {
-			s.log("warn", "sing-box did not take the new servers of the groups while it runs, it starts anew: ", err)
+			s.log("warn", "sing-box did not take the new servers of the groups while it runs (", err, "): the configuration is checked to start anew")
 		}
 		return Result{}, false
 	}
@@ -214,7 +243,7 @@ func (s *Supervisor) swap(current *running, next *candidate, started time.Time) 
 		s.log("error", err)
 	}
 	took := time.Since(started).Milliseconds()
-	s.log("info", "the settings are applied in ", took, " ms: the servers of the groups are replaced (", next.hot.added, " added, ",
-		next.hot.changed, " changed, ", next.hot.removed, " removed; ", swapped.Kept, " kept for their connections), sing-box keeps running")
+	s.log("info", "the settings are applied in ", took, " ms: the servers of the groups are replaced (", next.hot.added, " new outbounds, ",
+		next.hot.changed, " rebuilt, ", next.hot.removed, " taken out; ", swapped.Kept, " replaced ones kept while connections may use them), sing-box keeps running")
 	return s.done(true, false, "applied in ", took, " ms, sing-box keeps running"), true
 }

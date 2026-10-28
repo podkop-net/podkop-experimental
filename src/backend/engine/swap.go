@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 
 	"github.com/sagernet/sing-box"
+	"github.com/sagernet/sing-box/adapter"
+	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/option"
 	E "github.com/sagernet/sing/common/exceptions"
 	sJSON "github.com/sagernet/sing/common/json"
+	"github.com/sagernet/sing/service"
 )
 
 // Swap is a change of the outbounds of an instance while it runs (Instance.Swap): the
@@ -46,12 +49,54 @@ func (i *Instance) Swap(configuration []byte, swap Swap, limit int) (Swapped, er
 		return Swapped{}, E.Cause(err, "read the outbounds to replace")
 	}
 	next := dialersOf(configuration)
+	// before the new selectors start: they read their choice from the cache file
+	i.carrySelections(next)
 	// before the new groups start: they test the members that have no result
-	history.forgetChanged(next)
+	changed := history.forgetChanged(next)
 	update, err := i.box.UpdateOutbounds(options.Outbounds, swap.Remove, limit)
 	if err != nil {
+		// the groups that run go on and may store results for the outbounds they have: the start
+		// that follows forgets what changed again
+		history.restart(i.dialers)
 		return Swapped{}, err
 	}
+	// and again: a round of a group replaced, which stops only at the end of the swap, may have
+	// stored meanwhile what it found through the outbound a tag had before
+	history.forget(changed)
 	i.dialers = next
 	return Swapped{Added: update.Added, Replaced: update.Replaced, Removed: update.Removed, Kept: update.Kept}, nil
+}
+
+// CarrySelections moves the choices of the selectors to the new tags of the outbounds that
+// configuration renames, in the cache file of the instance: the instance of configuration, which
+// takes the file over, finds the server chosen in the dashboard under its new name.
+func (i *Instance) CarrySelections(configuration []byte) {
+	if !i.enter() {
+		return
+	}
+	defer i.leave()
+	i.carrySelections(dialersOf(configuration))
+}
+
+// carrySelections is CarrySelections for the dialers of the next configuration.
+func (i *Instance) carrySelections(next map[string]dialer) {
+	renamed := renamedTags(i.dialers, next)
+	if len(renamed) == 0 {
+		return
+	}
+	cacheFile := service.FromContext[adapter.CacheFile](i.ctx)
+	if cacheFile == nil {
+		return
+	}
+	for tag, now := range next {
+		var head struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(now.content, &head) != nil || head.Type != C.TypeSelector {
+			continue
+		}
+		if to, found := renamed[cacheFile.LoadSelected(tag)]; found {
+			cacheFile.StoreSelected(tag, to)
+		}
+	}
 }

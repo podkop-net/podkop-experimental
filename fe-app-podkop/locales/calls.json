@@ -2788,8 +2788,8 @@
     "call": "via %s",
     "key": "via %s",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:98",
-      "src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:119"
+      "src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:119",
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:98"
     ]
   },
   {

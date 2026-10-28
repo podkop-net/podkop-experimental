@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-28 21:09+0000\n"
-"PO-Revision-Date: 2026-10-28 21:09+0000\n"
+"POT-Creation-Date: 2026-10-28 22:31+0000\n"
+"PO-Revision-Date: 2026-10-28 22:31+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -1649,8 +1649,8 @@ msgstr ""
 msgid "Validation errors:"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:98
 #: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:119
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:98
 msgid "via %s"
 msgstr ""
 

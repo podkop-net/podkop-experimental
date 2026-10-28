@@ -70,16 +70,16 @@ func dialersOf(configuration []byte) map[string]dialer {
 
 // forgetChanged is called before a configuration starts: the results of the dialers that
 // are not in it as they were in the configuration started before are forgotten, and of
-// those that dial through one of them. A dialer that is the same but for its tag (a server
+// those that dial through one of them; it returns their tags. A dialer that is the same but for its tag (a server
 // the provider renamed) takes the result of the tag it had. Nothing is forgotten at the first
 // start of the process: the history is empty then.
-func (h *sharedHistory) forgetChanged(next map[string]dialer) {
+func (h *sharedHistory) forgetChanged(next map[string]dialer) []string {
 	h.access.Lock()
 	defer h.access.Unlock()
 	previous := h.started
 	h.started = next
 	if previous == nil {
-		return
+		return nil
 	}
 	h.carryRenamed(previous, next)
 	changed := make(map[string]bool)
@@ -98,7 +98,25 @@ func (h *sharedHistory) forgetChanged(next map[string]dialer) {
 			}
 		}
 	}
+	forgotten := make([]string, 0, len(changed))
 	for tag := range changed {
+		h.storage.DeleteURLTestHistory(tag)
+		forgotten = append(forgotten, tag)
+	}
+	return forgotten
+}
+
+// restart puts back the dialers a configuration that did not start replaced (forgetChanged): the
+// next start compares with those that run, and forgets again what changed since.
+func (h *sharedHistory) restart(started map[string]dialer) {
+	h.access.Lock()
+	defer h.access.Unlock()
+	h.started = started
+}
+
+// forget drops the results of the tags.
+func (h *sharedHistory) forget(tags []string) {
+	for _, tag := range tags {
 		h.storage.DeleteURLTestHistory(tag)
 	}
 }
@@ -119,6 +137,16 @@ func Delays(tags []string) map[string]uint16 {
 // carryRenamed gives a dialer of a tag that is new the result of the one gone of the same
 // content but for the tag: a renamed server is not tested again.
 func (h *sharedHistory) carryRenamed(previous map[string]dialer, next map[string]dialer) {
+	for before, tag := range renamedTags(previous, next) {
+		if result := h.storage.LoadURLTestHistory(before); result != nil {
+			h.storage.StoreURLTestHistory(tag, result)
+		}
+	}
+}
+
+// renamedTags are the dialers of next that are one of previous under another tag: the tag gone
+// with the one that has its content now.
+func renamedTags(previous map[string]dialer, next map[string]dialer) map[string]string {
 	gone := make(map[string]string)
 	for tag, before := range previous {
 		if _, kept := next[tag]; !kept {
@@ -127,22 +155,21 @@ func (h *sharedHistory) carryRenamed(previous map[string]dialer, next map[string
 			}
 		}
 	}
+	renamed := make(map[string]string)
 	if len(gone) == 0 {
-		return
+		return renamed
 	}
 	for tag, now := range next {
 		if _, existed := previous[tag]; existed {
 			continue
 		}
-		before, renamed := gone[withoutTag(now.content)]
-		if !renamed {
-			continue
-		}
-		delete(gone, withoutTag(now.content))
-		if result := h.storage.LoadURLTestHistory(before); result != nil {
-			h.storage.StoreURLTestHistory(tag, result)
+		body := withoutTag(now.content)
+		if before, found := gone[body]; found {
+			delete(gone, body)
+			renamed[before] = tag
 		}
 	}
+	return renamed
 }
 
 // withoutTag is the JSON of an outbound without its tag, its keys in order; empty when it

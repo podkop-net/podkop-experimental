@@ -52,6 +52,8 @@ type fakeEngine struct {
 	// configurations they refuse to take so
 	swaps       []engine.Swap
 	swapRefused []string
+	// carried counts the calls of CarrySelections
+	carried int
 }
 
 type fakeInstance struct {
@@ -191,6 +193,12 @@ func (i *fakeInstance) Swap(configuration []byte, swap engine.Swap, limit int) (
 	}
 	i.config = configuration
 	return engine.Swapped{Added: len(swap.Put), Removed: len(swap.Remove)}, nil
+}
+
+func (i *fakeInstance) CarrySelections(configuration []byte) {
+	i.engine.access.Lock()
+	defer i.engine.access.Unlock()
+	i.engine.carried++
 }
 
 func (i *fakeInstance) Traffic() (engine.Traffic, error) {

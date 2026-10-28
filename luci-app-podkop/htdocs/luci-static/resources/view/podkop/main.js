@@ -785,7 +785,7 @@ async function getDashboardSections() {
         displayName: section[".name"],
         outbounds: members.map(({ code, item }) => ({
           code,
-          displayName: code === "block-out" ? _("Refused: the group has no server") : item?.value?.type === "URLTest" ? _("Fastest") : code || item?.value?.name || "",
+          displayName: code === "block" ? _("Refused: the group has no server") : item?.value?.type === "URLTest" ? _("Fastest") : code || item?.value?.name || "",
           latency: item?.value?.history?.[0]?.delay || 0,
           type: item?.value?.type || "",
           selected: selector?.value?.now === code

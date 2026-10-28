@@ -21,7 +21,7 @@ const outboundWait = 5 * time.Second
 // the one a section of the type group whose group has no server refuses with (tagBlockOutbound).
 const (
 	directTag = "direct-out"
-	blockTag  = "block-out"
+	blockTag  = "block"
 )
 
 // outboundLines tests the outbound of every section that has one, and the direct one, as
