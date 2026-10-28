@@ -419,7 +419,7 @@ func TestSubscriptionCommands(t *testing.T) {
 	output, status = run(env, "subscription_update", "prov1")
 	require.Zero(t, status)
 	require.Equal(t, []string{"prov1"}, running.updated)
-	require.Contains(t, output, "✅ prov1: 12 servers, 10 can be used; taken 3 h ago (direct)")
+	require.Contains(t, output, "✅ prov1: 12 servers, 10 can be used; servers changed 3 h ago (direct); not checked since the start")
 	require.Contains(t, output, "❌ prov2: no list: the provider answers 403 Forbidden")
 	_, status = run(env, "group_check", "not json")
 	require.NotZero(t, status)

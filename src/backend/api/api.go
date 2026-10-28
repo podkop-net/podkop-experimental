@@ -130,6 +130,29 @@ type SubscriptionState struct {
 	// Next is when the next download is due; Busy tells that one is under way.
 	Next *time.Time `json:"next,omitempty"`
 	Busy bool       `json:"busy,omitempty"`
+	// Provider is what the provider told of the subscription with the last list.
+	Provider *ProviderInfo `json:"provider,omitempty"`
+}
+
+// ProviderInfo is what a provider tells of a subscription in the headers of its list
+// (subscription-userinfo, profile-title and the like), checked: the page shows it as text.
+type ProviderInfo struct {
+	Title string `json:"title,omitempty"`
+	// Upload and Download are the bytes used so far; Total is the limit, 0 when there is none.
+	Upload   int64 `json:"upload,omitempty"`
+	Download int64 `json:"download,omitempty"`
+	Total    int64 `json:"total,omitempty"`
+	// Traffic tells that the provider told the traffic at all (all of it may be 0).
+	Traffic bool `json:"traffic,omitempty"`
+	// Expire is when the subscription ends; none when it does not, or is not told.
+	Expire *time.Time `json:"expire,omitempty"`
+	// UpdateHours is how often the provider asks the list to be downloaded again.
+	UpdateHours int `json:"update_hours,omitempty"`
+	// SupportURL and WebPageURL are pages of the provider (HTTP or HTTPS only).
+	SupportURL string `json:"support_url,omitempty"`
+	WebPageURL string `json:"web_page_url,omitempty"`
+	// Announce is a notice of the provider to its users.
+	Announce string `json:"announce,omitempty"`
 }
 
 // SubscriptionPreview is a list downloaded to be shown, not taken.
@@ -138,6 +161,8 @@ type SubscriptionPreview struct {
 	Route   string          `json:"route,omitempty"`
 	Error   string          `json:"error,omitempty"`
 	Servers []PreviewServer `json:"servers"`
+	// Provider is what the provider told of the subscription with the list.
+	Provider *ProviderInfo `json:"provider,omitempty"`
 }
 
 // PreviewServer is a server of a list as the page shows it.

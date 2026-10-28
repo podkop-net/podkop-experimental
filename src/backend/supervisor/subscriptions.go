@@ -141,6 +141,7 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config) {
 			state.Servers, state.Usable = len(saved.Servers), usable(saved.Servers)
 			changed := saved.Changed
 			state.Changed, state.Route = &changed, saved.Route
+			state.Provider = subscription.ReadInfo(saved.Info)
 		}
 	}
 	for name := range t.addresses {
@@ -332,8 +333,12 @@ func (s *Supervisor) takeList(result downloaded) {
 		return
 	}
 	state.Error, state.Next, state.Checked, state.Route = "", &next, &now, result.list.Route
+	state.Provider = subscription.ReadInfo(result.list.Info)
 	old := t.lists[result.name]
 	if old != nil && subscription.SameServers(old.Servers, result.list.Servers) && !s.choiceChanged(result.name, old.Servers, result.list.Servers) {
+		// the traffic and the end the provider tells change with every list: kept in memory,
+		// the file is written only when the servers change
+		old.Info = result.list.Info
 		t.access.Unlock()
 		s.log("info", "subscription ", result.name, ": the list has not changed (", result.list.Route, ")")
 		s.applyTaken()
@@ -477,6 +482,7 @@ func (s *Supervisor) LoadSubscription(ctx context.Context, address string) Subsc
 	}
 	s.keepPreview(list)
 	preview.Route = list.Route
+	preview.Provider = subscription.ReadInfo(list.Info)
 	for _, server := range list.Servers {
 		scheme, endpoint := server.Endpoint()
 		preview.Servers = append(preview.Servers, api.PreviewServer{Name: server.Name, Scheme: scheme, Address: endpoint, Link: server.Link, Reason: server.Reason, Notes: server.Notes})

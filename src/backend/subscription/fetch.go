@@ -41,9 +41,13 @@ const MaxBody = 4 << 20
 // infoHeaders are what a provider tells about the subscription, kept with the list.
 var infoHeaders = []string{"subscription-userinfo", "profile-update-interval", "profile-title", "announce", "support-url", "profile-web-page-url"}
 
-// Info returns the headers of an answer that tell about the subscription.
+// Info returns what an answer tells about the subscription: its headers, or the lines some
+// providers put at the top of the list in their place (bodyInfo).
 func (a *Answer) Info() map[string]string {
-	info := make(map[string]string)
+	info := bodyInfo(a.Body)
+	if info == nil {
+		info = make(map[string]string)
+	}
 	for _, name := range infoHeaders {
 		if value := a.Header.Get(name); value != "" {
 			info[name] = value
