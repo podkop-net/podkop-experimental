@@ -103,13 +103,34 @@ function createGroupContent(section) {
     if (!this.keylist.length) {
       this.value("", _("No subscription yet: add one on the tab Subscriptions"));
     }
+    // a subscription that is no longer there stays shown, and validate tells why
+    L.toArray(uci.get("podkop", section_id, "subscription")).forEach((name) => {
+      if (name && !this.keylist.includes(name)) {
+        this.value(name, name + " (" + _("deleted") + ")");
+      }
+    });
     return form.MultiValue.prototype.load.call(this, section_id);
   };
   o.rmempty = false;
+  // LuCI would refuse an empty choice as "Expecting: non-empty value": validate tells why
+  o.optional = true;
   o.validate = function (section_id) {
-    return currentList(section, section_id, "subscription").length
-      ? true
-      : _("Choose a subscription");
+    const known = uci
+      .sections("podkop", "subscription")
+      .map((item) => item[".name"]);
+    const chosen = currentList(section, section_id, "subscription");
+    const gone = chosen.filter((name) => !known.includes(name));
+    if (gone.length) {
+      return _("There is no subscription %s: choose another one or delete it from the group").format(
+        gone.join(", "),
+      );
+    }
+    if (!chosen.length) {
+      return known.length
+        ? _("Choose a subscription")
+        : _("No subscription yet: add one on the tab Subscriptions");
+    }
+    return true;
   };
 
   o = section.option(
@@ -164,7 +185,28 @@ function createGroupContent(section) {
     if (!this.keylist.length) {
       this.value("", _("No section with an outbound yet"));
     }
+    // the section chosen before stays shown: one turned block or exclusion is followed (no
+    // connection, or directly), one that is no longer there is told by validate
+    const value = uci.get("podkop", section_id, "empty_section");
+    if (value && !this.keylist.includes(value)) {
+      const type = uci.get("podkop", value, "connection_type");
+      this.value(value, value + " (" + (type ? type : _("deleted")) + ")");
+    }
     return form.ListValue.prototype.load.call(this, section_id);
+  };
+  o.optional = true;
+  o.validate = function (section_id, value) {
+    if (currentValue(section, section_id, "empty") !== "section") {
+      return true;
+    }
+    if (!value) {
+      return _("Choose a section");
+    }
+    const found = uci.get("podkop", value);
+    if (!found || found[".type"] !== "section") {
+      return _("There is no section %s: choose another one").format(value);
+    }
+    return true;
   };
 
   // the servers the group of the form chooses, by the lists the router has

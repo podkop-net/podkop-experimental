@@ -133,6 +133,8 @@ function createSectionContent(section, singBoxFeatures = []) {
   );
   o.depends("connection_type", "group");
   o.rmempty = false;
+  // LuCI would refuse an empty choice as "Expecting: non-empty value": validate tells why
+  o.optional = true;
   o.load = function (section_id) {
     this.keylist = [];
     this.vallist = [];
@@ -146,7 +148,7 @@ function createSectionContent(section, singBoxFeatures = []) {
     const value = uci.get("podkop", section_id, "group");
     // a group that is no longer there stays shown, and validate tells why
     if (value && !this.keylist.includes(value)) {
-      this.value(value, value + " (" + _("not available") + ")");
+      this.value(value, value + " (" + _("deleted") + ")");
     }
     return form.ListValue.prototype.load.call(this, section_id);
   };
@@ -155,7 +157,7 @@ function createSectionContent(section, singBoxFeatures = []) {
       return _("Choose a group: groups are made on the tab Groups");
     }
     if (!uci.get("podkop", value) || uci.get("podkop", value)[".type"] !== "group") {
-      return _("There is no group %s").format(value);
+      return _("There is no group %s: choose another one").format(value);
     }
     return true;
   };

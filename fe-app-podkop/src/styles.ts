@@ -64,6 +64,41 @@ ${PartialStyles}
     color: var(--error-color-high, #c0392b);
 }
 
+.pdk-sub-state div,
+.pdk-sub-provider div {
+    margin: 1px 0;
+}
+
+.pdk-sub-provider {
+    margin-top: 6px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border-color-medium, #ddd);
+}
+
+.pdk-sub-provider .cbi-progressbar {
+    max-width: 320px;
+    margin: 2px 0 4px;
+}
+
+.pdk-sub-announce {
+    white-space: pre-line;
+    opacity: 0.85;
+}
+
+.pdk-sub-warn {
+    color: var(--warn-color-high, #b9770e);
+}
+
+.pdk-sub-tries {
+    margin: 4px 0;
+    padding-left: 1em;
+    opacity: 0.85;
+}
+
+.pdk-sub-load-actions button {
+    margin-right: 6px;
+}
+
 .pdk-sub-link code {
     display: block;
     white-space: pre-wrap;

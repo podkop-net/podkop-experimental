@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-27 17:58+0000\n"
-"PO-Revision-Date: 2026-10-27 17:58+0000\n"
+"POT-Creation-Date: 2026-10-28 17:59+0000\n"
+"PO-Revision-Date: 2026-10-28 17:59+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -17,11 +17,26 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
+msgid "(data as of %s)"
+msgstr "(данные на %s)"
+
 msgid "%d of %d servers are chosen"
 msgstr "Выбрано серверов: %d из %d"
 
 msgid "%d servers, %d can be used"
 msgstr "Серверов: %d, годных: %d"
+
+msgid "%s at %s"
+msgstr "%s в %s"
+
+msgid "%s in %s s"
+msgstr "%s за %s с"
+
+msgid "%s received"
+msgstr "получено %s"
+
+msgid "%s s"
+msgstr "%s с"
 
 msgid "✔ Enabled"
 msgstr "✔ Включено"
@@ -44,6 +59,12 @@ msgstr "Сервер выбирается, если в его имени ест�
 msgid "A server whose name contains one of these words is never chosen"
 msgstr "Сервер, в имени которого есть одно из этих слов, не выбирается никогда"
 
+msgid "A web page came instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP"
+msgstr "Вместо списка пришла веб-страница: возможно, это адрес сайта провайдера, а не подписки, или страница интернет-провайдера"
+
+msgid "a web page instead of the list"
+msgstr "веб-страница вместо списка"
+
 msgid "Active Connections"
 msgstr "Активные соединения"
 
@@ -58,6 +79,9 @@ msgstr "Нужен адрес HTTP или HTTPS"
 
 msgid "an address with a path is a page, not a proxy"
 msgstr "адрес с путём — это страница, а не прокси"
+
+msgid "another way brought the list first"
+msgstr "другой путь принёс список раньше"
 
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr "Применимо для SOCKS и Shadowsocks прокси"
@@ -83,6 +107,9 @@ msgstr "Перед подключением с отпечатком uTLS из с
 msgid "Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped"
 msgstr "Перед переключением на сервер через него скачивается 64 КиБ: сервер, который «замораживает» соединения после ~16 КБ, пропускается"
 
+msgid "blocked on the way (HTTP 451)"
+msgstr "заблокировано по пути (HTTP 451)"
+
 msgid "Bootsrap DNS"
 msgstr "Bootstrap DNS"
 
@@ -107,11 +134,17 @@ msgstr "Путь к файлу кэша"
 msgid "Cache file path cannot be empty"
 msgstr "Путь к файлу кэша не может быть пустым"
 
+msgid "Cancel"
+msgstr "Отменить"
+
 msgid "Cannot receive checks result"
 msgstr "Не удалось получить результаты проверки"
 
 msgid "Check"
 msgstr "Проверить"
+
+msgid "Checking now…"
+msgstr "Идёт проверка…"
 
 msgid "Checking, please wait"
 msgstr "Проверяем, пожалуйста подождите"
@@ -127,6 +160,9 @@ msgstr "Проверки пройдены"
 
 msgid "Choose a group: groups are made on the tab Groups"
 msgstr "Выберите группу: группы создаются на вкладке «Группы»"
+
+msgid "Choose a section"
+msgstr "Выберите секцию"
 
 msgid "Choose a subscription"
 msgstr "Выберите подписку"
@@ -151,6 +187,9 @@ msgstr "Тип конфигурации"
 
 msgid "Connect through"
 msgstr "Подключаться через"
+
+msgid "connecting…"
+msgstr "соединение…"
 
 msgid "Connection Type"
 msgstr "Тип подключения"
@@ -178,6 +217,9 @@ msgstr "По умолчанию"
 
 msgid "Default (enabled)"
 msgstr "По умолчанию (включено)"
+
+msgid "deleted"
+msgstr "удалена"
 
 msgid "DHCP has DNS server"
 msgstr "DHCP содержит DNS сервер"
@@ -233,6 +275,9 @@ msgstr "Не паникуйте, всё можно исправить, прос�
 msgid "Domain Resolver"
 msgstr "Резолвер доменов"
 
+msgid "done in %s s"
+msgstr "готово за %s с"
+
 msgid "Dont Touch My DHCP!"
 msgstr "Dont Touch My DHCP!"
 
@@ -253,12 +298,6 @@ msgstr "Скачивать списки через Proxy/VPN"
 
 msgid "Download Lists via specific proxy section"
 msgstr "Скачивать списки через выбранную секцию"
-
-msgid "downloaded directly"
-msgstr "загружено напрямую"
-
-msgid "downloaded through %s"
-msgstr "загружено через %s"
 
 msgid "Downloading all lists via specific Proxy/VPN"
 msgstr "Загрузка всех списков через указанный прокси/VPN"
@@ -335,6 +374,9 @@ msgstr "Исключить NTP"
 msgid "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN"
 msgstr "Исключите трафик протокола NTP из туннеля, чтобы предотвратить его маршрутизацию через прокси-сервер или VPN."
 
+msgid "Expired on %s (%s)"
+msgstr "Срок истёк %s (%s)"
+
 msgid "Failed to copy!"
 msgstr "Не удалось скопировать!"
 
@@ -346,6 +388,12 @@ msgstr "Резервные ссылки"
 
 msgid "Fastest"
 msgstr "Самый быстрый"
+
+msgid "From the provider"
+msgstr "От провайдера"
+
+msgid "From the provider: %s"
+msgstr "Сообщение провайдера: %s"
 
 msgid "Fully Routed IPs"
 msgstr "Полностью маршрутизированные IP-адреса"
@@ -413,6 +461,18 @@ msgstr "IP-адрес 0.0.0.0 не допускается"
 msgid "Issues detected"
 msgstr "Обнаружены проблемы"
 
+msgid "just now"
+msgstr "только что"
+
+msgid "Last check: %s, %s"
+msgstr "Последняя проверка: %s, %s"
+
+msgid "Last check: %s, failed"
+msgstr "Последняя проверка: %s, не удалась"
+
+msgid "Last check: none since podkop started"
+msgstr "Последняя проверка: после запуска podkop ещё не было"
+
 msgid "Latest"
 msgstr "Последняя"
 
@@ -467,6 +527,9 @@ msgstr "не должна содержать пробелов"
 msgid "must start with"
 msgstr "должна начинаться с"
 
+msgid "Name at the provider: %s"
+msgstr "Название у провайдера: %s"
+
 msgid "Name contains"
 msgstr "Имя содержит"
 
@@ -479,8 +542,20 @@ msgstr "нет ни method:password@сервер, ни base64 этой стро�
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"
 
-msgid "next download %s"
-msgstr "следующая загрузка %s"
+msgid "Next check: %s"
+msgstr "Следующая проверка: %s"
+
+msgid "Next try: %s"
+msgstr "Следующая попытка: %s"
+
+msgid "no answer in %d s"
+msgstr "нет ответа за %d с"
+
+msgid "No end date"
+msgstr "Без срока"
+
+msgid "No group uses it yet"
+msgstr "Пока не используется ни в одной группе"
 
 msgid "No group yet: make one on the tab Groups"
 msgstr "Групп ещё нет: создайте группу на вкладке «Группы»"
@@ -490,6 +565,9 @@ msgstr "сейчас без IPv4-адреса"
 
 msgid "No list of %s"
 msgstr "Нет списка %s"
+
+msgid "No list yet: the groups of the subscription go by their rule for no server"
+msgstr "Списка пока нет: группы подписки работают по правилу «Если не выбран ни один сервер»"
 
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
@@ -556,6 +634,9 @@ msgstr "Ожидает запуска"
 
 msgid "Podkop"
 msgstr "Podkop"
+
+msgid "podkop is not running: start it to load the list"
+msgstr "podkop не запущен: запустите его, чтобы загрузить список"
 
 msgid "Podkop is running"
 msgstr "Podkop работает"
@@ -638,6 +719,9 @@ msgstr "Секция %s — не прокси и не VPN"
 msgid "Sections"
 msgstr "Секции"
 
+msgid "secure connection…"
+msgstr "защищённое соединение…"
+
 msgid "Select a predefined list for routing"
 msgstr "Выберите предопределенный список для маршрутизации"
 
@@ -682,6 +766,15 @@ msgstr "Ссылки прокси для Selector"
 
 msgid "Servers"
 msgstr "Серверы"
+
+msgid "Servers changed: %s"
+msgstr "Серверы изменились: %s"
+
+msgid "Servers changed: when a check first found the servers the router uses now. New names or order alone do not count"
+msgstr "Серверы изменились — когда проверка впервые нашла серверы, которые роутер использует сейчас. Новые имена или порядок сами по себе не в счёт"
+
+msgid "Servers: %d, usable: %d"
+msgstr "Серверов: %d, годных: %d"
 
 msgid "Services info"
 msgstr "Информация о сервисах"
@@ -734,11 +827,17 @@ msgstr "Остановить podkop"
 msgid "Subscription address"
 msgstr "Адрес подписки"
 
+msgid "Subscription page"
+msgstr "Страница подписки"
+
 msgid "Subscriptions"
 msgstr "Подписки"
 
 msgid "Successfully copied!"
 msgstr "Успешно скопировано!"
+
+msgid "Support"
+msgstr "Поддержка"
 
 msgid "Supported"
 msgstr "Поддерживаются"
@@ -752,9 +851,6 @@ msgstr "Системная информация"
 msgid "Table exist"
 msgstr "Таблица существует"
 
-msgid "taken %s"
-msgstr "получено %s"
-
 msgid "Test latency"
 msgstr "Тестирование задержки"
 
@@ -767,8 +863,20 @@ msgstr "Адрес не указан"
 msgid "The address your provider gave for apps (often /sub/… or /api/sub/…). It is a secret: it is masked where podkop shows the settings"
 msgstr "Адрес, который провайдер даёт для приложений (часто /sub/… или /api/sub/…). Это секрет: podkop скрывает его там, где показывает настройки"
 
+msgid "The answer of the provider has no links of servers"
+msgstr "В ответе провайдера нет ссылок на серверы"
+
 msgid "the base64 of the link is no JSON"
 msgstr "в base64 ссылки не JSON"
+
+msgid "the certificate is not valid by the router's clock: check the clock"
+msgstr "сертификат не действует по часам роутера: проверьте часы"
+
+msgid "the connection is refused"
+msgstr "соединение отклонено"
+
+msgid "the connection is reset"
+msgstr "соединение сброшено"
 
 msgid "The connection to the server of this section goes through the chosen section: the server sees the address of the server of that section, not the one of the router"
 msgstr "Соединение с сервером этой секции идёт через выбранную секцию: сервер видит адрес сервера той секции, а не роутера"
@@ -785,6 +893,15 @@ msgstr "Устройства, с которых открывается YACD. Д�
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
 
+msgid "The download is lost: podkop restarted, or it ended long ago. Press Load again"
+msgstr "Загрузка потеряна: podkop перезапускался или она закончилась давно. Нажмите «Загрузить» ещё раз"
+
+msgid "The download stopped on a fault of podkop: see the log"
+msgstr "Загрузка прервана сбоем podkop: подробности в журнале"
+
+msgid "The download was canceled"
+msgstr "Загрузка отменена"
+
 msgid "the engine refuses this link"
 msgstr "движок отвергает эту ссылку"
 
@@ -797,11 +914,17 @@ msgstr "Интервал между тестами подключения"
 msgid "The key YACD asks for; the links below carry it"
 msgstr "Ключ, который спрашивает YACD; ссылки ниже уже содержат его"
 
-msgid "the last download failed: %s"
-msgstr "последняя загрузка не удалась: %s"
-
 msgid "The links appear here after Save & Apply"
 msgstr "Ссылки появятся здесь после «Сохранить и применить»"
+
+msgid "the list broke off"
+msgstr "список оборвался"
+
+msgid "The list from %s stays in use"
+msgstr "Используется прежний список от %s"
+
+msgid "The list is larger than %s MiB"
+msgstr "Список больше %s МиБ"
 
 msgid "The list is not downloaded yet"
 msgstr "Список ещё не загружен"
@@ -812,11 +935,59 @@ msgstr "Максимально допустимая разница во врем
 msgid "The name %s is taken: sections, groups and subscriptions need names of their own"
 msgstr "Имя %s занято: у секций, групп и подписок должны быть разные имена"
 
+msgid "the name is not found in DNS"
+msgstr "имя не найдено в DNS"
+
+msgid "The provider answered HTTP %s instead of the list"
+msgstr "Провайдер ответил HTTP %s вместо списка"
+
+msgid "The provider asks to wait (HTTP 429): the router tries again later"
+msgstr "Провайдер просит подождать (HTTP 429): роутер повторит позже"
+
+msgid "The provider could not be reached (%s)"
+msgstr "Провайдер недоступен (%s)"
+
+msgid "The provider did not accept this device (HWID)"
+msgstr "Провайдер не принял это устройство (HWID)"
+
+msgid "The provider has no subscription at this address (HTTP %s): the address is wrong, or the subscription was removed"
+msgstr "У провайдера нет подписки по этому адресу (HTTP %s): адрес неверен или подписку удалили"
+
+msgid "The provider refused the address (HTTP %s): it is wrong or out of date, or the subscription is blocked"
+msgstr "Провайдер отклонил адрес (HTTP %s): он неверен или устарел, либо подписка заблокирована"
+
+msgid "The provider says: %s"
+msgstr "Провайдер пишет: %s"
+
+msgid "The provider sent a configuration in JSON (sing-box or Xray): podkop reads only a list of links so far"
+msgstr "Провайдер прислал конфигурацию в JSON (sing-box или Xray): podkop пока читает только список ссылок"
+
+msgid "The provider sent a configuration of Clash (YAML): podkop reads only a list of links so far"
+msgstr "Провайдер прислал конфигурацию Clash (YAML): podkop пока читает только список ссылок"
+
+msgid "The provider sent an empty list"
+msgstr "Провайдер прислал пустой список"
+
+msgid "The provider sent notes instead of servers: %s"
+msgstr "Провайдер прислал вместо серверов заметки: %s"
+
+msgid "The provider sent nothing (HTTP 204): the address is wrong, or the subscription was removed"
+msgstr "Провайдер ничего не прислал (HTTP 204): адрес неверен или подписку удалили"
+
+msgid "The provider's limit of devices is reached: delete an old device in the provider's bot or account, then check again"
+msgstr "У провайдера исчерпан лимит устройств: удалите старое устройство в боте или личном кабинете провайдера и проверьте снова"
+
+msgid "The provider's server failed (HTTP %s): the router tries again later"
+msgstr "Сбой на сервере провайдера (HTTP %s): роутер повторит позже"
+
 msgid "The router did not answer"
 msgstr "Роутер не ответил"
 
 msgid "The router downloads the list…"
 msgstr "Роутер загружает список…"
+
+msgid "The router downloads the list… %s s"
+msgstr "Роутер загружает список… %s с"
 
 msgid "The section whose way the connections take"
 msgstr "Секция, путём которой пойдут соединения"
@@ -824,11 +995,20 @@ msgstr "Секция, путём которой пойдут соединени�
 msgid "the sections of the group go as section %s does"
 msgstr "секции группы идут так же, как секция %s"
 
+msgid "the secure connection failed"
+msgstr "защищённое соединение не установлено"
+
+msgid "The servers may refuse connections until the subscription is renewed"
+msgstr "Пока подписку не продлят, серверы могут не пускать"
+
 msgid "The settings are not saved. The engine of the router refuses these links:"
 msgstr "Настройки не сохранены. Движок роутера отвергает эти ссылки:"
 
 msgid "The subscriptions the group chooses servers from"
 msgstr "Подписки, из которых группа выбирает серверы"
+
+msgid "the transfer stopped at %s KB"
+msgstr "передача остановилась на %s КБ"
 
 msgid "The tunnel, or the WAN, the traffic of this section goes out through"
 msgstr "Туннель или WAN, через который уходит трафик этой секции"
@@ -848,8 +1028,17 @@ msgstr "Веб-панель sing-box, открывается с устройст
 msgid "The words choose nothing, or the subscription has no list yet: what the sections of the group do then"
 msgstr "Слова ничего не выбрали или у подписки ещё нет списка: что тогда делают секции группы"
 
-msgid "There is no group %s"
-msgstr "Нет группы %s"
+msgid "There is no group %s: choose another one"
+msgstr "Нет группы %s: выберите другую"
+
+msgid "There is no section %s: choose another one"
+msgstr "Нет секции %s: выберите другую"
+
+msgid "There is no subscription %s: choose another one or delete it from the group"
+msgstr "Нет подписки %s: выберите другую или уберите её из группы"
+
+msgid "There is no way to the provider to try"
+msgstr "Нет ни одного пути к провайдеру"
 
 msgid "through %s"
 msgstr "через %s"
@@ -860,8 +1049,20 @@ msgstr "Время в секундах для кэширования DNS зап�
 msgid "Traffic"
 msgstr "Трафик"
 
+msgid "Traffic resets %s"
+msgstr "Сброс трафика: %s"
+
 msgid "Traffic Total"
 msgstr "Всего трафика"
+
+msgid "Traffic: %s of %s"
+msgstr "Трафик: %s из %s"
+
+msgid "Traffic: %s of %s, used up"
+msgstr "Трафик: %s из %s, исчерпан"
+
+msgid "Traffic: %s, no limit"
+msgstr "Трафик: %s, без ограничений"
 
 msgid "Troubleshooting"
 msgstr "Устранение неполадок"
@@ -871,6 +1072,9 @@ msgstr "TTL должно быть положительным числом"
 
 msgid "TTL value cannot be empty"
 msgstr "Значение TTL не может быть пустым"
+
+msgid "Two lists are being downloaded for the page: wait for them"
+msgstr "Для страницы уже загружаются два списка: дождитесь их"
 
 msgid "UDP (Unprotected DNS)"
 msgstr "UDP (Незащищённый DNS)"
@@ -941,6 +1145,9 @@ msgstr "uTLS-fallback"
 msgid "Valid"
 msgstr "Валидно"
 
+msgid "Valid until %s (%s)"
+msgstr "Действует до %s (%s)"
+
 msgid "Validation errors:"
 msgstr "Ошибки валидации:"
 
@@ -952,6 +1159,9 @@ msgstr "Посмотреть логи"
 
 msgid "Visit Wiki"
 msgstr "Перейти в wiki"
+
+msgid "waiting for the provider: %s s"
+msgstr "ждём ответа провайдера: %s с"
 
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."

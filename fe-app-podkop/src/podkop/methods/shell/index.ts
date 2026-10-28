@@ -114,6 +114,29 @@ export const PodkopShellMethods = {
       '/usr/bin/podkop',
       19000,
     ),
+  // the same as a job of the router the page asks about: a download is not bound by the 20 s
+  // of a call (start, state, cancel; each answers at once)
+  subscriptionLoadStart: async (address: string) =>
+    callBaseMethod<Podkop.LoadJob>(
+      Podkop.AvailableMethods.SUBSCRIPTION_LOAD_START,
+      [address],
+      '/usr/bin/podkop',
+      5000,
+    ),
+  subscriptionLoadState: async (id: string) =>
+    callBaseMethod<Podkop.LoadJob>(
+      Podkop.AvailableMethods.SUBSCRIPTION_LOAD_STATE,
+      [id],
+      '/usr/bin/podkop',
+      5000,
+    ),
+  subscriptionLoadCancel: async (id: string) =>
+    callBaseMethod<Podkop.LoadJob>(
+      Podkop.AvailableMethods.SUBSCRIPTION_LOAD_CANCEL,
+      [id],
+      '/usr/bin/podkop',
+      5000,
+    ),
   subscriptionStatus: async () =>
     callBaseMethod<Podkop.SubscriptionState[]>(
       Podkop.AvailableMethods.SUBSCRIPTION_STATUS,

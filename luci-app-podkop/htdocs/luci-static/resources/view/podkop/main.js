@@ -512,6 +512,9 @@ var Podkop;
     AvailableMethods2["GET_SYSTEM_INFO"] = "get_system_info";
     AvailableMethods2["GET_SING_BOX_FEATURES"] = "get_sing_box_features";
     AvailableMethods2["SUBSCRIPTION_LOAD"] = "subscription_load";
+    AvailableMethods2["SUBSCRIPTION_LOAD_START"] = "subscription_load_start";
+    AvailableMethods2["SUBSCRIPTION_LOAD_STATE"] = "subscription_load_state";
+    AvailableMethods2["SUBSCRIPTION_LOAD_CANCEL"] = "subscription_load_cancel";
     AvailableMethods2["SUBSCRIPTION_STATUS"] = "subscription_status";
     AvailableMethods2["GROUP_CHECK"] = "group_check";
   })(AvailableMethods = Podkop2.AvailableMethods || (Podkop2.AvailableMethods = {}));
@@ -614,6 +617,26 @@ var PodkopShellMethods = {
     [address],
     "/usr/bin/podkop",
     19e3
+  ),
+  // the same as a job of the router the page asks about: a download is not bound by the 20 s
+  // of a call (start, state, cancel; each answers at once)
+  subscriptionLoadStart: async (address) => callBaseMethod(
+    Podkop.AvailableMethods.SUBSCRIPTION_LOAD_START,
+    [address],
+    "/usr/bin/podkop",
+    5e3
+  ),
+  subscriptionLoadState: async (id) => callBaseMethod(
+    Podkop.AvailableMethods.SUBSCRIPTION_LOAD_STATE,
+    [id],
+    "/usr/bin/podkop",
+    5e3
+  ),
+  subscriptionLoadCancel: async (id) => callBaseMethod(
+    Podkop.AvailableMethods.SUBSCRIPTION_LOAD_CANCEL,
+    [id],
+    "/usr/bin/podkop",
+    5e3
   ),
   subscriptionStatus: async () => callBaseMethod(
     Podkop.AvailableMethods.SUBSCRIPTION_STATUS
@@ -4729,6 +4752,41 @@ ${PartialStyles}
 .pdk-sub-reason,
 .pdk-sub-error {
     color: var(--error-color-high, #c0392b);
+}
+
+.pdk-sub-state div,
+.pdk-sub-provider div {
+    margin: 1px 0;
+}
+
+.pdk-sub-provider {
+    margin-top: 6px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border-color-medium, #ddd);
+}
+
+.pdk-sub-provider .cbi-progressbar {
+    max-width: 320px;
+    margin: 2px 0 4px;
+}
+
+.pdk-sub-announce {
+    white-space: pre-line;
+    opacity: 0.85;
+}
+
+.pdk-sub-warn {
+    color: var(--warn-color-high, #b9770e);
+}
+
+.pdk-sub-tries {
+    margin: 4px 0;
+    padding-left: 1em;
+    opacity: 0.85;
+}
+
+.pdk-sub-load-actions button {
+    margin-right: 6px;
 }
 
 .pdk-sub-link code {

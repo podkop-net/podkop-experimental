@@ -69,6 +69,9 @@ export namespace Podkop {
     GET_SYSTEM_INFO = 'get_system_info',
     GET_SING_BOX_FEATURES = 'get_sing_box_features',
     SUBSCRIPTION_LOAD = 'subscription_load',
+    SUBSCRIPTION_LOAD_START = 'subscription_load_start',
+    SUBSCRIPTION_LOAD_STATE = 'subscription_load_state',
+    SUBSCRIPTION_LOAD_CANCEL = 'subscription_load_cancel',
     SUBSCRIPTION_STATUS = 'subscription_status',
     GROUP_CHECK = 'group_check',
   }
@@ -226,10 +229,51 @@ export namespace Podkop {
     notes?: string[];
   }
 
+  // a try of a download by one way: how far it came, how long, how much, and why it failed
+  export interface Attempt {
+    route: string;
+    phase: 'connect' | 'tls' | 'wait' | 'body' | 'done' | 'failed' | 'canceled';
+    ms: number;
+    first_byte_ms?: number;
+    bytes?: number;
+    error?: string;
+    code?: string;
+    args?: string[];
+  }
+
+  // what a provider tells of a subscription with its list (the headers of the list)
+  export interface ProviderInfo {
+    title?: string;
+    upload?: number;
+    download?: number;
+    total?: number;
+    traffic?: boolean;
+    expire?: string;
+    refill?: string;
+    update_hours?: number;
+    support_url?: string;
+    web_page_url?: string;
+    announce?: string;
+  }
+
   export interface SubscriptionPreview {
     route?: string;
     error?: string;
+    error_code?: string;
+    error_args?: string[];
+    took_ms?: number;
+    attempts?: Attempt[];
+    provider?: ProviderInfo;
     servers: PreviewServer[];
+  }
+
+  // a download of a list for the page, under way or done (subscription_load_start, _state)
+  export interface LoadJob {
+    id: string;
+    state: 'running' | 'done' | 'failed' | 'canceled';
+    elapsed_ms: number;
+    attempts: Attempt[];
+    preview?: SubscriptionPreview;
   }
 
   // which servers a group of the form would choose (group_check)
@@ -256,8 +300,15 @@ export namespace Podkop {
     checked?: string;
     route?: string;
     error?: string;
+    error_code?: string;
+    error_args?: string[];
+    attempted?: string;
+    took_ms?: number;
+    attempts?: Attempt[];
     next?: string;
     busy?: boolean;
+    provider?: ProviderInfo;
+    now?: string;
   }
 
   export interface FakeIPClientCheckResult {
