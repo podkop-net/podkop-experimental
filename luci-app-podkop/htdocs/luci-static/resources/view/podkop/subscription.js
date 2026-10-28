@@ -424,7 +424,9 @@ function renderServers(preview) {
     .map((attempt) => wayOf(attempt.route) + ": " + tryReason(attempt));
   const summary = [
     _("%d servers, %d can be used").format(servers.length, usable),
-    _("%s in %s s").format(wayOf(preview.route), seconds(preview.took_ms)),
+    preview.took_ms >= 100
+      ? _("%s in %s s").format(wayOf(preview.route), seconds(preview.took_ms))
+      : wayOf(preview.route),
   ]
     .concat(others)
     .join(" · ");

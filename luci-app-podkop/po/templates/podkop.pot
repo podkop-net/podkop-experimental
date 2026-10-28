@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-28 18:56+0000\n"
-"PO-Revision-Date: 2026-10-28 18:56+0000\n"
+"POT-Creation-Date: 2026-10-28 19:13+0000\n"
+"PO-Revision-Date: 2026-10-28 19:13+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -32,7 +32,7 @@ msgstr ""
 msgid "%s at %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:427
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:428
 msgid "%s in %s s"
 msgstr ""
 
@@ -94,8 +94,8 @@ msgid "all the servers of its subscriptions are used"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:218
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:507
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:510
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:509
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:512
 msgid "An address of HTTP or HTTPS is expected"
 msgstr ""
 
@@ -112,7 +112,7 @@ msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/group.js:244
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:540
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:542
 msgid "Asking the router…"
 msgstr ""
 
@@ -176,7 +176,7 @@ msgstr ""
 msgid "Cache file path cannot be empty"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:591
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:593
 msgid "Cancel"
 msgstr ""
 
@@ -478,7 +478,7 @@ msgstr ""
 msgid "Every 1 minute"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:525
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:527
 msgid "Every 12 hours"
 msgstr ""
 
@@ -494,7 +494,7 @@ msgstr ""
 msgid "Every 5 minutes"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:524
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:526
 msgid "Every 6 hours"
 msgstr ""
 
@@ -502,11 +502,11 @@ msgstr ""
 msgid "Every connection of podkop goes out through this WAN or tunnel, whatever the routing of the router says"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:526
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:528
 msgid "Every day"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:523
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:525
 msgid "Every hour"
 msgstr ""
 
@@ -580,11 +580,11 @@ msgid "Group"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:116
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:562
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:564
 msgid "Groups"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:519
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:521
 msgid "How often the router downloads the list again. A list whose servers only changed their names or order changes nothing"
 msgstr ""
 
@@ -677,7 +677,7 @@ msgstr ""
 msgid "Latest"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:449
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:451
 msgid "Link"
 msgstr ""
 
@@ -685,7 +685,7 @@ msgstr ""
 msgid "List Update Frequency"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:683
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:685
 msgid "Load"
 msgstr ""
 
@@ -789,7 +789,7 @@ msgstr ""
 msgid "No end date"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:567
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:569
 msgid "No group uses it yet"
 msgstr ""
 
@@ -1091,7 +1091,7 @@ msgid "Selector Proxy Links"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/group.js:224
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:573
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:575
 msgid "Servers"
 msgstr ""
 
@@ -1099,7 +1099,7 @@ msgstr ""
 msgid "Servers changed: %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:533
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:535
 msgid "Servers changed: when a check first found the servers the router uses now. New names or order alone do not count"
 msgstr ""
 
@@ -1168,7 +1168,7 @@ msgstr ""
 msgid "Start podkop"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:532
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:534
 msgid "State"
 msgstr ""
 
@@ -1176,7 +1176,7 @@ msgstr ""
 msgid "Stop podkop"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:488
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:490
 msgid "Subscription address"
 msgstr ""
 
@@ -1222,12 +1222,12 @@ msgstr ""
 msgid "Text List"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:499
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:654
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:501
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:656
 msgid "The address is not set"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:489
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:491
 msgid "The address your provider gave for apps (often /sub/… or /api/sub/…). It is a secret: it is masked where podkop shows the settings"
 msgstr ""
 
@@ -1392,17 +1392,17 @@ msgid "The provider's server failed (HTTP %s): the router tries again later"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/group.js:262
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:614
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:631
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:667
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:616
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:633
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:669
 msgid "The router did not answer"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:661
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:663
 msgid "The router downloads the list…"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:598
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:600
 msgid "The router downloads the list… %s s"
 msgstr ""
 
@@ -1550,7 +1550,7 @@ msgstr ""
 msgid "Unsupported link type"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:518
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/subscription.js:520
 msgid "Update interval"
 msgstr ""
 
