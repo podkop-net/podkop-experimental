@@ -238,6 +238,23 @@ func TestExitsWithoutServers(t *testing.T) {
 	require.Contains(t, warnings, "source prov1 has no servers yet")
 }
 
+// Rows that repeat a fallback, or name a server of the rule as a fallback, give each outbound
+// once: sing-box refuses a URL test that lists one twice. Two rows of direct are a rule of direct.
+func TestExitRepeatedRows(t *testing.T) {
+	t.Parallel()
+	settings := "\nconfig source 'own'\n\toption type 'links'\n\tlist link 'vless://u@own.example:443#Own'\n" +
+		ruleText("x", row("server", "own"), row("fallback", "direct"), row("fallback", "own"), row("fallback", "direct"), row("fallback", "block")) +
+		ruleText("y", row("server", "direct"), row("server", "direct"))
+	result, err := buildRules(t, settings, nil)
+	require.NoError(t, err)
+	config, outbounds := outboundsOf(t, result)
+	require.Equal(t, []string{"own"}, outbounds["x-urltest-out"].Outbounds)
+	require.Equal(t, []string{"direct-out", "block"}, outbounds["x-urltest-out"].Fallbacks)
+	_, hasY := outbounds["y-out"]
+	require.False(t, hasY)
+	require.Equal(t, []string{"x-out", "direct-out"}, ruleRoutes(config))
+}
+
 func TestExitViaSourceOfSeveralServers(t *testing.T) {
 	t.Parallel()
 	settings := "\nconfig source 'pair'\n\toption type 'links'\n\tlist link 'vless://u@a.example:443#A'\n\tlist link 'vless://u@b.example:443#B'\n" +

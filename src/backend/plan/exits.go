@@ -78,14 +78,21 @@ func (b *builder) buildExit(section *model.Section) error {
 			}
 		}
 	}
+	// a fallback that is a server of the rule or a fallback before it is there once: sing-box
+	// refuses a URL test that lists an outbound twice
 	var tiers []string
+	addTier := func(tag string) {
+		if !slices.Contains(members, tag) && !slices.Contains(tiers, tag) {
+			tiers = append(tiers, tag)
+		}
+	}
 	for index, row := range section.Fallbacks {
 		switch row.Source {
 		case model.SourceDirect:
-			tiers = append(tiers, tagDirectOutbound)
+			addTier(tagDirectOutbound)
 			continue
 		case model.SourceBlock:
-			tiers = append(tiers, tagBlockOutbound)
+			addTier(tagBlockOutbound)
 			continue
 		}
 		tags, err := b.rowServers(section, row)
@@ -95,11 +102,11 @@ func (b *builder) buildExit(section *model.Section) error {
 		switch len(tags) {
 		case 0:
 		case 1:
-			tiers = append(tiers, tags[0])
+			addTier(tags[0])
 		default:
 			tag := outboundTag(section.Name + "-fallback-" + strconv.Itoa(index+1))
 			b.addURLTest(tag, tags, nil)
-			tiers = append(tiers, tag)
+			addTier(tag)
 		}
 	}
 	var choices []string

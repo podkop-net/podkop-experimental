@@ -406,11 +406,17 @@ const (
 
 // Exit tells where the traffic of the rule goes.
 func (c *Config) Exit(s *Section) string {
-	if len(s.Servers) == 1 && len(s.Fallbacks) == 0 {
-		switch s.Servers[0].Source {
-		case SourceDirect:
+	// rows of the servers that are all direct, or all block, are one row of it
+	if len(s.Servers) > 0 && len(s.Fallbacks) == 0 {
+		first := s.Servers[0].Source
+		same := first == SourceDirect || first == SourceBlock
+		for _, row := range s.Servers[1:] {
+			same = same && row.Source == first
+		}
+		switch {
+		case same && first == SourceDirect:
 			return ExitDirect
-		case SourceBlock:
+		case same && first == SourceBlock:
 			return ExitBlock
 		}
 	}
