@@ -160,6 +160,9 @@ func (b *builder) rowServers(section *model.Section, row model.Member) ([]string
 		return nil, nil
 	}
 	if !source.Filled() {
+		if source.Type != "" && !slices.Contains(model.SourceTypes, source.Type) {
+			b.warnOnce("rule ", section.Name, ": the source ", source.Name, " is of a type podkop does not know (", source.Type, "): its row takes no server")
+		}
 		return nil, nil
 	}
 	servers, err := b.sourceServers(source)
@@ -168,10 +171,13 @@ func (b *builder) rowServers(section *model.Section, row model.Member) ([]string
 	}
 	var via string
 	if row.Via != "" {
+		// a row that cannot go the way it names takes no server: the rule goes by its other
+		// rows and its fallbacks, and the rest of the settings run
 		if source.Type == "interface" {
-			return nil, E.New("the interface of the source ", source.Name, " does not connect through another source")
+			b.warnOnce("rule ", section.Name, ": the interface of the source ", source.Name, " does not connect through another source: the row takes no server")
+			return nil, nil
 		}
-		via, err = b.viaTag(row.Via, source.Name)
+		via, err = b.viaTag(section.Name, row.Via, source.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -228,16 +234,19 @@ func (b *builder) addServer(section *model.Section, server sourceServer, tag str
 
 // viaTag is the outbound the servers of a row connect through: the one server of the
 // source, or a URL test of its servers ("<source>-best").
-func (b *builder) viaTag(name string, rowSource string) (string, error) {
+func (b *builder) viaTag(rule string, name string, rowSource string) (string, error) {
 	if name == rowSource {
-		return "", E.New("a row of the source ", name, " connects through the same source")
+		b.warnOnce("rule ", rule, ": a row of the source ", name, " connects through the same source: the row takes no server")
+		return "", nil
 	}
 	source := b.config.Source(name)
 	if source == nil {
-		return "", E.New("there is no source ", name, " to connect through")
+		b.warnOnce("rule ", rule, ": there is no source ", name, " to connect through: the row takes no server")
+		return "", nil
 	}
 	if !source.Filled() {
-		return "", E.New("the source ", name, " to connect through is not filled")
+		b.warnOnce("rule ", rule, ": the source ", name, " to connect through is not filled: the row takes no server")
+		return "", nil
 	}
 	servers, err := b.sourceServers(source)
 	if err != nil {

@@ -596,6 +596,24 @@ func (b *builder) buildRoute() (*object, error) {
 		b.addRouteRule("", newObject("action", "route", "ip_cidr", names.DeadEndAddress, "port", names.DeadEndPort, "outbound", tagDirectOutbound))
 	}
 
+	// The rules of direct and block at the top go before the devices left out and the devices
+	// routed whole, as the block and exclusion sections of 0.8 did (the conversion puts those
+	// sections first): a bank stays direct and ads stay blocked for every device. Below them
+	// the order of the rules decides for the lists only.
+	lead := 0
+	for lead < len(b.config.Sections) {
+		section := &b.config.Sections[lead]
+		if exit := b.config.Exit(section); section.Enabled && exit != model.ExitDirect && exit != model.ExitBlock {
+			break
+		}
+		lead++
+	}
+	for index := range lead {
+		err := b.buildSectionLists(&b.config.Sections[index])
+		if err != nil {
+			return nil, E.Cause(err, "section ", b.config.Sections[index].Name)
+		}
+	}
 	if len(settings.RoutingExcludedIPs) > 0 {
 		entry := b.addRouteRule("", newObject("action", "route", "inbound", tagTProxyInbound, "outbound", tagDirectOutbound))
 		for _, address := range settings.RoutingExcludedIPs {
@@ -612,7 +630,7 @@ func (b *builder) buildRoute() (*object, error) {
 			patch(entry.fields, "source_ip_cidr", argument(address))
 		}
 	}
-	for index := range b.config.Sections {
+	for index := lead; index < len(b.config.Sections); index++ {
 		err := b.buildSectionLists(&b.config.Sections[index])
 		if err != nil {
 			return nil, E.Cause(err, "section ", b.config.Sections[index].Name)

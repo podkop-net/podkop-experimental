@@ -330,6 +330,73 @@ config section 'plain'
 	}, rows(parsed, "yt"))
 }
 
+// A subscription named as a reserved source takes another name, in its groups too; a group of
+// no subscription that is there refuses the connections of its section, as 0.8 did.
+func TestConvertReservedAndMissingSubscriptions(t *testing.T) {
+	t.Parallel()
+	parsed, notes := convert(t, `
+config settings 'settings'
+
+config subscription 'direct'
+	option url 'https://sub.example/x'
+
+config group 'g'
+	list subscription 'direct'
+	list include 'NL'
+	option empty 'direct'
+
+config group 'gone'
+	list subscription 'nothere'
+
+config section 'yt'
+	option connection_type 'group'
+	option group 'g'
+
+config section 'lost'
+	option connection_type 'group'
+	option group 'gone'
+`)
+	require.Nil(t, parsed.Section("direct"))
+	require.Equal(t, "source", parsed.Section("direct_sub").Type)
+	require.Equal(t, "direct", parsed.Section("direct_sub").Get("label"))
+	require.Equal(t, []row{
+		{role: "server", source: "direct_sub", include: "NL"},
+		{role: "fallback", source: "direct"},
+	}, rows(parsed, "yt"))
+	require.Equal(t, []row{{role: "server", source: "block"}}, rows(parsed, "lost"))
+	joined := strings.Join(notes, "\n")
+	require.Contains(t, joined, "the subscription direct is the source direct_sub now")
+	require.Contains(t, joined, "the group gone of the section lost names no subscription that is there")
+}
+
+// A chain of two hops keeps the first: the note says the second is not kept.
+func TestConvertDetourChain(t *testing.T) {
+	t.Parallel()
+	parsed, notes := convert(t, `
+config settings 'settings'
+
+config section 'a'
+	option connection_type 'proxy'
+	option proxy_config_type 'url'
+	option proxy_string 'vless://u@a.example:443#A'
+	option detour 'b'
+
+config section 'b'
+	option connection_type 'proxy'
+	option proxy_config_type 'url'
+	option proxy_string 'vless://u@b.example:443#B'
+	option detour 'c'
+
+config section 'c'
+	option connection_type 'proxy'
+	option proxy_config_type 'url'
+	option proxy_string 'vless://u@c.example:443#C'
+`)
+	require.Equal(t, []row{{role: "server", source: "a_link", via: "b_link"}}, rows(parsed, "a"))
+	require.Equal(t, []row{{role: "server", source: "b_link", via: "c_link"}}, rows(parsed, "b"))
+	require.Contains(t, strings.Join(notes, "\n"), "the section a connected through b, which connected through c")
+}
+
 func TestNeeded(t *testing.T) {
 	t.Parallel()
 	require.True(t, Needed(parse(t, "config settings 'settings'\n")))

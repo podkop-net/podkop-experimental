@@ -255,6 +255,26 @@ func TestExitRepeatedRows(t *testing.T) {
 	require.Equal(t, []string{"x-out", "direct-out"}, ruleRoutes(config))
 }
 
+// The rules of direct and block at the top go before the devices routed whole, as the block and
+// exclusion sections of 0.8 did; a rule of direct below another goes after it.
+func TestFullyRoutedAfterLeadingDirectAndBlock(t *testing.T) {
+	t.Parallel()
+	tv := strings.Replace(ruleText("tv", row("server", "own")), "list user_domains 'tv.example'\n", "list user_domains 'tv.example'\n\tlist fully_routed_ips '192.168.1.50'\n", 1)
+	settings := "\nconfig source 'own'\n\toption type 'links'\n\tlist link 'vless://u@own.example:443#Own'\n" +
+		ruleText("bank", row("server", "direct")) + ruleText("ads", row("server", "block")) + tv + ruleText("late", row("server", "direct"))
+	result, err := buildRules(t, settings, nil)
+	require.NoError(t, err)
+	config, _ := outboundsOf(t, result)
+	require.Equal(t, []string{"direct-out", "reject", "tv-out", "tv-out", "direct-out"}, ruleRoutes(config))
+	var whole map[string]any
+	for _, rule := range config.Route.Rules {
+		if rule["source_ip_cidr"] != nil {
+			whole = rule
+		}
+	}
+	require.Equal(t, "tv-out", whole["outbound"])
+}
+
 func TestExitViaSourceOfSeveralServers(t *testing.T) {
 	t.Parallel()
 	settings := "\nconfig source 'pair'\n\toption type 'links'\n\tlist link 'vless://u@a.example:443#A'\n\tlist link 'vless://u@b.example:443#B'\n" +
@@ -289,13 +309,29 @@ func TestExitMistakes(t *testing.T) {
 		"\nconfig source 'warp'\n\toption type 'interface'\n\toption interface 'awg0'\n" +
 		"\nconfig source 'bad'\n\toption type 'links'\n\tlist link 'vless://u@bad.example:443#Bad'\n"
 	for _, testCase := range []struct{ rows, mistake string }{
-		{row("server", "one", "via one"), "connects through the same source"},
-		{row("server", "warp", "via one"), "does not connect through another source"},
-		{row("server", "one", "via gone"), "there is no source gone"},
 		{row("server", "bad"), "cannot use the proxy link 1 of the source bad"},
 	} {
 		_, err := buildRules(t, sources+ruleText("x", testCase.rows), nil)
 		require.ErrorContains(t, err, testCase.mistake)
+	}
+	// a row that cannot go the way it names takes no server: the rule goes by its fallback,
+	// and the rest of the settings run
+	for _, testCase := range []struct{ rows, warning string }{
+		{row("server", "one", "via one"), "rule x: a row of the source one connects through the same source: the row takes no server"},
+		{row("server", "warp", "via one"), "rule x: the interface of the source warp does not connect through another source: the row takes no server"},
+		{row("server", "one", "via gone"), "rule x: there is no source gone to connect through: the row takes no server"},
+		{row("server", "one", "via empty"), "rule x: the source empty to connect through is not filled: the row takes no server"},
+		{row("server", "odd"), "rule x: the source odd is of a type podkop does not know (wireguard): its row takes no server"},
+	} {
+		settings := sources + "\nconfig source 'empty'\n\toption type 'links'\n\nconfig source 'odd'\n\toption type 'wireguard'\n" +
+			ruleText("x", testCase.rows, row("fallback", "direct")) + ruleText("y", row("server", "one"))
+		result, err := buildRules(t, settings, nil)
+		require.NoError(t, err, testCase.warning)
+		require.Contains(t, result.Warnings, testCase.warning)
+		_, outbounds := outboundsOf(t, result)
+		require.Empty(t, outbounds["x-urltest-out"].Outbounds, testCase.warning)
+		require.Equal(t, []string{"direct-out"}, outbounds["x-urltest-out"].Fallbacks, testCase.warning)
+		require.Equal(t, []string{"one"}, outbounds["y-urltest-out"].Outbounds, testCase.warning)
 	}
 	_, err := buildRules(t, "\toption urltest_tolerance 'much'\n", nil)
 	require.ErrorContains(t, err, "tolerance")

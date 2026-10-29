@@ -70,6 +70,11 @@ func Convert(parsed *uci.Package) []string {
 	}
 	c.check(settings, sections)
 	for _, subscription := range subscriptions {
+		if subscription.Name == "direct" || subscription.Name == "block" {
+			c.rename(subscription)
+		}
+	}
+	for _, subscription := range subscriptions {
 		subscription.Type = "source"
 		subscription.Set("type", "subscription")
 		if subscription.Get("label") == "" {
@@ -132,6 +137,29 @@ type converter struct {
 	empty map[string]string
 	made  int
 	notes []string
+}
+
+// rename gives a subscription named as a reserved source (direct, block) another name, in the
+// groups that name it too; its list is downloaded again under the new name.
+func (c *converter) rename(subscription *uci.Section) {
+	old := subscription.Name
+	subscription.Name = c.name(old + "_sub")
+	for _, group := range c.parsed.Sections {
+		if group.Type != "group" {
+			continue
+		}
+		words := listWords(group, "subscription")
+		for index, word := range words {
+			if word == old {
+				words[index] = subscription.Name
+			}
+		}
+		group.SetList("subscription", words)
+	}
+	if subscription.Get("label") == "" {
+		subscription.Set("label", old)
+	}
+	c.note("the subscription %s is the source %s now: %s names the outbound of the same name", old, subscription.Name, old)
 }
 
 func (c *converter) note(format string, arguments ...any) {
@@ -293,6 +321,12 @@ func (c *converter) group(section *uci.Section) {
 			subscriptions = append(subscriptions, subscription)
 		}
 	}
+	if empty := group.Get("empty"); len(subscriptions) == 0 && (empty == "" || empty == "all") {
+		// a group of no subscription that is there had no server: 0.8 refused the connections
+		c.note("the group %s of the section %s names no subscription that is there: the connections of %s are refused, as they were", words[0], name, name)
+		c.member(name, "server", "block")
+		return
+	}
 	include, exclude := listWords(group, "include"), listWords(group, "exclude")
 	for _, subscription := range subscriptions {
 		member := c.member(name, "server", subscription)
@@ -357,6 +391,9 @@ func (c *converter) detour(section *uci.Section) {
 		return
 	}
 	via := c.primary[target]
+	if next := c.parsed.Section(target); via != "" && next != nil && next.Get("detour") != "" && next.Get("detour") != target {
+		c.note("the section %s connected through %s, which connected through %s: a row goes through one source now, %s connects through the server of %s directly", section.Name, target, next.Get("detour"), section.Name, target)
+	}
 	if via == "" {
 		c.note("the section %s connected through the section %s, which has no server now: %s connects directly", section.Name, target, section.Name)
 		return

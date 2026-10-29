@@ -57,6 +57,9 @@ type Source struct {
 
 // Filled tells whether the source names servers: a source the page added and the user has
 // not filled yet names none.
+// SourceTypes are the types of a source; a source without one is not filled yet.
+var SourceTypes = []string{"subscription", "links", "json", "interface"}
+
 func (s *Source) Filled() bool {
 	switch s.Type {
 	case "subscription":
