@@ -169,7 +169,7 @@ describe('getDashboardSections, group section', () => {
     expect(result.data[0].outbounds[0].selected).toBe(true);
   });
 
-  it('shows no server of a group that refuses', async () => {
+  it('shows no server of a group the running configuration does not have', async () => {
     getConfigSections.mockResolvedValue([
       { '.name': 'youtube', connection_type: 'group', group: 'nl' },
     ]);
@@ -180,5 +180,59 @@ describe('getDashboardSections, group section', () => {
 
     const result = await getDashboardSections();
     expect(result.data[0].outbounds).toEqual([]);
+  });
+
+  it('shows a group that chose no server and refuses as refused', async () => {
+    getConfigSections.mockResolvedValue([
+      { '.name': 'youtube', connection_type: 'group', group: 'nl' },
+    ]);
+    PodkopShellMethods.getClashApiProxies.mockResolvedValue({
+      success: true,
+      data: {
+        proxies: {
+          'youtube-out': proxy('youtube-out', {
+            type: 'Selector',
+            now: 'block',
+            all: ['block'],
+          }),
+          block: proxy('block', { type: 'Reject' }),
+        },
+      },
+    });
+
+    const result = await getDashboardSections();
+    expect(result.data[0].code).toBe('youtube-out');
+    expect(
+      result.data[0].outbounds.map((outbound) => [
+        outbound.code,
+        outbound.displayName,
+        outbound.selected,
+      ]),
+    ).toEqual([['block', 'Refused: the group has no server', true]]);
+  });
+
+  it('shows a group that goes as the section named block as that section', async () => {
+    getConfigSections.mockResolvedValue([
+      { '.name': 'youtube', connection_type: 'group', group: 'nl' },
+      { '.name': 'block', connection_type: 'proxy' },
+    ]);
+    PodkopShellMethods.getClashApiProxies.mockResolvedValue({
+      success: true,
+      data: {
+        proxies: {
+          'youtube-out': proxy('youtube-out', {
+            type: 'Selector',
+            now: 'block-out',
+            all: ['block-out'],
+          }),
+          'block-out': proxy('block-out', { type: 'Socks' }),
+        },
+      },
+    });
+
+    const result = await getDashboardSections();
+    expect(
+      result.data[0].outbounds.map((outbound) => outbound.displayName),
+    ).toEqual(['block-out']);
   });
 });
