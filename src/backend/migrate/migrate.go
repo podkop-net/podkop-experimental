@@ -72,6 +72,10 @@ func Convert(parsed *uci.Package) []string {
 	for _, subscription := range subscriptions {
 		subscription.Type = "source"
 		subscription.Set("type", "subscription")
+		if subscription.Get("label") == "" {
+			// the user named a subscription of 0.8 by its section; the page shows the label
+			subscription.Set("label", subscription.Name)
+		}
 		if subscription.Get("update_interval") == "" {
 			// what the backend of 0.8 took for a subscription without one
 			subscription.Set("update_interval", "12h")

@@ -179,6 +179,7 @@ config section 'sel_links'
 	require.Equal(t, "subscription", parsed.Section("prov1").Get("type"))
 	require.Equal(t, "12h", parsed.Section("prov1").Get("update_interval"))
 	require.Equal(t, "1h", parsed.Section("prov2").Get("update_interval"))
+	require.Equal(t, "prov1", parsed.Section("prov1").Get("label"))
 	require.Empty(t, parsed.SectionsOfType("group"))
 	require.Empty(t, parsed.SectionsOfType("subscription"))
 
