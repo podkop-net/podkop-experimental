@@ -151,9 +151,11 @@ function listsLines(grid, section_id) {
   return lines;
 }
 
-// A rule added on the page gets a row of the servers: the first source
+// A rule added on the page gets a row of the servers: the first source that is filled, else the
+// first one
 function ruleAdded(name) {
-  const first = uci.sections("podkop", "source")[0];
+  const sources = uci.sections("podkop", "source");
+  const first = sources.find((item) => main.sourceFilled(item)) || sources[0];
   if (!first) {
     return;
   }

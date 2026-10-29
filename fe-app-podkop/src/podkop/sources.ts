@@ -429,8 +429,8 @@ export function validateRoutingMark(value: string): string {
 }
 
 // Where the traffic of a rule goes, as the backend tells it (Config.Exit): 'direct' or
-// 'block' (its one row of the servers is that), 'servers' (an outbound of its own), or ''
-// (no row names a filled source yet: the rule does nothing)
+// 'block' (its rows of the servers are all that, with no fallback), 'servers' (an outbound of
+// its own), or '' (no row names a filled source yet: the rule does nothing)
 export function ruleExit(
   rule: Podkop.ConfigRule,
   sources: Podkop.ConfigSource[],
@@ -439,9 +439,12 @@ export function ruleExit(
   const rows = members.filter((row) => row.section === rule['.name']);
   const servers = rows.filter((row) => row.role !== 'fallback');
   const fallbacks = rows.filter((row) => row.role === 'fallback');
-  if (servers.length === 1 && !fallbacks.length) {
-    if (servers[0].source === ROW_DIRECT) return 'direct';
-    if (servers[0].source === ROW_BLOCK) return 'block';
+  if (servers.length && !fallbacks.length) {
+    for (const only of [ROW_DIRECT, ROW_BLOCK]) {
+      if (servers.every((row) => row.source === only)) {
+        return only === ROW_DIRECT ? 'direct' : 'block';
+      }
+    }
   }
   for (const row of [...servers, ...fallbacks]) {
     if (row.source === ROW_DIRECT || row.source === ROW_BLOCK) {

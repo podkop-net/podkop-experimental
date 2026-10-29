@@ -73,14 +73,24 @@ export function linkLabel(link: string): string {
 }
 
 // checkLinksBeforeSave asks the router about the links of the sources and returns those its
-// engine refuses. A link of a wrong form is left to the window of its source (LuCI refuses
-// to save it there); when the router does not answer, nothing is refused.
+// engine refuses, and those of a wrong form (text typed in a source that detects its type is
+// written with a check of its scheme only). When the router does not answer, only the links
+// of a wrong form are refused.
 export async function checkLinksBeforeSave(
   sources: Podkop.ConfigSource[],
 ): Promise<LinkProblem[]> {
-  const places = linkPlaces(sources);
-  if (!places.length) return [];
-  if (places.some((place) => !validateProxyUrl(place.link).valid)) return [];
+  const all = linkPlaces(sources);
+  const malformed: LinkProblem[] = [];
+  const places: LinkPlace[] = [];
+  for (const place of all) {
+    const form = validateProxyUrl(place.link);
+    if (form.valid) {
+      places.push(place);
+    } else {
+      malformed.push({ ...place, error: form.message });
+    }
+  }
+  if (!places.length) return malformed;
   const links = [...new Set(places.map((place) => place.link))];
   try {
     const results = new Map<string, Podkop.LinkCheck>();
@@ -92,20 +102,26 @@ export async function checkLinksBeforeSave(
         answer.data.length !== part.length
       ) {
         logger.warn('[LINKS]', 'the router did not check the links');
-        return [];
+        return malformed;
       }
       part.forEach((link, index) => results.set(link, answer.data[index]));
     }
-    return places
+    const refused = places
       .filter((place) => !results.get(place.link)?.ok)
       .map((place) => ({
         ...place,
         error:
           results.get(place.link)?.error || _('the engine refuses this link'),
       }));
+    // in the order of the sources and their links
+    const at = (place: LinkPlace) => (item: LinkPlace) =>
+      item.section === place.section && item.index === place.index;
+    return all
+      .map((place) => malformed.find(at(place)) || refused.find(at(place)))
+      .filter((item): item is LinkProblem => !!item);
   } catch (err) {
     logger.warn('[LINKS]', 'the router did not check the links:', err);
-    return [];
+    return malformed;
   }
 }
 

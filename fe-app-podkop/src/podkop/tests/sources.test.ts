@@ -236,6 +236,18 @@ describe('ruleExit and ruleRowProblems', () => {
         { section: 'r', role: 'fallback', source: 'block' },
       ]),
     ).toBe('servers');
+    expect(
+      exit([
+        { section: 'r', source: 'direct' },
+        { section: 'r', source: 'direct' },
+      ]),
+    ).toBe('direct');
+    expect(
+      exit([
+        { section: 'r', source: 'direct' },
+        { section: 'r', source: 'block' },
+      ]),
+    ).toBe('servers');
     expect(exit([{ section: 'r', source: 'src2' }])).toBe('');
     expect(exit([{ section: 'r', source: 'gone' }])).toBe('');
     expect(exit([{ section: 'r', source: 'src1' }])).toBe('servers');

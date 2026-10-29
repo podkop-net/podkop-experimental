@@ -23,16 +23,26 @@
 // The sources, the rules and their rows are sections of one file, and its names are one
 // namespace: a source named as a rule would merge into it. A new source or rule gets the first
 // name of its kind that no section has (src1, src2…, rule1, rule2…); direct and block name
-// where a row goes without a server and are never given.
+// where a row goes without a server and are never given. Nor is a name rows or the settings
+// still name (a source deleted keeps the rows that show it as deleted): the new section would
+// take them over silently.
 function freeName(prefix) {
   const deleted =
     (uci.state && uci.state.deletes && uci.state.deletes.podkop) || {};
+  const named = new Set(
+    [uci.get("podkop", "settings", "download_lists_via_proxy_section")].concat(
+      ...uci
+        .sections("podkop", "member")
+        .map((row) => [row.section, row.source, row.via]),
+    ),
+  );
   for (let index = 1; ; index++) {
     const name = prefix + index;
     if (
       !main.RESERVED_NAMES.includes(name) &&
       !uci.get("podkop", name) &&
-      !deleted[name]
+      !deleted[name] &&
+      !named.has(name)
     ) {
       return name;
     }
@@ -98,6 +108,15 @@ function gridSection(grid, prefix, hooks) {
   const map = grid.map;
   grid.handleAdd = function () {
     return stage(map).then(() => {
+      // a section waiting to be filled (the empty source of a fresh install, which the rule
+      // main names) opens instead of a new one: filled in a new one, it would go nowhere
+      const waiting = hooks.waiting ? hooks.waiting() : null;
+      if (waiting) {
+        return form.GridSection.prototype.renderMoreOptionsModal.call(
+          this,
+          waiting,
+        );
+      }
       const name = freeName(prefix);
       map.data.add("podkop", this.sectiontype, name);
       if (hooks.added) {
@@ -197,6 +216,7 @@ const EntryPoint = {
     source.createSourceContent(sourcesSection, singBoxFeatures);
     gridSection(sourcesSection, "src", {
       removed: (name) => source.sourceRemoved(name),
+      waiting: () => source.sourceWaiting(),
     });
 
     // Rules tab: which sites go through which servers

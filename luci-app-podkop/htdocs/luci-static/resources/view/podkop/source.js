@@ -801,6 +801,17 @@ function sourceRemoved(name) {
   }
 }
 
+// A source a rule names that is not filled yet (src1 of a fresh install): Add opens it
+function sourceWaiting() {
+  const named = new Set(
+    uci.sections("podkop", "member").map((row) => row.source),
+  );
+  const waiting = uci
+    .sections("podkop", "source")
+    .find((item) => named.has(item[".name"]) && !main.sourceFilled(item));
+  return waiting ? waiting[".name"] : null;
+}
+
 // The options that hold the values of one type are kept when the type is "detect": the text
 // pasted decides then (option _paste), and it writes them itself.
 function keptWhilePasting(option) {
@@ -1306,6 +1317,7 @@ function createSourceContent(section) {
 const EntryPoint = {
   createSourceContent,
   sourceRemoved,
+  sourceWaiting,
 };
 
 return baseclass.extend(EntryPoint);

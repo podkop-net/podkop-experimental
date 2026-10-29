@@ -112,12 +112,19 @@ describe('checkLinksBeforeSave', () => {
     ]);
   });
 
-  it('asks nothing when a link has a wrong form: the window of the source refuses it', async () => {
+  it('refuses a link of a wrong form and asks about the others', async () => {
     const problems = await checkLinksBeforeSave([
       links('src1', [KCP, 'vless://no-port@192.0.2.1']),
+      links('src2', [GOOD]),
     ]);
-    expect(problems).toEqual([]);
-    expect(asked).toEqual([]);
+    expect(asked).toEqual([[KCP, GOOD]]);
+    expect(problems.map((problem) => [problem.section, problem.index])).toEqual(
+      [
+        ['src1', 1],
+        ['src1', 2],
+      ],
+    );
+    expect(problems[1].error).not.toBe('');
   });
 
   it('asks nothing when no source has links', async () => {

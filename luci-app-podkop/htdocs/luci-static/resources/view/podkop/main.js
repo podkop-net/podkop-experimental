@@ -973,9 +973,12 @@ function ruleExit(rule, sources, members) {
   const rows = members.filter((row) => row.section === rule[".name"]);
   const servers = rows.filter((row) => row.role !== "fallback");
   const fallbacks = rows.filter((row) => row.role === "fallback");
-  if (servers.length === 1 && !fallbacks.length) {
-    if (servers[0].source === ROW_DIRECT) return "direct";
-    if (servers[0].source === ROW_BLOCK) return "block";
+  if (servers.length && !fallbacks.length) {
+    for (const only of [ROW_DIRECT, ROW_BLOCK]) {
+      if (servers.every((row) => row.source === only)) {
+        return only === ROW_DIRECT ? "direct" : "block";
+      }
+    }
   }
   for (const row of [...servers, ...fallbacks]) {
     if (row.source === ROW_DIRECT || row.source === ROW_BLOCK) {
@@ -4840,9 +4843,18 @@ function linkLabel(link) {
   return name ? `\xAB${name}\xBB (${kind})` : kind;
 }
 async function checkLinksBeforeSave(sources) {
-  const places = linkPlaces(sources);
-  if (!places.length) return [];
-  if (places.some((place) => !validateProxyUrl(place.link).valid)) return [];
+  const all = linkPlaces(sources);
+  const malformed = [];
+  const places = [];
+  for (const place of all) {
+    const form = validateProxyUrl(place.link);
+    if (form.valid) {
+      places.push(place);
+    } else {
+      malformed.push({ ...place, error: form.message });
+    }
+  }
+  if (!places.length) return malformed;
   const links = [...new Set(places.map((place) => place.link))];
   try {
     const results = /* @__PURE__ */ new Map();
@@ -4850,17 +4862,19 @@ async function checkLinksBeforeSave(sources) {
       const answer = await PodkopShellMethods.checkLinks(part);
       if (!answer.success || !Array.isArray(answer.data) || answer.data.length !== part.length) {
         logger.warn("[LINKS]", "the router did not check the links");
-        return [];
+        return malformed;
       }
       part.forEach((link, index) => results.set(link, answer.data[index]));
     }
-    return places.filter((place) => !results.get(place.link)?.ok).map((place) => ({
+    const refused = places.filter((place) => !results.get(place.link)?.ok).map((place) => ({
       ...place,
       error: results.get(place.link)?.error || _("the engine refuses this link")
     }));
+    const at = (place) => (item) => item.section === place.section && item.index === place.index;
+    return all.map((place) => malformed.find(at(place)) || refused.find(at(place))).filter((item) => !!item);
   } catch (err) {
     logger.warn("[LINKS]", "the router did not check the links:", err);
-    return [];
+    return malformed;
   }
 }
 var PART_BYTES = 4e4;
