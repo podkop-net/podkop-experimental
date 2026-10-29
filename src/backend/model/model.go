@@ -431,6 +431,17 @@ func (c *Config) Exit(s *Section) string {
 	return ExitNone
 }
 
+// Routes tells whether a rule that is on goes somewhere. Without one sing-box has nothing to
+// do (a fresh install, every source emptied) and the router is left alone.
+func (c *Config) Routes() bool {
+	for index := range c.Sections {
+		if c.Sections[index].Enabled && c.Exit(&c.Sections[index]) != ExitNone {
+			return true
+		}
+	}
+	return false
+}
+
 // HasOutbound tells whether traffic of the rule leaves through an outbound of its own.
 func (c *Config) HasOutbound(s *Section) bool {
 	return s.Enabled && c.Exit(s) == ExitServers

@@ -472,6 +472,43 @@ func TestBootWithUnusableSettings(t *testing.T) {
 	require.Equal(t, "stopped", f.state())
 }
 
+// Settings whose rules name no filled source (those of a fresh install) leave the router alone
+// without an error; a source filled brings the backend up, and emptied again gives the router
+// back.
+func TestNothingToRoute(t *testing.T) {
+	f := newFixture(t)
+	s := f.supervisor
+	write := func(link string) {
+		text := "config settings 'settings'\n\toption config_version '2'\n\toption dns_type 'udp'\n\toption dns_server '127.0.0.1:9'\n" +
+			"\toption cache_path '" + filepath.Join(f.directory, "cache.db") + "'\n" +
+			"\nconfig source 'src1'\n" + link +
+			"\nconfig section 'main'\n" + oneName +
+			"\nconfig member\n\toption section 'main'\n\toption role 'server'\n\toption source 'src1'\n"
+		require.NoError(t, os.WriteFile(s.options.SettingsPath, []byte(text), 0o644))
+	}
+	write("")
+	result := s.Boot()
+	require.True(t, result.OK, result.Message)
+	require.False(t, s.Running())
+	require.Equal(t, []string{"no dns", "no firewall", "no routing"}, f.system.take())
+	require.Equal(t, "released", f.state())
+	require.False(t, f.logged("[error]"), "%v", f.lines())
+	require.True(t, f.logged("no rule has a server yet"), "%v", f.lines())
+	write("\toption type 'links'\n\tlist link 'socks5://u:p@203.0.113.15:1080#s5'\n")
+	require.True(t, s.Apply().OK, "%v", f.lines())
+	require.True(t, s.Running())
+	require.Equal(t, []string{"routing", "firewall", "dns"}, f.system.take())
+	require.True(t, answer("one.lab.example"))
+	write("")
+	result = s.Apply()
+	require.True(t, result.OK, result.Message)
+	require.False(t, s.Running())
+	require.Equal(t, []string{"no dns", "no firewall", "no routing"}, f.system.take())
+	require.Equal(t, "released", f.state())
+	require.False(t, answer("one.lab.example"))
+	s.Stop()
+}
+
 // A fault while the settings are read refuses them as unusable settings are refused: the
 // process stays, and procd does not start it again and again on the same settings.
 func TestBootSurvivesAFault(t *testing.T) {

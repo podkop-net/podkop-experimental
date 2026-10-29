@@ -1058,6 +1058,9 @@ func (s *Supervisor) prepare(checked bool) (next *candidate, err error) {
 	// a configuration checked after a swap sing-box refused is built again: its warnings were told
 	s.clashKey(settings, !checked)
 	s.syncSubscriptions(settings)
+	if !settings.Routes() {
+		return nil, errNothingToRoute
+	}
 	servers := s.servers()
 	facts := plan.Facts{LANAddress: s.options.System.LANAddress(), Devices: s.options.System.Devices(plan.InterfaceNames(settings)), NTPServerNames: s.options.System.NTPServerNames()}
 	if facts.Devices == nil && s.current != nil {
@@ -1334,6 +1337,9 @@ func (s *Supervisor) Boot() Result {
 	// what a backend before this one kept is what ran last, not what runs
 	s.retireConfig()
 	next, err := s.prepare(false)
+	if errors.Is(err, errNothingToRoute) {
+		return s.idle(nil)
+	}
 	if err != nil {
 		s.log("error", "the settings cannot be used: ", err)
 		s.failed, s.failures = false, 0
@@ -1659,6 +1665,9 @@ func (s *Supervisor) apply(force bool) Result {
 	s.writeState(stateApplying)
 	current := s.current
 	next, err := s.prepare(false)
+	if errors.Is(err, errNothingToRoute) {
+		return s.idle(current)
+	}
 	if err == nil && next.hot != nil && force {
 		// not to be taken while sing-box runs: checked as any configuration that starts
 		next, err = s.prepare(true)
@@ -1742,6 +1751,23 @@ func (s *Supervisor) apply(force bool) Result {
 		s.log("error", err)
 	}
 	return s.done(false, true, "the new configuration does not come up, the previous one runs again: ", failure)
+}
+
+// errNothingToRoute: no rule that is on names a filled source, direct or block.
+var errNothingToRoute = E.New("no rule has a server yet")
+
+// idle leaves the router alone while no rule goes anywhere (errNothingToRoute): what ran is
+// closed and the router given back, as settings that cannot be used leave it at a boot, but
+// nothing has failed: the page asks for a source.
+func (s *Supervisor) idle(current *running) Result {
+	s.current = nil
+	s.failed, s.failures = false, 0
+	s.release()
+	if current != nil && !s.close(current.instance) {
+		return s.done(false, false, "sing-box does not close: the router is given back, the process has to end")
+	}
+	s.log("info", errNothingToRoute, ": the router is left alone until a source is filled")
+	return s.done(true, false, errNothingToRoute, ": the router is left alone until a source is filled")
 }
 
 // Stop takes everything back. The DNS of the LAN first: whatever happens after, the
