@@ -43,4 +43,9 @@ if [ -n "$new" ]; then
 	fi
 fi
 uci -q commit podkop
+
+# The settings of podkop 0.7 and of podkop-exp up to 0.8.7 take the format of 0.9: the servers
+# of a section move to the tab Servers (sources) and to the rows of the section (members).
+# The old file stays as /etc/config/podkop.pre-0.9. Settings of the format already are left alone.
+/usr/bin/podkop migrate 2>&1 | logger -t podkop
 exit 0

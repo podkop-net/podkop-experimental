@@ -17,9 +17,13 @@ type Package struct {
 
 // Section is a "config <type> '<name>'" block.
 type Section struct {
-	Type    string
-	Name    string
-	options map[string]*option
+	Type string
+	Name string
+	// Anonymous is a section written without a name: Name is the one libuci gives it.
+	Anonymous bool
+	options   map[string]*option
+	// order keeps the options in the order of the file, for Format
+	order []string
 }
 
 type option struct {
@@ -118,7 +122,7 @@ func Parse(content []byte) (*Package, error) {
 			}
 			if len(words) == 2 || words[2] == "" {
 				made++
-				current = &Section{Name: anonymousName(made, words[1]), options: make(map[string]*option)}
+				current = &Section{Name: anonymousName(made, words[1]), Anonymous: true, options: make(map[string]*option)}
 				result.Sections = append(result.Sections, current)
 			} else {
 				current = result.Section(words[2])
@@ -137,6 +141,9 @@ func Parse(content []byte) (*Package, error) {
 				return nil, E.New("line ", line, ": ", words[0], " takes a name and a value")
 			}
 			found := current.options[words[1]]
+			if found == nil {
+				current.order = append(current.order, words[1])
+			}
 			if words[0] == "option" || found == nil {
 				current.options[words[1]] = &option{list: words[0] == "list", values: []string{words[2]}}
 			} else {
