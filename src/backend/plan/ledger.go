@@ -88,11 +88,12 @@ import (
 // 17. Since podkop-exp 0.9 the servers are sources and rows of rules (exits.go): a server
 //     is an outbound once, and once more for each source its rows connect through; a rule
 //     goes through the selector "<rule>-out" over a URL test of the servers of its rows with
-//     its fallback rows in order, the server check one for every rule; a rule whose one row
-//     is direct or block is a route rule of its own at its place in the order of the rules.
-//     The shell backend built the outbounds of each section from its own links, and put the
-//     rules of the block and exclusion sections before all others: the cases are not
-//     compared since (render.TestCases).
+//     its fallback rows in order, the server check one for every rule; a rule whose rows of
+//     the servers are all direct or all block is a route rule of its own at its place in the
+//     order of the rules, and those at the top go before the devices left out and routed
+//     whole, as the block and exclusion sections did. The shell backend built the outbounds
+//     of each section from its own links, and put the rules of the block and exclusion
+//     sections before all others: the cases are not compared since (render.TestCases).
 
 // Shell is what FromShell has to know besides the configuration: the settings it was made
 // of, and how the generator reads and names the local lists (Options: RuleSetDir,
