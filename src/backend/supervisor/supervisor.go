@@ -33,6 +33,7 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/engine"
 	"github.com/podkop-net/podkop-experimental/src/backend/firewall"
 	"github.com/podkop-net/podkop-experimental/src/backend/lists"
+	"github.com/podkop-net/podkop-experimental/src/backend/migrate"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/plan"
 	"github.com/podkop-net/podkop-experimental/src/backend/probe"
@@ -1030,6 +1031,15 @@ func (s *Supervisor) prepare(checked bool) (next *candidate, err error) {
 		}
 	}()
 	s.keepConfig(RejectedConfig, nil)
+	// settings of an older format (a backup of 0.8 restored) are converted as the install
+	// converts them: the old file is kept beside them
+	notes, err := migrate.File(s.options.SettingsPath)
+	if err != nil {
+		return nil, E.Cause(err, "convert the settings to the format of this version")
+	}
+	for _, note := range notes {
+		s.log("warn", note)
+	}
 	content, err := os.ReadFile(s.options.SettingsPath)
 	if err != nil {
 		return nil, E.Cause(err, "read the settings")

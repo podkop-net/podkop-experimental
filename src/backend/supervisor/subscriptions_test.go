@@ -218,10 +218,10 @@ func TestSubscriptionRoutes(t *testing.T) {
 		names = append(names, route.Name)
 	}
 	// a way is named as the page names the outbound: the server, or the section of a link
-	require.Equal(t, []string{"direct", "prov1: NL 2", "prov1: NL 1", "main"}, names)
+	require.Equal(t, []string{"direct", "prov1: NL 2", "prov1: NL 1", "main_link"}, names)
 	// the way that brought the list the last time first among the servers
-	routes, _ = s.routes(3, "main")
-	require.Equal(t, "main", routes[1].Name)
+	routes, _ = s.routes(3, "main_link")
+	require.Equal(t, "main_link", routes[1].Name)
 	// direct goes through direct-out of sing-box while it runs
 	fake.dial = func(ctx context.Context, tag string, address string) (net.Conn, error) { return nil, os.ErrClosed }
 	_, _ = routes[0].Dial(context.Background(), "tcp", "sub.example:443")
@@ -249,9 +249,9 @@ func TestSubscriptionRoutes(t *testing.T) {
 	// nothing reaches it: the list there was stays, the error is told with its code (the
 	// server that brought the list is gone with it: the order of the delays)
 	source.asked = nil
-	source.refused = []string{"direct", "prov1: NL 1", "prov1: NL 2", "main"}
+	source.refused = []string{"direct", "prov1: NL 1", "prov1: NL 2", "main_link"}
 	downloadNow(t, s)
-	require.Equal(t, []string{"direct", "prov1: NL 1", "main"}, source.asked)
+	require.Equal(t, []string{"direct", "prov1: NL 1", "main_link"}, source.asked)
 	require.True(t, source.plans[len(source.plans)-1].Together)
 	state = s.subscriptionStates()[0]
 	require.NotEmpty(t, state.Error)
@@ -274,7 +274,7 @@ func TestSubscriptionRetriesAndPlaces(t *testing.T) {
 
 	directory := t.TempDir()
 	fake, system := &fakeEngine{refuse: map[string]error{}}, new(recorder)
-	source := &provider{body: "vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\n", refused: []string{"direct", "main"}}
+	source := &provider{body: "vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\n", refused: []string{"direct", "main_link"}}
 	options := Options{
 		SettingsPath: filepath.Join(directory, "podkop"), RuleSetDir: filepath.Join(directory, "rulesets"),
 		StagingDir: filepath.Join(directory, "candidate"), StatePath: filepath.Join(directory, "state"),
@@ -364,9 +364,10 @@ func TestSubscriptionPreviews(t *testing.T) {
 	asked = len(source.asked)
 	settings, err := os.ReadFile(options.SettingsPath)
 	require.NoError(t, err)
-	settings = append(settings, []byte("\nconfig subscription 'fresh'\n\toption url 'https://other.example/sub/X'\n"+
-		"\nconfig group 'fresh_all'\n\tlist subscription 'fresh'\n"+
-		"\nconfig section 'third'\n\toption connection_type 'group'\n\toption group 'fresh_all'\n\toption user_domain_list_type 'dynamic'\n\tlist user_domains 'third.lab.example'\n")...)
+	// the daemon converted the file at the boot: what the page adds is of the format 2
+	settings = append(settings, []byte("\nconfig source 'fresh'\n\toption type 'subscription'\n\toption url 'https://other.example/sub/X'\n"+
+		"\nconfig section 'third'\n\toption user_domain_list_type 'dynamic'\n\tlist user_domains 'third.lab.example'\n"+
+		"\nconfig member\n\toption section 'third'\n\toption role 'server'\n\toption source 'fresh'\n")...)
 	require.NoError(t, os.WriteFile(options.SettingsPath, settings, 0o644))
 	require.True(t, s.Apply().OK)
 	require.Contains(t, string(s.current.result.Config), `"fresh: NL 1"`)

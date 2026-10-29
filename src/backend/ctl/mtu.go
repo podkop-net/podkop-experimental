@@ -48,17 +48,25 @@ var somewhereOutside = netip.MustParseAddr("192.0.2.1")
 // pass, a TLS handshake does not (AmneziaWG 2.0 adds the padding S4 to every packet, and
 // the interface keeps the MTU of 1420 that WireGuard has). Nothing is changed: the hint
 // names the MTU to set.
-func vpnMTUHints(sections []model.Section, results []string, network *uci.Package, devices map[string]string, facts mtuFacts) []string {
+func vpnMTUHints(config *model.Config, results []string, network *uci.Package, devices map[string]string, facts mtuFacts) []string {
 	if network == nil {
 		return nil
 	}
 	var hints []string
-	for _, section := range sections {
-		if section.ConnectionType != "vpn" || section.Interface == "" || !failed(results, section.Name) {
+	seen := make(map[string]bool)
+	for _, section := range config.Sections {
+		if !failed(results, section.Name) {
 			continue
 		}
-		if hint := vpnMTUHint(section.Interface, network, devices, facts); hint != "" {
-			hints = append(hints, hint)
+		for _, row := range section.Servers {
+			source := config.Source(row.Source)
+			if source == nil || source.Type != "interface" || source.Interface == "" || seen[source.Interface] {
+				continue
+			}
+			seen[source.Interface] = true
+			if hint := vpnMTUHint(source.Interface, network, devices, facts); hint != "" {
+				hints = append(hints, hint)
+			}
 		}
 	}
 	return hints

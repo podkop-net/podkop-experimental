@@ -18,24 +18,16 @@ func ruleSetTag(section string, name string, kind string) string {
 
 // buildSectionLists makes the rule sets of a section and the route rule they belong to.
 func (b *builder) buildSectionLists(section *model.Section) error {
+	if !b.routes(section) {
+		return nil
+	}
 	if !section.HasEnabledLists() {
-		// a section only other sections connect through needs none
-		if !b.isTransit(section.Name) {
-			b.warn("section ", section.Name, " has no list: no route rule for it")
+		if len(section.FullyRoutedIPs) == 0 && !section.MixedProxyEnabled {
+			b.warn("rule ", section.Name, " has no list: no route rule for it")
 		}
 		return nil
 	}
-	var target *rule
-	switch section.ConnectionType {
-	case "proxy", "vpn", "group":
-		target = b.addRouteRule("section "+section.Name, b.sectionRoute(section, tagTProxyInbound))
-	case "block":
-		target = b.routeRule(nameRejectRule)
-	case "exclusion":
-		target = b.routeRule(nameExclusionRule)
-	default:
-		return E.New("unknown connection type \"", section.ConnectionType, "\"")
-	}
+	target := b.addRouteRule("section "+section.Name, b.sectionRoute(section, tagTProxyInbound))
 
 	for _, list := range section.CommunityLists {
 		if !slices.Contains(communityLists, list) {
@@ -105,8 +97,8 @@ func (b *builder) downloadDetour() string {
 		return ""
 	}
 	name := b.config.Settings.DownloadListsViaProxySection
-	if section := b.config.Section(name); section != nil && b.isRefused(section) {
-		b.warnOnce("the lists are downloaded directly: section ", name, " refuses its connections")
+	if section := b.config.Section(name); section != nil && (!b.config.HasOutbound(section) || b.isRefused(section)) {
+		b.warnOnce("the lists are downloaded directly: rule ", name, " has no servers now")
 		return ""
 	}
 	return outboundTag(name)

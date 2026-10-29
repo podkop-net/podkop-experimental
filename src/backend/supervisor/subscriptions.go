@@ -130,7 +130,10 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config) {
 	}
 	var names []string
 	now := time.Now()
-	for _, item := range settings.Subscriptions {
+	for _, item := range settings.Sources {
+		if item.Type != "subscription" || item.URL == "" {
+			continue
+		}
 		names = append(names, item.Name)
 		t.intervals[item.Name] = parseInterval(item.UpdateInterval)
 		if t.addresses[item.Name] == item.URL && t.states[item.Name] != nil {
@@ -212,10 +215,27 @@ func usable(servers []subscription.Server) int {
 	return count
 }
 
+// interval is how often the list of a subscription is downloaded again: as the settings say,
+// or for auto as the provider asks in its header profile-update-interval (hours), a day when
+// it asks nothing. The caller holds access.
+func (t *subscriptions) interval(name string) time.Duration {
+	if interval := t.intervals[name]; interval > 0 {
+		return interval
+	}
+	if state := t.states[name]; state != nil && state.Provider != nil && state.Provider.UpdateHours > 0 {
+		return time.Duration(state.Provider.UpdateHours) * time.Hour
+	}
+	return 24 * time.Hour
+}
+
 // parseInterval reads an update interval of the settings: a number of minutes, hours or
-// days (30m, 12h, 1d). What cannot be read is 12 hours; less than ten minutes is ten.
+// days (20m, 12h, 1d), or auto, which is 0 (see interval). What cannot be read is 12 hours;
+// less than ten minutes is ten.
 func parseInterval(text string) time.Duration {
 	text = strings.TrimSpace(text)
+	if text == "auto" {
+		return 0
+	}
 	units := map[byte]time.Duration{'m': time.Minute, 'h': time.Hour, 'd': 24 * time.Hour}
 	if len(text) < 2 || units[text[len(text)-1]] == 0 {
 		return 12 * time.Hour
@@ -401,17 +421,17 @@ func (s *Supervisor) takeList(result downloaded) {
 	}
 	state.Busy = false
 	now := time.Now()
-	next := now.Add(t.intervals[result.name])
+	next := now.Add(t.interval(result.name))
 	state.Attempted, state.Attempts = &now, attempts(result.tries)
 	if result.err != nil {
 		if t.failures == nil {
 			t.failures = make(map[string]int)
 		}
 		t.failures[result.name]++
-		next = now.Add(min(downloadRetry, t.intervals[result.name]))
+		next = now.Add(min(downloadRetry, t.interval(result.name)))
 		if t.lists[result.name] == nil {
 			// no list at all: the groups of the subscription go by their rule for no server
-			next = now.Add(min(downloadBackoff(t.failures[result.name]), t.intervals[result.name]))
+			next = now.Add(min(downloadBackoff(t.failures[result.name]), t.interval(result.name)))
 		}
 		if result.through != nil && result.through != s.liveInstance() {
 			// the sing-box it went through was replaced meanwhile: again at the next tick
@@ -628,7 +648,7 @@ func (s *Supervisor) LoadSubscription(ctx context.Context, address string) Subsc
 func (s *Supervisor) CheckGroup(ctx context.Context, check GroupCheck) GroupPreview {
 	ctx, cancel := context.WithTimeout(ctx, previewBudget)
 	defer cancel()
-	group := model.Group{Include: check.Include, Exclude: check.Exclude}
+	row := model.Member{Include: check.Include, Exclude: check.Exclude}
 	preview := GroupPreview{Chosen: []string{}}
 	var seen []string
 	for _, name := range check.Subscriptions {
@@ -646,7 +666,7 @@ func (s *Supervisor) CheckGroup(ctx context.Context, check GroupCheck) GroupPrev
 				continue
 			}
 			preview.Total++
-			if group.Takes(server.Name) {
+			if row.Takes(server.Name) {
 				preview.Chosen = append(preview.Chosen, server.Name)
 			}
 		}

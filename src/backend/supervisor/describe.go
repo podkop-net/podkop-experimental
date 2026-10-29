@@ -5,39 +5,45 @@ import (
 	"strings"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/firewall"
+	"github.com/podkop-net/podkop-experimental/src/backend/model"
 )
 
-// describeConfig tells in a line what a configuration that starts is: its sections with what
-// each sends traffic through, its lists, its DNS and the interfaces the LAN comes in on.
+// describeConfig tells in a line what a configuration that starts is: its rules with where
+// each sends traffic, its sources, its lists, its DNS and the interfaces the LAN comes in on.
 func describeConfig(next *candidate) string {
+	config := next.settings
 	var sections []string
-	for _, section := range next.settings.Sections {
-		what := section.ConnectionType
-		switch section.ConnectionType {
-		case "proxy":
-			switch section.ProxyConfigType {
-			case "url":
-				scheme, _, found := strings.Cut(strings.TrimSpace(section.ProxyString), "://")
-				what = "proxy"
-				if found && scheme != "" && !strings.ContainsAny(scheme, " \n") {
-					what = scheme
-				}
-			case "urltest":
-				what = "urltest of " + strconv.Itoa(len(section.URLTestProxyLinks))
-			case "selector":
-				what = "selector of " + strconv.Itoa(len(section.SelectorProxyLinks))
-			case "outbound":
-				what = "outbound JSON"
+	for index := range config.Sections {
+		section := &config.Sections[index]
+		what := config.Exit(section)
+		switch {
+		case !section.Enabled:
+			what = "off"
+		case what == model.ExitNone:
+			what = "no source filled"
+		case what == model.ExitServers:
+			what = rowsText(section.Servers)
+			if len(section.Fallbacks) > 0 {
+				what += "; fallbacks " + rowsText(section.Fallbacks)
 			}
-		case "vpn":
-			what = "interface " + section.Interface
-		case "group":
-			what = "group " + strings.Join(section.Groups, ", ")
-		}
-		if section.ConnectionType == "proxy" && section.Detour != "" {
-			what += " via " + section.Detour
 		}
 		sections = append(sections, section.Name+" ("+what+")")
+	}
+	var sources []string
+	for _, source := range config.Sources {
+		what := source.Type
+		switch source.Type {
+		case "":
+			what = "not filled"
+		case "links":
+			what = strconv.Itoa(len(source.Links)) + " links"
+		case "interface":
+			what = "interface " + source.Interface
+			if source.Interface == "" {
+				what = "the main route"
+			}
+		}
+		sources = append(sources, source.Name+" ("+what+")")
 	}
 	downloaded, files := 0, 0
 	for _, ruleSet := range next.result.RuleSets {
@@ -48,10 +54,31 @@ func describeConfig(next *candidate) string {
 		}
 	}
 	settings := &next.settings.Settings
-	return "configuration: sections " + strings.Join(sections, ", ") +
+	return "configuration: rules " + strings.Join(sections, ", ") +
+		"; sources " + strings.Join(sources, ", ") +
 		"; " + strconv.Itoa(len(next.result.RuleSets)) + " lists (" + strconv.Itoa(downloaded) + " downloaded, " + strconv.Itoa(files) + " from files)" +
 		"; DNS " + settings.DNSType + " " + settings.DNSServer +
 		"; the LAN on " + strings.Join(settings.SourceNetworkInterfaces, ", ")
+}
+
+// rowsText names the rows of a rule: their sources, with the filter and the source they
+// connect through.
+func rowsText(rows []model.Member) string {
+	var names []string
+	for _, row := range rows {
+		name := row.Source
+		if len(row.Include) > 0 {
+			name += " with " + strings.Join(row.Include, "/")
+		}
+		if len(row.Exclude) > 0 {
+			name += " without " + strings.Join(row.Exclude, "/")
+		}
+		if row.Via != "" {
+			name += " via " + row.Via
+		}
+		names = append(names, name)
+	}
+	return strings.Join(names, ", ")
 }
 
 // describeFirewall tells what the sets of the firewall send to the proxy by address.

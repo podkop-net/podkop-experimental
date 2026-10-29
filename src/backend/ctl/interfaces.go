@@ -16,7 +16,7 @@ type interfaceUse struct {
 }
 
 // interfaceUses are the interface names of the settings, by role, in the order of the form.
-func interfaceUses(settings *model.Settings, sections []model.Section) []interfaceUse {
+func interfaceUses(settings *model.Settings, sources []model.Source) []interfaceUse {
 	var uses []interfaceUse
 	for _, name := range settings.SourceNetworkInterfaces {
 		uses = append(uses, interfaceUse{"Source", name})
@@ -29,9 +29,9 @@ func interfaceUses(settings *model.Settings, sections []model.Section) []interfa
 	if settings.OutputNetworkInterface != "" {
 		uses = append(uses, interfaceUse{"Output", settings.OutputNetworkInterface})
 	}
-	for index := range sections {
-		if sections[index].ConnectionType == "vpn" && sections[index].Interface != "" {
-			uses = append(uses, interfaceUse{"VPN section " + sections[index].Name, sections[index].Interface})
+	for index := range sources {
+		if sources[index].Type == "interface" && sources[index].Interface != "" {
+			uses = append(uses, interfaceUse{"Interface source " + sources[index].Name, sources[index].Interface})
 		}
 	}
 	return uses

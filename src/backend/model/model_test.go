@@ -10,7 +10,8 @@ import (
 
 func TestLoadDefaults(t *testing.T) {
 	t.Parallel()
-	parsed, err := uci.Parse([]byte("config settings 'settings'\n\toption dns_server ''\n\nconfig section 'main'\n\toption connection_type 'proxy'\n\tlist selector_proxy_links 'a://1'\n\tlist selector_proxy_links 'b://2 c://3'\n"))
+	// a file of podkop 0.7, read as podkop migrate converts it
+	parsed, err := uci.Parse([]byte("config settings 'settings'\n\toption dns_server ''\n\nconfig section 'main'\n\toption connection_type 'proxy'\n\toption proxy_config_type 'selector'\n\tlist selector_proxy_links 'a://1'\n\tlist selector_proxy_links 'b://2 c://3'\n"))
 	require.NoError(t, err)
 	config, err := Load(parsed)
 	require.NoError(t, err)
@@ -21,15 +22,20 @@ func TestLoadDefaults(t *testing.T) {
 	require.Equal(t, "1d", config.Settings.UpdateInterval)
 	require.Equal(t, "warn", config.Settings.LogLevel)
 	require.Equal(t, "/var/run/podkop/cache.db", config.Settings.CachePath)
+	require.Equal(t, Check{Interval: "3m", Tolerance: "50", TestingURL: "https://www.gstatic.com/generate_204", DownloadCheck: "default"}, config.Settings.Check)
 	require.Len(t, config.Sections, 1)
-	section := config.Sections[0]
-	require.Equal(t, []string{"a://1", "b://2", "c://3"}, section.SelectorProxyLinks)
-	require.Equal(t, "3m", section.URLTestCheckInterval)
-	require.Equal(t, "50", section.URLTestTolerance)
-	require.Equal(t, "default", section.URLTestDownloadCheck)
+	section := &config.Sections[0]
+	require.True(t, section.Enabled)
+	require.Equal(t, []Member{{Source: "main_links"}}, section.Servers)
+	source := config.Source("main_links")
+	require.NotNil(t, source)
+	require.Equal(t, "links", source.Type)
+	require.Equal(t, []string{"a://1", "b://2", "c://3"}, source.Links)
+	require.Equal(t, "auto", source.UpdateInterval)
 	require.Equal(t, "disabled", section.UserDomainListType)
 	require.False(t, section.HasEnabledLists())
-	require.True(t, section.HasOutbound())
+	require.Equal(t, ExitServers, config.Exit(section))
+	require.True(t, config.HasOutbound(section))
 }
 
 func TestLoadNoSettings(t *testing.T) {
@@ -94,25 +100,58 @@ func TestCachePathMoved(t *testing.T) {
 	}
 }
 
-func TestSubscriptionsAndGroups(t *testing.T) {
+func TestSourcesAndMembers(t *testing.T) {
 	t.Parallel()
-	parsed, err := uci.Parse([]byte("config settings 'settings'\n" +
-		"\nconfig subscription 'prov1'\n\toption url ' https://a.example/sub/1 '\n" +
-		"\nconfig group 'nl'\n\tlist subscription 'prov1'\n\tlist include 'NL'\n\tlist include 'Нидерланды 1'\n\tlist include ' '\n\tlist exclude 'old'\n" +
-		"\nconfig section 'youtube'\n\toption connection_type 'group'\n\toption group 'nl'\n"))
+	parsed, err := uci.Parse([]byte("config settings 'settings'\n\toption config_version '2'\n\toption urltest_check_interval '1m'\n" +
+		"\nconfig source 'prov1'\n\toption type 'subscription'\n\toption url ' https://a.example/sub/1 '\n" +
+		"\nconfig source 'warp'\n\toption type 'interface'\n\toption interface 'awg0'\n\toption domain_resolver_enabled '1'\n\toption domain_resolver_dns_server '1.1.1.1'\n" +
+		"\nconfig source 'empty'\n" +
+		"\nconfig section 'youtube'\n\toption label 'YouTube'\n" +
+		"\nconfig section 'off'\n\toption enabled '0'\n" +
+		"\nconfig section 'ads'\n" +
+		"\nconfig section 'waiting'\n" +
+		"\nconfig member\n\toption section 'youtube'\n\toption role 'server'\n\toption source 'prov1'\n\tlist include 'NL'\n\tlist include ' '\n\tlist exclude 'old'\n\toption via 'warp'\n" +
+		"\nconfig member\n\toption section 'youtube'\n\toption role 'fallback'\n\toption source 'direct'\n" +
+		"\nconfig member\n\toption section 'ads'\n\toption role 'server'\n\toption source 'block'\n" +
+		"\nconfig member\n\toption section 'waiting'\n\toption role 'server'\n\toption source 'empty'\n" +
+		"\nconfig member\n\toption section 'gone'\n\toption source 'prov1'\n"))
 	require.NoError(t, err)
 	config, err := Load(parsed)
 	require.NoError(t, err)
-	require.Equal(t, []Subscription{{Name: "prov1", URL: "https://a.example/sub/1", UpdateInterval: "12h"}}, config.Subscriptions)
-	group := config.Group("nl")
-	require.NotNil(t, group)
-	require.Equal(t, []string{"NL", "Нидерланды 1"}, group.Include)
-	require.Equal(t, "all", group.Empty)
-	require.Equal(t, []string{"nl"}, config.Sections[0].Groups)
-	require.True(t, config.Sections[0].HasOutbound())
-	require.True(t, group.Takes("🇳🇱 nl-1"))
-	require.True(t, group.Takes("Нидерланды 1 ⚡"))
-	require.False(t, group.Takes("NL old"))
-	require.False(t, group.Takes("DE"))
-	require.True(t, (&Group{}).Takes("anything"))
+	require.Equal(t, "1m", config.Settings.Check.Interval)
+	require.Equal(t, Source{Name: "prov1", Type: "subscription", URL: "https://a.example/sub/1", UpdateInterval: "auto", DomainResolverDNSType: "udp"}, *config.Source("prov1"))
+	require.True(t, config.Source("warp").DomainResolverEnabled)
+	require.False(t, config.Source("empty").Filled())
+	youtube := config.Section("youtube")
+	require.Equal(t, "YouTube", youtube.Label)
+	require.Equal(t, []Member{{Source: "prov1", Include: []string{"NL"}, Exclude: []string{"old"}, Via: "warp"}}, youtube.Servers)
+	require.Equal(t, []Member{{Source: "direct"}}, youtube.Fallbacks)
+	require.Equal(t, ExitServers, config.Exit(youtube))
+	require.False(t, config.HasOutbound(config.Section("off")))
+	require.Equal(t, ExitBlock, config.Exit(config.Section("ads")))
+	require.Equal(t, ExitNone, config.Exit(config.Section("waiting")))
+	row := youtube.Servers[0]
+	require.True(t, row.Takes("🇳🇱 NL-1"))
+	require.False(t, row.Takes("🇳🇱 NL old"))
+	require.False(t, row.Takes("DE"))
+	require.True(t, (&Member{}).Takes("anything"))
+}
+
+func TestNameHas(t *testing.T) {
+	t.Parallel()
+	require.True(t, NameHas("🇺🇸 USA AI-1", "AI"))
+	require.False(t, NameHas("🇪🇸 Spain", "AI"))
+	require.True(t, NameHas("🇳🇱 Netherlands 2", "nether"))
+	require.True(t, NameHas("Нидерланды 1 ⚡", "нидер"))
+	require.True(t, NameHas("🇺🇸 USA AI-1", "AI-1"), "a word with a dash is looked for as it is")
+	require.True(t, NameHas("🇩🇪 Germany", "🇩🇪"))
+	require.False(t, NameHas("anything", " "))
+}
+
+func TestReservedSourceNames(t *testing.T) {
+	t.Parallel()
+	parsed, err := uci.Parse([]byte("config settings 'settings'\n\toption config_version '2'\n\nconfig source 'block'\n"))
+	require.NoError(t, err)
+	_, err = Load(parsed)
+	require.ErrorContains(t, err, "cannot be named block")
 }

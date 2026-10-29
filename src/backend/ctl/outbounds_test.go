@@ -42,24 +42,25 @@ func TestOutboundLinesTellTheTransit(t *testing.T) {
 	defer clash.Close()
 	running := &backend{facts: api.Facts{ClashAPI: strings.TrimPrefix(clash.URL, "http://")}}
 	caller := &clashCaller{client: api.Client{Path: serve(t, running, logbuf.New(1<<12))}}
-	lines := outboundLines(caller, []model.Section{
-		{Name: "main", ConnectionType: "proxy", Detour: "entry"},
-		{Name: "entry", ConnectionType: "proxy"},
-		{Name: "sel", ConnectionType: "proxy", Detour: "entry"},
-		{Name: "ut", ConnectionType: "proxy", Detour: "awg"},
-		// a group with no server that refuses; one that goes as the section named block; one the
-		// configuration that runs does not have yet
-		{Name: "yt", ConnectionType: "group"},
-		{Name: "tv", ConnectionType: "group"},
-		{Name: "new", ConnectionType: "group"},
-	})
+	rows := []model.Member{{Source: "src"}}
+	config := &model.Config{Sources: []model.Source{{Name: "src", Type: "links", Links: []string{"vless://x"}}}}
+	// a rule whose sources name no server and refuses; one that goes as the rule named
+	// block; one the configuration that runs does not have yet; one that is off; one whose
+	// one row is block, a route rule without an outbound
+	for _, name := range []string{"main", "entry", "sel", "ut", "yt", "tv", "new"} {
+		config.Sections = append(config.Sections, model.Section{Name: name, Enabled: true, Servers: rows})
+	}
+	config.Sections = append(config.Sections,
+		model.Section{Name: "off", Servers: rows},
+		model.Section{Name: "ads", Enabled: true, Servers: []model.Member{{Source: model.SourceBlock}}})
+	lines := outboundLines(caller, config)
 	require.Equal(t, []string{
-		"✅ main (via entry): 120 ms",
+		"✅ main: 120 ms",
 		"✅ entry: 120 ms",
-		"✅ sel (via entry, selector, sel-1-out): 150 ms",
-		"❌ ut (via awg, urltest): none of its outbounds answers",
+		"✅ sel (selector, sel-1-out): 150 ms",
+		"❌ ut (urltest): none of its outbounds answers",
 		"✅ tv (selector, block-out): 90 ms",
 		"✅ direct (without a proxy): 120 ms",
-		"⛔ yt: its group chooses no server, and its connections are refused",
+		"⛔ yt: its sources name no server now, and its connections are refused",
 	}, lines)
 }

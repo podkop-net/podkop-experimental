@@ -190,9 +190,9 @@ func InterfaceNames(config *model.Config) []string {
 		names = append(names, settings.YACDInterfaces...)
 	}
 	names = append(names, settings.OutputNetworkInterface)
-	for index := range config.Sections {
-		if config.Sections[index].ConnectionType == "vpn" {
-			names = append(names, config.Sections[index].Interface)
+	for index := range config.Sources {
+		if config.Sources[index].Type == "interface" {
+			names = append(names, config.Sources[index].Interface)
 		}
 	}
 	result := names[:0]
@@ -311,19 +311,17 @@ type builder struct {
 	// the DNS rule that sends the names of the lists to FakeIP
 	fakeIPRule *rule
 
-	// detours are the sections the servers of a proxy section are reached through, by the
-	// name of the section (checkDetours)
-	detours map[string]string
-
-	// what the sections of the type group were given (groups.go): where each section goes,
-	// the tags of the servers of each subscription, the outbounds of the servers decoded so
-	// far, and the servers and the groups made
-	exits            map[string]groupExit
+	// what the rules were given (exits.go): the tags of the servers of each subscription,
+	// the outbounds of the servers decoded so far, the servers of each source, the servers
+	// and the URL tests made, what sing-box may replace while it runs, and the rules whose
+	// connections are refused for want of a server
 	subscriptionTags map[string][]string
 	decoded          map[string]*object
+	sourceCache      map[string][]sourceServer
 	servers          map[string]bool
 	groups           map[string]bool
 	swappable        map[string]bool
+	refused          map[string]bool
 }
 
 // rule is a route or a DNS rule while it is built: later steps find it by its name to add
@@ -345,8 +343,8 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 		return nil, E.New("no decoder of proxy links")
 	}
 	b := &builder{config: config, facts: facts, options: options, experimental: new(object), files: make(map[string]*object),
-		exits: make(map[string]groupExit), subscriptionTags: make(map[string][]string), decoded: make(map[string]*object), servers: make(map[string]bool), groups: make(map[string]bool),
-		swappable: make(map[string]bool)}
+		subscriptionTags: make(map[string][]string), decoded: make(map[string]*object), sourceCache: make(map[string][]sourceServer), servers: make(map[string]bool), groups: make(map[string]bool),
+		swappable: make(map[string]bool), refused: make(map[string]bool)}
 	b.buildInbounds()
 	err := b.buildOutbounds()
 	if err != nil {
@@ -447,258 +445,7 @@ func outboundTag(section string) string {
 }
 
 func (b *builder) buildOutbounds() error {
-	err := b.checkDetours()
-	if err != nil {
-		return err
-	}
-	b.outbounds = append(b.outbounds, newObject("type", "direct", "tag", tagDirectOutbound))
-	// what a section of the type group whose group has no server refuses its connections
-	// with: the selector of the section changes while sing-box runs, a rule does not. There
-	// whenever a section is of the type group, so that it does not come and go with it.
-	if slices.ContainsFunc(b.config.Sections, func(section model.Section) bool { return section.ConnectionType == "group" }) {
-		b.outbounds = append(b.outbounds, newObject("type", "block", "tag", tagBlockOutbound))
-	}
-	for index := range b.config.Sections {
-		section := &b.config.Sections[index]
-		var err error
-		switch section.ConnectionType {
-		case "proxy":
-			err = b.buildProxyOutbounds(section)
-		case "vpn":
-			err = b.buildInterfaceOutbound(section)
-		case "group":
-			err = b.buildGroupSection(section)
-		case "block", "exclusion":
-			// no outbound: such a section is a route rule
-		default:
-			err = E.New("unknown connection type \"", section.ConnectionType, "\"")
-		}
-		if err != nil {
-			return E.Cause(err, "section ", section.Name)
-		}
-	}
-	return nil
-}
-
-// checkDetours takes the section each proxy section connects through (its option detour):
-// the servers of the section are reached through the outbound of that one, a proxy or a VPN
-// section, a group of either kind included. A detour to a section that is not there, has no
-// outbound or leads back round is refused here, in the words of the settings: sing-box would
-// refuse the configuration in terms of outbounds.
-func (b *builder) checkDetours() error {
-	sections := make(map[string]*model.Section, len(b.config.Sections))
-	for index := range b.config.Sections {
-		sections[b.config.Sections[index].Name] = &b.config.Sections[index]
-	}
-	b.detours = make(map[string]string)
-	for index := range b.config.Sections {
-		section := &b.config.Sections[index]
-		if section.Detour == "" {
-			continue
-		}
-		if section.ConnectionType != "proxy" {
-			b.warn("section ", section.Name, ": the connection through ", section.Detour, " is left out: only a proxy section connects through another")
-			continue
-		}
-		target := sections[section.Detour]
-		switch {
-		case section.Detour == section.Name:
-			return E.New("section ", section.Name, " connects through itself")
-		case target == nil:
-			return E.New("section ", section.Name, " connects through ", section.Detour, ", and there is no such section")
-		case target.ConnectionType == "group":
-			return E.New("section ", section.Name, " connects through ", section.Detour, ", a section of the type group: a group cannot be connected through yet")
-		case target.ConnectionType != "proxy" && target.ConnectionType != "vpn":
-			return E.New("section ", section.Name, " connects through ", section.Detour, ", a section of the type ", target.ConnectionType, " that has no outbound")
-		}
-		b.detours[section.Name] = section.Detour
-	}
-	for name := range b.detours {
-		path := []string{name}
-		for next := b.detours[name]; next != ""; next = b.detours[next] {
-			if slices.Contains(path, next) {
-				return E.New("section ", name, " connects round in a loop: ", strings.Join(append(path, next), " → "))
-			}
-			path = append(path, next)
-		}
-	}
-	return nil
-}
-
-// isTransit tells whether another section connects through this one, or goes as it does
-// when its group chooses no server.
-func (b *builder) isTransit(name string) bool {
-	for _, detour := range b.detours {
-		if detour == name {
-			return true
-		}
-	}
-	for _, group := range b.config.Groups {
-		if group.Empty == "section" && group.EmptySection == name {
-			return true
-		}
-	}
-	return false
-}
-
-// setDetour makes an outbound of a section reach its server through the section it connects
-// through. tls.spoof needs the socket of its own connection: through a proxy it is refused at
-// every connection (common/tls of the engine), so it is said once here.
-func (b *builder) setDetour(section *model.Section, name string, outbound *object) {
-	detour := b.detours[section.Name]
-	if detour == "" {
-		return
-	}
-	if _, has := outbound.get("detour"); !has {
-		outbound.set("detour", outboundTag(detour))
-	}
-	value, _ := outbound.get("tls")
-	tls, isObject := value.(*object)
-	if !isObject {
-		return
-	}
-	if spoof, _ := tls.get("spoof"); spoof == nil || spoof == "" {
-		return
-	}
-	for _, other := range b.config.Sections {
-		if other.Name == detour && other.ConnectionType == "proxy" {
-			b.warn("proxy link of ", name, ": tls.spoof does not work through the proxy section ", detour, ": its connections will fail; it works through a VPN section")
-		}
-	}
-}
-
-func (b *builder) buildProxyOutbounds(section *model.Section) error {
-	switch section.ProxyConfigType {
-	case "url":
-		if section.ProxyString == "" {
-			return E.New("the proxy link is not set")
-		}
-		return b.addLinkOutbound(section, section.Name, section.ProxyString)
-	case "outbound":
-		// a byte order mark comes with text copied out of a file
-		parsed, err := parseValue([]byte(strings.TrimPrefix(section.OutboundJSON, "\ufeff")))
-		if err != nil {
-			return E.Cause(err, "the outbound is not JSON")
-		}
-		outbound, isObject := parsed.(*object)
-		if !isObject {
-			return E.New("the outbound is not a JSON object")
-		}
-		outbound.set("tag", outboundTag(section.Name))
-		if outboundType, _ := outbound.get("type"); b.detours[section.Name] != "" && (outboundType == "selector" || outboundType == "urltest") {
-			// a group dials nothing itself: its members connect through another outbound
-			return E.New("the outbound JSON is a ", outboundType, ", which connects through nothing: set detour in the outbounds it chooses from")
-		}
-		b.setDetour(section, section.Name, outbound)
-		b.outbounds = append(b.outbounds, outbound)
-	case "selector":
-		if len(section.SelectorProxyLinks) == 0 {
-			return E.New("the proxy links of the selector are not set")
-		}
-		var members []string
-		for index, link := range section.SelectorProxyLinks {
-			name := section.Name + "-" + strconv.Itoa(index+1)
-			err := b.addLinkOutbound(section, name, link)
-			if err != nil {
-				return err
-			}
-			members = append(members, outboundTag(name))
-		}
-		b.outbounds = append(b.outbounds, newObject("type", "selector", "tag", outboundTag(section.Name), "outbounds", stringsToAny(members), "default", members[0]))
-	case "urltest":
-		if len(section.URLTestProxyLinks) == 0 {
-			return E.New("the proxy links of the URL test are not set")
-		}
-		var members, fallbacks []string
-		for index, link := range section.URLTestProxyLinks {
-			name := section.Name + "-" + strconv.Itoa(index+1)
-			err := b.addLinkOutbound(section, name, link)
-			if err != nil {
-				return err
-			}
-			members = append(members, outboundTag(name))
-		}
-		for index, link := range section.URLTestFallbackLinks {
-			name := section.Name + "-fallback-" + strconv.Itoa(index+1)
-			err := b.addLinkOutbound(section, name, link)
-			if err != nil {
-				return err
-			}
-			fallbacks = append(fallbacks, outboundTag(name))
-		}
-		tolerance, isNumber := numberOf(section.URLTestTolerance)
-		if !isNumber {
-			return E.New("the tolerance of the URL test is not a number")
-		}
-		groupTag := outboundTag(section.Name + "-urltest")
-		group := newObject("type", "urltest", "tag", groupTag, "outbounds", stringsToAny(members),
-			"url", section.URLTestTestingURL, "interval", section.URLTestCheckInterval, "tolerance", tolerance)
-		if len(fallbacks) > 0 {
-			group.set("fallbacks", stringsToAny(fallbacks))
-		}
-		switch {
-		case section.URLTestDownloadCheck == "off":
-			group.set("download_url", "")
-		case section.URLTestDownloadCheck == "custom" && section.URLTestDownloadURL != "":
-			group.set("download_url", section.URLTestDownloadURL)
-		case b.options.DownloadURL != "":
-			group.set("download_url", b.options.DownloadURL)
-		}
-		b.outbounds = append(b.outbounds, group)
-		all := append(append(append([]string{}, members...), fallbacks...), groupTag)
-		b.outbounds = append(b.outbounds, newObject("type", "selector", "tag", outboundTag(section.Name), "outbounds", stringsToAny(all), "default", groupTag))
-	default:
-		return E.New("unknown proxy configuration type \"", section.ProxyConfigType, "\"")
-	}
-	return nil
-}
-
-// addLinkOutbound decodes a link into the outbound of the given name.
-func (b *builder) addLinkOutbound(section *model.Section, name string, link string) error {
-	content, warnings, err := b.options.DecodeLink(link)
-	if err != nil {
-		return E.Cause(err, "cannot use the proxy link of ", name)
-	}
-	for _, warning := range warnings {
-		b.warn("proxy link of ", name, ": ", warning)
-	}
-	parsed, err := parseValue(content)
-	if err != nil {
-		return E.Cause(err, "the outbound of the proxy link of ", name)
-	}
-	outbound, isObject := parsed.(*object)
-	if !isObject {
-		return E.New("the outbound of the proxy link of ", name, " is not an object")
-	}
-	outbound.set("tag", outboundTag(name))
-	outboundType, _ := outbound.get("type")
-	if section.EnableUDPOverTCP && (outboundType == "socks" || outboundType == "shadowsocks") {
-		outbound.set("udp_over_tcp", newObject("enabled", true, "version", versionUDPOverTCP))
-	}
-	b.setDetour(section, name, outbound)
-	b.outbounds = append(b.outbounds, outbound)
-	b.links = append(b.links, Link{Section: section.Name, Name: name, Tag: outboundTag(name), Text: link})
-	return nil
-}
-
-func (b *builder) buildInterfaceOutbound(section *model.Section) error {
-	if section.Interface == "" {
-		return E.New("the VPN interface is not set")
-	}
-	outbound := newObject("type", "direct", "tag", outboundTag(section.Name), "bind_interface", b.device(section.Interface))
-	if section.DomainResolverEnabled {
-		resolverTag := section.Name + "-domain-resolver"
-		// The shell backend asks the bootstrap server for the address of this resolver
-		// whatever it is, an address included: it tests a variable of another function.
-		server, err := dnsServer(section.DomainResolverDNSType, resolverTag, section.DomainResolverDNSServer, tagBootstrapDNSServer, outboundTag(section.Name))
-		if err != nil {
-			return err
-		}
-		b.dnsServers = append(b.dnsServers, server)
-		outbound.set("domain_resolver", resolverTag)
-	}
-	b.outbounds = append(b.outbounds, outbound)
-	return nil
+	return b.buildExits()
 }
 
 // dnsServer makes a DNS server of the settings "type" and "host[:port][/path]".
@@ -823,11 +570,6 @@ func (b *builder) routeRule(name string) *rule {
 	return nil
 }
 
-const (
-	nameRejectRule    = "reject"
-	nameExclusionRule = "exclusion"
-)
-
 func (b *builder) buildRoute() (*object, error) {
 	settings := &b.config.Settings
 	// What sing-box opens goes where the routing of the router sends it (mwan3, a route
@@ -854,13 +596,6 @@ func (b *builder) buildRoute() (*object, error) {
 		b.addRouteRule("", newObject("action", "route", "ip_cidr", names.DeadEndAddress, "port", names.DeadEndPort, "outbound", tagDirectOutbound))
 	}
 
-	// one rule for all the sections that block, and one for all that exclude
-	if b.anySectionWithLists("block") {
-		b.addRouteRule(nameRejectRule, newObject("action", "reject", "inbound", tagTProxyInbound))
-	}
-	if b.anySectionWithLists("exclusion") {
-		b.addRouteRule(nameExclusionRule, newObject("action", "route", "inbound", tagTProxyInbound, "outbound", tagDirectOutbound))
-	}
 	if len(settings.RoutingExcludedIPs) > 0 {
 		entry := b.addRouteRule("", newObject("action", "route", "inbound", tagTProxyInbound, "outbound", tagDirectOutbound))
 		for _, address := range settings.RoutingExcludedIPs {
@@ -869,7 +604,7 @@ func (b *builder) buildRoute() (*object, error) {
 	}
 	for index := range b.config.Sections {
 		section := &b.config.Sections[index]
-		if len(section.FullyRoutedIPs) == 0 {
+		if len(section.FullyRoutedIPs) == 0 || !b.routes(section) {
 			continue
 		}
 		entry := b.addRouteRule("", b.sectionRoute(section, tagTProxyInbound))
@@ -886,22 +621,9 @@ func (b *builder) buildRoute() (*object, error) {
 	return route, nil
 }
 
-func (b *builder) anySectionWithLists(connectionType string) bool {
-	found := false
-	for index := range b.config.Sections {
-		section := &b.config.Sections[index]
-		if section.ConnectionType != connectionType {
-			continue
-		}
-		found = true
-		if section.HasEnabledLists() {
-			return true
-		}
-	}
-	if found {
-		b.warn("sections of the type ", connectionType, " have no list: a rule for them is not needed")
-	}
-	return false
+// routes tells whether a rule has route rules: it is on and goes somewhere.
+func (b *builder) routes(section *model.Section) bool {
+	return section.Enabled && b.config.Exit(section) != model.ExitNone
 }
 
 func (b *builder) buildExperimental() {
@@ -955,7 +677,7 @@ func (b *builder) buildAdditionalInbounds() error {
 	ports := make(map[string]string)
 	for index := range b.config.Sections {
 		section := &b.config.Sections[index]
-		if !section.MixedProxyEnabled {
+		if !section.MixedProxyEnabled || !b.routes(section) {
 			continue
 		}
 		port := argument(section.MixedProxyPort)

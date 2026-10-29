@@ -134,11 +134,11 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 	compact := func(value any) int { return write(value, "") }
 	pretty := func(value any) int { return write(value, "  ") }
 	// the settings as the backend reads them, with its defaults
-	settings := new(model.Settings)
-	var sections []model.Section
-	if config, err := model.Load(readUCI(env.Paths.Settings)); err == nil {
-		settings, sections = &config.Settings, config.Sections
+	config := new(model.Config)
+	if loaded, err := model.Load(readUCI(env.Paths.Settings)); err == nil {
+		config = loaded
 	}
+	settings := &config.Settings
 	switch arguments[0] {
 	case "get_status":
 		enabled := executable(env.AutostartPath)
@@ -294,10 +294,10 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 				device = &deviceCheck{label: arguments[1], port: uint16(port), probe: client.Probe, sources: settings.SourceNetworkInterfaces}
 			}
 		}
-		io.WriteString(output, globalCheck(ctx, env.Paths, settings, sections, env.Version, env.SingBoxVersion, env.Engine, running(), func() (bool, bool) {
+		io.WriteString(output, globalCheck(ctx, env.Paths, config, env.Version, env.SingBoxVersion, env.Engine, running(), func() (bool, bool) {
 			result, err := client.ProbeSelf()
 			return err == nil && result.DNS && result.Connection, err == nil
-		}, func() []string { return outboundLines(&clashCaller{client: client}, sections) }, func() []string {
+		}, func() []string { return outboundLines(&clashCaller{client: client}, config) }, func() []string {
 			states, err := client.Subscriptions()
 			if err != nil {
 				return nil

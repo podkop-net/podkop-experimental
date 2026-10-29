@@ -241,7 +241,9 @@ func FakeIPAddress(ctx context.Context) string {
 // the options of the settings whose values are not shown: links, outbounds, secrets
 var secretOptions = []string{"option proxy_string", "option outbound_json", "list urltest_proxy_links", "list urltest_fallback_links", "list selector_proxy_links", "option yacd_secret_key",
 	// the address of a subscription: its token is the account
-	"option url"}
+	"option url",
+	// the links of a source of servers
+	"list link", "option link"}
 
 // the path of a DNS server may hold the identifier of an account
 var serverPath = regexp.MustCompile(`(option (?:dns_server|domain_resolver_dns_server) '[^/']*)/[^']*'`)

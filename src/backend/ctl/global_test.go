@@ -69,7 +69,7 @@ func TestCutSettings(t *testing.T) {
 func TestInterfaceLines(t *testing.T) {
 	t.Parallel()
 	settings := &model.Settings{SourceNetworkInterfaces: []string{"lan", "lan1", "guest"}, EnableYACD: true, YACDInterfaces: []string{"wan6only"}, OutputNetworkInterface: "wan"}
-	sections := []model.Section{{Name: "torrents", ConnectionType: "vpn", Interface: "wan"}, {Name: "tunnel", ConnectionType: "vpn", Interface: "awg0"}, {Name: "main", ConnectionType: "proxy", Interface: "ignored"}}
+	sources := []model.Source{{Name: "torrents", Type: "interface", Interface: "wan"}, {Name: "tunnel", Type: "interface", Interface: "awg0"}, {Name: "main", Type: "links", Interface: "ignored"}}
 	devices := map[string]string{"lan": "br-lan", "wan": "pppoe-wan"}
 	addresses := map[string][]netip.Addr{
 		"br-lan":    {netip.MustParseAddr("192.168.1.1")},
@@ -82,15 +82,15 @@ func TestInterfaceLines(t *testing.T) {
 		found, exists := addresses[device]
 		return found, exists
 	}
-	uses := interfaceUses(settings, sections)
+	uses := interfaceUses(settings, sources)
 	require.Equal(t, []string{
 		"✅ Source: lan → br-lan",
 		"⚠️ Source: lan1: no IPv4 address (a port of a bridge, a network that is down, or a wrong name): podkop sees no traffic from it",
 		"⚠️ Source: guest: no such device now (a network that is down, or a wrong name): podkop sees no traffic from it",
 		"✅ YACD: wan6only",
 		"✅ Output: wan → pppoe-wan",
-		"✅ VPN section torrents: wan → pppoe-wan",
-		"⚠️ VPN section tunnel: awg0: no IPv4 address (a port of a bridge, a network that is down, or a wrong name)",
+		"✅ Interface source torrents: wan → pppoe-wan",
+		"⚠️ Interface source tunnel: awg0: no IPv4 address (a port of a bridge, a network that is down, or a wrong name)",
 	}, interfaceLines(uses, devices, lookup))
 
 	// the output down: an error; none chosen: the routing of the router

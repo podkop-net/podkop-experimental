@@ -69,9 +69,8 @@ import (
 // 12. Settings with two mixed proxies on one port are refused: sing-box would fail to start
 //     on the second socket, and so would every try of the start again. The shell backend
 //     wrote the configuration.
-// 13. A proxy section connects through another section (option detour): the outbounds of
-//     its servers get the detour of the outbound of that section. The shell backend has no
-//     such option.
+// 13. A proxy section connected through another section (option detour) in 0.8; since 0.9
+//     a row of a rule connects through a source (item 17).
 // 14. The uTLS fingerprint fallback of the engine (experimental.utls_fallback) is told
 //     always: on without the option utls_fallback and with 'enabled', off with 'disabled'.
 //     The shell backend wrote it only with enable_utls_fallback on, with a list of
@@ -86,6 +85,14 @@ import (
 //     ones, and the NTP of the router goes past the proxy (firewall). The shell backend had
 //     neither: a name of a list sent sysntpd through the proxy, which a wrong clock breaks.
 //     Without such names (the cases of render/testdata) there is no rule.
+// 17. Since podkop-exp 0.9 the servers are sources and rows of rules (exits.go): a server
+//     is an outbound once, and once more for each source its rows connect through; a rule
+//     goes through the selector "<rule>-out" over a URL test of the servers of its rows with
+//     its fallback rows in order, the server check one for every rule; a rule whose one row
+//     is direct or block is a route rule of its own at its place in the order of the rules.
+//     The shell backend built the outbounds of each section from its own links, and put the
+//     rules of the block and exclusion sections before all others: the cases are not
+//     compared since (render.TestCases).
 
 // Shell is what FromShell has to know besides the configuration: the settings it was made
 // of, and how the generator reads and names the local lists (Options: RuleSetDir,

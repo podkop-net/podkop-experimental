@@ -18,17 +18,17 @@ import (
 // LuCI gives a call, and the tests run beside its other checks.
 const outboundWait = 5 * time.Second
 
-// directTag is the outbound of what goes without a proxy, blockTag the one a section of the type
-// group whose group has no server refuses with.
+// directTag is the outbound of what goes without a proxy, blockTag the one a rule whose sources
+// name no server now refuses with.
 const (
 	directTag = plan.DirectOutboundTag
 	blockTag  = plan.BlockOutboundTag
 )
 
-// outboundLines tests the outbound of every section that has one, and the direct one, as
-// the dashboard of the page does: the delay of a request through it to delayTestURL; for a
-// group (urltest, selector) that of each member. The tests run at once.
-func outboundLines(caller *clashCaller, sections []model.Section) []string {
+// outboundLines tests the outbound of every rule that has one, and the direct one, as the
+// dashboard of the page does: the delay of a request through it to delayTestURL; for a group
+// (urltest, selector) that of each member. The tests run at once.
+func outboundLines(caller *clashCaller, config *model.Config) []string {
 	_, content := caller.call(http.MethodGet, "/proxies", "", 10*time.Second)
 	var listed struct {
 		Proxies map[string]struct {
@@ -46,8 +46,9 @@ func outboundLines(caller *clashCaller, sections []model.Section) []string {
 	}
 	var tests []test
 	var refused []string
-	for _, section := range sections {
-		if section.ConnectionType == "block" || section.ConnectionType == "exclusion" {
+	for index := range config.Sections {
+		section := &config.Sections[index]
+		if !config.HasOutbound(section) {
 			continue
 		}
 		tag := section.Name + "-out"
@@ -55,16 +56,11 @@ func outboundLines(caller *clashCaller, sections []model.Section) []string {
 		if !found {
 			continue
 		}
-		if section.ConnectionType == "group" && proxy.Now == blockTag {
-			refused = append(refused, "⛔ "+section.Name+": its group chooses no server, and its connections are refused")
+		if proxy.Now == blockTag {
+			refused = append(refused, "⛔ "+section.Name+": its sources name no server now, and its connections are refused")
 			continue
 		}
-		// a section that connects through another one says so: its test goes through that one
-		via := ""
-		if section.ConnectionType == "proxy" && section.Detour != "" {
-			via = "via " + section.Detour
-		}
-		tests = append(tests, test{label: section.Name, via: via, tag: tag, kind: proxy.Type, now: proxy.Now, members: len(proxy.All)})
+		tests = append(tests, test{label: section.Name, tag: tag, kind: proxy.Type, now: proxy.Now, members: len(proxy.All)})
 	}
 	if _, found := listed.Proxies[directTag]; found {
 		tests = append(tests, test{label: "direct (without a proxy)", tag: directTag, kind: "Direct"})
@@ -85,7 +81,7 @@ func outboundLines(caller *clashCaller, sections []model.Section) []string {
 	tested.Wait()
 	results = append(results, refused...)
 	if len(results) == 0 {
-		return []string{"⚠️ No section has an outbound"}
+		return []string{"⚠️ No rule has an outbound"}
 	}
 	return results
 }
