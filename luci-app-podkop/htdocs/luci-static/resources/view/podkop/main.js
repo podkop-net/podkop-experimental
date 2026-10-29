@@ -4771,6 +4771,12 @@ ${PartialStyles}
     margin: 2px 0 4px;
 }
 
+/* the line above the bar has the numbers: the label a theme draws over a bar would cover it */
+.pdk-sub-provider .cbi-progressbar::before,
+.pdk-sub-provider .cbi-progressbar::after {
+    content: none;
+}
+
 .pdk-sub-announce {
     white-space: pre-line;
     opacity: 0.85;
