@@ -212,8 +212,8 @@ github.com/pires/go-proxyproto v0.8.1/go.mod h1:ZKAAyp3cgy5Y5Mo4n9AlScrkCZwUy0g3
 github.com/pkg/sftp v1.13.10 h1:+5FbKNTe5Z9aspU88DPIKJ9z2KZoaGCu6Sr6kKR/5mU=
 github.com/pkg/sftp v1.13.10/go.mod h1:bJ1a7uDhrX/4OII+agvy28lzRvQrmIQuaHrcI1HbeGA=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/podkop-net/sing-box v0.0.0-20261028223843-8848af6246a4 h1:M9837o2jDr+9riwzmS1y4fVj3bdR8ZbuX7iamQ+FbPU=
-github.com/podkop-net/sing-box v0.0.0-20261028223843-8848af6246a4/go.mod h1:7Sl5RWwlb8dacDl87X3Ohx9ycKNOZiGVH7/lKaPGU7s=
+github.com/podkop-net/sing-box v0.0.0-20261029172227-6197fb6fb241 h1:c/W7DJOg+2BhwZnWMq6T2OPh6DLi+VIbsH8BVv6BjdM=
+github.com/podkop-net/sing-box v0.0.0-20261029172227-6197fb6fb241/go.mod h1:7Sl5RWwlb8dacDl87X3Ohx9ycKNOZiGVH7/lKaPGU7s=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
 github.com/quic-go/qpack v0.6.0 h1:g7W+BMYynC1LbYLSqRt8PBg5Tgwxn214ZZR34VIOjz8=
 github.com/quic-go/qpack v0.6.0/go.mod h1:lUpLKChi8njB4ty2bFLX2x4gzDqXwUpaO1DP9qMDZII=
