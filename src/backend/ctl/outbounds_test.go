@@ -24,6 +24,8 @@ func TestOutboundLinesTellTheTransit(t *testing.T) {
 				"entry-out": {"type": "Socks"},
 				"sel-out": {"type": "Selector", "now": "sel-1-out", "all": ["sel-1-out", "sel-2-out"]},
 				"ut-out": {"type": "URLTest", "now": "ut-1-out", "all": ["ut-1-out"]},
+				"yt-out": {"type": "Selector", "now": "block", "all": ["block"]},
+				"tv-out": {"type": "Selector", "now": "block-out", "all": ["block-out"]},
 				"direct-out": {"type": "Direct"}}}`))
 		case strings.HasPrefix(request.URL.Path, "/proxies/"):
 			_, _ = writer.Write([]byte(`{"delay": 120}`))
@@ -31,6 +33,8 @@ func TestOutboundLinesTellTheTransit(t *testing.T) {
 			_, _ = writer.Write([]byte(`{"sel-1-out": 150}`))
 		case request.URL.Path == "/group/ut-out/delay":
 			_, _ = writer.Write([]byte(`{}`))
+		case request.URL.Path == "/group/tv-out/delay":
+			_, _ = writer.Write([]byte(`{"block-out": 90}`))
 		default:
 			http.NotFound(writer, request)
 		}
@@ -43,12 +47,19 @@ func TestOutboundLinesTellTheTransit(t *testing.T) {
 		{Name: "entry", ConnectionType: "proxy"},
 		{Name: "sel", ConnectionType: "proxy", Detour: "entry"},
 		{Name: "ut", ConnectionType: "proxy", Detour: "awg"},
+		// a group with no server that refuses; one that goes as the section named block; one the
+		// configuration that runs does not have yet
+		{Name: "yt", ConnectionType: "group"},
+		{Name: "tv", ConnectionType: "group"},
+		{Name: "new", ConnectionType: "group"},
 	})
 	require.Equal(t, []string{
 		"✅ main (via entry): 120 ms",
 		"✅ entry: 120 ms",
 		"✅ sel (via entry, selector, sel-1-out): 150 ms",
 		"❌ ut (via awg, urltest): none of its outbounds answers",
+		"✅ tv (selector, block-out): 90 ms",
 		"✅ direct (without a proxy): 120 ms",
+		"⛔ yt: its group chooses no server, and its connections are refused",
 	}, lines)
 }

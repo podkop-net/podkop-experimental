@@ -163,6 +163,7 @@ func TestSubscriptionLists(t *testing.T) {
 	require.Len(t, fake.built, 2)
 	require.Equal(t, checked+1, fake.checked, "checked before it replaces the one that runs")
 	require.Equal(t, 1, fake.carried, "the choices of the dashboard go with the servers renamed")
+	require.Empty(t, fake.selected)
 	require.Contains(t, string(s.current.result.Config), `"prov1: NL 2"`)
 	require.Equal(t, &api.ListChanges{Renamed: 1, Removed: 1, Added: 1}, s.subscriptionStates()[0].Changes)
 	s.Stop()
@@ -171,6 +172,18 @@ func TestSubscriptionLists(t *testing.T) {
 	again := New(options)
 	require.True(t, again.Boot().OK)
 	require.Contains(t, string(again.current.result.Config), `"prov1: NL 2"`)
+
+	// another server, and a configuration that does not come up: the previous one runs again,
+	// with the choices of the dashboard it had
+	fake.swapRefused = []string{"NL 3"}
+	fake.failing = []string{"NL 3"}
+	fake.carry = map[string]string{"g-out": "prov1: NL 2"}
+	built := len(fake.built)
+	source.serve("vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\nvless://u4@nl3.example:443?security=tls&sni=nl3.example#NL%203\n")
+	downloadNow(t, again)
+	require.Len(t, fake.built, built+2, "the new one, and the previous one again")
+	require.Contains(t, string(again.current.result.Config), `"prov1: NL 2"`)
+	require.Equal(t, []map[string]string{{"g-out": "prov1: NL 2"}}, fake.selected)
 	again.Stop()
 
 	// a subscription the settings no longer have is forgotten, its file too

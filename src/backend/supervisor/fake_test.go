@@ -52,8 +52,11 @@ type fakeEngine struct {
 	// configurations they refuse to take so
 	swaps       []engine.Swap
 	swapRefused []string
-	// carried counts the calls of CarrySelections
-	carried int
+	// carried counts the calls of CarrySelections, which return carry; selected are what the
+	// instances were given to choose
+	carried  int
+	carry    map[string]string
+	selected []map[string]string
 }
 
 type fakeInstance struct {
@@ -195,10 +198,17 @@ func (i *fakeInstance) Swap(configuration []byte, swap engine.Swap, limit int) (
 	return engine.Swapped{Added: len(swap.Put), Removed: len(swap.Remove)}, nil
 }
 
-func (i *fakeInstance) CarrySelections(configuration []byte) {
+func (i *fakeInstance) CarrySelections(configuration []byte) map[string]string {
 	i.engine.access.Lock()
 	defer i.engine.access.Unlock()
 	i.engine.carried++
+	return i.engine.carry
+}
+
+func (i *fakeInstance) Select(choices map[string]string) {
+	i.engine.access.Lock()
+	defer i.engine.access.Unlock()
+	i.engine.selected = append(i.engine.selected, choices)
 }
 
 func (i *fakeInstance) Traffic() (engine.Traffic, error) {

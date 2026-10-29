@@ -11,17 +11,18 @@ import (
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
+	"github.com/podkop-net/podkop-experimental/src/backend/plan"
 )
 
 // outboundWait bounds the test of an outbound: global_check has to come within the 20 s
 // LuCI gives a call, and the tests run beside its other checks.
 const outboundWait = 5 * time.Second
 
-// directTag is the outbound of what goes without a proxy (plan: tagDirectOutbound), blockTag
-// the one a section of the type group whose group has no server refuses with (tagBlockOutbound).
+// directTag is the outbound of what goes without a proxy, blockTag the one a section of the type
+// group whose group has no server refuses with.
 const (
-	directTag = "direct-out"
-	blockTag  = "block"
+	directTag = plan.DirectOutboundTag
+	blockTag  = plan.BlockOutboundTag
 )
 
 // outboundLines tests the outbound of every section that has one, and the direct one, as
@@ -51,10 +52,11 @@ func outboundLines(caller *clashCaller, sections []model.Section) []string {
 		}
 		tag := section.Name + "-out"
 		proxy, found := listed.Proxies[tag]
-		if !found || section.ConnectionType == "group" && proxy.Now == blockTag {
-			if section.ConnectionType == "group" {
-				refused = append(refused, "⛔ "+section.Name+": its group chooses no server, and its connections are refused")
-			}
+		if !found {
+			continue
+		}
+		if section.ConnectionType == "group" && proxy.Now == blockTag {
+			refused = append(refused, "⛔ "+section.Name+": its group chooses no server, and its connections are refused")
 			continue
 		}
 		// a section that connects through another one says so: its test goes through that one

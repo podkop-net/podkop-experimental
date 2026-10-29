@@ -59,11 +59,11 @@ func TestHotPlan(t *testing.T) {
 	require.ElementsMatch(t, []string{"prov: DE", "g-group", "yt-out"}, tags)
 
 	for name, next := range map[string]*plan.Result{
-		"the route":         {Config: []byte(strings.Replace(string(hotConfig([]string{"DE2", "NL"}, "").Config), `"final": "direct-out"}}`, `"final": "yt-out"}}`, 1)), Swappable: hotConfig([]string{"DE2", "NL"}, "").Swappable},
-		"a fixed outbound":  {Config: []byte(strings.Replace(string(hotConfig([]string{"DE2", "NL"}, "").Config), `"tag": "direct-out"}`, `"tag": "direct-out", "connect_timeout": "5s"}`, 1)), Swappable: hotConfig([]string{"DE2", "NL"}, "").Swappable},
-		"what goes through": hotConfig([]string{"DE2", "NL"}, `, {"type": "vless", "tag": "main-out", "server": "m.example", "detour": "yt-out"}`),
-		"only the order":    reordered(current),
-		"a detour elsewhere": withSection(hotConfig([]string{"DE2", "NL"}, ""), `"ntp": {"enabled": true, "server": "time.example", "detour": "yt-out"}, `),
+		"the route":              {Config: []byte(strings.Replace(string(hotConfig([]string{"DE2", "NL"}, "").Config), `"final": "direct-out"}}`, `"final": "yt-out"}}`, 1)), Swappable: hotConfig([]string{"DE2", "NL"}, "").Swappable},
+		"a fixed outbound":       {Config: []byte(strings.Replace(string(hotConfig([]string{"DE2", "NL"}, "").Config), `"tag": "direct-out"}`, `"tag": "direct-out", "connect_timeout": "5s"}`, 1)), Swappable: hotConfig([]string{"DE2", "NL"}, "").Swappable},
+		"what goes through":      hotConfig([]string{"DE2", "NL"}, `, {"type": "vless", "tag": "main-out", "server": "m.example", "detour": "yt-out"}`),
+		"only the order":         reordered(current),
+		"a detour elsewhere":     withSection(hotConfig([]string{"DE2", "NL"}, ""), `"ntp": {"enabled": true, "server": "time.example", "detour": "yt-out"}, `),
 		"a rule names what goes": withSection(hotConfig([]string{"DE2", "NL"}, ""), `"extra": {"rules": [{"outbound": "prov: DE"}]}, `),
 	} {
 		switch name {
@@ -83,11 +83,20 @@ func TestHotPlan(t *testing.T) {
 
 	// the DNS servers and the HTTP client of the lists follow the tag of their detour (engine r19)
 	for name, part := range map[string]string{
-		"a detour of the DNS":        `"dns": {"final": "dns-server", "servers": [{"type": "udp", "tag": "dns-server", "detour": "yt-out"}]}, `,
+		"a detour of the DNS":          `"dns": {"final": "dns-server", "servers": [{"type": "udp", "tag": "dns-server", "detour": "yt-out"}]}, `,
 		"the HTTP client of the lists": `"http_clients": [{"tag": "lists", "detour": "yt-out"}], `,
 	} {
 		hot, reason = hotPlan(withSection(current, part), withSection(hotConfig([]string{"DE2", "NL"}, ""), part))
 		require.NotNil(t, hot, name+": "+reason)
+	}
+	// but not to a tag that goes: they would go on through the outbound found first, which is closed
+	for name, part := range map[string]string{
+		"a detour of the DNS to a server that goes":               `"dns": {"final": "dns-server", "servers": [{"type": "udp", "tag": "dns-server", "detour": "prov: DE"}]}, `,
+		"the HTTP client of the lists through a server that goes": `"http_clients": [{"tag": "lists", "detour": "prov: DE"}], `,
+	} {
+		hot, reason = hotPlan(withSection(current, part), withSection(hotConfig([]string{"DE2", "NL"}, ""), part))
+		require.Nil(t, hot, name)
+		require.NotEmpty(t, reason, name)
 	}
 }
 

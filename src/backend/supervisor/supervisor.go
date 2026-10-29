@@ -123,9 +123,12 @@ type Instance interface {
 	Dial(ctx context.Context, tag string, address string) (net.Conn, error)
 	// Swap replaces outbounds while the instance runs (hot.go).
 	Swap(configuration []byte, swap engine.Swap, limit int) (engine.Swapped, error)
-	// CarrySelections moves the choices of the selectors to the new tags of renamed servers,
-	// for the instance that takes the cache file over.
-	CarrySelections(configuration []byte)
+	// CarrySelections moves the choices of the selectors to the tags the servers chosen have in
+	// configuration, for the instance that takes the cache file over; it returns the choices it
+	// changed, as they were.
+	CarrySelections(configuration []byte) map[string]string
+	// Select gives the selectors the choices, by the tag of the selector.
+	Select(choices map[string]string)
 }
 
 var _ Instance = (*engine.Instance)(nil)
@@ -1042,7 +1045,8 @@ func (s *Supervisor) prepare(checked bool) (next *candidate, err error) {
 	if err != nil {
 		return nil, E.Cause(err, "read the settings")
 	}
-	s.clashKey(settings)
+	// a configuration checked after a swap sing-box refused is built again: its warnings were told
+	s.clashKey(settings, !checked)
 	s.syncSubscriptions(settings)
 	servers := s.servers()
 	facts := plan.Facts{LANAddress: s.options.System.LANAddress(), Devices: s.options.System.Devices(plan.InterfaceNames(settings)), NTPServerNames: s.options.System.NTPServerNames()}
@@ -1054,8 +1058,8 @@ func (s *Supervisor) prepare(checked bool) (next *candidate, err error) {
 		s.listChecks = make(map[listKey]listCheck)
 	}
 	used := make(map[listKey]bool)
-	noExternalUI := s.noDashboard(settings)
-	if noExternalUI {
+	noExternalUI := s.noDashboard(settings, !checked)
+	if noExternalUI && !checked {
 		s.log("warn", "there is no dashboard YACD to serve: the Clash API runs without it")
 	}
 	build := func(ruleSetDir string) (*plan.Result, error) {
@@ -1128,12 +1132,12 @@ func (s *Supervisor) prepare(checked bool) (next *candidate, err error) {
 // noDashboard puts the dashboard YACD of the package in place for settings that turn it on
 // (yacd.Ensure): sing-box serves what is there, and downloads one within its start into an
 // empty directory. It tells whether there is none to serve.
-func (s *Supervisor) noDashboard(settings *model.Config) bool {
+func (s *Supervisor) noDashboard(settings *model.Config, tell bool) bool {
 	if !settings.Settings.EnableYACD || s.options.YACDServedDir == "" {
 		return false
 	}
 	served, err := yacd.Ensure(s.options.YACDBuiltinDir, s.options.YACDServedDir)
-	if err != nil {
+	if err != nil && tell {
 		s.log("warn", "put the dashboard YACD in place: ", err)
 	}
 	return !served
@@ -1689,7 +1693,7 @@ func (s *Supervisor) apply(force bool) Result {
 	// another configuration. The cache file belongs to one instance at a time, so the
 	// running one is closed before the next is started; what the dashboard chose goes with
 	// the servers renamed.
-	current.instance.CarrySelections(next.result.Config)
+	carried := current.instance.CarrySelections(next.result.Config)
 	closing := time.Now()
 	if !s.close(current.instance) {
 		return s.done(false, false, "sing-box does not close: the router is given back, the process has to end")
@@ -1720,6 +1724,8 @@ func (s *Supervisor) apply(force bool) Result {
 		s.startFailed()
 		return s.done(false, false, "the new configuration does not come up: ", failure, "; the previous one does not either: ", err)
 	}
+	// what the dashboard chose, carried for the new configuration, as it was
+	instance.Select(carried)
 	s.current = &running{settings: current.settings, result: current.result, instance: instance}
 	err = s.surround(previousFirewall)
 	if err != nil {
@@ -1803,7 +1809,7 @@ func (s *Supervisor) release() {
 // the key they had last, the one written before this process started included: the key
 // changes only when someone sets another. A key is made only when the settings had none
 // since the process started.
-func (s *Supervisor) clashKey(settings *model.Config) {
+func (s *Supervisor) clashKey(settings *model.Config, tell bool) {
 	if settings.Settings.YACDSecretKey != "" {
 		s.clashSecret = settings.Settings.YACDSecretKey
 		return
@@ -1818,7 +1824,9 @@ func (s *Supervisor) clashKey(settings *model.Config) {
 	settings.Settings.YACDSecretKey = s.clashSecret
 	err := s.options.System.SetClashSecret(s.clashSecret)
 	if err != nil {
-		s.log("warn", "write the key of the Clash API into the settings: ", err)
+		if tell {
+			s.log("warn", "write the key of the Clash API into the settings: ", err)
+		}
 		return
 	}
 	if made {

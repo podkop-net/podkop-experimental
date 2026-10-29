@@ -24,8 +24,7 @@ import (
 
 const (
 	tagDirectOutbound     = "direct-out"
-	// no "-out": the outbound of a section is "<name>-out", and a section may be named block
-	tagBlockOutbound      = "block"
+	tagBlockOutbound      = "block" // no "-out": the outbound of a section is "<name>-out", and a section may be named block
 	tagListsHTTPClient    = "lists"
 	tagTProxyInbound      = "tproxy-in"
 	tagDNSInbound         = "dns-in"
@@ -54,6 +53,11 @@ var communityLists = []string{
 const (
 	// TProxyInboundTag is the inbound the traffic the firewall marks comes in through.
 	TProxyInboundTag = tagTProxyInbound
+	// DirectOutboundTag is the outbound of what goes without a proxy.
+	DirectOutboundTag = tagDirectOutbound
+	// BlockOutboundTag is the outbound a section of the type group whose group has no server
+	// refuses its connections with.
+	BlockOutboundTag = tagBlockOutbound
 )
 
 // Facts is what the builder needs to know of the router besides the settings.

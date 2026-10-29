@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"bytes"
 	"encoding/json"
 
 	"github.com/sagernet/sing-box"
@@ -50,53 +51,117 @@ func (i *Instance) Swap(configuration []byte, swap Swap, limit int) (Swapped, er
 	}
 	next := dialersOf(configuration)
 	// before the new selectors start: they read their choice from the cache file
-	i.carrySelections(next)
+	carried := i.carrySelections(next)
 	// before the new groups start: they test the members that have no result
-	changed := history.forgetChanged(next)
+	forgot := history.forgetChanged(next)
 	update, err := i.box.UpdateOutbounds(options.Outbounds, swap.Remove, limit)
 	if err != nil {
-		// the groups that run go on and may store results for the outbounds they have: the start
-		// that follows forgets what changed again
-		history.restart(i.dialers)
+		// nothing of next is left: the cache file has the choices of the selectors that run again,
+		// the groups that run the results of their servers, and nothing has a result under a tag
+		// of next only; a start that follows compares with what runs and forgets again what changed
+		i.storeSelections(carried)
+		history.undo(forgot, i.dialers)
 		return Swapped{}, err
 	}
 	// and again: a round of a group replaced, which stops only at the end of the swap, may have
 	// stored meanwhile what it found through the outbound a tag had before
-	history.forget(changed)
+	history.forget(forgot.tags)
 	i.dialers = next
 	return Swapped{Added: update.Added, Replaced: update.Replaced, Removed: update.Removed, Kept: update.Kept}, nil
 }
 
-// CarrySelections moves the choices of the selectors to the new tags of the outbounds that
-// configuration renames, in the cache file of the instance: the instance of configuration, which
-// takes the file over, finds the server chosen in the dashboard under its new name.
-func (i *Instance) CarrySelections(configuration []byte) {
+// CarrySelections moves the choices of the selectors to the tags the servers chosen have in
+// configuration (carriedSelections), in the cache file of the instance: the instance of
+// configuration, which takes the file over, finds the server chosen in the dashboard under its
+// new name. It returns the choices it changed, as they were (for Select, when configuration
+// does not come up and this one starts again).
+func (i *Instance) CarrySelections(configuration []byte) map[string]string {
+	if !i.enter() {
+		return nil
+	}
+	defer i.leave()
+	return i.carrySelections(dialersOf(configuration))
+}
+
+// Select gives the selectors of the instance the choices, by the tag of the selector, as the
+// dashboard does (and the cache file keeps them); a choice a selector does not have is passed
+// over.
+func (i *Instance) Select(choices map[string]string) {
 	if !i.enter() {
 		return
 	}
 	defer i.leave()
-	i.carrySelections(dialersOf(configuration))
+	for tag, choice := range choices {
+		outbound, found := i.box.Outbound().Outbound(tag)
+		if !found {
+			continue
+		}
+		if selector, isSelector := outbound.(interface{ SelectOutbound(tag string) bool }); isSelector {
+			selector.SelectOutbound(choice)
+		}
+	}
 }
 
-// carrySelections is CarrySelections for the dialers of the next configuration.
-func (i *Instance) carrySelections(next map[string]dialer) {
-	renamed := renamedTags(i.dialers, next)
-	if len(renamed) == 0 {
-		return
+// carrySelections is CarrySelections for the dialers of the next configuration; it returns the
+// choices it changed, as they were.
+func (i *Instance) carrySelections(next map[string]dialer) map[string]string {
+	cacheFile := service.FromContext[adapter.CacheFile](i.ctx)
+	if cacheFile == nil {
+		return nil
 	}
+	before := make(map[string]string)
+	for selector, choice := range carriedSelections(i.dialers, next, cacheFile.LoadSelected) {
+		before[selector] = cacheFile.LoadSelected(selector)
+		cacheFile.StoreSelected(selector, choice)
+	}
+	return before
+}
+
+// storeSelections puts the choices of the selectors into the cache file of the instance.
+func (i *Instance) storeSelections(choices map[string]string) {
 	cacheFile := service.FromContext[adapter.CacheFile](i.ctx)
 	if cacheFile == nil {
 		return
 	}
+	for selector, choice := range choices {
+		cacheFile.StoreSelected(selector, choice)
+	}
+}
+
+// carriedSelections are the choices the selectors of next take, by the tag of the selector. A
+// choice follows the server it named when its tag names another server in next or none: a
+// server renamed, or servers of one name that changed places (their tags are numbered in the
+// order of the list). It goes only to a member of the selector, the first one when the server
+// is there under several names. A choice whose server is not in next, or is there under the
+// same tag, stays.
+func carriedSelections(previous map[string]dialer, next map[string]dialer, chosen func(string) string) map[string]string {
+	carried := make(map[string]string)
 	for tag, now := range next {
-		var head struct {
-			Type string `json:"type"`
+		var selector struct {
+			Type      string   `json:"type"`
+			Outbounds []string `json:"outbounds"`
 		}
-		if json.Unmarshal(now.content, &head) != nil || head.Type != C.TypeSelector {
+		if json.Unmarshal(now.content, &selector) != nil || selector.Type != C.TypeSelector {
 			continue
 		}
-		if to, found := renamed[cacheFile.LoadSelected(tag)]; found {
-			cacheFile.StoreSelected(tag, to)
+		choice := chosen(tag)
+		before, found := previous[choice]
+		if !found {
+			continue
+		}
+		if after, kept := next[choice]; kept && bytes.Equal(after.content, before.content) {
+			continue
+		}
+		body := withoutTag(before.content)
+		if body == "" {
+			continue
+		}
+		for _, member := range selector.Outbounds {
+			if withoutTag(next[member].content) == body {
+				carried[tag] = member
+				break
+			}
 		}
 	}
+	return carried
 }
