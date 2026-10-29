@@ -168,6 +168,10 @@ func (b *builder) rowServers(section *model.Section, row model.Member) ([]string
 		if err != nil {
 			return nil, err
 		}
+		if via == "" {
+			// the source it goes through has no servers yet: the row has none now
+			return nil, nil
+		}
 	}
 	filtered := source.Type == "subscription" || len(servers) > 1
 	var tags []string
@@ -233,7 +237,10 @@ func (b *builder) viaTag(name string, rowSource string) (string, error) {
 		return "", err
 	}
 	if len(servers) == 0 {
-		return "", E.New("the source ", name, " to connect through has no servers yet")
+		// a subscription not downloaded yet: the rows through it take no server for now, and
+		// the rule goes by its fallbacks, as when a filter takes none
+		b.warnOnce("the source ", name, " to connect through has no servers yet: the rows through it take none for now")
+		return "", nil
 	}
 	var tags []string
 	for _, server := range servers {

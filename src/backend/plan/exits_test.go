@@ -251,6 +251,21 @@ func TestExitViaSourceOfSeveralServers(t *testing.T) {
 	require.True(t, result.Swappable["pair-best"])
 }
 
+// A row through a subscription not downloaded yet takes no server for now: the rule goes by its
+// fallbacks instead of the whole configuration being refused.
+func TestExitViaSourceWithoutServers(t *testing.T) {
+	t.Parallel()
+	settings := "\nconfig source 'prov1'\n\toption type 'subscription'\n\toption url 'https://sub.example/x'\n" +
+		"\nconfig source 'far'\n\toption type 'links'\n\tlist link 'vless://u@far.example:443#Far'\n" +
+		ruleText("x", row("server", "far", "via prov1"), row("fallback", "direct"))
+	result, err := buildRules(t, settings, nil)
+	require.NoError(t, err)
+	_, outbounds := outboundsOf(t, result)
+	require.Empty(t, outbounds["x-urltest-out"].Outbounds)
+	require.Equal(t, []string{"direct-out"}, outbounds["x-urltest-out"].Fallbacks)
+	require.Contains(t, strings.Join(result.Warnings, "\n"), "the source prov1 to connect through has no servers yet")
+}
+
 func TestExitMistakes(t *testing.T) {
 	t.Parallel()
 	sources := "\nconfig source 'one'\n\toption type 'links'\n\tlist link 'vless://u@one.example:443#One'\n" +
