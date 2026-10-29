@@ -10,12 +10,9 @@
 // Settings content
 "require view.podkop.settings as settings";
 
-// Sections content
-"require view.podkop.section as section";
-
-// Groups and subscriptions content
-"require view.podkop.group as group";
-"require view.podkop.subscription as subscription";
+// Servers (sources) and rules content
+"require view.podkop.source as source";
+"require view.podkop.rules as rules";
 
 // Dashboard content
 "require view.podkop.dashboard as dashboard";
@@ -23,45 +20,151 @@
 // Diagnostic content
 "require view.podkop.diagnostic as diagnostic";
 
-// Sections, groups and subscriptions are sections of one file, and its names are one
-// namespace: a group named as a section would merge into it. A name taken is refused.
-//
-// A section is added and removed as LuCI does it (the change is staged and the form drawn
-// again), but a field that does not pass its check does not stop it. LuCI saves the whole form
-// first, every tab: on a router just installed the section main has no proxy link yet, and a
-// subscription or a group could not be added (it stayed in the page unseen, and a second try
-// found its name taken). The fields that pass are kept; the one that does not is told at Save.
-function stageSections(typedSection) {
-  const map = typedSection.map;
-  const stage = () => {
-    map.checkDepends();
-    return map
-      .parse()
-      .catch(() => {})
-      .then(() => map.data.save())
-      .then(() => map.load())
-      .then(() => map.renderContents());
-  };
-  typedSection.handleAdd = function (ev, name) {
-    if (name && uci.get("podkop", name)) {
-      ui.addNotification(
-        null,
-        E("p", {}, [
-          _(
-            "The name %s is taken: sections, groups and subscriptions need names of their own",
-          ).format(name),
-        ]),
-        "error",
-      );
-      return Promise.resolve();
+// The sources, the rules and their rows are sections of one file, and its names are one
+// namespace: a source named as a rule would merge into it. A new source or rule gets the first
+// name of its kind that no section has (src1, src2…, rule1, rule2…); direct and block name
+// where a row goes without a server and are never given.
+function freeName(prefix) {
+  const deleted =
+    (uci.state && uci.state.deletes && uci.state.deletes.podkop) || {};
+  for (let index = 1; ; index++) {
+    const name = prefix + index;
+    if (
+      !main.RESERVED_NAMES.includes(name) &&
+      !uci.get("podkop", name) &&
+      !deleted[name]
+    ) {
+      return name;
     }
-    map.data.add(this.uciconfig ?? map.config, this.sectiontype, name);
-    return stage();
+  }
+}
+
+// two values of a field alike: a list or one value
+function sameValue(a, b) {
+  const list = (value) =>
+    Array.isArray(value)
+      ? value.map(String)
+      : value == null || value === ""
+        ? []
+        : [String(value)];
+  return JSON.stringify(list(a)) === JSON.stringify(list(b));
+}
+
+// The form is staged as LuCI stages a section added or removed (the change is saved to the
+// router's staging area, and the form drawn again when asked), but only the fields the user
+// changed: a field that shows its default, or a field hidden now, is left to Save, so that
+// opening a window changes nothing. A field that does not pass its check does not stop it: it
+// is told at Save. A list of rows has only the fields edited in its rows (the switch of a
+// rule); the dashboard and the diagnostics hold no settings.
+function stage(map, render) {
+  map.checkDepends();
+  const tasks = [];
+  map.children
+    .filter(
+      (section) =>
+        section.sectiontype !== "diagnostic" &&
+        section.sectiontype !== "dashboard",
+    )
+    .forEach((section) => {
+      const grid = section instanceof form.GridSection;
+      const options = section.children.filter(
+        (option) => !grid || (option.editable && !option.modalonly),
+      );
+      section.cfgsections().forEach((section_id) => {
+        options.forEach((option) => {
+          if (!option.isActive(section_id)) {
+            return;
+          }
+          const saved = option.cfgvalue(section_id);
+          const shown = option.formvalue(section_id);
+          if (!sameValue(shown, saved != null ? saved : option.default)) {
+            tasks.push(
+              Promise.resolve(option.parse(section_id)).catch(() => {}),
+            );
+          }
+        });
+      });
+    });
+  return Promise.all(tasks)
+    .then(() => map.data.save())
+    .then(() => (render ? map.load().then(() => map.renderContents()) : null));
+}
+
+// A list of sources or of rules, each edited in a window of LuCI. The form is staged before a
+// window opens: a window that saves draws the form again from the staged settings, so what
+// was changed on the other tabs stays. A window that staged its own changes (the rows of a
+// rule are added and removed that way) and is dismissed draws the form again too.
+function gridSection(grid, prefix, hooks) {
+  const map = grid.map;
+  grid.handleAdd = function () {
+    return stage(map).then(() => {
+      const name = freeName(prefix);
+      map.data.add("podkop", this.sectiontype, name);
+      if (hooks.added) {
+        hooks.added(name);
+      }
+      map.addedSection = name;
+      return form.GridSection.prototype.renderMoreOptionsModal.call(this, name);
+    });
   };
-  typedSection.handleRemove = function (section_id) {
-    map.data.remove(this.uciconfig ?? map.config, section_id);
-    return stage();
+  grid.handleRemove = function (section_id) {
+    if (hooks.removed) {
+      hooks.removed(section_id);
+    }
+    map.data.remove("podkop", section_id);
+    return stage(map, true);
   };
+  grid.renderMoreOptionsModal = function (section_id, ev) {
+    if (this.getActiveModalMap()) {
+      return form.GridSection.prototype.renderMoreOptionsModal.call(
+        this,
+        section_id,
+        ev,
+      );
+    }
+    return stage(map).then(() =>
+      form.GridSection.prototype.renderMoreOptionsModal.call(
+        this,
+        section_id,
+        ev,
+      ),
+    );
+  };
+  grid.handleModalCancel = function (modalMap, ev, isSaving) {
+    const stacked = !!this.getPreviousModalMap();
+    const added = !isSaving && !stacked ? map.addedSection : null;
+    const staged = !isSaving && !stacked && modalMap && modalMap.pdkStaged;
+    return Promise.resolve(
+      form.GridSection.prototype.handleModalCancel.call(
+        this,
+        modalMap,
+        ev,
+        isSaving,
+      ),
+    ).then(() => {
+      if (added != null && hooks.removed) {
+        hooks.removed(added);
+      }
+      if (staged) {
+        return stage(map, true);
+      }
+    });
+  };
+}
+
+// The values of the file as the page staged them
+function configModel() {
+  const of = (type) => uci.sections("podkop", type);
+  return {
+    rules: of("section"),
+    sources: of("source"),
+    members: of("member"),
+  };
+}
+
+function ruleTitle(name) {
+  const rule = uci.get("podkop", name);
+  return (rule && String(rule.label || "").trim()) || name;
 }
 
 const EntryPoint = {
@@ -79,60 +182,41 @@ const EntryPoint = {
     // Enable tab views
     podkopMap.tabbed = true;
 
-    // A save by the user first asks the router about the proxy links of every section: one
-    // its engine refuses keeps the settings from being saved, with its field and the reason.
-    // The silent saves of LuCI (a section added or removed) are left alone.
-    const save = podkopMap.save;
-    podkopMap.save = function (cb, silent) {
-      if (silent) {
-        return save.call(this, cb, silent);
-      }
-      return main.checkLinksBeforeSave(this).then((problems) => {
-        if (problems.length) {
-          main.showLinkProblems(problems);
-          return Promise.reject(new Error("proxy links refused by the router"));
-        }
-        return save.call(this, cb, silent);
-      });
-    };
-
-    // The tabs in the order the traffic is set up: where the servers come from, the groups
-    // of them, the sections that send traffic to a group
-    // Subscriptions tab: the addresses providers list their servers at
-    const subscriptionsSection = podkopMap.section(
-      form.TypedSection,
-      "subscription",
-      _("Subscriptions"),
+    // Servers tab: subscriptions, links of servers, outbound JSON, interfaces
+    const sourcesSection = podkopMap.section(
+      form.GridSection,
+      "source",
+      _("Servers"),
+      _(
+        "Subscriptions, links of servers and interfaces. The rules take their servers from here.",
+      ),
     );
-    subscriptionsSection.anonymous = false;
-    subscriptionsSection.addremove = true;
-    subscription.createSubscriptionContent(subscriptionsSection);
-    stageSections(subscriptionsSection);
+    sourcesSection.hidetitle = true;
+    sourcesSection.anonymous = true;
+    sourcesSection.addremove = true;
+    source.createSourceContent(sourcesSection, singBoxFeatures);
+    gridSection(sourcesSection, "src", {
+      removed: (name) => source.sourceRemoved(name),
+    });
 
-    // Groups tab: servers of subscriptions chosen by their names
-    const groupsSection = podkopMap.section(
-      form.TypedSection,
-      "group",
-      _("Groups"),
-    );
-    groupsSection.anonymous = false;
-    groupsSection.addremove = true;
-    group.createGroupContent(groupsSection);
-    stageSections(groupsSection);
-
-    // Sections tab
-    const sectionsSection = podkopMap.section(
-      form.TypedSection,
+    // Rules tab: which sites go through which servers
+    const rulesSection = podkopMap.section(
+      form.GridSection,
       "section",
-      _("Sections"),
+      _("Rules"),
+      _(
+        "Which sites go through which servers. When a site is in several rules, the upper one works. Drag ☰ to change the order. The server in use is shown on the dashboard.",
+      ),
     );
-    sectionsSection.anonymous = false;
-    sectionsSection.addremove = true;
-    sectionsSection.template = "cbi/simpleform";
-
-    // Render section content
-    section.createSectionContent(sectionsSection, singBoxFeatures);
-    stageSections(sectionsSection);
+    rulesSection.hidetitle = true;
+    rulesSection.anonymous = true;
+    rulesSection.addremove = true;
+    rulesSection.sortable = true;
+    rules.createRulesContent(rulesSection, singBoxFeatures);
+    gridSection(rulesSection, "rule", {
+      added: (name) => rules.ruleAdded(name),
+      removed: (name) => rules.ruleRemoved(name),
+    });
 
     // Settings tab
     const settingsSection = podkopMap.section(
@@ -140,6 +224,7 @@ const EntryPoint = {
       "settings",
       _("Settings"),
     );
+    settingsSection.hidetitle = true;
     settingsSection.anonymous = true;
     settingsSection.addremove = false;
     // Make it named [ config settings 'settings' ]
@@ -156,6 +241,7 @@ const EntryPoint = {
       "diagnostic",
       _("Diagnostics"),
     );
+    diagnosticSection.hidetitle = true;
     diagnosticSection.anonymous = true;
     diagnosticSection.addremove = false;
     diagnosticSection.cfgsections = function () {
@@ -171,6 +257,7 @@ const EntryPoint = {
       "dashboard",
       _("Dashboard"),
     );
+    dashboardSection.hidetitle = true;
     dashboardSection.anonymous = true;
     dashboardSection.addremove = false;
     dashboardSection.cfgsections = function () {
@@ -179,6 +266,70 @@ const EntryPoint = {
 
     // Render dashboard content
     dashboard.createDashboardContent(dashboardSection);
+
+    // The window of a source or a rule, from its tab
+    const openWindow = (tab, grid, name) => {
+      const link = document.querySelector(
+        'ul.cbi-tabmenu li[data-tab="' + tab + '"] a',
+      );
+      if (link) {
+        link.click();
+      }
+      return grid.renderMoreOptionsModal(name);
+    };
+
+    // A save by the user first checks what the backend would refuse the whole configuration
+    // for: the rows of the rules that connect through a source that cannot be used, then
+    // the proxy links of the sources, which the router's engine is asked about. Either keeps
+    // the settings from being saved, with the window to fix it. The silent saves of LuCI
+    // (a section added or removed, a window saved) are left alone.
+    const save = podkopMap.save;
+    podkopMap.save = function (cb, silent) {
+      if (silent) {
+        return save.call(this, cb, silent);
+      }
+      // what the form holds now, the switches of the rules in the list included
+      return Promise.resolve(this.parse())
+        .catch(() => {})
+        .then(() => {
+          const model = configModel();
+          const rows = main.ruleRowProblems(
+            model.rules,
+            model.sources,
+            model.members,
+          );
+          if (rows.length) {
+            main.showSaveProblems(
+              _("Some rows of the rules cannot be used"),
+              _(
+                "The settings are not saved. These rows connect through a source that cannot be used:",
+              ),
+              rows.map((row) => ({
+                heading:
+                  ruleTitle(row.rule) +
+                  " · " +
+                  (row.role === "fallback" ? _("Fallback") : _("Servers")) +
+                  " · " +
+                  row.index,
+                lines: [row.error],
+                show: () => openWindow("section", rulesSection, row.rule),
+              })),
+            );
+            return Promise.reject(new Error("rows of the rules refused"));
+          }
+          return main.checkLinksBeforeSave(model.sources).then((problems) => {
+            if (problems.length) {
+              main.showLinkProblems(problems, (name) =>
+                openWindow("source", sourcesSection, name),
+              );
+              return Promise.reject(
+                new Error("proxy links refused by the router"),
+              );
+            }
+            return save.call(this, cb, silent);
+          });
+        });
+    };
 
     // Inject core service
     main.coreService();

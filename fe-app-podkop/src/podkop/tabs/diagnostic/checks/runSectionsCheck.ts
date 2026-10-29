@@ -44,7 +44,9 @@ export async function runSectionsCheck() {
             (item) => item.selected,
           );
 
+          // the URL test of the rule, or a tier of its fallbacks pinned on the dashboard
           const isUrlTest = selectedOutbound?.type === 'URLTest';
+          const urlTestName = selectedOutbound?.displayName || _('Fastest');
 
           const success = latencyGroup.success && !latencyGroup.data.message;
 
@@ -59,13 +61,13 @@ export async function runSectionsCheck() {
               if (!delays.length) {
                 return {
                   success: false,
-                  latency: `[${_('Fastest')}] ${_('Not responding')}`,
+                  latency: `[${urlTestName}] ${_('Not responding')}`,
                 };
               }
 
               return {
                 success: true,
-                latency: `[${_('Fastest')}] ${delays.map((item) => `${item}ms`).join(' / ')}`,
+                latency: `[${urlTestName}] ${delays.map((item) => `${item}ms`).join(' / ')}`,
               };
             }
 
@@ -112,12 +114,9 @@ export async function runSectionsCheck() {
 
       const { latency, success } = await getLatency();
 
-      // a section that connects through another one says so: its test goes through it
       return {
         state: success ? 'success' : 'error',
-        key: section.detour
-          ? `${section.displayName} (${_('via %s').format(section.detour)})`
-          : section.displayName,
+        key: section.displayName,
         value: latency,
       };
     }),

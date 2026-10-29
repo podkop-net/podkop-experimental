@@ -40,7 +40,12 @@ declare global {
 
   const uci: {
     load: (packages: string | string[]) => Promise<string>;
-    sections: (conf: string, type?: string, cb?: () => void) => Promise<T>;
+    // sync: the sections of a loaded configuration, staged changes included
+    sections: (
+      conf: string,
+      type?: string,
+    ) => Array<Record<string, unknown> & { '.name': string; '.type': string }>;
+    get: (conf: string, sid: string, opt?: string) => unknown;
   };
 
   const _ = (_key: string) => string;

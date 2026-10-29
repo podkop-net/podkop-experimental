@@ -2,29 +2,25 @@ import { validateProxyUrl } from '../validators/validateProxyUrl';
 import { linkParts, readAddress } from '../validators/linkAddress';
 import { PodkopShellMethods } from './methods';
 import { logger } from './services';
+import { sourceKind, sourceLabel, sourceLinks } from './sources';
 import type { Podkop } from './types';
 
-// Before the settings are saved, the proxy links of every section are asked of the router:
+// Before the settings are saved, the proxy links of every source are asked of the router:
 // the engine of its build takes each as the configuration would (check_links), so that a
 // link it cannot use (a transport or a kind of outbound this build has not) is told by its
-// field here, and not by the log after the apply, where it would keep the whole
-// configuration from running. One request for the links of the form (more for many long
-// ones: linkBatches), at the save only: the page checks the form of a link itself as it is
-// typed.
-
-// the fields of a section that hold proxy links
-const LINK_OPTIONS = [
-  'proxy_string',
-  'selector_proxy_links',
-  'urltest_proxy_links',
-  'urltest_fallback_links',
-];
+// source here, and not by the log after the apply, where it would keep the whole
+// configuration from running. One request for the links (more for many long ones:
+// linkBatches), at the save only: the window of a source checks the form of a link itself as
+// it is typed. The sources are read as the page staged them (each window saves its source),
+// so their links are known without their windows open. An outbound JSON is no link: the
+// engine is not asked about it.
 
 export interface LinkPlace {
+  // the name of the source in the settings, and the name it is shown by
   section: string;
+  label: string;
   option: string;
-  field: string;
-  // the place of the link in its field, from 1, and how many the field has
+  // the place of the link in its source, from 1, and how many the source has
   index: number;
   count: number;
   link: string;
@@ -34,53 +30,22 @@ export interface LinkProblem extends LinkPlace {
   error: string;
 }
 
-// what LuCI's form gives of itself (form.Map, form.TypedSection, form.AbstractValue)
-interface FormOption {
-  option: string;
-  title?: string;
-  isActive(sectionId: string): boolean;
-  formvalue(sectionId: string): unknown;
-}
-
-interface FormSection {
-  cfgsections(): string[];
-  children: FormOption[];
-}
-
-export interface FormMap {
-  children: FormSection[];
-}
-
-// linkPlaces lists the links of the active link fields of every section, as the form holds
-// them now
-export function linkPlaces(map: FormMap): LinkPlace[] {
+// linkPlaces lists the links of the sources of links
+export function linkPlaces(sources: Podkop.ConfigSource[]): LinkPlace[] {
   const places: LinkPlace[] = [];
-  for (const section of map.children ?? []) {
-    if (typeof section.cfgsections !== 'function') continue;
-    for (const sectionId of section.cfgsections()) {
-      for (const option of section.children ?? []) {
-        if (
-          !LINK_OPTIONS.includes(option.option) ||
-          !option.isActive(sectionId)
-        ) {
-          continue;
-        }
-        const value = option.formvalue(sectionId);
-        const links = (Array.isArray(value) ? value : [value])
-          .map((item) => (typeof item === 'string' ? item.trim() : ''))
-          .filter(Boolean);
-        links.forEach((link, index) =>
-          places.push({
-            section: sectionId,
-            option: option.option,
-            field: (option.title ?? option.option).replace(/<[^>]*>/g, ''),
-            index: index + 1,
-            count: links.length,
-            link,
-          }),
-        );
-      }
-    }
+  for (const source of sources ?? []) {
+    if (sourceKind(source) !== 'links') continue;
+    const links = sourceLinks(source);
+    links.forEach((link, index) =>
+      places.push({
+        section: source['.name'],
+        label: sourceLabel(source),
+        option: 'link',
+        index: index + 1,
+        count: links.length,
+        link,
+      }),
+    );
   }
   return places;
 }
@@ -107,13 +72,13 @@ export function linkLabel(link: string): string {
   return name ? `«${name}» (${kind})` : kind;
 }
 
-// checkLinksBeforeSave asks the router about the links of the form and returns those its
-// engine refuses. A link of a wrong form is left to the form's own check (LuCI refuses the
-// save and marks the field); when the router does not answer, nothing is refused.
+// checkLinksBeforeSave asks the router about the links of the sources and returns those its
+// engine refuses. A link of a wrong form is left to the window of its source (LuCI refuses
+// to save it there); when the router does not answer, nothing is refused.
 export async function checkLinksBeforeSave(
-  map: FormMap,
+  sources: Podkop.ConfigSource[],
 ): Promise<LinkProblem[]> {
-  const places = linkPlaces(map);
+  const places = linkPlaces(sources);
   if (!places.length) return [];
   if (places.some((place) => !validateProxyUrl(place.link).valid)) return [];
   const links = [...new Set(places.map((place) => place.link))];
@@ -168,54 +133,44 @@ export function linkBatches(links: string[]): string[][] {
   return parts;
 }
 
-// showLinkProblem opens the tab of the sections and points at the field of a link: the item
-// of the link in a list, or the whole field
-function showLinkProblem(problem: LinkProblem) {
-  ui.hideModal();
-  const tab = document.querySelector<HTMLElement>(
-    'ul.cbi-tabmenu li[data-tab="section"] a',
-  );
-  tab?.click();
-  const field = document.getElementById(
-    `cbi-podkop-${problem.section}-${problem.option}`,
-  );
-  if (!field) return;
-  const item = Array.from(field.querySelectorAll<HTMLElement>('.item')).find(
-    (element) => element.textContent?.trim() === problem.link,
-  );
-  const target = item ?? field;
-  target.scrollIntoView({ block: 'center' });
-  target.classList.add('pdk-link-problem');
-  setTimeout(() => target.classList.remove('pdk-link-problem'), 6000);
+// A thing that keeps the settings from being saved, with the window that fixes it
+export interface SaveProblem {
+  heading: string;
+  lines: string[];
+  show?: () => void;
 }
 
-// showLinkProblems tells which links keep the settings from being saved, and why
-export function showLinkProblems(problems: LinkProblem[]) {
-  ui.showModal(_('Some proxy links cannot be used'), [
-    E('p', {}, [
-      _(
-        'The settings are not saved. The engine of the router refuses these links:',
-      ),
-    ]),
+// showSaveProblems tells what keeps the settings from being saved, each with a button that
+// opens the window where it is fixed
+export function showSaveProblems(
+  title: string,
+  intro: string,
+  problems: SaveProblem[],
+) {
+  ui.showModal(title, [
+    E('p', {}, [intro]),
     E(
       'ul',
-      { class: 'pdk-link-problems' },
+      {},
       problems.map((problem) =>
         E('li', {}, [
-          E('strong', {}, [
-            `${problem.section} · ${problem.field}` +
-              (problem.count > 1 ? ` · ${problem.index}/${problem.count}` : ''),
-          ]),
-          E('div', {}, [linkLabel(problem.link)]),
-          E('div', { class: 'pdk-link-problem-error' }, [problem.error]),
-          E(
-            'button',
-            {
-              class: 'cbi-button cbi-button-action',
-              click: () => showLinkProblem(problem),
-            },
-            [_('Show')],
-          ),
+          E('strong', {}, [problem.heading]),
+          ...problem.lines.map((line) => E('div', {}, [line])),
+          problem.show
+            ? E('div', {}, [
+                E(
+                  'button',
+                  {
+                    class: 'cbi-button cbi-button-action',
+                    click: () => {
+                      ui.hideModal();
+                      problem.show?.();
+                    },
+                  },
+                  [_('Show')],
+                ),
+              ])
+            : '',
         ]),
       ),
     ),
@@ -225,4 +180,25 @@ export function showLinkProblems(problems: LinkProblem[]) {
       ]),
     ]),
   ]);
+}
+
+// showLinkProblems tells which links keep the settings from being saved, and why; show opens
+// the window of a source
+export function showLinkProblems(
+  problems: LinkProblem[],
+  show?: (source: string) => void,
+) {
+  showSaveProblems(
+    _('Some proxy links cannot be used'),
+    _(
+      'The settings are not saved. The engine of the router refuses these links:',
+    ),
+    problems.map((problem) => ({
+      heading:
+        problem.label +
+        (problem.count > 1 ? ` · ${problem.index}/${problem.count}` : ''),
+      lines: [linkLabel(problem.link), problem.error],
+      show: show ? () => show(problem.section) : undefined,
+    })),
+  );
 }

@@ -240,6 +240,143 @@ function createSettingsContent(section, singBoxFeatures = []) {
   o.default = "0";
   o.rmempty = false;
 
+  // The check of the servers: one for the servers of every rule (urltest of sing-box)
+  o = section.option(
+    form.Value,
+    "urltest_testing_url",
+    _("Server check URL"),
+    _(
+      "One check for the servers of every rule: each server is tested with this URL",
+    ),
+  );
+  o.value(
+    "https://www.gstatic.com/generate_204",
+    "https://www.gstatic.com/generate_204 (Google)",
+  );
+  o.value(
+    "https://cp.cloudflare.com/generate_204",
+    "https://cp.cloudflare.com/generate_204 (Cloudflare)",
+  );
+  o.value("https://captive.apple.com", "https://captive.apple.com (Apple)");
+  o.value(
+    "https://connectivity-check.ubuntu.com",
+    "https://connectivity-check.ubuntu.com (Ubuntu)",
+  );
+  o.default = "https://www.gstatic.com/generate_204";
+  o.rmempty = false;
+  o.validate = function (section_id, value) {
+    if (!value || value.length === 0) {
+      return true;
+    }
+
+    const validation = main.validateUrl(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
+  o = section.option(
+    form.ListValue,
+    "urltest_check_interval",
+    _("Server check interval"),
+    _("The interval between connectivity tests"),
+  );
+  o.renderWidget = function (section_id, option_index, cfgvalue) {
+    this.keylist = [];
+    this.vallist = [];
+    this.value("30s", _("Every 30 seconds"));
+    this.value("1m", _("Every 1 minute"));
+    this.value("3m", _("Every 3 minutes"));
+    this.value("5m", _("Every 5 minutes"));
+    // an interval set by hand stays shown
+    if (cfgvalue && !this.keylist.includes(cfgvalue)) {
+      this.value(cfgvalue, cfgvalue);
+    }
+    return form.ListValue.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue,
+    );
+  };
+  o.default = "3m";
+  o.rmempty = false;
+
+  o = section.option(
+    form.Value,
+    "urltest_tolerance",
+    _("Server check tolerance, ms"),
+    _("The server in use changes only for one faster by this much"),
+  );
+  o.default = "50";
+  o.rmempty = false;
+  o.validate = function (section_id, value) {
+    if (!value || value.length === 0) {
+      return true;
+    }
+
+    const parsed = parseFloat(value);
+
+    if (
+      /^[0-9]+$/.test(value) &&
+      !isNaN(parsed) &&
+      isFinite(parsed) &&
+      parsed >= 50 &&
+      parsed <= 1000
+    ) {
+      return true;
+    }
+
+    return _("Must be a number in the range of 50 - 1000");
+  };
+
+  if (singBoxFeatures.includes("urltest.download_url")) {
+    o = section.option(
+      form.ListValue,
+      "urltest_download_check",
+      _("Download Check"),
+      _(
+        "Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped",
+      ),
+    );
+    o.value("default", _("Default"));
+    o.value("off", _("Disabled"));
+    o.value("custom", _("Custom URL"));
+    o.default = "default";
+
+    o = section.option(
+      form.Value,
+      "urltest_download_url",
+      _("Download Check URL"),
+      _("The URL must serve at least 64 KiB or announce a shorter length"),
+    );
+    Object.entries(main.URLTEST_DOWNLOAD_URL_OPTIONS).forEach(
+      ([key, label]) => {
+        o.value(key, _(label));
+      },
+    );
+    o.default = "https://speed.cloudflare.com/__down?bytes=65536";
+    o.rmempty = false;
+    o.depends("urltest_download_check", "custom");
+
+    o.validate = function (section_id, value) {
+      if (!value || value.length === 0) {
+        return true;
+      }
+
+      const validation = main.validateUrl(value);
+
+      if (validation.valid) {
+        return true;
+      }
+
+      return validation.message;
+    };
+  }
+
   o = section.option(
     form.ListValue,
     "update_interval",
@@ -261,37 +398,49 @@ function createSettingsContent(section, singBoxFeatures = []) {
   o.default = "0";
   o.rmempty = false;
 
+  // the rule whose servers the lists are downloaded through
   o = section.option(
     form.ListValue,
     "download_lists_via_proxy_section",
     _("Download Lists via specific proxy section"),
-    _("Downloading all lists via specific Proxy/VPN"),
+    _("The lists are downloaded through the servers of this rule"),
   );
-
   o.rmempty = false;
   o.depends("download_lists_via_proxy", "1");
-  o.cfgvalue = function (section_id) {
-    return uci.get("podkop", section_id, "download_lists_via_proxy_section");
-  };
-  o.load = function () {
-    const sections = this.map?.data?.state?.values?.podkop ?? {};
-
+  // the choices are the rules as the page has them when it is drawn
+  o.renderWidget = function (section_id, option_index, cfgvalue) {
     this.keylist = [];
     this.vallist = [];
-
-    for (const secName in sections) {
-      const sec = sections[secName];
-      if (
-        sec[".type"] === "section" &&
-        sec["connection_type"] !== "block" &&
-        sec["connection_type"] !== "exclusion"
-      ) {
-        this.keylist.push(secName);
-        this.vallist.push(secName);
-      }
+    uci.sections("podkop", "section").forEach((rule) => {
+      this.value(
+        rule[".name"],
+        String(rule.label || "").trim() || rule[".name"],
+      );
+    });
+    // a list of LuCI with no choice is not drawn at all (25.12 fails on it)
+    if (!this.keylist.length) {
+      this.value("", _("No rule yet"));
     }
-
-    return Promise.resolve();
+    // a rule that is no longer there stays shown, and validate tells why
+    if (cfgvalue && !this.keylist.includes(cfgvalue)) {
+      this.value(cfgvalue, _("%s (deleted)").format(cfgvalue));
+    }
+    return form.ListValue.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue,
+    );
+  };
+  o.validate = function (section_id, value) {
+    if (!value) {
+      return _("Choose a rule");
+    }
+    const rule = uci.get("podkop", value);
+    if (!rule || rule[".type"] !== "section") {
+      return _("There is no rule %s: choose another one").format(value);
+    }
+    return true;
   };
 
   o = section.option(

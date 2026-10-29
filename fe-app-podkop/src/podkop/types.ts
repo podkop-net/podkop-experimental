@@ -96,71 +96,76 @@ export namespace Podkop {
     code: string;
     displayName: string;
     outbounds: Outbound[];
-    // the section the connections of this one go through (option detour)
-    detour?: string;
   }
 
-  export interface ConfigProxyUrlTestSection {
-    connection_type: 'proxy';
-    proxy_config_type: 'urltest';
-    urltest_proxy_links: string[];
-    urltest_fallback_links?: string[];
-    urltest_download_check?: 'default' | 'off' | 'custom';
-    urltest_download_url?: string;
-  }
-
-  export interface ConfigProxySelectorSection {
-    connection_type: 'proxy';
-    proxy_config_type: 'selector';
-    selector_proxy_links: string[];
-  }
-
-  export interface ConfigProxyUrlSection {
-    connection_type: 'proxy';
-    proxy_config_type: 'url';
-    proxy_string: string;
-  }
-
-  export interface ConfigProxyOutboundSection {
-    connection_type: 'proxy';
-    proxy_config_type: 'outbound';
-    outbound_json: string;
-  }
-
-  export interface ConfigVpnSection {
-    connection_type: 'vpn';
-    interface: string;
-  }
-
-  export interface ConfigBlockSection {
-    connection_type: 'block';
-  }
-
-  export interface ConfigExclusionSection {
-    connection_type: 'exclusion';
-  }
-
-  // a section that goes through a group of servers of subscriptions
-  export interface ConfigGroupSection {
-    connection_type: 'group';
-    group?: string;
-  }
-
-  export type ConfigBaseSection =
-    | ConfigProxyUrlTestSection
-    | ConfigProxySelectorSection
-    | ConfigProxyUrlSection
-    | ConfigProxyOutboundSection
-    | ConfigVpnSection
-    | ConfigBlockSection
-    | ConfigExclusionSection
-    | ConfigGroupSection;
-
-  export type ConfigSection = ConfigBaseSection & {
+  // a "config section" block of format 2: a rule (tab Rules)
+  export interface ConfigRule {
     '.name': string;
-    '.type': 'settings' | 'section' | 'subscription' | 'group';
+    '.type'?: 'section';
+    label?: string;
+    enabled?: string;
+    community_lists?: string[];
+    user_domain_list_type?: string;
+    user_domains?: string[];
+    user_domains_text?: string;
+    user_subnet_list_type?: string;
+    user_subnets?: string[];
+    user_subnets_text?: string;
+    local_domain_lists?: string[];
+    remote_domain_lists?: string[];
+    local_subnet_lists?: string[];
+    remote_subnet_lists?: string[];
+    fully_routed_ips?: string[];
+    mixed_proxy_enabled?: string;
+    mixed_proxy_port?: string;
+    resolve_real_ip_for_routing?: string;
+  }
+
+  // a "config source" block: where servers come from (tab Servers)
+  export interface ConfigSource {
+    '.name': string;
+    '.type'?: 'source';
+    type?: string;
+    label?: string;
+    url?: string;
+    update_interval?: string;
+    link?: string | string[];
+    udp_over_tcp?: string;
+    outbound_json?: string;
+    interface?: string;
+    routing_mark?: string;
+    domain_resolver_enabled?: string;
+    domain_resolver_dns_type?: string;
+    domain_resolver_dns_server?: string;
+  }
+
+  // a "config member" block: a row of the servers or of the fallbacks of a rule, in the
+  // order of the file
+  export interface ConfigMember {
+    '.name': string;
+    '.type'?: 'member';
+    section?: string;
+    role?: string;
+    source?: string;
+    include?: string | string[];
+    exclude?: string | string[];
+    via?: string;
+  }
+
+  // the rules, sources and rows of the settings
+  export interface ConfigModel {
+    rules: ConfigRule[];
+    sources: ConfigSource[];
+    members: ConfigMember[];
+  }
+
+  // a block of the file other than a source or a row: the settings or a rule
+  export type ConfigSection = {
+    '.name': string;
+    '.type': 'settings' | 'section';
     yacd_secret_key?: string;
-    detour?: string;
+    label?: string;
+    enabled?: string;
   };
 
   export interface MethodSuccessResponse<T> {
@@ -276,12 +281,12 @@ export namespace Podkop {
     preview?: SubscriptionPreview;
   }
 
-  // which servers a group of the form would choose (group_check)
+  // which servers a row of a rule would take from a subscription (group_check)
   export interface GroupCheck {
     subscriptions: string[];
     include: string[];
     exclude: string[];
-    // the addresses of the form by name: a subscription not saved yet has its address there only
+    // the addresses by the name of the source: one not saved yet has its address there only
     addresses?: Record<string, string>;
   }
 

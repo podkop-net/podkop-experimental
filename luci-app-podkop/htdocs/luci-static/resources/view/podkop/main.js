@@ -249,15 +249,15 @@ function validateShadowsocksUrl(url) {
   if (start) return invalid("Shadowsocks", start);
   let address = linkParts(url).address;
   if (!address.includes("@")) {
-    const decoded = decodeBase64(address.replace(/\/$/, ""));
-    if (!decoded || !decoded.includes("@")) {
+    const decoded2 = decodeBase64(address.replace(/\/$/, ""));
+    if (!decoded2 || !decoded2.includes("@")) {
       return invalid(
         "Shadowsocks",
         _("neither method:password@server nor base64 of it")
       );
     }
-    const at = decoded.lastIndexOf("@");
-    address = decoded.slice(0, at).replace(/%/g, "%25") + decoded.slice(at);
+    const at = decoded2.lastIndexOf("@");
+    address = decoded2.slice(0, at).replace(/%/g, "%25") + decoded2.slice(at);
   }
   const server = readAddress(address);
   if (typeof server === "string") return invalid("Shadowsocks", server);
@@ -343,8 +343,8 @@ function validateVmessUrl(url) {
   const start = wrongStart(url, ["vmess"]);
   if (start) return invalid("VMess", start);
   const body = url.slice("vmess://".length).split("#")[0];
-  const decoded = decodeBase64(body);
-  if (decoded === void 0 || !decoded.trim().startsWith("{")) {
+  const decoded2 = decodeBase64(body);
+  if (decoded2 === void 0 || !decoded2.trim().startsWith("{")) {
     const server = readServer(url, true);
     if (typeof server === "string") return invalid("VMess", server);
     if (!server.user) return invalid("VMess", _("missing UUID"));
@@ -353,7 +353,7 @@ function validateVmessUrl(url) {
   }
   let link;
   try {
-    link = JSON.parse(decoded);
+    link = JSON.parse(decoded2);
   } catch (_e) {
     return invalid("VMess", _("the base64 of the link is no JSON"));
   }
@@ -456,9 +456,21 @@ function parseValueList(value) {
 async function getConfigSections() {
   return uci.load("podkop").then(
     () => uci.sections("podkop").filter(
-      (section) => section[".type"] !== "subscription" && section[".type"] !== "group"
+      (section) => section[".type"] === "settings" || section[".type"] === "section"
     )
   );
+}
+
+// src/podkop/methods/custom/getConfigModel.ts
+async function getConfigModel() {
+  await uci.load("podkop");
+  const all = uci.sections("podkop");
+  const ofType = (type) => all.filter((section) => section[".type"] === type);
+  return {
+    rules: ofType("section"),
+    sources: ofType("source"),
+    members: ofType("member")
+  };
 }
 
 // src/podkop/methods/shell/callBaseMethod.ts
@@ -649,9 +661,395 @@ var PodkopShellMethods = {
   )
 };
 
+// src/podkop/sources.ts
+var SOURCE_KINDS = [
+  "subscription",
+  "links",
+  "json",
+  "interface"
+];
+var ROW_DIRECT = "direct";
+var ROW_BLOCK = "block";
+var RESERVED_NAMES = [ROW_DIRECT, ROW_BLOCK];
+function asList(value) {
+  const items = Array.isArray(value) ? value : value == null ? [] : [value];
+  return items.map((item) => String(item).trim()).filter(Boolean);
+}
+function sourceLinks(source) {
+  return asList(source?.link).flatMap((item) => item.split(/\s+/));
+}
+function sourceKind(source) {
+  const type = source?.type ?? "";
+  return SOURCE_KINDS.includes(type) ? type : "";
+}
+function sourceFilled(source) {
+  switch (sourceKind(source)) {
+    case "subscription":
+      return !!String(source?.url ?? "").trim();
+    case "links":
+      return sourceLinks(source).length > 0;
+    case "json":
+      return !!String(source?.outbound_json ?? "").trim();
+    case "interface":
+      return true;
+  }
+  return false;
+}
+function isMultiServer(source) {
+  const kind = sourceKind(source);
+  return kind === "subscription" || kind === "links" && sourceLinks(source).length > 1;
+}
+function linkScheme(link) {
+  return link.includes("://") ? link.slice(0, link.indexOf("://")).toLowerCase() : "";
+}
+function decoded(text) {
+  try {
+    return decodeURIComponent(text);
+  } catch (_e) {
+    return text;
+  }
+}
+function linkHost(link) {
+  const match = link.match(
+    /^[a-z0-9+.-]+:\/\/(?:[^@/?#]*@)?(\[[^\]]+\]|[^:/?#]+)(?::(\d+))?/i
+  );
+  if (!match || !link.slice(link.indexOf("://") + 3).includes("@")) {
+    if (!match || ["vmess", "ss"].includes(linkScheme(link))) return "";
+  }
+  return match[1] + (match[2] ? ":" + match[2] : "");
+}
+function linkName(link) {
+  const hash = link.indexOf("#");
+  return hash >= 0 ? decoded(link.slice(hash + 1)).trim() : "";
+}
+function hostOf(address) {
+  try {
+    return new URL(address).hostname;
+  } catch (_e) {
+    return "";
+  }
+}
+function parseOutbound(text) {
+  try {
+    const value = JSON.parse(String(text ?? "").replace(/^\uFEFF/, ""));
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  } catch (_e) {
+    return null;
+  }
+}
+function sourceAutoLabel(source) {
+  const name = source[".name"];
+  switch (sourceKind(source)) {
+    case "subscription":
+      return hostOf(String(source.url ?? "").trim()) || name;
+    case "links": {
+      const links = sourceLinks(source);
+      if (links.length === 1) {
+        return linkName(links[0]) || [linkScheme(links[0]), linkHost(links[0])].filter(Boolean).join(" ") || name;
+      }
+      return links.length ? _("My servers (%d)").format(links.length) : name;
+    }
+    case "json": {
+      const outbound = parseOutbound(String(source.outbound_json ?? ""));
+      const tag = outbound?.tag ?? outbound?.type;
+      return typeof tag === "string" && tag ? tag : name;
+    }
+    case "interface":
+      return source.interface || _("Main route");
+  }
+  return name;
+}
+function sourceLabel(source) {
+  return String(source.label ?? "").trim() || sourceAutoLabel(source);
+}
+function sourceServerNames(source) {
+  return sourceLinks(source).map(linkName);
+}
+function nameHas(name, word) {
+  const lowName = String(name).toLowerCase();
+  const lowWord = String(word).trim().toLowerCase();
+  if (!lowWord) return false;
+  if (/[^\p{L}\p{Nd}]/u.test(lowWord)) return lowName.includes(lowWord);
+  return lowName.split(/[^\p{L}\p{Nd}]+/u).some((part) => part.startsWith(lowWord));
+}
+function rowTakes(name, include, exclude) {
+  if (exclude.some((word) => nameHas(name, word))) return false;
+  return !include.length || include.some((word) => nameHas(name, word));
+}
+function filterWords(text) {
+  return asList(text).flatMap((item) => item.split(",")).map((item) => item.trim()).filter(Boolean);
+}
+var WRAPPERS = [
+  [/^happ:\/\/add\/(.+)$/i, "Happ"],
+  [/^hiddify:\/\/import\/(.+)$/i, "Hiddify"],
+  [/^streisand:\/\/import\/(.+)$/i, "Streisand"],
+  [/^v2rayng:\/\/install-config\?url=([^&#]+)/i, "v2rayNG"],
+  [/^clash:\/\/install-config\?url=([^&#]+)/i, "Clash"],
+  [/^sing-box:\/\/import-remote-profile\?url=([^&#]+)/i, "sing-box"]
+];
+function unwrapSubscription(text) {
+  const trimmed = String(text ?? "").trim();
+  for (const [pattern, app] of WRAPPERS) {
+    const match = trimmed.match(pattern);
+    if (!match) continue;
+    const url = decoded(match[1]).trim();
+    if (/^https?:\/\/\S+$/i.test(url)) return { url, app };
+  }
+  return null;
+}
+function isHttpProxy(line) {
+  return /^https?:\/\/[^@/?#\s]+@[^:/?#\s]+(?::\d+)?\/?$/i.test(line);
+}
+function isServerLink(line) {
+  const scheme = linkScheme(line);
+  if (scheme === "http" || scheme === "https") return isHttpProxy(line);
+  return PROXY_LINK_SCHEMES.includes(scheme);
+}
+function fromBase64(text) {
+  const compact = text.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
+  if (!compact || !/^[A-Za-z0-9+/]+=*$/.test(compact)) return "";
+  try {
+    const padded = compact + "=".repeat((4 - compact.length % 4) % 4);
+    const binary = atob(padded);
+    return new TextDecoder().decode(
+      Uint8Array.from(binary, (char) => char.charCodeAt(0))
+    );
+  } catch (_e) {
+    return "";
+  }
+}
+function linksFound(links, note) {
+  const schemes = [...new Set(links.map(linkScheme))].join(", ");
+  return {
+    kind: "links",
+    links,
+    title: links.length === 1 ? _("Server link: %s").format(
+      [schemes, linkHost(links[0])].filter(Boolean).join(", ")
+    ) : _("Server links: %d (%s)").format(links.length, schemes),
+    note
+  };
+}
+function detectPasted(text) {
+  const trimmed = String(text ?? "").replace(/^\uFEFF/, "").trim();
+  if (!trimmed) return { kind: "", title: "" };
+  const wrapped = unwrapSubscription(trimmed);
+  if (wrapped) {
+    return {
+      kind: "subscription",
+      url: wrapped.url,
+      title: _("Subscription: %s").format(hostOf(wrapped.url)),
+      note: _("The address is taken from the link that adds it to %s").format(
+        wrapped.app
+      )
+    };
+  }
+  if (/^happ:\/\/crypt/i.test(trimmed)) {
+    return {
+      kind: "error",
+      title: _("An encrypted link of Happ"),
+      note: _(
+        "Only Happ opens it. Paste the plain subscription address https://\u2026 from the account at your provider"
+      )
+    };
+  }
+  if (/^vpn:\/\//i.test(trimmed)) {
+    return {
+      kind: "error",
+      title: _("A key of AmneziaVPN"),
+      note: _(
+        "Make an AmneziaWG interface in Network, Interfaces, then choose the type Interface here"
+      )
+    };
+  }
+  if (/^ssconf:\/\//i.test(trimmed)) {
+    const url = "https://" + trimmed.slice("ssconf://".length);
+    return {
+      kind: "subscription",
+      url,
+      title: _("Subscription: %s").format(hostOf(url)),
+      note: _("A dynamic key of Outline: it is loaded as a subscription")
+    };
+  }
+  if (trimmed[0] === "{" || trimmed[0] === "[") {
+    let value;
+    try {
+      value = JSON.parse(trimmed);
+    } catch (err) {
+      return {
+        kind: "error",
+        title: _("Invalid JSON format"),
+        note: String(err?.message ?? err)
+      };
+    }
+    if (Array.isArray(value)) {
+      return {
+        kind: "error",
+        title: _("A list of outbounds"),
+        note: _('One outbound is expected: {"type": "vless", \u2026}')
+      };
+    }
+    const outbound = value;
+    if (outbound && "outbounds" in outbound) {
+      return {
+        kind: "error",
+        title: _("A whole configuration of sing-box"),
+        note: _('One outbound is expected: {"type": "vless", \u2026}')
+      };
+    }
+    if (!outbound || typeof outbound.type !== "string" || !outbound.type) {
+      return {
+        kind: "error",
+        title: _("The JSON has no field type"),
+        note: _('An outbound of sing-box is expected: {"type": "vless", \u2026}')
+      };
+    }
+    const server = typeof outbound.server === "string" ? outbound.server + (outbound.server_port ? ":" + outbound.server_port : "") : "";
+    return {
+      kind: "json",
+      json: trimmed,
+      title: _("Outbound JSON: %s").format(
+        [outbound.type, server].filter(Boolean).join(", ")
+      )
+    };
+  }
+  const lines = trimmed.split(/\s+/).filter(Boolean);
+  if (lines.length === 1 && /^https?:\/\//i.test(trimmed)) {
+    if (isHttpProxy(trimmed)) {
+      return linksFound(
+        lines,
+        _("An HTTP proxy. If it is a subscription, choose the type by hand")
+      );
+    }
+    return {
+      kind: "subscription",
+      url: trimmed,
+      title: _("Subscription: %s").format(hostOf(trimmed))
+    };
+  }
+  const links = lines.filter(isServerLink);
+  if (links.length && links.length === lines.length) {
+    return linksFound(links);
+  }
+  if (links.length) {
+    const other = lines.filter((line) => !isServerLink(line));
+    return {
+      kind: "error",
+      title: _("Not recognized"),
+      note: _("These are not links of servers: %s").format(
+        other.slice(0, 3).map((line) => line.slice(0, 24)).join(", ")
+      )
+    };
+  }
+  const decodedText = fromBase64(trimmed);
+  if (decodedText.includes("://")) {
+    const decodedLines = decodedText.split(/\s+/).filter(Boolean);
+    const decodedLinks = decodedLines.filter(isServerLink);
+    if (decodedLinks.length) {
+      return linksFound(decodedLinks, _("The text was decoded from base64"));
+    }
+  }
+  return {
+    kind: "error",
+    title: _("Not recognized"),
+    note: _("Check that the text is copied whole, or choose the type by hand")
+  };
+}
+function validateRoutingMark(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  const number = /^0x[0-9a-f]+$/i.test(text) ? parseInt(text, 16) : /^\d+$/.test(text) ? parseInt(text, 10) : NaN;
+  if (isNaN(number) || number <= 0 || number > 4294967295) {
+    return _("A number is expected, as 0x10000");
+  }
+  if (number & 6291456) {
+    return _("The bits 0x200000 and 0x400000 are the marks of podkop");
+  }
+  if (number & 16128) {
+    return _("The bits 0x3F00 are the mask of mwan3");
+  }
+  return "";
+}
+function ruleExit(rule, sources, members) {
+  const rows = members.filter((row) => row.section === rule[".name"]);
+  const servers = rows.filter((row) => row.role !== "fallback");
+  const fallbacks = rows.filter((row) => row.role === "fallback");
+  if (servers.length === 1 && !fallbacks.length) {
+    if (servers[0].source === ROW_DIRECT) return "direct";
+    if (servers[0].source === ROW_BLOCK) return "block";
+  }
+  for (const row of [...servers, ...fallbacks]) {
+    if (row.source === ROW_DIRECT || row.source === ROW_BLOCK) {
+      return "servers";
+    }
+    const source = sources.find((item) => item[".name"] === row.source);
+    if (sourceFilled(source)) return "servers";
+  }
+  return "";
+}
+function ruleRowProblems(rules, sources, members) {
+  const problems = [];
+  const find = (name) => sources.find((item) => item[".name"] === name);
+  for (const rule of rules) {
+    if (rule.enabled === "0") continue;
+    if (ruleExit(rule, sources, members) !== "servers") continue;
+    for (const role of ["server", "fallback"]) {
+      const rows = members.filter(
+        (row) => row.section === rule[".name"] && row.role === "fallback" === (role === "fallback")
+      );
+      rows.forEach((row, index) => {
+        const via = String(row.via ?? "").trim();
+        const source = find(row.source);
+        if (!via || !source || !sourceFilled(source)) return;
+        let error = "";
+        if (sourceKind(source) === "interface") {
+          error = _("An interface does not connect through another source");
+        } else if (via === row.source) {
+          error = _("The row connects through its own source");
+        } else if (!find(via)) {
+          error = _("The source %s to connect through is deleted").format(via);
+        } else if (!sourceFilled(find(via))) {
+          error = _("The source %s to connect through is not filled").format(
+            sourceLabel(find(via))
+          );
+        }
+        if (error)
+          problems.push({ rule: rule[".name"], role, index: index + 1, error });
+      });
+    }
+  }
+  return problems;
+}
+function serverDisplayName(tag, sources) {
+  const byName = (name) => sources.find((source) => source[".name"] === name);
+  let base = tag;
+  let through = "";
+  const via = tag.match(/^(.*) via ([A-Za-z0-9_]+)$/);
+  if (via && byName(via[2])) {
+    base = via[1];
+    through = sourceLabel(byName(via[2]));
+  }
+  let shown = base;
+  const own = byName(base);
+  if (own) {
+    shown = sourceLabel(own);
+  } else {
+    const colon = base.indexOf(": ");
+    const source = colon > 0 ? byName(base.slice(0, colon)) : void 0;
+    if (source) shown = sourceLabel(source) + base.slice(colon);
+  }
+  return through ? _("%s via %s").format(shown, through) : shown;
+}
+
 // src/podkop/methods/custom/getDashboardSections.ts
+function outboundName(code, rule, sources) {
+  if (code === `${rule}-urltest-out`) return _("Fastest");
+  if (code === "block") return _("Refused: the rule has no server now");
+  const tier = code.match(/^(.+)-fallback-(\d+)-out$/);
+  if (tier && tier[1] === rule) return _("Fallback %s").format(tier[2]);
+  return serverDisplayName(code, sources);
+}
 async function getDashboardSections() {
-  const configSections = await getConfigSections();
+  const { rules, sources, members } = await getConfigModel();
   const clashProxies = await PodkopShellMethods.getClashApiProxies();
   if (!clashProxies.success) {
     return {
@@ -659,174 +1057,36 @@ async function getDashboardSections() {
       data: []
     };
   }
-  const proxies = Object.entries(clashProxies.data.proxies).map(
-    ([key, value]) => ({
-      code: key,
-      value
-    })
-  );
-  const data = configSections.filter(
-    (section) => section.connection_type !== "block" && section.connection_type !== "exclusion" && section[".type"] !== "settings"
-  ).map((section) => {
-    if (section.connection_type === "proxy") {
-      if (section.proxy_config_type === "url") {
-        const outbound = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-out`
-        );
-        const activeConfigs = splitProxyString(section.proxy_string);
-        const proxyDisplayName = getProxyUrlName(activeConfigs?.[0]) || outbound?.value?.name || "";
-        return {
-          withTagSelect: false,
-          code: outbound?.code || section[".name"],
-          displayName: section[".name"],
-          outbounds: [
-            {
-              code: outbound?.code || section[".name"],
-              displayName: proxyDisplayName,
-              latency: outbound?.value?.history?.[0]?.delay || 0,
-              type: outbound?.value?.type || "",
-              selected: true
-            }
-          ]
-        };
-      }
-      if (section.proxy_config_type === "outbound") {
-        const outbound = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-out`
-        );
-        const parsedOutbound = JSON.parse(section.outbound_json);
-        const parsedTag = parsedOutbound?.tag ? decodeURIComponent(parsedOutbound?.tag) : void 0;
-        const proxyDisplayName = parsedTag || outbound?.value?.name || "";
-        return {
-          withTagSelect: false,
-          code: outbound?.code || section[".name"],
-          displayName: section[".name"],
-          outbounds: [
-            {
-              code: outbound?.code || section[".name"],
-              displayName: proxyDisplayName,
-              latency: outbound?.value?.history?.[0]?.delay || 0,
-              type: outbound?.value?.type || "",
-              selected: true
-            }
-          ]
-        };
-      }
-      if (section.proxy_config_type === "selector") {
-        const selector = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-out`
-        );
-        const links = section.selector_proxy_links ?? [];
-        const outbounds = links.map((link, index) => ({
-          link,
-          outbound: proxies.find(
-            (item) => item.code === `${section[".name"]}-${index + 1}-out`
-          )
-        })).map((item) => ({
-          code: item?.outbound?.code || "",
-          displayName: getProxyUrlName(item.link) || item?.outbound?.value?.name || "",
-          latency: item?.outbound?.value?.history?.[0]?.delay || 0,
-          type: item?.outbound?.value?.type || "",
-          selected: selector?.value?.now === item?.outbound?.code
-        }));
-        return {
-          withTagSelect: true,
-          code: selector?.code || section[".name"],
-          displayName: section[".name"],
-          outbounds
-        };
-      }
-      if (section.proxy_config_type === "urltest") {
-        const selector = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-out`
-        );
-        const outbound = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-urltest-out`
-        );
-        const links = [
-          ...section.urltest_proxy_links ?? [],
-          ...section.urltest_fallback_links ?? []
-        ];
-        const outbounds = (outbound?.value?.all ?? []).map((code) => proxies.find((item) => item.code === code)).map((item, index) => ({
-          code: item?.code || "",
-          displayName: getProxyUrlName(links[index]) || item?.value?.name || "",
-          latency: item?.value?.history?.[0]?.delay || 0,
-          type: item?.value?.type || "",
-          selected: selector?.value?.now === item?.code
-        }));
-        return {
-          withTagSelect: true,
-          code: selector?.code || section[".name"],
-          displayName: section[".name"],
-          outbounds: [
-            {
-              code: outbound?.code || "",
-              displayName: _("Fastest"),
-              latency: outbound?.value?.history?.[0]?.delay || 0,
-              type: outbound?.value?.type || "",
-              selected: selector?.value?.now === outbound?.code
-            },
-            ...outbounds
-          ]
-        };
-      }
-    }
-    if (section.connection_type === "group") {
-      const selector = proxies.find(
-        (proxy) => proxy.code === `${section[".name"]}-out`
-      );
-      const members = (selector?.value?.all ?? []).map((code) => ({
-        code,
-        item: proxies.find((item) => item.code === code)
-      }));
-      return {
-        withTagSelect: true,
-        code: selector?.code || section[".name"],
-        displayName: section[".name"],
-        outbounds: members.map(({ code, item }) => ({
-          code,
-          displayName: code === "block" ? _("Refused: the group has no server") : item?.value?.type === "URLTest" ? _("Fastest") : code || item?.value?.name || "",
-          latency: item?.value?.history?.[0]?.delay || 0,
-          type: item?.value?.type || "",
-          selected: selector?.value?.now === code
-        }))
-      };
-    }
-    if (section.connection_type === "vpn") {
-      const outbound = proxies.find(
-        (proxy) => proxy.code === `${section[".name"]}-out`
-      );
-      return {
-        withTagSelect: false,
-        code: outbound?.code || section[".name"],
-        displayName: section[".name"],
-        outbounds: [
-          {
-            code: outbound?.code || section[".name"],
-            displayName: section.interface || outbound?.value?.name || "",
-            latency: outbound?.value?.history?.[0]?.delay || 0,
-            type: outbound?.value?.type || "",
-            selected: true
-          }
-        ]
-      };
+  const proxies = clashProxies.data.proxies ?? {};
+  const data = rules.filter(
+    (rule) => rule.enabled !== "0" && ruleExit(rule, sources, members) === "servers"
+  ).map((rule) => {
+    const name = rule[".name"];
+    const code = `${name}-out`;
+    const selector = proxies[code];
+    const displayName = String(rule.label ?? "").trim() || name;
+    if (!selector) {
+      return { withTagSelect: false, code, displayName, outbounds: [] };
     }
     return {
-      withTagSelect: false,
-      code: section[".name"],
-      displayName: section[".name"],
-      outbounds: []
+      withTagSelect: true,
+      code,
+      displayName,
+      outbounds: (selector.all ?? []).map((tag) => {
+        const item = proxies[tag];
+        return {
+          code: tag,
+          displayName: outboundName(tag, name, sources),
+          latency: item?.history?.[0]?.delay || 0,
+          type: item?.type || "",
+          selected: selector.now === tag
+        };
+      })
     };
-  });
-  const withDetours = data.map((group) => {
-    const section = configSections.find(
-      (item) => item[".name"] === group.displayName
-    );
-    return section?.connection_type === "proxy" && section.detour ? { ...group, detour: section.detour } : group;
   });
   return {
     success: true,
-    data: withDetours
+    data
   };
 }
 
@@ -846,6 +1106,7 @@ async function getSingBoxFeatures() {
 // src/podkop/methods/custom/index.ts
 var CustomPodkopMethods = {
   getConfigSections,
+  getConfigModel,
   getDashboardSections,
   getClashApiSecret,
   getSingBoxFeatures
@@ -1634,12 +1895,7 @@ function renderDefaultState({
         {
           class: "pdk_dashboard-page__outbound-section__title-section__title"
         },
-        [
-          section.displayName,
-          section.detour ? E("span", { style: "font-weight: normal; opacity: 0.7" }, [
-            ` (${_("via %s").format(section.detour)})`
-          ]) : ""
-        ]
+        [section.displayName]
       ),
       latencyFetching ? E("div", { class: "skeleton", style: "width: 99px; height: 28px" }) : E(
         "button",
@@ -3692,6 +3948,7 @@ async function runSectionsCheck() {
             (item) => item.selected
           );
           const isUrlTest = selectedOutbound?.type === "URLTest";
+          const urlTestName = selectedOutbound?.displayName || _("Fastest");
           const success3 = latencyGroup.success && !latencyGroup.data.message;
           if (success3) {
             if (isUrlTest) {
@@ -3701,12 +3958,12 @@ async function runSectionsCheck() {
               if (!delays.length) {
                 return {
                   success: false,
-                  latency: `[${_("Fastest")}] ${_("Not responding")}`
+                  latency: `[${urlTestName}] ${_("Not responding")}`
                 };
               }
               return {
                 success: true,
-                latency: `[${_("Fastest")}] ${delays.map((item) => `${item}ms`).join(" / ")}`
+                latency: `[${urlTestName}] ${delays.map((item) => `${item}ms`).join(" / ")}`
               };
             }
             const selectedProxyDelay = latencyGroup.data?.[selectedOutbound?.code ?? ""];
@@ -3744,7 +4001,7 @@ async function runSectionsCheck() {
       const { latency, success } = await getLatency();
       return {
         state: success ? "success" : "error",
-        key: section.detour ? `${section.displayName} (${_("via %s").format(section.detour)})` : section.displayName,
+        key: section.displayName,
         value: latency
       };
     })
@@ -4548,35 +4805,21 @@ var DiagnosticTab = {
 };
 
 // src/podkop/linkCheck.ts
-var LINK_OPTIONS = [
-  "proxy_string",
-  "selector_proxy_links",
-  "urltest_proxy_links",
-  "urltest_fallback_links"
-];
-function linkPlaces(map) {
+function linkPlaces(sources) {
   const places = [];
-  for (const section of map.children ?? []) {
-    if (typeof section.cfgsections !== "function") continue;
-    for (const sectionId of section.cfgsections()) {
-      for (const option of section.children ?? []) {
-        if (!LINK_OPTIONS.includes(option.option) || !option.isActive(sectionId)) {
-          continue;
-        }
-        const value = option.formvalue(sectionId);
-        const links = (Array.isArray(value) ? value : [value]).map((item) => typeof item === "string" ? item.trim() : "").filter(Boolean);
-        links.forEach(
-          (link, index) => places.push({
-            section: sectionId,
-            option: option.option,
-            field: (option.title ?? option.option).replace(/<[^>]*>/g, ""),
-            index: index + 1,
-            count: links.length,
-            link
-          })
-        );
-      }
-    }
+  for (const source of sources ?? []) {
+    if (sourceKind(source) !== "links") continue;
+    const links = sourceLinks(source);
+    links.forEach(
+      (link, index) => places.push({
+        section: source[".name"],
+        label: sourceLabel(source),
+        option: "link",
+        index: index + 1,
+        count: links.length,
+        link
+      })
+    );
   }
   return places;
 }
@@ -4596,8 +4839,8 @@ function linkLabel(link) {
   const kind = server ? `${scheme}, ${server}` : scheme;
   return name ? `\xAB${name}\xBB (${kind})` : kind;
 }
-async function checkLinksBeforeSave(map) {
-  const places = linkPlaces(map);
+async function checkLinksBeforeSave(sources) {
+  const places = linkPlaces(sources);
   if (!places.length) return [];
   if (places.some((place) => !validateProxyUrl(place.link).valid)) return [];
   const links = [...new Set(places.map((place) => place.link))];
@@ -4638,49 +4881,29 @@ function linkBatches(links) {
   if (part.length) parts.push(part);
   return parts;
 }
-function showLinkProblem(problem) {
-  ui.hideModal();
-  const tab = document.querySelector(
-    'ul.cbi-tabmenu li[data-tab="section"] a'
-  );
-  tab?.click();
-  const field = document.getElementById(
-    `cbi-podkop-${problem.section}-${problem.option}`
-  );
-  if (!field) return;
-  const item = Array.from(field.querySelectorAll(".item")).find(
-    (element) => element.textContent?.trim() === problem.link
-  );
-  const target = item ?? field;
-  target.scrollIntoView({ block: "center" });
-  target.classList.add("pdk-link-problem");
-  setTimeout(() => target.classList.remove("pdk-link-problem"), 6e3);
-}
-function showLinkProblems(problems) {
-  ui.showModal(_("Some proxy links cannot be used"), [
-    E("p", {}, [
-      _(
-        "The settings are not saved. The engine of the router refuses these links:"
-      )
-    ]),
+function showSaveProblems(title, intro, problems) {
+  ui.showModal(title, [
+    E("p", {}, [intro]),
     E(
       "ul",
-      { class: "pdk-link-problems" },
+      {},
       problems.map(
         (problem) => E("li", {}, [
-          E("strong", {}, [
-            `${problem.section} \xB7 ${problem.field}` + (problem.count > 1 ? ` \xB7 ${problem.index}/${problem.count}` : "")
-          ]),
-          E("div", {}, [linkLabel(problem.link)]),
-          E("div", { class: "pdk-link-problem-error" }, [problem.error]),
-          E(
-            "button",
-            {
-              class: "cbi-button cbi-button-action",
-              click: () => showLinkProblem(problem)
-            },
-            [_("Show")]
-          )
+          E("strong", {}, [problem.heading]),
+          ...problem.lines.map((line) => E("div", {}, [line])),
+          problem.show ? E("div", {}, [
+            E(
+              "button",
+              {
+                class: "cbi-button cbi-button-action",
+                click: () => {
+                  ui.hideModal();
+                  problem.show?.();
+                }
+              },
+              [_("Show")]
+            )
+          ]) : ""
         ])
       )
     ),
@@ -4691,6 +4914,19 @@ function showLinkProblems(problems) {
     ])
   ]);
 }
+function showLinkProblems(problems, show) {
+  showSaveProblems(
+    _("Some proxy links cannot be used"),
+    _(
+      "The settings are not saved. The engine of the router refuses these links:"
+    ),
+    problems.map((problem) => ({
+      heading: problem.label + (problem.count > 1 ? ` \xB7 ${problem.index}/${problem.count}` : ""),
+      lines: [linkLabel(problem.link), problem.error],
+      show: show ? () => show(problem.section) : void 0
+    }))
+  );
+}
 
 // src/styles.ts
 var GlobalStyles = `
@@ -4698,138 +4934,6 @@ ${DashboardTab.styles}
 ${DiagnosticTab.styles}
 ${PartialStyles}
 
-
-/* Hide extra H3 for settings tab */
-#cbi-podkop-settings > h3 {
-    display: none;
-}
-
-/* Hide extra H3 for sections tab */
-#cbi-podkop-section > h3:nth-child(1) {
-    display: none;
-}
-
-/* Hide extra H3 for the tabs of the subscriptions and the groups */
-#cbi-podkop-subscription > h3:nth-child(1),
-#cbi-podkop-group > h3:nth-child(1) {
-    display: none;
-}
-
-/* Vertical align for remove section action button */
-#cbi-podkop-section > .cbi-section-remove,
-#cbi-podkop-subscription > .cbi-section-remove,
-#cbi-podkop-group > .cbi-section-remove {
-    margin-bottom: -32px;
-}
-
-/* The servers of a subscription and of a group (subscription.js, group.js) */
-.pdk-sub-result {
-    margin-top: 8px;
-}
-
-.pdk-sub-list ul {
-    list-style: none;
-    margin: 4px 0 0;
-    padding: 0;
-    max-height: 420px;
-    overflow-y: auto;
-}
-
-.pdk-sub-list li {
-    padding: 4px 0;
-    border-bottom: 1px solid var(--border-color-medium, #ddd);
-    overflow-wrap: anywhere;
-}
-
-.pdk-sub-endpoint,
-.pdk-sub-notes {
-    opacity: 0.7;
-}
-
-.pdk-sub-unusable strong {
-    text-decoration: line-through;
-}
-
-.pdk-sub-reason,
-.pdk-sub-error {
-    color: var(--error-color-high, #c0392b);
-}
-
-.pdk-sub-state div,
-.pdk-sub-provider div {
-    margin: 1px 0;
-}
-
-.pdk-sub-provider {
-    margin-top: 6px;
-    padding-top: 4px;
-    border-top: 1px solid var(--border-color-medium, #ddd);
-}
-
-.pdk-sub-provider .cbi-progressbar {
-    max-width: 320px;
-    margin: 2px 0 4px;
-}
-
-/* the line above the bar has the numbers: the label a theme draws over a bar would cover it */
-.pdk-sub-provider .cbi-progressbar::before,
-.pdk-sub-provider .cbi-progressbar::after {
-    content: none;
-}
-
-.pdk-sub-announce {
-    white-space: pre-line;
-    opacity: 0.85;
-}
-
-.pdk-sub-warn {
-    color: var(--warn-color-high, #b9770e);
-}
-
-.pdk-sub-tries {
-    margin: 4px 0;
-    padding-left: 1em;
-    opacity: 0.85;
-}
-
-.pdk-sub-load-actions button {
-    margin-right: 6px;
-}
-
-.pdk-sub-link code {
-    display: block;
-    white-space: pre-wrap;
-    word-break: break-all;
-    font-size: 0.85em;
-}
-
-/* The links the router refuses at a save (linkCheck.ts) */
-.pdk-link-problems {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
-
-.pdk-link-problems li {
-    display: grid;
-    gap: 4px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border-color-medium, #ddd);
-    overflow-wrap: anywhere;
-}
-
-.pdk-link-problems li button {
-    justify-self: start;
-}
-
-.pdk-link-problem-error {
-    color: var(--error-color-high, #c0392b);
-}
-
-.pdk-link-problem {
-    outline: 2px solid var(--error-color-high, #c0392b);
-    outline-offset: 2px;
-}
 
 /* Centered class helper */
 .centered {
@@ -5144,34 +5248,57 @@ return baseclass.extend({
   PROXY_LINK_SCHEMES,
   PodkopShellMethods,
   REGIONAL_OPTIONS,
+  RESERVED_NAMES,
+  ROW_BLOCK,
+  ROW_DIRECT,
   RemoteFakeIPMethods,
+  SOURCE_KINDS,
   STATUS_COLORS,
   TabService,
   TabServiceInstance,
   UPDATE_INTERVAL_OPTIONS,
   URLTEST_DOWNLOAD_URL_OPTIONS,
+  asList,
   bulkValidate,
   checkLinksBeforeSave,
   coreService,
+  detectPasted,
   executeShellCommand,
+  filterWords,
   getProxyUrlName,
   getYacdLinks,
   injectGlobalStyles,
   insertIf,
   insertIfObj,
+  isMultiServer,
   linkBatches,
+  linkHost,
   linkLabel,
+  linkName,
   linkPlaces,
   logger,
   maskIP,
+  nameHas,
   onMount,
   parseQueryString,
   parseValueList,
   preserveScrollForPage,
+  rowTakes,
+  ruleExit,
+  ruleRowProblems,
+  serverDisplayName,
   showLinkProblems,
+  showSaveProblems,
+  sourceAutoLabel,
+  sourceFilled,
+  sourceKind,
+  sourceLabel,
+  sourceLinks,
+  sourceServerNames,
   splitProxyString,
   store,
   svgEl,
+  unwrapSubscription,
   validateAnytlsUrl,
   validateDNS,
   validateDomain,
@@ -5183,6 +5310,7 @@ return baseclass.extend({
   validateOutboundJson,
   validatePath,
   validateProxyUrl,
+  validateRoutingMark,
   validateShadowsocksUrl,
   validateSocksUrl,
   validateSubnet,

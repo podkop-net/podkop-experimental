@@ -1,15 +1,34 @@
-import { getConfigSections } from './getConfigSections';
+import { getConfigModel } from './getConfigModel';
 import { Podkop } from '../../types';
-import { getProxyUrlName, splitProxyString } from '../../../helpers';
 import { PodkopShellMethods } from '../shell';
+import { ruleExit, serverDisplayName } from '../../sources';
 
 interface IGetDashboardSectionsResponse {
   success: boolean;
   data: Podkop.OutboundGroup[];
 }
 
+// the tile of an outbound the selector of a rule offers: the URL test of the rule first, its
+// servers by the labels of their sources, the tiers of its fallbacks of several servers
+function outboundName(
+  code: string,
+  rule: string,
+  sources: Podkop.ConfigSource[],
+): string {
+  if (code === `${rule}-urltest-out`) return _('Fastest');
+  if (code === 'block') return _('Refused: the rule has no server now');
+  const tier = code.match(/^(.+)-fallback-(\d+)-out$/);
+  if (tier && tier[1] === rule) return _('Fallback %s').format(tier[2]);
+  return serverDisplayName(code, sources);
+}
+
+// The rules that go through servers, each as the selector "<rule>-out" of its outbounds
+// (the backend's plan/exits.go): the URL test "<rule>-urltest-out", the servers of its
+// rows, the URL tests "<rule>-fallback-N-out" of its fallbacks of several servers. A rule
+// whose one row is direct or block has no outbound, nor has one whose sources are not
+// filled yet; a disabled rule is not there.
 export async function getDashboardSections(): Promise<IGetDashboardSectionsResponse> {
-  const configSections = await getConfigSections();
+  const { rules, sources, members } = await getConfigModel();
   const clashProxies = await PodkopShellMethods.getClashApiProxies();
 
   if (!clashProxies.success) {
@@ -19,219 +38,43 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
     };
   }
 
-  const proxies = Object.entries(clashProxies.data.proxies).map(
-    ([key, value]) => ({
-      code: key,
-      value,
-    }),
-  );
+  const proxies = clashProxies.data.proxies ?? {};
 
-  const data = configSections
+  const data = rules
     .filter(
-      (section) =>
-        section.connection_type !== 'block' &&
-        section.connection_type !== 'exclusion' &&
-        section['.type'] !== 'settings',
+      (rule) =>
+        rule.enabled !== '0' && ruleExit(rule, sources, members) === 'servers',
     )
-    .map((section) => {
-      if (section.connection_type === 'proxy') {
-        if (section.proxy_config_type === 'url') {
-          const outbound = proxies.find(
-            (proxy) => proxy.code === `${section['.name']}-out`,
-          );
+    .map((rule) => {
+      const name = rule['.name'];
+      const code = `${name}-out`;
+      const selector = proxies[code];
+      const displayName = String(rule.label ?? '').trim() || name;
 
-          const activeConfigs = splitProxyString(section.proxy_string);
-
-          const proxyDisplayName =
-            getProxyUrlName(activeConfigs?.[0]) || outbound?.value?.name || '';
-
-          return {
-            withTagSelect: false,
-            code: outbound?.code || section['.name'],
-            displayName: section['.name'],
-            outbounds: [
-              {
-                code: outbound?.code || section['.name'],
-                displayName: proxyDisplayName,
-                latency: outbound?.value?.history?.[0]?.delay || 0,
-                type: outbound?.value?.type || '',
-                selected: true,
-              },
-            ],
-          };
-        }
-
-        if (section.proxy_config_type === 'outbound') {
-          const outbound = proxies.find(
-            (proxy) => proxy.code === `${section['.name']}-out`,
-          );
-
-          const parsedOutbound = JSON.parse(section.outbound_json);
-          const parsedTag = parsedOutbound?.tag
-            ? decodeURIComponent(parsedOutbound?.tag)
-            : undefined;
-          const proxyDisplayName = parsedTag || outbound?.value?.name || '';
-
-          return {
-            withTagSelect: false,
-            code: outbound?.code || section['.name'],
-            displayName: section['.name'],
-            outbounds: [
-              {
-                code: outbound?.code || section['.name'],
-                displayName: proxyDisplayName,
-                latency: outbound?.value?.history?.[0]?.delay || 0,
-                type: outbound?.value?.type || '',
-                selected: true,
-              },
-            ],
-          };
-        }
-
-        if (section.proxy_config_type === 'selector') {
-          const selector = proxies.find(
-            (proxy) => proxy.code === `${section['.name']}-out`,
-          );
-
-          const links = section.selector_proxy_links ?? [];
-
-          const outbounds = links
-            .map((link, index) => ({
-              link,
-              outbound: proxies.find(
-                (item) => item.code === `${section['.name']}-${index + 1}-out`,
-              ),
-            }))
-            .map((item) => ({
-              code: item?.outbound?.code || '',
-              displayName:
-                getProxyUrlName(item.link) || item?.outbound?.value?.name || '',
-              latency: item?.outbound?.value?.history?.[0]?.delay || 0,
-              type: item?.outbound?.value?.type || '',
-              selected: selector?.value?.now === item?.outbound?.code,
-            }));
-
-          return {
-            withTagSelect: true,
-            code: selector?.code || section['.name'],
-            displayName: section['.name'],
-            outbounds,
-          };
-        }
-
-        if (section.proxy_config_type === 'urltest') {
-          const selector = proxies.find(
-            (proxy) => proxy.code === `${section['.name']}-out`,
-          );
-          const outbound = proxies.find(
-            (proxy) => proxy.code === `${section['.name']}-urltest-out`,
-          );
-          // the group lists its proxy links, then its fallback links
-          const links = [
-            ...(section.urltest_proxy_links ?? []),
-            ...(section.urltest_fallback_links ?? []),
-          ];
-
-          const outbounds = (outbound?.value?.all ?? [])
-            .map((code) => proxies.find((item) => item.code === code))
-            .map((item, index) => ({
-              code: item?.code || '',
-              displayName:
-                getProxyUrlName(links[index]) || item?.value?.name || '',
-              latency: item?.value?.history?.[0]?.delay || 0,
-              type: item?.value?.type || '',
-              selected: selector?.value?.now === item?.code,
-            }));
-
-          return {
-            withTagSelect: true,
-            code: selector?.code || section['.name'],
-            displayName: section['.name'],
-            outbounds: [
-              {
-                code: outbound?.code || '',
-                displayName: _('Fastest'),
-                latency: outbound?.value?.history?.[0]?.delay || 0,
-                type: outbound?.value?.type || '',
-                selected: selector?.value?.now === outbound?.code,
-              },
-              ...outbounds,
-            ],
-          };
-        }
-      }
-
-      // a selector of the URL test of the group and of its servers, the test first; that
-      // of a group that chose no server and refuses has the block outbound alone
-      if (section.connection_type === 'group') {
-        const selector = proxies.find(
-          (proxy) => proxy.code === `${section['.name']}-out`,
-        );
-        const members = (selector?.value?.all ?? []).map((code) => ({
-          code,
-          item: proxies.find((item) => item.code === code),
-        }));
-
-        return {
-          withTagSelect: true,
-          code: selector?.code || section['.name'],
-          displayName: section['.name'],
-          outbounds: members.map(({ code, item }) => ({
-            code,
-            displayName:
-              code === 'block'
-                ? _('Refused: the group has no server')
-                : item?.value?.type === 'URLTest'
-                  ? _('Fastest')
-                  : code || item?.value?.name || '',
-            latency: item?.value?.history?.[0]?.delay || 0,
-            type: item?.value?.type || '',
-            selected: selector?.value?.now === code,
-          })),
-        };
-      }
-
-      if (section.connection_type === 'vpn') {
-        const outbound = proxies.find(
-          (proxy) => proxy.code === `${section['.name']}-out`,
-        );
-
-        return {
-          withTagSelect: false,
-          code: outbound?.code || section['.name'],
-          displayName: section['.name'],
-          outbounds: [
-            {
-              code: outbound?.code || section['.name'],
-              displayName: section.interface || outbound?.value?.name || '',
-              latency: outbound?.value?.history?.[0]?.delay || 0,
-              type: outbound?.value?.type || '',
-              selected: true,
-            },
-          ],
-        };
+      // the running configuration does not have the rule yet
+      if (!selector) {
+        return { withTagSelect: false, code, displayName, outbounds: [] };
       }
 
       return {
-        withTagSelect: false,
-        code: section['.name'],
-        displayName: section['.name'],
-        outbounds: [],
+        withTagSelect: true,
+        code,
+        displayName,
+        outbounds: (selector.all ?? []).map((tag) => {
+          const item = proxies[tag];
+          return {
+            code: tag,
+            displayName: outboundName(tag, name, sources),
+            latency: item?.history?.[0]?.delay || 0,
+            type: item?.type || '',
+            selected: selector.now === tag,
+          };
+        }),
       };
     });
 
-  // a proxy section that connects through another one says so
-  const withDetours = data.map((group) => {
-    const section = configSections.find(
-      (item) => item['.name'] === group.displayName,
-    );
-    return section?.connection_type === 'proxy' && section.detour
-      ? { ...group, detour: section.detour }
-      : group;
-  });
-
   return {
     success: true,
-    data: withDetours,
+    data,
   };
 }
