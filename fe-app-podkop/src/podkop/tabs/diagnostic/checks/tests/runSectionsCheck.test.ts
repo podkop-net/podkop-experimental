@@ -1,7 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // the Clash API of the router, standing in
-let proxies: Record<string, { type: string; now?: string }> = {};
+let proxies: Record<
+  string,
+  {
+    type: string;
+    now?: string;
+    all?: string[];
+    fallbacks?: string[];
+    history?: { delay: number }[];
+  }
+> = {};
 let groups: Record<string, Record<string, number>> = {};
 let delays: Record<string, number> = {};
 const groupsAsked: string[] = [];
@@ -21,6 +30,9 @@ vi.mock('../../../../methods', () => ({
 let sections: unknown[] = [];
 vi.mock('../../../../methods/custom/getDashboardSections', () => ({
   getDashboardSections: async () => ({ success: true, data: sections }),
+}));
+vi.mock('../../../../methods/custom/getConfigModel', () => ({
+  getConfigModel: async () => ({ rules: [], sources: [], members: [] }),
 }));
 const stored: { state: string; items: { state: string; value: string }[] }[] =
   [];
@@ -59,8 +71,17 @@ describe('runSectionsCheck', () => {
   beforeEach(() => {
     groupsAsked.length = 0;
     proxies = {
-      'msk-urltest-out': { type: 'URLTest', now: 'ru' },
-      'msk-fallback-1-out': { type: 'URLTest', now: 'de' },
+      'msk-urltest-out': {
+        type: 'URLTest',
+        now: 'ru',
+        all: ['ru', 'msk-fallback-1-out'],
+        fallbacks: ['msk-fallback-1-out'],
+      },
+      'msk-fallback-1-out': {
+        type: 'URLTest',
+        now: 'de',
+        all: ['ru', 'de', 'us'],
+      },
       ru: { type: 'VLESS' },
       de: { type: 'VLESS' },
       us: { type: 'VLESS' },
@@ -85,7 +106,12 @@ describe('runSectionsCheck', () => {
     expect(groupsAsked).toEqual(['msk-urltest-out']);
     expect(result.state).toBe('success');
     expect(result.items).toEqual([
-      { state: 'success', key: 'msk', value: '[Fastest] 275ms' },
+      {
+        state: 'success',
+        key: 'msk',
+        value: '[Fastest] 1 of 1 answer',
+        servers: [{ name: 'ru', delay: 275 }],
+      },
       { state: 'success', key: 'Direct (without a proxy)', value: '234 ms' },
     ]);
   });
@@ -106,7 +132,12 @@ describe('runSectionsCheck', () => {
       {
         state: 'success',
         key: 'tier',
-        value: '[Fallback 1] 142ms / 272ms / 426ms',
+        value: '[Fallback 1] 3 of 3 answer',
+        servers: [
+          { name: 'de', delay: 142 },
+          { name: 'ru', delay: 272 },
+          { name: 'us', delay: 426 },
+        ],
       },
     ]);
   });
@@ -127,6 +158,7 @@ describe('runSectionsCheck', () => {
       state: 'warning',
       key: 'msk',
       value: '[Fastest → Fallback 1] 150ms',
+      servers: [{ name: 'ru', delay: 0 }],
     });
 
     proxies['msk-urltest-out'].now = 'direct-out';
@@ -139,17 +171,34 @@ describe('runSectionsCheck', () => {
       state: 'error',
       key: 'msk',
       value: '[Fastest] Not responding',
+      servers: [{ name: 'ru', delay: 0 }],
     });
   });
 
-  it('takes no delays during a round of the URL test for a failure', async () => {
-    groups['msk-urltest-out'] = {};
+  it('sorts by delay, puts the silent last, takes the last delay when a round is cut', async () => {
+    proxies['msk-urltest-out'].all = ['us', 'ru', 'de', 'msk-fallback-1-out'];
+    proxies.de.history = [{ delay: 90 }];
+    groups['msk-urltest-out'] = { ru: 275 };
     sections = [rule('msk', 'msk-urltest-out', ['msk-urltest-out', 'ru'])];
     const result = await check();
     expect(result.items[0]).toEqual({
       state: 'success',
       key: 'msk',
-      value: '[Fastest → ru] 275ms',
+      value: '[Fastest] 2 of 3 answer',
+      servers: [
+        { name: 'de', delay: 90 },
+        { name: 'ru', delay: 275 },
+        { name: 'us', delay: 0 },
+      ],
     });
+  });
+
+  it('takes no delays during a round of the URL test for a failure', async () => {
+    groups['msk-urltest-out'] = {};
+    proxies.ru.history = [{ delay: 300 }];
+    sections = [rule('msk', 'msk-urltest-out', ['msk-urltest-out', 'ru'])];
+    const result = await check();
+    expect(result.items[0].state).toBe('success');
+    expect(result.items[0].servers).toEqual([{ name: 'ru', delay: 300 }]);
   });
 });

@@ -12,6 +12,8 @@ export namespace ClashAPI {
     history: ProxyHistoryEntry[];
     now?: string;
     all?: string[];
+    // the end of all that a delay test of a URL test leaves out
+    fallbacks?: string[];
   }
 
   export interface Proxies {

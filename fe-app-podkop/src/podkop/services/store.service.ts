@@ -125,6 +125,8 @@ export interface IDiagnosticsChecksItem {
   state: 'error' | 'warning' | 'success';
   key: string;
   value: string;
+  // the servers of a URL test, the fastest first; a delay of 0 is a server that does not answer
+  servers?: { name: string; delay: number }[];
 }
 
 export interface IDiagnosticsChecksStoreItem {

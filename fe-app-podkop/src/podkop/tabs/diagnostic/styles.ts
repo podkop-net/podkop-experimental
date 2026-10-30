@@ -187,4 +187,30 @@ export const styles = `
     width: 16px;
     height: 16px;
 }
+
+.pdk_diagnostic_alert__summary__servers {
+    grid-column: 2 / -1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+    column-gap: 24px;
+    margin-bottom: 6px;
+}
+
+.pdk_diagnostic_alert__summary__server {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.pdk_diagnostic_alert__summary__server span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pdk_diagnostic_alert__summary__server--silent {
+    color: var(--error-color-medium, red);
+}
 `;

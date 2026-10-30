@@ -3706,7 +3706,31 @@ function renderCheckSummary(items) {
       {
         class: `pdk_diagnostic_alert__summary__item pdk_diagnostic_alert__summary__item--${item.state}`
       },
-      [getIcon(), E("b", {}, [item.key]), E("div", {}, [item.value])]
+      [
+        getIcon(),
+        E("b", {}, [item.key]),
+        E("div", {}, [item.value]),
+        ...item.servers?.length ? [
+          E(
+            "div",
+            { class: "pdk_diagnostic_alert__summary__servers" },
+            item.servers.map(
+              (server) => E(
+                "div",
+                {
+                  class: `pdk_diagnostic_alert__summary__server${server.delay ? "" : " pdk_diagnostic_alert__summary__server--silent"}`
+                },
+                [
+                  E("span", { title: server.name }, [server.name]),
+                  E("span", {}, [
+                    server.delay ? `${server.delay}ms` : "n/a"
+                  ])
+                ]
+              )
+            )
+          )
+        ] : []
+      ]
     );
   });
   return E("div", { class: "pdk_diagnostic_alert__summary" }, renderedItems);
@@ -3921,16 +3945,14 @@ function renderWikiDisclaimer(kind) {
 function responded(answer) {
   return answer.success && !answer.data.message ? answer.data.delay : 0;
 }
-async function chosenLatency(section, test) {
-  const notResponding = {
-    state: "error",
-    value: `[${test.displayName}] ${_("Not responding")}`
-  };
-  const listed = await PodkopShellMethods.getClashApiProxies();
-  const proxies = listed.success ? listed.data.proxies ?? {} : {};
+async function chosenLatency(section, test, proxies, servers) {
   const now = proxies[test.code]?.now;
   if (!now || now === "block") {
-    return notResponding;
+    return {
+      state: "error",
+      value: `[${test.displayName}] ${_("Not responding")}`,
+      servers
+    };
   }
   const offered = section.outbounds.find((item) => item.code === now);
   const name = now === "direct-out" ? _("Directly") : offered?.displayName ?? now;
@@ -3941,15 +3963,17 @@ async function chosenLatency(section, test) {
   if (!delay) {
     return {
       state: "error",
-      value: `[${test.displayName} \u2192 ${name}] ${_("Not responding")}`
+      value: `[${test.displayName} \u2192 ${name}] ${_("Not responding")}`,
+      servers
     };
   }
   return {
     state: fallback ? "warning" : "success",
-    value: `[${test.displayName} \u2192 ${name}] ${delay}ms`
+    value: `[${test.displayName} \u2192 ${name}] ${delay}ms`,
+    servers
   };
 }
-async function ruleLatency(section) {
+async function ruleLatency(section, sources) {
   const selected = section.outbounds.find((item) => item.selected);
   if (!selected) {
     return { state: "error", value: _("Not responding") };
@@ -3966,13 +3990,28 @@ async function ruleLatency(section) {
   const latencyGroup = await PodkopShellMethods.getClashApiGroupLatency(
     selected.code
   );
-  const delays = latencyGroup.success && !latencyGroup.data.message ? Object.values(latencyGroup.data).filter((item) => typeof item === "number" && item > 0).sort((left, right) => left - right) : [];
-  if (!delays.length) {
-    return chosenLatency(section, selected);
+  const answered = latencyGroup.success && !latencyGroup.data.message ? latencyGroup.data : {};
+  const listed = await PodkopShellMethods.getClashApiProxies();
+  const proxies = listed.success ? listed.data.proxies ?? {} : {};
+  const test = proxies[selected.code];
+  const members = (test?.all ?? Object.keys(answered)).slice(
+    0,
+    (test?.all?.length ?? Object.keys(answered).length) - (test?.fallbacks?.length ?? 0)
+  );
+  const servers = members.map((tag) => ({
+    name: serverDisplayName(tag, sources),
+    delay: answered[tag] || proxies[tag]?.history?.[0]?.delay || 0
+  })).sort(
+    (left, right) => (left.delay || Infinity) - (right.delay || Infinity) || left.name.localeCompare(right.name)
+  );
+  const answering = servers.filter((server) => server.delay).length;
+  if (!answering) {
+    return chosenLatency(section, selected, proxies, servers);
   }
   return {
     state: "success",
-    value: `[${selected.displayName}] ${delays.map((item) => `${item}ms`).join(" / ")}`
+    value: `[${selected.displayName}] ${_("%s of %s answer").format(answering, servers.length)}`,
+    servers
   };
 }
 async function runSectionsCheck() {
@@ -3997,23 +4036,19 @@ async function runSectionsCheck() {
     });
     throw new Error("Sections checks failed");
   }
+  const { sources } = await getConfigModel();
   const items = await Promise.all(
     sections.data.map(async (section) => {
       async function getLatency() {
         if (section.withTagSelect) {
-          return ruleLatency(section);
+          return ruleLatency(section, sources);
         }
         const delay = responded(
           await PodkopShellMethods.getClashApiProxyLatency(section.code)
         );
         return delay ? { state: "success", value: `${delay} ms` } : { state: "error", value: _("Not responding") };
       }
-      const { state: state2, value } = await getLatency();
-      return {
-        state: state2,
-        key: section.displayName,
-        value
-      };
+      return { key: section.displayName, ...await getLatency() };
     })
   );
   const direct = await PodkopShellMethods.getClashApiProxyLatency("direct-out");
@@ -4804,6 +4839,32 @@ var styles4 = `
 .pdk_diagnostic_alert__summary__item__icon {
     width: 16px;
     height: 16px;
+}
+
+.pdk_diagnostic_alert__summary__servers {
+    grid-column: 2 / -1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+    column-gap: 24px;
+    margin-bottom: 6px;
+}
+
+.pdk_diagnostic_alert__summary__server {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.pdk_diagnostic_alert__summary__server span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pdk_diagnostic_alert__summary__server--silent {
+    color: var(--error-color-medium, red);
 }
 `;
 

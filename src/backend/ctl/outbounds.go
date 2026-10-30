@@ -38,6 +38,8 @@ func outboundLines(caller *clashCaller, config *model.Config) []string {
 			Type string   `json:"type"`
 			Now  string   `json:"now"`
 			All  []string `json:"all"`
+			// the end of all that a delay test of a URL test leaves out
+			Fallbacks []string `json:"fallbacks"`
 		} `json:"proxies"`
 	}
 	if json.Unmarshal(content, &listed) != nil || len(listed.Proxies) == 0 {
@@ -91,7 +93,8 @@ func outboundLines(caller *clashCaller, config *model.Config) []string {
 		go func() {
 			defer tested.Done()
 			if item.kind == "URLTest" {
-				results[index] = urlTestLine(caller, item.label, item.tag, fallback)
+				proxy := listed.Proxies[item.tag]
+				results[index] = urlTestLine(caller, item.label, item.tag, proxy.All[:max(len(proxy.All)-len(proxy.Fallbacks), 0)], fallback)
 			} else {
 				results[index] = proxyLine(caller, item.label, item.tag)
 			}
@@ -150,8 +153,9 @@ func proxyDelay(caller *clashCaller, tag string) (int, string) {
 
 // urlTestLine tests the servers of a URL test, not its fallbacks, the fastest first. sing-box
 // answers the delays of the servers that answered, and nothing while a round of the test is
-// under way: what the test goes through then is tested, a server of it or a fallback.
-func urlTestLine(caller *clashCaller, label string, tag string, fallback func(tag string) bool) string {
+// under way: what the test goes through then is tested, a server of it or a fallback. The
+// servers that gave no delay are named after those that did.
+func urlTestLine(caller *clashCaller, label string, tag string, members []string, fallback func(tag string) bool) string {
 	_, content := caller.call(http.MethodGet, "/group/"+url.PathEscape(tag)+"/delay?"+delayQuery(), "", outboundWait+3*time.Second)
 	delays := map[string]int{}
 	_ = json.Unmarshal(content, &delays)
@@ -167,7 +171,17 @@ func urlTestLine(caller *clashCaller, label string, tag string, fallback func(ta
 		for _, member := range answering {
 			answered = append(answered, member+" "+strconv.Itoa(delays[member])+" ms")
 		}
-		return "✅ " + label + ": " + strings.Join(answered, ", ")
+		line := "✅ " + label + ": " + strings.Join(answered, ", ")
+		var silent []string
+		for _, member := range members {
+			if delays[member] <= 0 {
+				silent = append(silent, member)
+			}
+		}
+		if len(silent) > 0 {
+			line += " (" + strconv.Itoa(len(answering)) + " of " + strconv.Itoa(len(answering)+len(silent)) + " answer; no answer: " + strings.Join(silent, ", ") + ")"
+		}
+		return line
 	}
 	none := "❌ " + label + ": none of its servers answers"
 	_, content = caller.call(http.MethodGet, "/proxies/"+url.PathEscape(tag), "", outboundWait)

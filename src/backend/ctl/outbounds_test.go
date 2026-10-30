@@ -22,7 +22,7 @@ func TestOutboundLinesTestWhatTheRuleUses(t *testing.T) {
 	proxies := map[string]map[string]any{
 		"main-out":            {"type": "Socks"},
 		"ru-out":              {"type": "Selector", "now": "ru-urltest-out"},
-		"ru-urltest-out":      {"type": "URLTest", "now": "s-ru"},
+		"ru-urltest-out":      {"type": "URLTest", "now": "s-ru", "all": []string{"s-ru", "s-us", "ru-fallback-1-out"}, "fallbacks": []string{"ru-fallback-1-out"}},
 		"ru-fallback-1-out":   {"type": "URLTest", "now": "s-de"},
 		"pin-out":             {"type": "Selector", "now": "s-de", "all": []string{"pin-urltest-out", "s-de"}},
 		"one-out":             {"type": "Selector", "now": "s-de", "all": []string{"s-de"}},
@@ -92,7 +92,7 @@ func TestOutboundLinesTestWhatTheRuleUses(t *testing.T) {
 	lines := outboundLines(caller, config)
 	require.Equal(t, []string{
 		"✅ main: 120 ms",
-		"✅ ru (urltest): s-ru 142 ms",
+		"✅ ru (urltest): s-ru 142 ms (1 of 2 answer; no answer: s-us)",
 		"✅ pin (pinned s-de): 120 ms",
 		"✅ one: 120 ms",
 		"✅ tier (pinned tier-fallback-1-out, urltest): s-de 150 ms, s-us 409 ms",

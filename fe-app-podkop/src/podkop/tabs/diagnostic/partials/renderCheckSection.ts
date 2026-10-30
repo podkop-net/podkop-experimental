@@ -43,7 +43,33 @@ function renderCheckSummary(items: IRenderCheckSectionProps['items']) {
       {
         class: `pdk_diagnostic_alert__summary__item pdk_diagnostic_alert__summary__item--${item.state}`,
       },
-      [getIcon(), E('b', {}, [item.key]), E('div', {}, [item.value])],
+      [
+        getIcon(),
+        E('b', {}, [item.key]),
+        E('div', {}, [item.value]),
+        ...(item.servers?.length
+          ? [
+              E(
+                'div',
+                { class: 'pdk_diagnostic_alert__summary__servers' },
+                item.servers.map((server) =>
+                  E(
+                    'div',
+                    {
+                      class: `pdk_diagnostic_alert__summary__server${server.delay ? '' : ' pdk_diagnostic_alert__summary__server--silent'}`,
+                    },
+                    [
+                      E('span', { title: server.name }, [server.name]),
+                      E('span', {}, [
+                        server.delay ? `${server.delay}ms` : 'n/a',
+                      ]),
+                    ],
+                  ),
+                ),
+              ),
+            ]
+          : []),
+      ],
     );
   });
 
