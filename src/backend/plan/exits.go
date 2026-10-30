@@ -32,7 +32,9 @@ type sourceServer struct {
 // that goes through servers gets a URL test of the servers of its rows, with its fallback
 // rows in their order (a fallback row of several servers is a URL test of its own), and the
 // selector "<rule>-out" of the test and the servers, which its route rule goes to and the
-// dashboard pins a server on. A rule whose rows name no server now refuses its connections
+// dashboard pins a server on. A rule of one server and no fallback has nothing to choose from
+// and its selector takes the server alone, unless a subscription can bring more at any time.
+// A rule whose rows name no server now refuses its connections
 // through a selector of the block outbound: when servers come, sing-box replaces it while it
 // runs (Result.Swappable), as it replaces every outbound made here.
 func (b *builder) buildExits() error {
@@ -63,10 +65,14 @@ func (b *builder) buildExits() error {
 
 func (b *builder) buildExit(section *model.Section) error {
 	var members []string
+	changing := false
 	for _, row := range section.Servers {
 		if row.Source == model.SourceDirect || row.Source == model.SourceBlock {
 			b.warn("rule ", section.Name, ": ", row.Source, " among the servers counts only as the one row of the servers: the row is left out; as a fallback it is used")
 			continue
+		}
+		if source := b.config.Source(row.Source); source != nil && source.Type == "subscription" {
+			changing = true
 		}
 		tags, err := b.rowServers(section, row)
 		if err != nil {
@@ -110,11 +116,14 @@ func (b *builder) buildExit(section *model.Section) error {
 		}
 	}
 	var choices []string
-	if len(members) == 0 && len(tiers) == 0 {
+	switch {
+	case len(members) == 0 && len(tiers) == 0:
 		b.warn("rule ", section.Name, ": its sources name no server now: its connections are refused")
 		choices = []string{tagBlockOutbound}
 		b.refused[section.Name] = true
-	} else {
+	case len(members) == 1 && len(tiers) == 0 && !changing:
+		choices = members
+	default:
 		test := outboundTag(section.Name + "-urltest")
 		b.addURLTest(test, members, tiers)
 		choices = append([]string{test}, members...)

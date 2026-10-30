@@ -24,8 +24,9 @@ func TestOutboundLinesTestWhatTheRuleUses(t *testing.T) {
 		"ru-out":              {"type": "Selector", "now": "ru-urltest-out"},
 		"ru-urltest-out":      {"type": "URLTest", "now": "s-ru"},
 		"ru-fallback-1-out":   {"type": "URLTest", "now": "s-de"},
-		"pin-out":             {"type": "Selector", "now": "s-de"},
-		"tier-out":            {"type": "Selector", "now": "tier-fallback-1-out"},
+		"pin-out":             {"type": "Selector", "now": "s-de", "all": []string{"pin-urltest-out", "s-de"}},
+		"one-out":             {"type": "Selector", "now": "s-de", "all": []string{"s-de"}},
+		"tier-out":            {"type": "Selector", "now": "tier-fallback-1-out", "all": []string{"tier-urltest-out", "tier-fallback-1-out"}},
 		"tier-fallback-1-out": {"type": "URLTest", "now": "s-de"},
 		"down-out":            {"type": "Selector", "now": "down-urltest-out"},
 		"down-urltest-out":    {"type": "URLTest", "now": "down-fallback-1-out"},
@@ -82,7 +83,7 @@ func TestOutboundLinesTestWhatTheRuleUses(t *testing.T) {
 	// a rule whose sources name no server and refuses; one that goes as the rule named
 	// block; one the configuration that runs does not have yet; one that is off; one whose
 	// one row is block, a route rule without an outbound
-	for _, name := range []string{"main", "ru", "pin", "tier", "down", "lost", "busy", "dead", "yt", "tv", "new"} {
+	for _, name := range []string{"main", "ru", "pin", "one", "tier", "down", "lost", "busy", "dead", "yt", "tv", "new"} {
 		config.Sections = append(config.Sections, model.Section{Name: name, Enabled: true, Servers: rows})
 	}
 	config.Sections = append(config.Sections,
@@ -93,12 +94,13 @@ func TestOutboundLinesTestWhatTheRuleUses(t *testing.T) {
 		"✅ main: 120 ms",
 		"✅ ru (urltest): s-ru 142 ms",
 		"✅ pin (pinned s-de): 120 ms",
+		"✅ one: 120 ms",
 		"✅ tier (pinned tier-fallback-1-out, urltest): s-de 150 ms, s-us 409 ms",
 		"⚠️ down (urltest): none of its servers answers; it goes through the fallback down-fallback-1-out now: 120 ms",
 		"❌ lost (urltest): none of its servers answers, nor the fallback lost-fallback-1-out it goes through now (An error occurred in the delay test)",
 		"✅ busy (urltest): it goes through s-us now: 120 ms",
 		"❌ dead (urltest): none of its servers answers; its fallback block refuses its connections",
-		"✅ tv (pinned block-out): 120 ms",
+		"✅ tv: 120 ms",
 		"✅ direct (without a proxy): 120 ms",
 		"⛔ yt: its sources name no server now, and its connections are refused",
 	}, lines)

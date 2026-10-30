@@ -29,14 +29,15 @@ const (
 // dashboard of the page does: the delay of a request through it to delayTestURL. A rule goes
 // through the selector "<rule>-out" of its URL test, its servers and the URL tests of its
 // fallbacks (plan/exits.go), and what the selector has chosen is tested: the URL test with its
-// own servers, or what is pinned on the dashboard. A test of the selector itself would test
-// every server of every fallback with them. The tests run at once.
+// own servers, the one server of the rule, or what is pinned on the dashboard. A test of the
+// selector itself would test every server of every fallback with them. The tests run at once.
 func outboundLines(caller *clashCaller, config *model.Config) []string {
 	_, content := caller.call(http.MethodGet, "/proxies", "", 10*time.Second)
 	var listed struct {
 		Proxies map[string]struct {
-			Type string `json:"type"`
-			Now  string `json:"now"`
+			Type string   `json:"type"`
+			Now  string   `json:"now"`
+			All  []string `json:"all"`
 		} `json:"proxies"`
 	}
 	if json.Unmarshal(content, &listed) != nil || len(listed.Proxies) == 0 {
@@ -65,7 +66,8 @@ func outboundLines(caller *clashCaller, config *model.Config) []string {
 		var details []string
 		if proxy.Type == "Selector" && proxy.Now != "" {
 			item.tag, item.kind = proxy.Now, listed.Proxies[proxy.Now].Type
-			if proxy.Now != section.Name+"-urltest-out" {
+			// a selector of one outbound is a rule of one server: nothing is pinned
+			if proxy.Now != section.Name+"-urltest-out" && len(proxy.All) > 1 {
 				details = append(details, "pinned "+proxy.Now)
 			}
 		}

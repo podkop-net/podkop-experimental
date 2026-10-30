@@ -209,6 +209,31 @@ func TestExitsOfRows(t *testing.T) {
 	require.Contains(t, routes, "own")
 }
 
+// A rule of one server and no fallback has no URL test, whatever the source other than a
+// subscription, which can bring more servers at any time. A fallback keeps the test.
+func TestExitOfOneServer(t *testing.T) {
+	t.Parallel()
+	settings := "\nconfig source 'own'\n\toption type 'links'\n\tlist link 'vless://u@own.example:443#Own'\n" +
+		"\nconfig source 'warp'\n\toption type 'interface'\n\toption interface 'awg0'\n" +
+		"\nconfig source 'json'\n\toption type 'json'\n\toption outbound_json '{\"type\":\"socks\",\"server\":\"j.example\",\"server_port\":1080}'\n" +
+		"\nconfig source 'prov1'\n\toption type 'subscription'\n\toption url 'https://sub.example/x'\n" +
+		ruleText("link", row("server", "own")) + ruleText("iface", row("server", "warp")) + ruleText("obj", row("server", "json")) +
+		ruleText("sub", row("server", "prov1")) + ruleText("spare", row("server", "own"), row("fallback", "direct")) +
+		ruleText("twice", row("server", "own"), row("server", "own"))
+	result, err := buildRules(t, settings, map[string][]SubscriptionServer{"prov1": subscriptionList("NL 1")})
+	require.NoError(t, err)
+	config, outbounds := outboundsOf(t, result)
+	for rule, server := range map[string]string{"link": "own", "iface": "warp", "obj": "json", "twice": "own"} {
+		_, hasTest := outbounds[rule+"-urltest-out"]
+		require.False(t, hasTest, rule)
+		require.Equal(t, exitOutbound{Type: "selector", Tag: rule + "-out", Default: server, Outbounds: []string{server}}, outbounds[rule+"-out"], rule)
+		require.True(t, result.Swappable[rule+"-out"], rule)
+	}
+	require.Equal(t, []string{"prov1: NL 1"}, outbounds["sub-urltest-out"].Outbounds)
+	require.Equal(t, []string{"own"}, outbounds["spare-urltest-out"].Outbounds)
+	require.Equal(t, []string{"link-out", "iface-out", "obj-out", "sub-out", "spare-out", "twice-out"}, ruleRoutes(config))
+}
+
 func TestExitsWithoutServers(t *testing.T) {
 	t.Parallel()
 	settings := "\nconfig source 'prov1'\n\toption type 'subscription'\n\toption url 'https://sub.example/x'\n" +
@@ -331,7 +356,7 @@ func TestExitMistakes(t *testing.T) {
 		_, outbounds := outboundsOf(t, result)
 		require.Empty(t, outbounds["x-urltest-out"].Outbounds, testCase.warning)
 		require.Equal(t, []string{"direct-out"}, outbounds["x-urltest-out"].Fallbacks, testCase.warning)
-		require.Equal(t, []string{"one"}, outbounds["y-urltest-out"].Outbounds, testCase.warning)
+		require.Equal(t, []string{"one"}, outbounds["y-out"].Outbounds, testCase.warning)
 	}
 	_, err := buildRules(t, "\toption urltest_tolerance 'much'\n", nil)
 	require.ErrorContains(t, err, "tolerance")

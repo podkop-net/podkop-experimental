@@ -46,6 +46,30 @@ function mockProxies(proxies) {
 describe('getDashboardSections', () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it('shows the one server of a rule that has no test', async () => {
+    mockModel({
+      rules: [{ '.name': 'main' }],
+      sources: [ONE],
+      members: [{ section: 'main', role: 'server', source: 'src2' }],
+    });
+    mockProxies({
+      'main-out': proxy('main-out', {
+        type: 'Selector',
+        now: 'src2',
+        all: ['src2'],
+      }),
+      src2: proxy('src2', { type: 'Hysteria2' }),
+    });
+    const { data } = await getDashboardSections();
+    expect(data[0].outbounds).toHaveLength(1);
+    expect(data[0].outbounds[0]).toMatchObject({
+      code: 'src2',
+      selected: true,
+      type: 'Hysteria2',
+    });
+    expect(data[0].outbounds[0].displayName).not.toBe('Fastest');
+  });
+
   it('shows the test of a rule first, then its servers by the labels of their sources, then its fallback tiers', async () => {
     mockModel({
       rules: [{ '.name': 'main', label: 'Main' }],
