@@ -4,6 +4,101 @@ import { updateCheckStore } from './updateCheckStore';
 import { getMeta } from '../helpers/getMeta';
 import { getDashboardSections } from '../../../methods/custom/getDashboardSections';
 import { IDiagnosticsChecksItem } from '../../../services';
+import { Podkop } from '../../../types';
+
+type Latency = Pick<IDiagnosticsChecksItem, 'state' | 'value'>;
+
+function responded(answer: {
+  success: boolean;
+  data: Podkop.GetClashApiProxyLatency;
+}): number {
+  return answer.success && !answer.data.message ? answer.data.delay : 0;
+}
+
+// What a URL test whose servers gave no delay goes through now: a server of it, a fallback of
+// the rule, or nothing. sing-box answers no delay while a round of the test is under way too.
+async function chosenLatency(
+  section: Podkop.OutboundGroup,
+  test: Podkop.Outbound,
+): Promise<Latency> {
+  const notResponding: Latency = {
+    state: 'error',
+    value: `[${test.displayName}] ${_('Not responding')}`,
+  };
+  const listed = await PodkopShellMethods.getClashApiProxies();
+  const proxies = listed.success ? (listed.data.proxies ?? {}) : {};
+  const now = proxies[test.code]?.now;
+
+  if (!now || now === 'block') {
+    return notResponding;
+  }
+
+  // the selector of the rule offers every server and tier the URL test may take but direct
+  const offered = section.outbounds.find((item) => item.code === now);
+  const name =
+    now === 'direct-out' ? _('Directly') : (offered?.displayName ?? now);
+  // a fallback: direct, or a URL test of several servers
+  const fallback = now === 'direct-out' || proxies[now]?.type === 'URLTest';
+  const delay = responded(
+    await PodkopShellMethods.getClashApiProxyLatency(now),
+  );
+
+  if (!delay) {
+    return {
+      state: 'error',
+      value: `[${test.displayName} → ${name}] ${_('Not responding')}`,
+    };
+  }
+
+  return {
+    state: fallback ? 'warning' : 'success',
+    value: `[${test.displayName} → ${name}] ${delay}ms`,
+  };
+}
+
+// What the selector of a rule has chosen is tested: the URL test of the rule with its own
+// servers, or what is pinned on the dashboard. A test of the selector would test every server
+// of every fallback with them.
+async function ruleLatency(section: Podkop.OutboundGroup): Promise<Latency> {
+  const selected = section.outbounds.find((item) => item.selected);
+
+  if (!selected) {
+    return { state: 'error', value: _('Not responding') };
+  }
+
+  if (selected.type !== 'URLTest') {
+    const delay = responded(
+      await PodkopShellMethods.getClashApiProxyLatency(selected.code),
+    );
+
+    return delay
+      ? { state: 'success', value: `[${selected.displayName}] ${delay}ms` }
+      : {
+          state: 'error',
+          value: `[${selected.displayName}] ${_('Not responding')}`,
+        };
+  }
+
+  const latencyGroup = await PodkopShellMethods.getClashApiGroupLatency(
+    selected.code,
+  );
+  // the delays of the servers that answered, the fastest first
+  const delays =
+    latencyGroup.success && !latencyGroup.data.message
+      ? Object.values(latencyGroup.data)
+          .filter((item) => typeof item === 'number' && item > 0)
+          .sort((left, right) => left - right)
+      : [];
+
+  if (!delays.length) {
+    return chosenLatency(section, selected);
+  }
+
+  return {
+    state: 'success',
+    value: `[${selected.displayName}] ${delays.map((item) => `${item}ms`).join(' / ')}`,
+  };
+}
 
 export async function runSectionsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.OUTBOUNDS;
@@ -34,90 +129,26 @@ export async function runSectionsCheck() {
 
   const items = (await Promise.all(
     sections.data.map(async (section) => {
-      async function getLatency() {
+      async function getLatency(): Promise<Latency> {
         if (section.withTagSelect) {
-          const latencyGroup = await PodkopShellMethods.getClashApiGroupLatency(
-            section.code,
-          );
-
-          const selectedOutbound = section.outbounds.find(
-            (item) => item.selected,
-          );
-
-          // the URL test of the rule, or a tier of its fallbacks pinned on the dashboard
-          const isUrlTest = selectedOutbound?.type === 'URLTest';
-          const urlTestName = selectedOutbound?.displayName || _('Fastest');
-
-          const success = latencyGroup.success && !latencyGroup.data.message;
-
-          if (success) {
-            if (isUrlTest) {
-              // sing-box answers the delays of the outbounds that answered: an empty
-              // answer is a group none of whose outbounds works
-              const delays = Object.values(latencyGroup.data).filter(
-                (item) => typeof item === 'number' && item > 0,
-              );
-
-              if (!delays.length) {
-                return {
-                  success: false,
-                  latency: `[${urlTestName}] ${_('Not responding')}`,
-                };
-              }
-
-              return {
-                success: true,
-                latency: `[${urlTestName}] ${delays.map((item) => `${item}ms`).join(' / ')}`,
-              };
-            }
-
-            const selectedProxyDelay =
-              latencyGroup.data?.[selectedOutbound?.code ?? ''];
-
-            if (selectedProxyDelay) {
-              return {
-                success: true,
-                latency: `[${selectedOutbound?.displayName ?? ''}] ${selectedProxyDelay}ms`,
-              };
-            }
-
-            return {
-              success: false,
-              latency: `[${selectedOutbound?.displayName ?? ''}] ${_('Not responding')}`,
-            };
-          }
-
-          return {
-            success: false,
-            latency: _('Not responding'),
-          };
+          return ruleLatency(section);
         }
 
-        const latencyProxy = await PodkopShellMethods.getClashApiProxyLatency(
-          section.code,
+        const delay = responded(
+          await PodkopShellMethods.getClashApiProxyLatency(section.code),
         );
 
-        const success = latencyProxy.success && !latencyProxy.data.message;
-
-        if (success) {
-          return {
-            success: true,
-            latency: `${latencyProxy.data.delay} ms`,
-          };
-        }
-
-        return {
-          success: false,
-          latency: _('Not responding'),
-        };
+        return delay
+          ? { state: 'success', value: `${delay} ms` }
+          : { state: 'error', value: _('Not responding') };
       }
 
-      const { latency, success } = await getLatency();
+      const { state, value } = await getLatency();
 
       return {
-        state: success ? 'success' : 'error',
+        state,
         key: section.displayName,
-        value: latency,
+        value,
       };
     }),
   )) as Array<IDiagnosticsChecksItem>;
@@ -133,7 +164,8 @@ export async function runSectionsCheck() {
 
   const allGood = items.every((item) => item.state === 'success');
 
-  const atLeastOneGood = items.some((item) => item.state === 'success');
+  // a rule that goes through a fallback works
+  const atLeastOneGood = items.some((item) => item.state !== 'error');
 
   const { state, description } = getMeta({ atLeastOneGood, allGood });
 

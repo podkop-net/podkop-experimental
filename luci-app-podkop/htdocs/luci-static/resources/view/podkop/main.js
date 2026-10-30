@@ -3918,6 +3918,63 @@ function renderWikiDisclaimer(kind) {
 }
 
 // src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts
+function responded(answer) {
+  return answer.success && !answer.data.message ? answer.data.delay : 0;
+}
+async function chosenLatency(section, test) {
+  const notResponding = {
+    state: "error",
+    value: `[${test.displayName}] ${_("Not responding")}`
+  };
+  const listed = await PodkopShellMethods.getClashApiProxies();
+  const proxies = listed.success ? listed.data.proxies ?? {} : {};
+  const now = proxies[test.code]?.now;
+  if (!now || now === "block") {
+    return notResponding;
+  }
+  const offered = section.outbounds.find((item) => item.code === now);
+  const name = now === "direct-out" ? _("Directly") : offered?.displayName ?? now;
+  const fallback = now === "direct-out" || proxies[now]?.type === "URLTest";
+  const delay = responded(
+    await PodkopShellMethods.getClashApiProxyLatency(now)
+  );
+  if (!delay) {
+    return {
+      state: "error",
+      value: `[${test.displayName} \u2192 ${name}] ${_("Not responding")}`
+    };
+  }
+  return {
+    state: fallback ? "warning" : "success",
+    value: `[${test.displayName} \u2192 ${name}] ${delay}ms`
+  };
+}
+async function ruleLatency(section) {
+  const selected = section.outbounds.find((item) => item.selected);
+  if (!selected) {
+    return { state: "error", value: _("Not responding") };
+  }
+  if (selected.type !== "URLTest") {
+    const delay = responded(
+      await PodkopShellMethods.getClashApiProxyLatency(selected.code)
+    );
+    return delay ? { state: "success", value: `[${selected.displayName}] ${delay}ms` } : {
+      state: "error",
+      value: `[${selected.displayName}] ${_("Not responding")}`
+    };
+  }
+  const latencyGroup = await PodkopShellMethods.getClashApiGroupLatency(
+    selected.code
+  );
+  const delays = latencyGroup.success && !latencyGroup.data.message ? Object.values(latencyGroup.data).filter((item) => typeof item === "number" && item > 0).sort((left, right) => left - right) : [];
+  if (!delays.length) {
+    return chosenLatency(section, selected);
+  }
+  return {
+    state: "success",
+    value: `[${selected.displayName}] ${delays.map((item) => `${item}ms`).join(" / ")}`
+  };
+}
 async function runSectionsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.OUTBOUNDS;
   updateCheckStore({
@@ -3944,68 +4001,18 @@ async function runSectionsCheck() {
     sections.data.map(async (section) => {
       async function getLatency() {
         if (section.withTagSelect) {
-          const latencyGroup = await PodkopShellMethods.getClashApiGroupLatency(
-            section.code
-          );
-          const selectedOutbound = section.outbounds.find(
-            (item) => item.selected
-          );
-          const isUrlTest = selectedOutbound?.type === "URLTest";
-          const urlTestName = selectedOutbound?.displayName || _("Fastest");
-          const success3 = latencyGroup.success && !latencyGroup.data.message;
-          if (success3) {
-            if (isUrlTest) {
-              const delays = Object.values(latencyGroup.data).filter(
-                (item) => typeof item === "number" && item > 0
-              );
-              if (!delays.length) {
-                return {
-                  success: false,
-                  latency: `[${urlTestName}] ${_("Not responding")}`
-                };
-              }
-              return {
-                success: true,
-                latency: `[${urlTestName}] ${delays.map((item) => `${item}ms`).join(" / ")}`
-              };
-            }
-            const selectedProxyDelay = latencyGroup.data?.[selectedOutbound?.code ?? ""];
-            if (selectedProxyDelay) {
-              return {
-                success: true,
-                latency: `[${selectedOutbound?.displayName ?? ""}] ${selectedProxyDelay}ms`
-              };
-            }
-            return {
-              success: false,
-              latency: `[${selectedOutbound?.displayName ?? ""}] ${_("Not responding")}`
-            };
-          }
-          return {
-            success: false,
-            latency: _("Not responding")
-          };
+          return ruleLatency(section);
         }
-        const latencyProxy = await PodkopShellMethods.getClashApiProxyLatency(
-          section.code
+        const delay = responded(
+          await PodkopShellMethods.getClashApiProxyLatency(section.code)
         );
-        const success2 = latencyProxy.success && !latencyProxy.data.message;
-        if (success2) {
-          return {
-            success: true,
-            latency: `${latencyProxy.data.delay} ms`
-          };
-        }
-        return {
-          success: false,
-          latency: _("Not responding")
-        };
+        return delay ? { state: "success", value: `${delay} ms` } : { state: "error", value: _("Not responding") };
       }
-      const { latency, success } = await getLatency();
+      const { state: state2, value } = await getLatency();
       return {
-        state: success ? "success" : "error",
+        state: state2,
         key: section.displayName,
-        value: latency
+        value
       };
     })
   );
@@ -4017,7 +4024,7 @@ async function runSectionsCheck() {
     value: directWorks ? `${direct.data.delay} ms` : _("Not responding")
   });
   const allGood = items.every((item) => item.state === "success");
-  const atLeastOneGood = items.some((item) => item.state === "success");
+  const atLeastOneGood = items.some((item) => item.state !== "error");
   const { state, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
