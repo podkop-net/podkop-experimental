@@ -1020,7 +1020,6 @@ function createSourceContent(section) {
   );
   o.modalonly = true;
   o.depends("type", "subscription");
-  o.password = true;
   o.rmempty = false;
   // LuCI would refuse an empty address as "Expecting: non-empty value": validate tells why
   o.optional = true;
