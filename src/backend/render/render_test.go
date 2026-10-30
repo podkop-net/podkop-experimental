@@ -151,12 +151,12 @@ func wanted(t *testing.T, name string, directory string) map[string][]byte {
 }
 
 func TestCases(t *testing.T) {
-	// The cases are settings of podkop 0.7 and what its shell backend wrote. Since 0.9 the
+	// The cases are settings of podkop 0.7 and what its shell backend wrote. Since 0.8.8 the
 	// servers are sources and rows of rules: the settings are converted (podkop migrate) and
 	// every outbound and the place of the rules of block and exclusion differ from those of
 	// the shell backend on purpose. What the cases still hold (DNS, lists, inbounds) is to be
 	// compared apart from the outbounds; until then they are not run.
-	t.Skip("0.9: the outbounds follow sources and rows of rules, not the shell backend")
+	t.Skip("0.8.8: the outbounds follow sources and rows of rules, not the shell backend")
 	for _, name := range caseNames(t) {
 		t.Run(name, func(t *testing.T) {
 			root := t.TempDir()

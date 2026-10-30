@@ -1,5 +1,5 @@
 // Package model holds the settings of the backend as its UCI file of the format 2 states them
-// (podkop-exp 0.9; podkop migrate converts the older ones): one "settings" section, the
+// (podkop-exp 0.8.8; podkop migrate converts the older ones): one "settings" section, the
 // sources of servers ("source": a subscription, links, an outbound JSON or a network
 // interface), the rules ("section": lists and where their traffic goes) and the rows of the
 // rules ("member": a source with a filter of server names, as a server or a fallback). Values

@@ -1,5 +1,5 @@
 // Package migrate turns the settings of podkop 0.7 and of podkop-exp 0.8 into the format of
-// podkop-exp 0.9. The servers move out of the sections: a link, a set of links, an
+// podkop-exp 0.8.8. The servers move out of the sections: a link, a set of links, an
 // outbound JSON or a network interface becomes a source (the tab Servers), and what a
 // section takes becomes its members, rows of servers and of fallbacks in order. A
 // subscription is a source of its own name, so its cached list stays; a group becomes the

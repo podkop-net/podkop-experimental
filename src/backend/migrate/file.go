@@ -10,7 +10,7 @@ import (
 
 // Backup is where File keeps the settings file it converted.
 func Backup(path string) string {
-	return path + ".pre-0.9"
+	return path + ".pre-0.8.8"
 }
 
 // File converts the settings file in place. The file as it was is kept as Backup unless a

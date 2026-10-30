@@ -69,7 +69,7 @@ import (
 // 12. Settings with two mixed proxies on one port are refused: sing-box would fail to start
 //     on the second socket, and so would every try of the start again. The shell backend
 //     wrote the configuration.
-// 13. A proxy section connected through another section (option detour) in 0.8; since 0.9
+// 13. A proxy section connected through another section (option detour) up to 0.8.7; since 0.8.8
 //     a row of a rule connects through a source (item 17).
 // 14. The uTLS fingerprint fallback of the engine (experimental.utls_fallback) is told
 //     always: on without the option utls_fallback and with 'enabled', off with 'disabled'.
@@ -85,7 +85,7 @@ import (
 //     ones, and the NTP of the router goes past the proxy (firewall). The shell backend had
 //     neither: a name of a list sent sysntpd through the proxy, which a wrong clock breaks.
 //     Without such names (the cases of render/testdata) there is no rule.
-// 17. Since podkop-exp 0.9 the servers are sources and rows of rules (exits.go): a server
+// 17. Since podkop-exp 0.8.8 the servers are sources and rows of rules (exits.go): a server
 //     is an outbound once, and once more for each source its rows connect through; a rule
 //     goes through the selector "<rule>-out" over a URL test of the servers of its rows with
 //     its fallback rows in order, the server check one for every rule; a rule whose rows of
