@@ -135,8 +135,10 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config) {
 			continue
 		}
 		names = append(names, item.Name)
+		before := t.interval(item.Name)
 		t.intervals[item.Name] = parseInterval(item.UpdateInterval)
 		if t.addresses[item.Name] == item.URL && t.states[item.Name] != nil {
+			t.reschedule(item.Name, before)
 			continue
 		}
 		t.addresses[item.Name] = item.URL
@@ -226,6 +228,23 @@ func (t *subscriptions) interval(name string) time.Duration {
 		return time.Duration(state.Provider.UpdateHours) * time.Hour
 	}
 	return 24 * time.Hour
+}
+
+// reschedule counts the next download from the last one by the interval of the settings when
+// that changed: the time set by the old interval could be a day away. A download under way
+// sets the time when it ends, and a retry after a failure is not put off. The caller holds
+// access.
+func (t *subscriptions) reschedule(name string, before time.Duration) {
+	state := t.states[name]
+	interval := t.interval(name)
+	if interval == before || state.Busy || state.Attempted == nil || state.Next == nil {
+		return
+	}
+	next := state.Attempted.Add(interval)
+	if t.failures[name] > 0 && next.After(*state.Next) {
+		return
+	}
+	state.Next = &next
 }
 
 // parseInterval reads an update interval of the settings: a number of minutes, hours or

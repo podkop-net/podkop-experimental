@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
+	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/subscription"
 
 	"github.com/stretchr/testify/require"
@@ -421,6 +422,48 @@ func TestSubscriptionRoundAppliesOnce(t *testing.T) {
 	require.False(t, state.Next.After(time.Now()))
 	require.Same(t, before, s.current.instance)
 	s.Stop()
+}
+
+// A changed interval moves the next download: it counts from the last one by the new interval,
+// and when that is past the download is due now. A retry after a failure is not put off.
+func TestSubscriptionIntervalChange(t *testing.T) {
+	const name, address = "prov1", "https://sub.example/api/sub/TOKEN"
+	last := time.Now().Add(-5 * time.Minute)
+	day := last.Add(24 * time.Hour)
+	s := New(Options{})
+	apply := func(interval string) {
+		s.syncSubscriptions(&model.Config{Sources: []model.Source{{Name: name, Type: "subscription", URL: address, UpdateInterval: interval}}})
+	}
+	apply("auto")
+	state := s.subscriptions.states[name]
+	state.Attempted, state.Next = &last, &day
+	apply("auto")
+	require.Equal(t, day, *state.Next, "the same interval moves nothing")
+	apply("24h")
+	require.Equal(t, day, *state.Next, "another way to write it moves nothing")
+	apply("1h")
+	require.Equal(t, last.Add(time.Hour), *state.Next)
+	apply("1d")
+	require.Equal(t, day, *state.Next, "a longer one moves it later")
+	long := last.Add(-time.Hour)
+	state.Attempted = &long
+	apply("20m")
+	require.False(t, time.Now().Before(*state.Next), "past: due now")
+
+	state.Attempted = &last
+	state.Busy = true
+	held := *state.Next
+	apply("3h")
+	require.Equal(t, held, *state.Next, "a download under way sets it when it ends")
+	state.Busy = false
+
+	retry := last.Add(downloadRetry)
+	state.Next = &retry
+	s.subscriptions.failures = map[string]int{name: 1}
+	apply("6h")
+	require.Equal(t, retry, *state.Next, "a retry is not put off")
+	apply("20m")
+	require.False(t, state.Next.After(retry), "a shorter interval may bring it nearer")
 }
 
 func TestParseInterval(t *testing.T) {
