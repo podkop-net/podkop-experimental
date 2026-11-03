@@ -85,12 +85,110 @@ export namespace Podkop {
     SET_GROUP_PROXY = 'set_group_proxy',
   }
 
+  // the block a server is under, from the backend's detector (detect.Verdict)
+  export type Block =
+    | 'none'
+    | 'limit'
+    | 'freeze'
+    | 'wrongparams'
+    | 'rejected'
+    | 'hellodrop'
+    | 'pathblock'
+    | 'dead'
+    | 'unreachable'
+    | 'unknown';
+
+  export type VerdictNote =
+    | 'needs_mlkem'
+    | 'fp_switched'
+    | 'handshake_failed'
+    | 'cured'
+    | 'fallback_off'
+    | 'clock_suspect'
+    | 'burst_any_fp'
+    | 'uplink_down'
+    | 'dns_failed'
+    | 'target_failed'
+    | 'download_test'
+    | 'inconclusive'
+    | 'some_lost'
+    | 'through_detour'
+    | 'not_applicable'
+    | 'probe_hello_refused'
+    | 'relay_silent'
+    | 'tls_cert'
+    | 'stand_in'
+    | 'upgrade_in_dial'
+    | 'server_silent';
+
+  // what the page shows of a verdict; the English why of the backend is for logs and the CLI
+  export interface Verdict {
+    block: Block;
+    source: 'passive' | 'active';
+    notes?: VerdictNote[];
+    fp?: string;
+    kb?: number;
+    n?: number;
+  }
+
+  // a verdict as the method detect answers it
+  export interface VerdictReply extends Verdict {
+    // seconds since the probe, of a verdict of a probe; absent when 0
+    age?: number;
+    why?: string;
+  }
+
+  // the answer of the method detect of the object podkop on ubus
+  export interface DetectReport {
+    verdicts: Record<string, VerdictReply>;
+    probing: string;
+    queued: string[];
+    noprobe: string[];
+    fallback: boolean;
+  }
+
+  // the answer of the method force_detect; the verdict comes in a later detect
+  export interface ForceDetectReply {
+    state:
+      | 'started'
+      | 'queued'
+      | 'running'
+      | 'throttled'
+      | 'unknown'
+      | 'not_running'
+      | 'canceled'
+      // not of the backend: rpc.js was refused the call (getVerdicts.ts forceDetect)
+      | 'denied';
+    retry_after?: number;
+  }
+
   export interface Outbound {
     code: string;
     displayName: string;
     latency: number;
     type: string;
     selected: boolean;
+    // the connections of some rule go through it: selected, or the choice of the selected URL test
+    inUse: boolean;
+    // the connections of this rule go through it: the end of the choices of its selector
+    active?: boolean;
+    // the choice of the URL test of a fallback of several servers whose turn has not come
+    pick?: boolean;
+    // the place of its tier in the order the rule takes them: 0 its servers, n its fallback n
+    tier?: number;
+    // false for what the selector does not offer (direct or block as a fallback): no click pins it
+    selectable?: boolean;
+  }
+
+  // Where the connections of a rule go now. auto: by its URL test, from its servers (tier 0) or
+  // from its fallback tier; manual: a server pinned on the dashboard; single: the one server of
+  // a rule that has nothing to choose from.
+  export interface OutboundRoute {
+    mode: 'auto' | 'manual' | 'single';
+    tier: number;
+    code: string;
+    displayName: string;
+    latency: number;
   }
 
   export interface OutboundGroup {
@@ -98,6 +196,11 @@ export namespace Podkop {
     code: string;
     displayName: string;
     outbounds: Outbound[];
+    // the names of the tiers, in the order the rule takes them; none without fallbacks
+    tiers?: string[];
+    // the URL test of the rule, which the selector takes unless a server is pinned
+    auto?: string;
+    route?: OutboundRoute;
   }
 
   // a "config section" block of format 2: a rule (tab Rules)
@@ -168,27 +271,6 @@ export namespace Podkop {
     yacd_secret_key?: string;
     label?: string;
     enabled?: string;
-    // the connections of some rule go through it: selected, or the choice of the selected URL test
-    inUse: boolean;
-    // the connections of this rule go through it: the end of the choices of its selector
-    active?: boolean;
-    // the choice of the URL test of a fallback of several servers whose turn has not come
-    pick?: boolean;
-    // the place of its tier in the order the rule takes them: 0 its servers, n its fallback n
-    tier?: number;
-    // false for what the selector does not offer (direct or block as a fallback): no click pins it
-    selectable?: boolean;
-  }
-
-  // Where the connections of a rule go now. auto: by its URL test, from its servers (tier 0) or
-  // from its fallback tier; manual: a server pinned on the dashboard; single: the one server of
-  // a rule that has nothing to choose from.
-  export interface OutboundRoute {
-    mode: 'auto' | 'manual' | 'single';
-    tier: number;
-    code: string;
-    displayName: string;
-    latency: number;
   };
 
   export interface MethodSuccessResponse<T> {
@@ -196,11 +278,6 @@ export namespace Podkop {
     data: T;
   }
 
-    // the names of the tiers, in the order the rule takes them; none without fallbacks
-    tiers?: string[];
-    // the URL test of the rule, which the selector takes unless a server is pinned
-    auto?: string;
-    route?: OutboundRoute;
   export interface MethodFailureResponse {
     success: false;
     error: string;
@@ -210,10 +287,23 @@ export namespace Podkop {
     | MethodSuccessResponse<T>
     | MethodFailureResponse;
 
+  // a DNS server of the list; providers are the provider's servers of its row
+  export interface DnsCheckServer {
+    type: 'udp' | 'doh' | 'dot' | 'provider';
+    server: string;
+    providers?: string[];
+    status: 0 | 1;
+    // the rcode of a server that replied without an answer (REFUSED, SERVFAIL), status 0
+    refusal?: string;
+  }
+
   export interface DnsCheckResult {
-    dns_type: 'udp' | 'doh' | 'dot';
+    // the first server of the list, and whether any server of it answers
+    dns_type: 'udp' | 'doh' | 'dot' | 'provider';
     dns_server: string;
     dns_status: 0 | 1;
+    dns_mode?: string;
+    dns_servers?: DnsCheckServer[];
     dns_on_router: 0 | 1;
     bootstrap_dns_server: string;
     bootstrap_dns_status: 0 | 1;

@@ -514,19 +514,70 @@ func splitServer(server string) (host string, port string, path string) {
 	return
 }
 
-func (b *builder) buildDNS() (*object, error) {
-	settings := &b.config.Settings
-	host, _, _ := splitServer(settings.DNSServer)
+// upstreamServer makes the DNS server of a row of the list: the servers of the internet
+// provider (podkop-engine's "provider", the servers netifd knows), or a server of its own,
+// whose name the bootstrap server resolves.
+func upstreamServer(upstream model.DNSUpstream, tag string) (*object, error) {
+	if upstream.Type == model.DNSTypeProvider {
+		return newObject("type", "provider", "tag", tag), nil
+	}
+	host, _, _ := splitServer(upstream.Server)
+	if host == "" {
+		return nil, E.New("a DNS server of the list has no address")
+	}
 	var resolver string
 	if !model.IsIPv4(host) {
 		resolver = tagBootstrapDNSServer
 	}
+	return dnsServer(upstream.Type, tag, upstream.Server, resolver, "")
+}
+
+// buildDNSServers puts in the DNS servers of the list under the tag every rule goes to: the one
+// server itself, or podkop-engine's group of the servers "dns-server-N", asked in their order
+// or the fastest first. A row given twice is used once.
+func (b *builder) buildDNSServers() error {
+	settings := &b.config.Settings
+	var upstreams []model.DNSUpstream
+	for _, upstream := range settings.DNSUpstreams {
+		if slices.Contains(upstreams, upstream) {
+			b.warnOnce("the DNS server ", upstream.Type, " ", upstream.Server, " is in the list twice: it is asked once")
+			continue
+		}
+		upstreams = append(upstreams, upstream)
+	}
+	if len(upstreams) == 1 {
+		server, err := upstreamServer(upstreams[0], tagDNSServer)
+		if err != nil {
+			return err
+		}
+		b.dnsServers = append(b.dnsServers, server)
+		return nil
+	}
+	strategy := settings.DNSMode
+	if strategy != model.DNSModeFastest {
+		strategy = model.DNSModeOrder
+	}
+	var members []string
+	for index, upstream := range upstreams {
+		tag := tagDNSServer + "-" + strconv.Itoa(index+1)
+		server, err := upstreamServer(upstream, tag)
+		if err != nil {
+			return E.Cause(err, "DNS server ", index+1)
+		}
+		b.dnsServers = append(b.dnsServers, server)
+		members = append(members, tag)
+	}
+	b.dnsServers = append(b.dnsServers, newObject("type", "group", "tag", tagDNSServer, "servers", stringsToAny(members), "strategy", strategy))
+	return nil
+}
+
+func (b *builder) buildDNS() (*object, error) {
+	settings := &b.config.Settings
 	b.dnsServers = append(b.dnsServers, newObject("type", "udp", "tag", tagBootstrapDNSServer, "server", settings.BootstrapDNSServer, "server_port", 53))
-	server, err := dnsServer(settings.DNSType, tagDNSServer, settings.DNSServer, resolver, "")
-	if err != nil {
+	if err := b.buildDNSServers(); err != nil {
 		return nil, err
 	}
-	b.dnsServers = append(b.dnsServers, server, newObject("type", "fakeip", "tag", tagFakeIPServer, "inet4_range", dataplane.FakeIPRange))
+	b.dnsServers = append(b.dnsServers, newObject("type", "fakeip", "tag", tagFakeIPServer, "inet4_range", dataplane.FakeIPRange))
 
 	ttl := argument(settings.DNSRewriteTTL)
 	b.fakeIPRule = &rule{fields: newObject("action", "route", "server", tagFakeIPServer, "rewrite_ttl", ttl)}

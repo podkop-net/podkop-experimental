@@ -8,6 +8,18 @@ ${DiagnosticTab.styles}
 ${PartialStyles}
 
 
+/* A row of the provider's DNS has no address: no title of the hidden cell on a phone. LuCI
+   marks the cell inactive only when the field is hidden later, not when the row is drawn so */
+#cbi-podkop-dns_server .td.cbi-value-field.inactive,
+#cbi-podkop-dns_server .td.cbi-value-field:has(> [data-field].hidden) {
+    padding: 0;
+}
+
+#cbi-podkop-dns_server .td.cbi-value-field.inactive::before,
+#cbi-podkop-dns_server .td.cbi-value-field:has(> [data-field].hidden)::before {
+    content: none;
+}
+
 /* Centered class helper */
 .centered {
     display: flex;

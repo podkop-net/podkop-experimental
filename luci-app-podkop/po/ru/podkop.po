@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-30 17:55+0000\n"
-"PO-Revision-Date: 2026-10-30 17:55+0000\n"
+"POT-Creation-Date: 2026-11-03 00:00+0000\n"
+"PO-Revision-Date: 2026-11-03 00:00+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -22,6 +22,9 @@ msgstr "(данные на %s)"
 
 msgid "%d of %d"
 msgstr "%d из %d"
+
+msgid "%d of %d, first %d of %d"
+msgstr "%d из %d, первые %d из %d"
 
 msgid "%d servers, %d can be used"
 msgstr "Серверов: %d, годных: %d"
@@ -43,9 +46,6 @@ msgstr "%s уже есть в правиле «%s» выше"
 
 msgid "%s of %s"
 msgstr "%s из %s"
-
-msgid "%s of %s answer"
-msgstr "отвечают %s из %s"
 
 msgid "%s received"
 msgstr "получено %s"
@@ -70,6 +70,9 @@ msgstr "✘ Остановлен"
 
 msgid "0 of %d, check the words"
 msgstr "0 из %d, проверьте слова"
+
+msgid "A check is not possible now: this address was checked recently or is waiting in the queue, or the queue is full. Try again in %d s."
+msgstr "Проверка сейчас невозможна: этот адрес недавно проверялся или уже стоит в очереди, либо очередь заполнена. Повторите через %d с."
 
 msgid "A domain is resolved to its real IP before the rule is chosen, so that the lists of subnets match"
 msgstr "Домен превращается в настоящий IP до выбора правила, чтобы срабатывали списки подсетей"
@@ -122,6 +125,9 @@ msgstr "все"
 msgid "All the traffic of these devices of the network goes by this rule"
 msgstr "Весь трафик этих устройств сети идёт по этому правилу"
 
+msgid "Also check the clock of the router."
+msgstr "Также проверьте часы роутера."
+
 msgid "An address of HTTP or HTTPS is expected"
 msgstr "Нужен адрес HTTP или HTTPS"
 
@@ -140,11 +146,17 @@ msgstr "Интерфейс не подключается через другой
 msgid "An outbound of sing-box is expected: {\"type\": \"vless\", …}"
 msgstr "Нужен outbound sing-box: {\"type\": \"vless\", …}"
 
+msgid "Another section is being checked."
+msgstr "Сейчас проверяется другая секция."
+
 msgid "another way brought the list first"
 msgstr "другой путь принёс список раньше"
 
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr "Применимо для SOCKS и Shadowsocks прокси"
+
+msgid "Asked in the order of the list or the fastest first, as chosen below. Drag a row by its handle to move it."
+msgstr "Опрашиваются по порядку списка или сначала самый быстрый — как выбрано ниже. Строку можно перетащить за ручку."
 
 msgid "asking…"
 msgstr "спрашиваю…"
@@ -169,6 +181,9 @@ msgstr "Автозапуск"
 
 msgid "Available actions"
 msgstr "Доступные действия"
+
+msgid "Back to automatic choice"
+msgstr "Вернуть автовыбор"
 
 msgid "Before a connection with the uTLS fingerprint of a link, that fingerprint without the X25519MLKEM768 key share is tried, then firefox; the first one the server and the network take is kept and checked again once a day. Disabled: the fingerprint of the link is sent as it is"
 msgstr "Перед подключением с отпечатком uTLS из ссылки сначала пробуется этот отпечаток без ключа X25519MLKEM768, затем firefox; первый, который принимают сервер и сеть, запоминается и перепроверяется раз в сутки. Отключено: отпечаток из ссылки отправляется как есть"
@@ -218,14 +233,32 @@ msgstr "нельзя использовать: %s"
 msgid "Cannot receive checks result"
 msgstr "Не удалось получить результаты проверки"
 
+msgid "certificate"
+msgstr "сертификат"
+
+msgid "Check problem servers"
+msgstr "Проверить проблемные"
+
+msgid "Check server"
+msgstr "Проверить"
+
 msgid "Check that the text is copied whole, or choose the type by hand"
 msgstr "Проверьте, что текст скопирован целиком, или выберите тип вручную"
+
+msgid "Checked %d min ago"
+msgstr "Проверено %d мин назад"
+
+msgid "Checked just now"
+msgstr "Проверено только что"
 
 msgid "Checking now…"
 msgstr "Идёт проверка…"
 
 msgid "Checking, please wait"
 msgstr "Проверяем, пожалуйста подождите"
+
+msgid "checking…"
+msgstr "проверка…"
 
 msgid "checks"
 msgstr "проверки"
@@ -242,6 +275,9 @@ msgstr "Выберите правило"
 msgid "Choose the devices YACD is opened from"
 msgstr "Выберите устройства, с которых открывается YACD"
 
+msgid "Chosen inside the fallback"
+msgstr "Выбран внутри запасного"
+
 msgid "CIDR must be between 0 and 32"
 msgstr "CIDR должен быть между 0 и 32"
 
@@ -256,6 +292,12 @@ msgstr "Настройки сервиса Podkop"
 
 msgid "connecting…"
 msgstr "соединение…"
+
+msgid "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. Another server or a disguise as a whitelisted site may help; where the network also limits by address, the disguise will not."
+msgstr "Соединения обрываются около %d КБ — это лимит ТСПУ. Сайты открываются частично. Может помочь другой сервер или маскировка под сайт из белого списка; если сеть режет и по адресу, маскировка не поможет."
+
+msgid "connections are refused"
+msgstr "соединения отклоняются"
 
 msgid "Copy"
 msgstr "Копировать"
@@ -277,6 +319,9 @@ msgstr "По умолчанию"
 
 msgid "Default (enabled)"
 msgstr "По умолчанию (включено)"
+
+msgid "details"
+msgstr "подробнее"
 
 msgid "Detect from the pasted text"
 msgstr "Определить по вставленному"
@@ -311,6 +356,12 @@ msgstr "Отключить QUIC протокол для улучшения со�
 msgid "Disabled"
 msgstr "Отключено"
 
+msgid "DNS %d"
+msgstr "DNS %d"
+
+msgid "DNS %d of %d, %s"
+msgstr "DNS %d из %d, %s"
+
 msgid "DNS on router"
 msgstr "DNS на роутере"
 
@@ -331,6 +382,9 @@ msgstr "DNS-сервер"
 
 msgid "DNS server address cannot be empty"
 msgstr "Адрес DNS-сервера не может быть пустым"
+
+msgid "DNS servers"
+msgstr "DNS-серверы"
 
 msgid "Do not panic, everything can be fixed, just..."
 msgstr "Не паникуйте, всё можно исправить, просто..."
@@ -476,6 +530,18 @@ msgstr "Запасные: %s"
 msgid "Fastest"
 msgstr "Самый быстрый"
 
+msgid "Fingerprint %s does not pass or hangs with several connections at once, the fallback one passes. It looks like a DPI block by fingerprint."
+msgstr "Отпечаток %s не проходит или зависает при нескольких подключениях сразу, запасной проходит. Похоже на блокировку ТСПУ по отпечатку."
+
+msgid "Fingerprint %s does not pass or hangs with several connections at once, the fallback one passes. It looks like a DPI block by fingerprint. The uTLS fallback already gets around it, nothing needs changing."
+msgstr "Отпечаток %s не проходит или зависает при нескольких подключениях сразу, запасной проходит. Похоже на блокировку ТСПУ по отпечатку. uTLS-fallback её уже обходит, менять ничего не нужно."
+
+msgid "Fingerprint %s does not pass or hangs with several connections at once, the fallback one passes. It looks like a DPI block by fingerprint. Turn on the uTLS fallback in the settings."
+msgstr "Отпечаток %s не проходит или зависает при нескольких подключениях сразу, запасной проходит. Похоже на блокировку ТСПУ по отпечатку. Включите uTLS-fallback в настройках."
+
+msgid "freeze"
+msgstr "заморозка"
+
 msgid "From the provider"
 msgstr "От провайдера"
 
@@ -494,6 +560,9 @@ msgstr "Получить глобальную проверку"
 msgid "Global check"
 msgstr "Глобальная проверка"
 
+msgid "How the DNS servers are asked"
+msgstr "Как опрашивать DNS-серверы"
+
 msgid "HTTP %s came by one way only (%s); the other ways did not reach the provider (%s)"
 msgstr "HTTP %s пришёл только одним путём (%s); остальные пути до провайдера не дошли (%s)"
 
@@ -502,6 +571,18 @@ msgstr "HTTP и SOCKS на этом порту роутера идут чере�
 
 msgid "HTTP error"
 msgstr "Ошибка HTTP"
+
+msgid "If the server does not answer, it is tried through another server of yours, whose operator can see the address of this one."
+msgstr "Если сервер не ответит, он будет проверен через другой ваш сервер — его владелец сможет увидеть адрес этого."
+
+msgid "in their order"
+msgstr "по порядку"
+
+msgid "In their order"
+msgstr "По порядку"
+
+msgid "In their order: a server is asked only when the ones above it do not answer. The fastest first: the server that answered fastest lately is asked, the next fastest when it does not answer."
+msgstr "По порядку: сервер спрашивают, только когда не ответили те, что выше. Сначала самый быстрый: спрашивают сервер, который в последнее время отвечал быстрее всех, а если он не ответил — следующий по скорости."
 
 msgid "In this order, while no server of the rule answers. Directly here: blocked sites do not open, and the provider sees the addresses."
 msgstr "По порядку, пока ни один сервер правила не отвечает. «Напрямую» здесь: заблокированные сайты не откроются, а провайдер увидит адреса."
@@ -548,6 +629,9 @@ msgstr "IP-адрес 0.0.0.0 не допускается"
 msgid "Issues detected"
 msgstr "Обнаружены проблемы"
 
+msgid "It does not connect from here, but the handshake passes through another server of yours. The server is on; the provider cuts the path or the server does not accept your network."
+msgstr "Отсюда не подключается, а через другой ваш сервер рукопожатие проходит. Сервер включён; путь режет провайдер либо сервер не принимает вашу сеть."
+
 msgid "just now"
 msgstr "только что"
 
@@ -562,6 +646,12 @@ msgstr "Последняя проверка: после запуска podkop е
 
 msgid "Latest"
 msgstr "Последняя"
+
+msgid "limit"
+msgstr "лимит"
+
+msgid "limit?"
+msgstr "лимит?"
 
 msgid "Link or subscription"
 msgstr "Ссылка или подписка"
@@ -595,6 +685,9 @@ msgstr "Создайте интерфейс AmneziaWG в «Сеть → Инте
 
 msgid "Make sure the port is not used by another service"
 msgstr "Порт не должен быть занят другой службой"
+
+msgid "Manual"
+msgstr "Вручную"
 
 msgid "mark %s"
 msgstr "метка %s"
@@ -653,17 +746,26 @@ msgstr "нет ни method:password@сервер, ни base64 этой стро�
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"
 
+msgid "New connections through this server may hang for a couple of minutes after the check starts."
+msgstr "Новые соединения через этот сервер могут подвисать на пару минут после начала проверки."
+
 msgid "Next check: %s"
 msgstr "Следующая проверка: %s"
 
 msgid "Next try: %s"
 msgstr "Следующая попытка: %s"
 
+msgid "no answer"
+msgstr "нет ответа"
+
 msgid "no answer in %d s"
 msgstr "нет ответа за %d с"
 
 msgid "no connection in %d s"
 msgstr "нет соединения за %d с"
+
+msgid "No DNS server: add one."
+msgstr "Нет ни одного DNS-сервера: добавьте сервер."
 
 msgid "No end date"
 msgstr "Без срока"
@@ -689,6 +791,9 @@ msgstr "нет списков"
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
 
+msgid "no path"
+msgstr "нет пути"
+
 msgid "No rule yet"
 msgstr "Правил пока нет"
 
@@ -701,6 +806,9 @@ msgstr "нет защищённого соединения за %d с"
 msgid "No servers: the rule does nothing"
 msgstr "Нет серверов: правило не действует"
 
+msgid "no TLS"
+msgstr "нет TLS"
+
 msgid "Not downloaded yet: the router downloads the list after Save & Apply"
 msgstr "Ещё не загружен: роутер загрузит список после «Сохранить и применить»"
 
@@ -712,6 +820,9 @@ msgstr "Не заполнен"
 
 msgid "Not implement yet"
 msgstr "Ещё не реализовано"
+
+msgid "Not queued: %d of %d. Their addresses were checked recently or are already in the queue, or they are gone."
+msgstr "Не поставлено в очередь: %d из %d. Их адреса недавно проверялись или уже в очереди, либо серверов больше нет."
 
 msgid "Not recognized"
 msgstr "Не распознано"
@@ -728,17 +839,29 @@ msgstr "Примечание"
 msgid "Nothing yet: press Add and paste a subscription or a link"
 msgstr "Пока ничего нет: нажмите «Добавить» и вставьте подписку или ссылку"
 
+msgid "ok"
+msgstr "норма"
+
 msgid "On"
 msgstr "Вкл."
 
 msgid "One check for the servers of every rule: each server is tested with this URL"
 msgstr "Одна проверка для серверов всех правил: каждый сервер проверяется этой ссылкой"
 
+msgid "One DNS server is needed at least: change this one, or add another first."
+msgstr "Нужен хотя бы один DNS-сервер: измените этот или сначала добавьте другой."
+
 msgid "One link per field"
 msgstr "Одна ссылка на поле"
 
+msgid "One of these servers is in use. New connections through it may hang for a couple of minutes after its check starts."
+msgstr "Один из этих серверов сейчас используется. Новые соединения через него могут подвисать на пару минут после начала его проверки."
+
 msgid "One outbound is expected: {\"type\": \"vless\", …}"
 msgstr "Нужен один outbound: {\"type\": \"vless\", …}"
+
+msgid "One request passes, the requests after it do not. It looks like a limit of the server or the line."
+msgstr "Один запрос проходит, следующие за ним — нет. Похоже на ограничение сервера или линии."
 
 msgid "Only Happ opens it. Paste the plain subscription address https://… from the account at your provider"
 msgstr "Её открывает только Happ. Вставьте обычный адрес подписки https://… из кабинета провайдера"
@@ -791,6 +914,9 @@ msgstr "Podkop"
 msgid "podkop is not running: start it to load the list"
 msgstr "podkop не запущен: запустите его, чтобы загрузить список"
 
+msgid "Podkop is not running."
+msgstr "Podkop не запущен."
+
 msgid "Podkop is running"
 msgstr "Podkop работает"
 
@@ -806,17 +932,29 @@ msgstr "Podkop не будет изменять вашу конфигураци�
 msgid "Protocol"
 msgstr "Протокол"
 
+msgid "queued"
+msgstr "в очереди"
+
+msgid "Queued: %d"
+msgstr "В очереди: %d"
+
 msgid "Ready"
 msgstr "Готов"
 
 msgid "Recognized: %s"
 msgstr "Распознано: %s"
 
+msgid "refused"
+msgstr "отказ"
+
 msgid "Refused: the rule has no server now"
 msgstr "Отклоняется: у правила сейчас нет серверов"
 
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
+
+msgid "replies %s"
+msgstr "отвечает %s"
 
 msgid "Resolve real IP for routing"
 msgstr "Разрешение реальных IP-адресов"
@@ -869,9 +1007,6 @@ msgstr "защищённое соединение…"
 msgid "Select a predefined list for routing"
 msgstr "Выберите предопределенный список для маршрутизации"
 
-msgid "Select DNS protocol to use"
-msgstr "Выберите протокол DNS"
-
 msgid "Select how often the domain or subnet lists are updated automatically"
 msgstr "Выберите частоту автоматического обновления списков доменов или подсетей."
 
@@ -898,6 +1033,9 @@ msgstr "Выберите сетевой интерфейс, с которого 
 
 msgid "Server"
 msgstr "Сервер"
+
+msgid "Server check"
+msgstr "Проверка сервера"
 
 msgid "Server check interval"
 msgstr "Интервал проверки серверов"
@@ -941,8 +1079,17 @@ msgstr "Серверов: %d, годных: %d"
 msgid "Services info"
 msgstr "Информация о сервисах"
 
+msgid "settings"
+msgstr "настройки"
+
 msgid "Settings"
 msgstr "Настройки"
+
+msgid "Several connections were cut at about %d KB, and none went further. It looks like the DPI limit, but short responses of sites look the same."
+msgstr "Несколько соединений оборвались около %d КБ, и ни одно не прошло дальше. Похоже на лимит ТСПУ, но так же выглядят короткие ответы сайтов."
+
+msgid "Several connections were cut at about %d KB, and none went further. It looks like the DPI limit, but short responses of sites look the same. Press “Check server”."
+msgstr "Несколько соединений оборвались около %d КБ, и ни одно не прошло дальше. Похоже на лимит ТСПУ, но так же выглядят короткие ответы сайтов. Нажмите «Проверить»."
 
 msgid "Share links: vless, ss, trojan, socks, http(s), hysteria2, tuic, and vmess, anytls, hysteria, naive where the engine has them"
 msgstr "Ссылки: vless, ss, trojan, socks, http(s), hysteria2, tuic, а также vmess, anytls, hysteria, naive, если они есть в движке"
@@ -952,6 +1099,9 @@ msgstr "Показать"
 
 msgid "Show sing-box config"
 msgstr "Показать sing-box конфигурацию"
+
+msgid "Some of the test connections were lost, the rest passed."
+msgstr "Часть проверочных подключений потерялась, остальные прошли."
 
 msgid "Some proxy links cannot be used"
 msgstr "Некоторые ссылки на прокси нельзя использовать"
@@ -1016,6 +1166,18 @@ msgstr "Системная информация"
 msgid "Table exist"
 msgstr "Таблица существует"
 
+msgid "TCP connects from here, but the server does not answer through another server either. It looks like a fault of the server or its cover."
+msgstr "TCP отсюда подключается, но и через другой сервер ответа нет. Похоже на неисправность сервера или его маскировки."
+
+msgid "TCP connects from here, but the server does not answer through another server of yours either, which may itself be unstable. The cause cannot be told from this one try."
+msgstr "TCP отсюда подключается, но и через другой ваш сервер ответа нет, а он и сам может работать нестабильно. По одной такой попытке причину не определить."
+
+msgid "TCP connects, but TLS or the WebSocket/HTTP upgrade gets no answer."
+msgstr "TCP подключается, но TLS или обновление до WebSocket/HTTP остаётся без ответа."
+
+msgid "test failed"
+msgstr "тест не прошёл"
+
 msgid "Test latency"
 msgstr "Тестирование задержки"
 
@@ -1027,6 +1189,12 @@ msgstr "Адрес не указан"
 
 msgid "The address is taken from the link that adds it to %s"
 msgstr "Адрес взят из ссылки «добавить в %s»"
+
+msgid "The address of the check did not answer, the server is not at fault."
+msgstr "Проверочный адрес не ответил, сервер здесь ни при чём."
+
+msgid "The address of the server could not be resolved by its name."
+msgstr "Не удалось получить адрес сервера по имени."
 
 msgid "The address your provider gave for apps (often /sub/… or /api/sub/…). It is a secret: podkop masks it where it shows the settings"
 msgstr "Адрес, который провайдер дал для приложений (часто /sub/… или /api/sub/…). Это секрет: podkop скрывает его там, где показывает настройки"
@@ -1045,6 +1213,15 @@ msgstr "Биты 0x3F00 заняты маской mwan3"
 
 msgid "the certificate is not valid by the router's clock: check the clock"
 msgstr "сертификат не действует по часам роутера: проверьте часы"
+
+msgid "The check does not apply to a server behind a tunnel."
+msgstr "Проверка не применима к серверу за туннелем."
+
+msgid "The check gave no clear answer, repeat it later."
+msgstr "Проверка не дала однозначного ответа, повторите позже."
+
+msgid "The check's hello was refused, but the running connection through this server works. Nothing needs changing."
+msgstr "Приветствие проверки не принято, но рабочее соединение через этот сервер проходит. Менять ничего не нужно."
 
 msgid "the connection is refused"
 msgstr "соединение отклонено"
@@ -1067,14 +1244,32 @@ msgstr "Загрузка потеряна: podkop перезапускался �
 msgid "The download stopped on a fault of podkop: see the log"
 msgstr "Загрузка прервана сбоем podkop: подробности в журнале"
 
+msgid "The download test of the group stopped at about %d KB. It looks like the DPI limit."
+msgstr "Загрузочный тест группы остановился около %d КБ. Похоже на лимит ТСПУ."
+
+msgid "The download test of the group stopped at about %d KB. It looks like the DPI limit. Press “Check server”."
+msgstr "Загрузочный тест группы остановился около %d КБ. Похоже на лимит ТСПУ. Нажмите «Проверить»."
+
 msgid "The download was canceled"
 msgstr "Загрузка отменена"
 
 msgid "the engine refuses this link"
 msgstr "движок отвергает эту ссылку"
 
+msgid "the fastest first"
+msgstr "сначала самый быстрый"
+
+msgid "The fastest first"
+msgstr "Сначала самый быстрый"
+
 msgid "The fastest of all the servers of these rows is used. Words of a filter go by commas; a word finds the start of a word of the name: “AI” finds “USA AI-1”, but not “Spain”. Directly or Block works here only as the one row."
 msgstr "Из всех серверов этих строк выбирается самый быстрый. Слова фильтра через запятую, ищется начало слова: «AI» найдёт «USA AI-1», но не «Spain». «Напрямую» и «Блокировать» здесь работают только единственной строкой."
+
+msgid "The fingerprint of the link was not tested: this one stood in for it, so real connections may not be affected."
+msgstr "Отпечаток из ссылки не проверялся: вместо него взят этот, поэтому настоящие соединения это могло не затронуть."
+
+msgid "The handshake with the server completes, but it did not answer a request during the check. The cause may be on the server or on the way to it, a check from here cannot tell. Try the server from another network, or ask whoever runs it."
+msgstr "Рукопожатие с сервером проходит, но на запрос за время проверки он не ответил. Причина может быть на самом сервере или на пути к нему, отсюда это не различить. Проверьте сервер из другой сети или спросите у того, кто его обслуживает."
 
 msgid "The interval between connectivity tests"
 msgstr "Интервал между тестами подключения"
@@ -1111,6 +1306,12 @@ msgstr "Метка соединений для mwan3 или pbr. Пусто: б�
 
 msgid "the name is not found in DNS"
 msgstr "имя не найдено в DNS"
+
+msgid "The port is open, but the TLS hello gets no answer. It looks like a block by SNI or address."
+msgstr "Порт открыт, но на TLS-приветствие нет ответа. Похоже на блокировку по SNI или адресу."
+
+msgid "The port of the server does not answer from this router. The cause cannot be told from here."
+msgstr "Порт сервера не отвечает с этого роутера. Причину отсюда не определить."
 
 msgid "The provider advises to update every %d h"
 msgstr "Провайдер советует обновлять каждые %d ч"
@@ -1154,6 +1355,18 @@ msgstr "Провайдер прислал вместо серверов заме
 msgid "The provider sent nothing (HTTP 204): the address is wrong, or the subscription was removed"
 msgstr "Провайдер ничего не прислал (HTTP 204): адрес неверен или подписку удалили"
 
+msgid "The provider's DNS"
+msgstr "DNS провайдера"
+
+msgid "The provider's DNS now: %s."
+msgstr "DNS провайдера сейчас: %s."
+
+msgid "The provider's DNS: %s"
+msgstr "DNS провайдера: %s"
+
+msgid "The provider's DNS: the router knows none now"
+msgstr "DNS провайдера: роутер сейчас не знает ни одного"
+
 msgid "The provider's limit of devices is reached: delete an old device in the provider's bot or account, then check again"
 msgstr "У провайдера исчерпан лимит устройств: удалите старое устройство в боте или личном кабинете провайдера и проверьте снова"
 
@@ -1175,14 +1388,53 @@ msgstr "Роутер загружает список…"
 msgid "The router downloads the list… %s s"
 msgstr "Роутер загружает список… %s с"
 
+msgid "The router knows no DNS server of the provider now."
+msgstr "Роутер сейчас не знает ни одного DNS-сервера провайдера."
+
+msgid "The router seems to have no internet connection: the uplink check failed."
+msgstr "Похоже, у роутера нет связи с интернетом: проверка аплинка не прошла."
+
 msgid "The row connects through its own source"
 msgstr "Строка подключается через свой же источник"
 
 msgid "the secure connection failed"
 msgstr "защищённое соединение не установлено"
 
+msgid "The server accepts only connections with ML-KEM (Xray ≥ 26.9.8)."
+msgstr "Сервер принимает только подключения с ML-KEM (Xray ≥ 26.9.8)."
+
+msgid "The server accepts only connections with ML-KEM (Xray ≥ 26.9.8). This is not a block."
+msgstr "Сервер принимает только подключения с ML-KEM (Xray ≥ 26.9.8). Это не блокировка."
+
+msgid "The server answered, but its certificate did not pass the check: expired, for another name, or from an unknown issuer."
+msgstr "Сервер ответил, но его сертификат не прошёл проверку: просрочен, выдан на другое имя или неизвестным издателем."
+
+msgid "The server answered, but the REALITY check failed: a wrong key or shortId in the link, a name the server does not list, or the server has changed. Update the link or the subscription; if that does not help, the fault is on the server."
+msgstr "Сервер ответил, но проверка REALITY не прошла: неверный ключ или shortId в ссылке, имя не из списка сервера или сервер сменился. Обновите ссылку или подписку; если не поможет, неисправность на сервере."
+
+msgid "The server answers, but the handshake does not complete with any fingerprint."
+msgstr "Сервер отвечает, но рукопожатие не завершается ни с одним отпечатком."
+
+msgid "The server closed the requests without an answer. The usual reason is a user or password it does not know; a server with no way out looks the same from here."
+msgstr "Сервер закрыл запросы без ответа. Обычно причина в пользователе или пароле, которых он не знает; сервер без выхода в интернет отсюда выглядит так же."
+
+msgid "The server does not answer from here or through another server of yours, which may itself be unstable. The cause cannot be told from this one try."
+msgstr "Сервер не отвечает ни отсюда, ни через другой ваш сервер, который и сам может работать нестабильно. По одной такой попытке причину не определить."
+
+msgid "The server does not answer from here or through your other servers (%d). It may be off, or its address may be closed to these networks; from another network it may work."
+msgstr "Сервер не отвечает ни отсюда, ни через другие ваши серверы (%d). Возможно, он выключен или его адрес закрыт для этих сетей; из другой сети он может работать."
+
 msgid "The server in use changes only for one faster by this much"
 msgstr "Сервер меняется, только если другой быстрее на столько"
+
+msgid "The server is reached through another one: the cause may be there."
+msgstr "Сервер подключается через другой: причина может быть в нём."
+
+msgid "The server is reached through the fallback fingerprint %s. Sometimes this is the trace of a block; a check will tell for sure."
+msgstr "Сервер достижим через запасной отпечаток %s. Иногда это след блокировки; проверка скажет точно."
+
+msgid "The server works through the fallback fingerprint %s. Sometimes this is the trace of a block; a check will tell for sure."
+msgstr "Сервер работает через запасной отпечаток %s. Иногда это след блокировки; проверка покажет точно."
 
 msgid "The servers may refuse connections until the subscription is renewed"
 msgstr "Пока подписку не продлят, серверы могут не пускать"
@@ -1205,6 +1457,9 @@ msgstr "Источник %s, через который идёт подключе
 msgid "The source %s to connect through is not filled"
 msgstr "Источник %s, через который идёт подключение, не заполнен"
 
+msgid "The test download went through in full."
+msgstr "Проверочная загрузка прошла полностью."
+
 msgid "The text was decoded from base64"
 msgstr "Текст раскодирован из base64"
 
@@ -1213,6 +1468,9 @@ msgstr "передача остановилась на %s"
 
 msgid "The URL must serve at least 64 KiB or announce a shorter length"
 msgstr "Ссылка должна отдавать не меньше 64 КиБ или сообщать меньшую длину"
+
+msgid "The URL test of this server failed, and no connection opened since then has received data. Press “Check server” to learn why."
+msgstr "URL-тест этого сервера не прошёл, и соединения, открытые после этого, данных не получали. Нажмите «Проверить», чтобы узнать причину."
 
 msgid "the user must be a UUID and a password"
 msgstr "пользователь должен быть UUID и паролем"
@@ -1228,6 +1486,9 @@ msgstr "Нет ни одного пути к провайдеру"
 
 msgid "These are not links of servers: %s"
 msgstr "Это не ссылки на серверы: %s"
+
+msgid "This server is no longer in the running configuration."
+msgstr "Этого сервера уже нет в работающей конфигурации."
 
 msgid "Through"
 msgstr "Через"
@@ -1340,6 +1601,9 @@ msgstr "Перейти в wiki"
 msgid "Waiting for a link"
 msgstr "Ждёт ссылку"
 
+msgid "Waiting for its turn."
+msgstr "Ждёт своей очереди."
+
 msgid "waiting for the provider: %s s"
 msgstr "ждём ответа провайдера: %s с"
 
@@ -1369,3 +1633,6 @@ msgstr "Сетевые интерфейсы YACD"
 
 msgid "YACD Secret Key"
 msgstr "Секретный ключ YACD"
+
+msgid "Your account may view this page but may not start a check."
+msgstr "Вашей учётной записи можно смотреть эту страницу, но нельзя запускать проверку."

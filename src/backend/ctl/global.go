@@ -110,7 +110,7 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 		},
 		func() { system = diag.SystemInfo(ctx, version, singBoxVersion, true) },
 		func() {
-			dns = diag.CheckDNS(ctx, diag.DNSSettings{Type: settings.DNSType, Server: settings.DNSServer, Bootstrap: settings.BootstrapDNSServer}, dhcp)
+			dns = diag.CheckDNS(ctx, dnsSettings(settings), dhcp)
 		},
 		func() { tables = diag.CheckFirewall(ctx, nil) },
 		func() { clockReport = clockLines(ctx, routerClockFacts) },
@@ -153,7 +153,8 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 	if dns.Bootstrap != "" {
 		add(flag(dns.BootstrapAnswers, "Bootstrap DNS: "+dns.Bootstrap))
 	}
-	add(flag(dns.ServerAnswers, "Main DNS: "+dns.Server+" ["+dns.Type+"]"), flag(dns.RouterAnswers, "DNS on router"))
+	add(dnsServerLines(dns)...)
+	add(flag(dns.RouterAnswers, "DNS on router"))
 	if settings.DontTouchDHCP {
 		add("⚠️ dont_touch_dhcp is enabled. 📄 DHCP config:")
 		add(blocks(string(dhcpContent), func(fields []string) bool { return fields[1] == "dnsmasq" })...)
@@ -404,4 +405,56 @@ func wanBlock(content string) []string {
 		}
 	}
 	return result
+}
+
+// dnsSettings is what the check of the DNS takes of the settings: the list, its mode, and the
+// provider's servers netifd knows when the list has a row of the provider.
+func dnsSettings(settings *model.Settings) diag.DNSSettings {
+	result := diag.DNSSettings{Upstreams: settings.DNSUpstreams, Mode: settings.DNSMode, Bootstrap: settings.BootstrapDNSServer}
+	for _, upstream := range settings.DNSUpstreams {
+		if upstream.Type == model.DNSTypeProvider {
+			result.Providers = netcfg.UplinkDNSServers()
+			break
+		}
+	}
+	return result
+}
+
+// dnsServerLines are the lines of the DNS servers of the list: the one server as before the
+// list, or how the list is asked and a line of each server in its order. A row of the provider
+// tells how many servers netifd knows, not their addresses: the report is copied into bug
+// reports.
+func dnsServerLines(dns *diag.DNS) []string {
+	name := func(upstream diag.DNSUpstreamReport) string {
+		if upstream.Type == model.DNSTypeProvider {
+			count := strconv.Itoa(len(upstream.Providers)) + " servers"
+			if len(upstream.Providers) == 1 {
+				count = "1 server"
+			}
+			return "the provider's DNS (" + count + " known to netifd)"
+		}
+		return upstream.Server + " [" + upstream.Type + "]"
+	}
+	// a server that replies, but with a refusal, is asked and skipped by sing-box each time
+	line := func(upstream diag.DNSUpstreamReport) string {
+		if upstream.Refusal != "" {
+			return name(upstream) + " (replies " + upstream.Refusal + ")"
+		}
+		return name(upstream)
+	}
+	if len(dns.Upstreams) < 2 {
+		if len(dns.Upstreams) == 1 {
+			return []string{flag(dns.ServerAnswers, "Main DNS: "+line(dns.Upstreams[0]))}
+		}
+		return []string{flag(dns.ServerAnswers, "Main DNS: "+dns.Server+" ["+dns.Type+"]")}
+	}
+	mode := "in their order"
+	if dns.Mode == model.DNSModeFastest {
+		mode = "the fastest first"
+	}
+	lines := []string{"ℹ️ DNS servers: " + strconv.Itoa(len(dns.Upstreams)) + ", asked " + mode}
+	for index, upstream := range dns.Upstreams {
+		lines = append(lines, flag(upstream.Answers, "DNS "+strconv.Itoa(index+1)+": "+line(upstream)))
+	}
+	return lines
 }

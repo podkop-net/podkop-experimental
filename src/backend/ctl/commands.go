@@ -246,7 +246,7 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 		}
 		return compact(features)
 	case "check_dns_available":
-		return pretty(AnswerDNS(diag.CheckDNS(ctx, diag.DNSSettings{Type: settings.DNSType, Server: settings.DNSServer, Bootstrap: settings.BootstrapDNSServer}, readUCI(env.Paths.DHCP))))
+		return pretty(AnswerDNS(diag.CheckDNS(ctx, dnsSettings(settings), readUCI(env.Paths.DHCP))))
 	case "check_sing_box":
 		return pretty(answerSingBox(diag.CheckSingBox(running())))
 	case "check_nft_rules":

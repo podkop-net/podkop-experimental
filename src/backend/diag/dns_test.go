@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/uci"
 
 	mDNS "github.com/miekg/dns"
@@ -25,10 +26,21 @@ func answering(writer mDNS.ResponseWriter, request *mDNS.Msg) {
 	writer.WriteMsg(response)
 }
 
+// refusing replies REFUSED to every question.
+func refusing(writer mDNS.ResponseWriter, request *mDNS.Msg) {
+	response := new(mDNS.Msg)
+	response.SetRcode(request, mDNS.RcodeRefused)
+	writer.WriteMsg(response)
+}
+
 func serveUDP(t *testing.T) string {
+	return serveUDPWith(t, answering)
+}
+
+func serveUDPWith(t *testing.T, handler mDNS.HandlerFunc) string {
 	connection, err := net.ListenPacket("udp", "127.0.0.1:0")
 	require.NoError(t, err)
-	server := &mDNS.Server{PacketConn: connection, Handler: mDNS.HandlerFunc(answering)}
+	server := &mDNS.Server{PacketConn: connection, Handler: handler}
 	go server.ActivateAndServe()
 	t.Cleanup(func() { server.Shutdown() })
 	return connection.LocalAddr().String()
@@ -77,33 +89,78 @@ func TestCheckDNS(t *testing.T) {
 	closed.Close()
 
 	trusting := &probe{roots: roots, localAddress: udp}
+	// one server of the list
+	one := func(serverType string, server string, bootstrap string) DNSSettings {
+		return DNSSettings{Upstreams: []model.DNSUpstream{{Type: serverType, Server: server}}, Mode: "order", Bootstrap: bootstrap}
+	}
 	for _, test := range []struct {
 		settings DNSSettings
 		probe    *probe
 		want     DNS
 	}{
-		{DNSSettings{"udp", "127.0.0.1:" + udpPort, "127.0.0.1"}, trusting, DNS{ServerAnswers: true, RouterAnswers: true}},
-		{DNSSettings{"udp", "127.0.0.1:" + closedPort, ""}, trusting, DNS{RouterAnswers: true}},
-		{DNSSettings{"dot", "127.0.0.1:" + tlsPort, ""}, trusting, DNS{ServerAnswers: true, RouterAnswers: true}},
-		{DNSSettings{"doh", "127.0.0.1:" + httpsPort, ""}, trusting, DNS{ServerAnswers: true, RouterAnswers: true}},
-		{DNSSettings{"doh", "127.0.0.1:" + httpsPort + "/custom/path", ""}, trusting, DNS{ServerAnswers: true, RouterAnswers: true}},
-		{DNSSettings{"doh", "127.0.0.1:" + httpsPort + "/no/such/path", ""}, trusting, DNS{RouterAnswers: true}},
+		{one("udp", "127.0.0.1:"+udpPort, "127.0.0.1"), trusting, DNS{ServerAnswers: true, RouterAnswers: true}},
+		{one("udp", "127.0.0.1:"+closedPort, ""), trusting, DNS{RouterAnswers: true}},
+		{one("dot", "127.0.0.1:"+tlsPort, ""), trusting, DNS{ServerAnswers: true, RouterAnswers: true}},
+		{one("doh", "127.0.0.1:"+httpsPort, ""), trusting, DNS{ServerAnswers: true, RouterAnswers: true}},
+		{one("doh", "127.0.0.1:"+httpsPort+"/custom/path", ""), trusting, DNS{ServerAnswers: true, RouterAnswers: true}},
+		{one("doh", "127.0.0.1:"+httpsPort+"/no/such/path", ""), trusting, DNS{RouterAnswers: true}},
 		// the certificate of the server is not trusted: sing-box would not talk to it either
-		{DNSSettings{"dot", "127.0.0.1:" + tlsPort, ""}, &probe{localAddress: udp}, DNS{RouterAnswers: true}},
-		{DNSSettings{"doh", "127.0.0.1:" + httpsPort, ""}, &probe{localAddress: udp}, DNS{RouterAnswers: true}},
+		{one("dot", "127.0.0.1:"+tlsPort, ""), &probe{localAddress: udp}, DNS{RouterAnswers: true}},
+		{one("doh", "127.0.0.1:"+httpsPort, ""), &probe{localAddress: udp}, DNS{RouterAnswers: true}},
 		// a kind of server the backend does not know, and no server at all
-		{DNSSettings{"quic", "127.0.0.1:" + udpPort, ""}, trusting, DNS{RouterAnswers: true}},
-		{DNSSettings{"udp", "", ""}, &probe{localAddress: "127.0.0.1:" + closedPort}, DNS{}},
+		{one("quic", "127.0.0.1:"+udpPort, ""), trusting, DNS{RouterAnswers: true}},
+		{one("udp", "", ""), &probe{localAddress: "127.0.0.1:" + closedPort}, DNS{}},
 	} {
 		got := test.probe.check(context.Background(), test.settings, nil)
 		want := test.want
-		want.Type, want.Server, want.Bootstrap = test.settings.Type, test.settings.Server, test.settings.Bootstrap
+		upstream := test.settings.Upstreams[0]
+		want.Type, want.Server, want.Bootstrap, want.Mode = upstream.Type, upstream.Server, test.settings.Bootstrap, "order"
+		want.Upstreams = []DNSUpstreamReport{{Type: upstream.Type, Server: upstream.Server, Answers: want.ServerAnswers}}
 		if test.settings.Bootstrap != "" {
 			// the bootstrap server is asked at port 53, where this host has nothing
 			want.BootstrapAnswers = got.BootstrapAnswers
 		}
 		require.Equal(t, want, *got, "%+v", test.settings)
 	}
+
+	// a list: each server is asked, one that answers is enough; a row of the provider asks the
+	// provider's servers
+	got := trusting.check(context.Background(), DNSSettings{
+		Upstreams: []model.DNSUpstream{{Type: "udp", Server: "127.0.0.1:" + closedPort}, {Type: "provider"}, {Type: "doh", Server: "127.0.0.1:" + httpsPort}},
+		Mode:      "fastest",
+		Providers: []string{"127.0.0.1:" + closedPort, "127.0.0.1:" + udpPort},
+	}, nil)
+	require.Equal(t, "fastest", got.Mode)
+	require.Equal(t, "udp", got.Type)
+	require.True(t, got.ServerAnswers)
+	require.Equal(t, []DNSUpstreamReport{
+		{Type: "udp", Server: "127.0.0.1:" + closedPort},
+		{Type: "provider", Providers: []string{"127.0.0.1:" + closedPort, "127.0.0.1:" + udpPort}, Answers: true},
+		{Type: "doh", Server: "127.0.0.1:" + httpsPort, Answers: true},
+	}, got.Upstreams)
+	// the provider without servers netifd knows does not answer
+	got = trusting.check(context.Background(), DNSSettings{Upstreams: []model.DNSUpstream{{Type: "provider"}}}, nil)
+	require.False(t, got.ServerAnswers)
+
+	// a server that refuses replies, but does not answer: sing-box asks the next one; a row of
+	// the provider answers when one of its servers does
+	refuser := serveUDPWith(t, refusing)
+	got = trusting.check(context.Background(), DNSSettings{
+		Upstreams: []model.DNSUpstream{{Type: "udp", Server: refuser}, {Type: "provider"}},
+		Providers: []string{refuser, udp},
+	}, nil)
+	require.True(t, got.ServerAnswers)
+	require.Equal(t, []DNSUpstreamReport{
+		{Type: "udp", Server: refuser, Refusal: "REFUSED"},
+		{Type: "provider", Providers: []string{refuser, udp}, Answers: true},
+	}, got.Upstreams)
+	got = trusting.check(context.Background(), DNSSettings{Upstreams: []model.DNSUpstream{{Type: "provider"}}, Providers: []string{refuser, "127.0.0.1:" + closedPort}}, nil)
+	require.False(t, got.ServerAnswers)
+	require.Equal(t, "REFUSED", got.Upstreams[0].Refusal)
+	// the resolver of the router counts as there when it refuses
+	got = (&probe{localAddress: refuser}).check(context.Background(), one("udp", refuser, ""), nil)
+	require.True(t, got.RouterAnswers)
+	require.False(t, got.ServerAnswers)
 }
 
 func TestMaskServer(t *testing.T) {

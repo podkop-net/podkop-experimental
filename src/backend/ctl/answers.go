@@ -43,22 +43,40 @@ func answerSingBox(found *diag.SingBox) singBoxAnswer {
 	return singBoxAnswer{Installed: 1, VersionOK: 1, ServiceExist: 1, AutostartDisable: 1, ProcessRunning: asNumber(found.Running), PortsListening: asNumber(found.Listening)}
 }
 
-// DNSAnswer is the answer of check_dns_available.
+// DNSAnswer is the answer of check_dns_available. dns_type and dns_server are those of the first
+// server of the list, dns_status whether any server of it answers; dns_servers are all of them.
 type DNSAnswer struct {
-	DNSType            string `json:"dns_type"`
-	DNSServer          string `json:"dns_server"`
-	DNSStatus          int    `json:"dns_status"`
-	DNSOnRouter        int    `json:"dns_on_router"`
-	BootstrapDNSServer string `json:"bootstrap_dns_server"`
-	BootstrapDNSStatus int    `json:"bootstrap_dns_status"`
-	DHCPConfigStatus   int    `json:"dhcp_config_status"`
+	DNSType            string            `json:"dns_type"`
+	DNSServer          string            `json:"dns_server"`
+	DNSStatus          int               `json:"dns_status"`
+	DNSMode            string            `json:"dns_mode"`
+	DNSServers         []dnsServerAnswer `json:"dns_servers"`
+	DNSOnRouter        int               `json:"dns_on_router"`
+	BootstrapDNSServer string            `json:"bootstrap_dns_server"`
+	BootstrapDNSStatus int               `json:"bootstrap_dns_status"`
+	DHCPConfigStatus   int               `json:"dhcp_config_status"`
+}
+
+// dnsServerAnswer is a server of the list; providers are the servers of the provider's row,
+// refusal the rcode of a server that replied without an answer (status 0 then).
+type dnsServerAnswer struct {
+	Type      string   `json:"type"`
+	Server    string   `json:"server"`
+	Providers []string `json:"providers,omitempty"`
+	Status    int      `json:"status"`
+	Refusal   string   `json:"refusal,omitempty"`
 }
 
 // AnswerDNS is the answer of check_dns_available to what the check found.
 func AnswerDNS(found *diag.DNS) DNSAnswer {
+	servers := []dnsServerAnswer{}
+	for _, upstream := range found.Upstreams {
+		servers = append(servers, dnsServerAnswer{Type: upstream.Type, Server: upstream.Server, Providers: upstream.Providers, Status: asNumber(upstream.Answers), Refusal: upstream.Refusal})
+	}
 	return DNSAnswer{
-		DNSType: found.Type, DNSServer: found.Server, DNSStatus: asNumber(found.ServerAnswers), DNSOnRouter: asNumber(found.RouterAnswers),
-		BootstrapDNSServer: found.Bootstrap, BootstrapDNSStatus: asNumber(found.BootstrapAnswers), DHCPConfigStatus: asNumber(found.DHCPAsksBackend),
+		DNSType: found.Type, DNSServer: found.Server, DNSStatus: asNumber(found.ServerAnswers), DNSMode: found.Mode, DNSServers: servers,
+		DNSOnRouter: asNumber(found.RouterAnswers), BootstrapDNSServer: found.Bootstrap, BootstrapDNSStatus: asNumber(found.BootstrapAnswers),
+		DHCPConfigStatus: asNumber(found.DHCPAsksBackend),
 	}
 }
 

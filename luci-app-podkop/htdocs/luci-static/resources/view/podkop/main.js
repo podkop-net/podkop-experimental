@@ -569,9 +569,11 @@ var PodkopShellMethods = {
     Podkop.AvailableMethods.CLASH_API,
     [Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag, "5000"]
   ),
+  // the deadline of the whole round in sing-box, as groupWaitMax of the backend: dead servers
+  // first in a long list hold the slots, and a shorter round never reaches the live ones
   getClashApiGroupLatency: async (tag) => callBaseMethod(
     Podkop.AvailableMethods.CLASH_API,
-    [Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag, "10000"]
+    [Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag, "12000"]
   ),
   setClashApiGroupProxy: async (group, proxy) => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
     Podkop.AvailableClashAPIMethods.SET_GROUP_PROXY,
@@ -1043,13 +1045,138 @@ function serverDisplayName(tag, sources) {
   return through ? _("%s via %s").format(shown, through) : shown;
 }
 
-// src/podkop/methods/custom/getDashboardSections.ts
+// src/podkop/methods/custom/ruleTiles.ts
 function outboundName(code, rule, sources) {
   if (code === `${rule}-urltest-out`) return _("Fastest");
   if (code === "block") return _("Refused: the rule has no server now");
   const tier = code.match(/^(.+)-fallback-(\d+)-out$/);
   if (tier && tier[1] === rule) return _("Fallback %s").format(tier[2]);
   return serverDisplayName(code, sources);
+}
+var DIRECT_TAG = "direct-out";
+var BLOCK_TAG = "block";
+function tierName(place, tag, rule, sources, members) {
+  const name = _("Fallback %s").format(place);
+  const group = tag.match(/^(.+)-fallback-(\d+)-out$/);
+  if (!group || group[1] !== rule) return name;
+  const row = members.filter(
+    (item) => item.section === rule && item.role === "fallback"
+  )[Number(group[2]) - 1];
+  const source = sources.find((item) => item[".name"] === row?.source);
+  return source ? `${name} \xB7 ${sourceLabel(source)}` : name;
+}
+function ruleTiles(proxies, rule, sources, members, used) {
+  const selector = proxies[`${rule}-out`];
+  const offered = selector?.all ?? [];
+  const autoTag = `${rule}-urltest-out`;
+  const test = offered.includes(autoTag) ? proxies[autoTag] : void 0;
+  const tile = (tag, tier2) => {
+    const item = proxies[tag];
+    let displayName2 = outboundName(tag, rule, sources);
+    if (tag === DIRECT_TAG) displayName2 = _("Directly");
+    else if (tag === BLOCK_TAG && tier2 > 0) displayName2 = _("Block");
+    return {
+      code: tag,
+      displayName: displayName2,
+      latency: item?.history?.[0]?.delay || 0,
+      type: item?.type || "",
+      selected: selector?.now === tag,
+      inUse: used.has(tag),
+      active: false,
+      pick: false,
+      tier: tier2,
+      selectable: offered.includes(tag)
+    };
+  };
+  if (!test) {
+    const outbounds2 = offered.map((tag) => tile(tag, 0));
+    const chosen = outbounds2.find((item) => item.selected);
+    if (!chosen) return { outbounds: outbounds2, tiers: [] };
+    chosen.active = true;
+    const { code: code2, displayName: displayName2, latency: latency2 } = chosen;
+    return {
+      outbounds: outbounds2,
+      tiers: [],
+      route: { mode: "single", tier: 0, code: code2, displayName: displayName2, latency: latency2 }
+    };
+  }
+  const fallbacks = test.all ? test.fallbacks ?? [] : [];
+  const servers = test.all ? test.all.slice(0, test.all.length - fallbacks.length) : offered.filter((tag) => tag !== autoTag);
+  const outbounds = servers.map((tag) => tile(tag, 0));
+  const groups = /* @__PURE__ */ new Map();
+  fallbacks.forEach((tag, index) => {
+    const group = proxies[tag];
+    if (group?.type === "URLTest") {
+      groups.set(index + 1, tag);
+      (group.all ?? []).forEach(
+        (server) => outbounds.push(tile(server, index + 1))
+      );
+    } else {
+      outbounds.push(tile(tag, index + 1));
+    }
+  });
+  const placed = /* @__PURE__ */ new Set([
+    autoTag,
+    ...fallbacks,
+    ...outbounds.map((item) => item.code)
+  ]);
+  const rest = offered.filter((tag) => !placed.has(tag));
+  outbounds.splice(servers.length, 0, ...rest.map((tag) => tile(tag, 0)));
+  const tiers = fallbacks.length ? [
+    _("Fastest"),
+    ...fallbacks.map(
+      (tag, index) => tierName(index + 1, tag, rule, sources, members)
+    )
+  ] : [];
+  let active;
+  let mode = "auto";
+  if (selector?.now === autoTag) {
+    const chosen = test.now ?? "";
+    const tier2 = fallbacks.indexOf(chosen) + 1;
+    const leaf = groups.has(tier2) ? proxies[chosen]?.now : chosen;
+    active = outbounds.find((item) => item.code === leaf && item.tier === tier2);
+  } else if (selector?.now) {
+    mode = "manual";
+    active = outbounds.find((item) => item.code === selector.now);
+  }
+  groups.forEach((tag, tier2) => {
+    const pick = outbounds.find(
+      (item) => item.code === proxies[tag]?.now && item.tier === tier2
+    );
+    if (pick && pick !== active) pick.pick = true;
+  });
+  if (!active) return { outbounds, tiers, auto: autoTag };
+  active.active = true;
+  const { code, displayName, latency, tier = 0 } = active;
+  return {
+    outbounds,
+    tiers,
+    auto: autoTag,
+    route: { mode, tier, code, displayName, latency }
+  };
+}
+function routeLabel(route) {
+  if (route.mode === "single") return "";
+  if (route.mode === "manual") return _("Manual");
+  return route.tier ? `${_("Fastest")} \u2192 ${_("Fallback %s").format(route.tier)}` : _("Fastest");
+}
+
+// src/podkop/methods/custom/getDashboardSections.ts
+function usedTags(proxies, selectors) {
+  const used = /* @__PURE__ */ new Set();
+  selectors.forEach((selector) => {
+    let tag = proxies[selector]?.now;
+    while (tag && !used.has(tag)) {
+      used.add(tag);
+      tag = proxies[tag]?.now;
+    }
+  });
+  return used;
+}
+async function getUsedTags(selectors) {
+  const clashProxies = await PodkopShellMethods.getClashApiProxies();
+  const proxies = clashProxies.success ? clashProxies.data.proxies : void 0;
+  return proxies ? usedTags(proxies, selectors) : void 0;
 }
 async function getDashboardSections() {
   const { rules, sources, members } = await getConfigModel();
@@ -1061,9 +1188,14 @@ async function getDashboardSections() {
     };
   }
   const proxies = clashProxies.data.proxies ?? {};
-  const data = rules.filter(
+  const running = rules.filter(
     (rule) => rule.enabled !== "0" && ruleExit(rule, sources, members) === "servers"
-  ).map((rule) => {
+  );
+  const used = usedTags(
+    proxies,
+    running.map((rule) => `${rule[".name"]}-out`)
+  );
+  const data = running.map((rule) => {
     const name = rule[".name"];
     const code = `${name}-out`;
     const selector = proxies[code];
@@ -1075,16 +1207,7 @@ async function getDashboardSections() {
       withTagSelect: true,
       code,
       displayName,
-      outbounds: (selector.all ?? []).map((tag) => {
-        const item = proxies[tag];
-        return {
-          code: tag,
-          displayName: outboundName(tag, name, sources),
-          latency: item?.history?.[0]?.delay || 0,
-          type: item?.type || "",
-          selected: selector.now === tag
-        };
-      })
+      ...ruleTiles(proxies, name, sources, members, used)
     };
   });
   return {
@@ -1106,13 +1229,157 @@ async function getSingBoxFeatures() {
   return success && Array.isArray(data) ? data : [];
 }
 
+// src/helpers/downloadAsTxt.ts
+function downloadAsTxt(text, filename) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  const safeName = filename.endsWith(".txt") ? filename : `${filename}.txt`;
+  link.download = safeName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+}
+
+// src/podkop/services/logger.service.ts
+var KEEP_LINES = 1e3;
+function debugging() {
+  try {
+    return localStorage.getItem("podkop-debug") === "1";
+  } catch {
+    return false;
+  }
+}
+var Logger = class {
+  constructor() {
+    this.logs = [];
+    this.levels = ["debug", "info", "warn", "error"];
+    this.verbose = debugging();
+  }
+  format(level, ...args) {
+    return `[${level.toUpperCase()}] ${args.join(" ")}`;
+  }
+  push(level, ...args) {
+    if (!this.levels.includes(level)) level = "info";
+    const message = this.format(level, ...args);
+    this.logs.push(message);
+    if (this.logs.length > KEEP_LINES) {
+      this.logs.splice(0, this.logs.length - KEEP_LINES);
+    }
+    if (!this.verbose && (level === "debug" || level === "info")) return;
+    switch (level) {
+      case "error":
+        console.error(message);
+        break;
+      case "warn":
+        console.warn(message);
+        break;
+      case "info":
+        console.info(message);
+        break;
+      default:
+        console.log(message);
+    }
+  }
+  debug(...args) {
+    this.push("debug", ...args);
+  }
+  info(...args) {
+    this.push("info", ...args);
+  }
+  warn(...args) {
+    this.push("warn", ...args);
+  }
+  error(...args) {
+    this.push("error", ...args);
+  }
+  clear() {
+    this.logs = [];
+  }
+  getLogs() {
+    return this.logs.join("\n");
+  }
+  download(filename = "logs.txt") {
+    if (typeof document === "undefined") {
+      console.warn("Logger.download() \u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D \u0442\u043E\u043B\u044C\u043A\u043E \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435");
+      return;
+    }
+    downloadAsTxt(this.getLogs(), filename);
+  }
+};
+var logger = new Logger();
+
+// src/podkop/methods/custom/getVerdicts.ts
+var backendDetect;
+var backendForceDetect;
+var lastFailure = "";
+function emptyReport() {
+  return {
+    verdicts: {},
+    probing: "",
+    queued: [],
+    noprobe: [],
+    fallback: false
+  };
+}
+function noteFailure(message) {
+  if (message === lastFailure) return;
+  lastFailure = message;
+  logger.warn("[DASHBOARD]", "detect failed:", message);
+}
+function errorText(err) {
+  return err?.message ?? String(err);
+}
+async function getVerdicts() {
+  backendDetect ?? (backendDetect = rpc.declare({
+    object: "podkop",
+    method: "detect",
+    nobatch: true
+  }));
+  try {
+    const reply = await backendDetect();
+    if (typeof reply !== "object" || reply === null) {
+      noteFailure(`status ${reply}`);
+      return emptyReport();
+    }
+    lastFailure = "";
+    return { ...emptyReport(), ...reply };
+  } catch (err) {
+    const message = errorText(err);
+    noteFailure(message);
+    return /^RPC call to /.test(message) ? emptyReport() : void 0;
+  }
+}
+async function forceDetect(tag, cancel = false) {
+  backendForceDetect ?? (backendForceDetect = rpc.declare({
+    object: "podkop",
+    method: "force_detect",
+    params: ["tag", "cancel"],
+    nobatch: true
+  }));
+  try {
+    const reply = await backendForceDetect(tag, cancel);
+    if (typeof reply === "object" && reply !== null) return reply;
+    logger.error("[DASHBOARD]", "force_detect failed: status", reply);
+  } catch (err) {
+    const message = errorText(err);
+    logger.error("[DASHBOARD]", "force_detect failed:", message);
+    if (/failed with error -32002\b/.test(message)) return { state: "denied" };
+  }
+  return void 0;
+}
+
 // src/podkop/methods/custom/index.ts
 var CustomPodkopMethods = {
   getConfigSections,
   getConfigModel,
   getDashboardSections,
+  getUsedTags,
   getClashApiSecret,
-  getSingBoxFeatures
+  getSingBoxFeatures,
+  getVerdicts,
+  forceDetect
 };
 
 // src/constants.ts
@@ -1628,90 +1895,17 @@ var initialStore = {
     latencyFetching: false,
     data: []
   },
+  detectWidget: {
+    verdicts: {},
+    requested: {},
+    probing: "",
+    queued: [],
+    noprobe: [],
+    batch: null
+  },
   ...initialDiagnosticStore
 };
 var store = new StoreService(initialStore);
-
-// src/helpers/downloadAsTxt.ts
-function downloadAsTxt(text, filename) {
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  const safeName = filename.endsWith(".txt") ? filename : `${filename}.txt`;
-  link.download = safeName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(link.href);
-}
-
-// src/podkop/services/logger.service.ts
-var KEEP_LINES = 1e3;
-function debugging() {
-  try {
-    return localStorage.getItem("podkop-debug") === "1";
-  } catch {
-    return false;
-  }
-}
-var Logger = class {
-  constructor() {
-    this.logs = [];
-    this.levels = ["debug", "info", "warn", "error"];
-    this.verbose = debugging();
-  }
-  format(level, ...args) {
-    return `[${level.toUpperCase()}] ${args.join(" ")}`;
-  }
-  push(level, ...args) {
-    if (!this.levels.includes(level)) level = "info";
-    const message = this.format(level, ...args);
-    this.logs.push(message);
-    if (this.logs.length > KEEP_LINES) {
-      this.logs.splice(0, this.logs.length - KEEP_LINES);
-    }
-    if (!this.verbose && (level === "debug" || level === "info")) return;
-    switch (level) {
-      case "error":
-        console.error(message);
-        break;
-      case "warn":
-        console.warn(message);
-        break;
-      case "info":
-        console.info(message);
-        break;
-      default:
-        console.log(message);
-    }
-  }
-  debug(...args) {
-    this.push("debug", ...args);
-  }
-  info(...args) {
-    this.push("info", ...args);
-  }
-  warn(...args) {
-    this.push("warn", ...args);
-  }
-  error(...args) {
-    this.push("error", ...args);
-  }
-  clear() {
-    this.logs = [];
-  }
-  getLogs() {
-    return this.logs.join("\n");
-  }
-  download(filename = "logs.txt") {
-    if (typeof document === "undefined") {
-      console.warn("Logger.download() \u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D \u0442\u043E\u043B\u044C\u043A\u043E \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435");
-      return;
-    }
-    downloadAsTxt(this.getLogs(), filename);
-  }
-};
-var logger = new Logger();
 
 // src/podkop/services/logWatch.service.ts
 var CURSOR_KEY = "podkop-log-id";
@@ -1826,6 +2020,394 @@ function coreService() {
   });
 }
 
+// src/podkop/tabs/dashboard/helpers/verdictText.ts
+var QUIET_PASSIVE_NOTES = [
+  "needs_mlkem",
+  "fp_switched"
+];
+var WEAK_NOTES = [
+  "inconclusive",
+  "target_failed",
+  "uplink_down",
+  "dns_failed",
+  "clock_suspect",
+  "probe_hello_refused",
+  "server_silent"
+];
+function isWeakVerdict(verdict) {
+  return verdict?.source === "active" && (verdict.notes ?? []).some((note) => WEAK_NOTES.includes(note));
+}
+function verdictChip(verdict) {
+  if (!verdict) return void 0;
+  const notes = verdict.notes ?? [];
+  if (notes.includes("server_silent")) {
+    return { label: _("no answer"), tone: "error" };
+  }
+  if (isWeakVerdict(verdict) && verdict.block !== "wrongparams") {
+    return { label: _("details"), tone: "neutral" };
+  }
+  const active = verdict.source === "active";
+  switch (verdict.block) {
+    case "none":
+      return active ? { label: _("ok"), tone: "ok" } : void 0;
+    case "limit":
+      return active ? { label: _("limit"), tone: "warn" } : { label: _("limit?"), tone: "warn" };
+    case "freeze":
+      if (!active) return void 0;
+      return {
+        label: _("freeze"),
+        tone: notes.includes("cured") || notes.includes("stand_in") ? "warn" : "error"
+      };
+    case "wrongparams":
+      return notes.includes("tls_cert") ? { label: _("certificate"), tone: "error" } : { label: _("settings"), tone: "error" };
+    case "rejected":
+      return { label: _("refused"), tone: "error" };
+    case "hellodrop":
+      return notes.includes("upgrade_in_dial") ? { label: _("no answer"), tone: "error" } : { label: _("no TLS"), tone: "error" };
+    case "pathblock":
+      return { label: _("no path"), tone: "error" };
+    case "dead":
+      return { label: _("no answer"), tone: "muted" };
+    case "unreachable":
+      return active ? { label: _("no answer"), tone: "muted" } : { label: _("test failed"), tone: "muted" };
+    default:
+      return notes.some((note) => active || !QUIET_PASSIVE_NOTES.includes(note)) ? { label: _("details"), tone: "neutral" } : void 0;
+  }
+}
+function relayNotice() {
+  return _(
+    "If the server does not answer, it is tried through another server of yours, whose operator can see the address of this one."
+  );
+}
+function passiveLimitLine(notes, kb) {
+  const test = notes.includes("download_test");
+  if (notes.includes("through_detour")) {
+    return (test ? _(
+      "The download test of the group stopped at about %d KB. It looks like the DPI limit."
+    ) : _(
+      "Several connections were cut at about %d KB, and none went further. It looks like the DPI limit, but short responses of sites look the same."
+    )).format(kb);
+  }
+  return (test ? _(
+    "The download test of the group stopped at about %d KB. It looks like the DPI limit. Press \u201CCheck server\u201D."
+  ) : _(
+    "Several connections were cut at about %d KB, and none went further. It looks like the DPI limit, but short responses of sites look the same. Press \u201CCheck server\u201D."
+  )).format(kb);
+}
+function freezeLine(notes, fp) {
+  if (notes.includes("cured")) {
+    return _(
+      "Fingerprint %s does not pass or hangs with several connections at once, the fallback one passes. It looks like a DPI block by fingerprint. The uTLS fallback already gets around it, nothing needs changing."
+    ).format(fp);
+  }
+  if (notes.includes("stand_in")) {
+    return _(
+      "Fingerprint %s does not pass or hangs with several connections at once, the fallback one passes. It looks like a DPI block by fingerprint."
+    ).format(fp);
+  }
+  return _(
+    "Fingerprint %s does not pass or hangs with several connections at once, the fallback one passes. It looks like a DPI block by fingerprint. Turn on the uTLS fallback in the settings."
+  ).format(fp);
+}
+function helloDropLine(notes, relays) {
+  if (notes.includes("relay_silent")) {
+    return relays >= 2 ? _(
+      "TCP connects from here, but the server does not answer through another server either. It looks like a fault of the server or its cover."
+    ) : _(
+      "TCP connects from here, but the server does not answer through another server of yours either, which may itself be unstable. The cause cannot be told from this one try."
+    );
+  }
+  if (notes.includes("upgrade_in_dial")) {
+    return _(
+      "TCP connects, but TLS or the WebSocket/HTTP upgrade gets no answer."
+    );
+  }
+  return _(
+    "The port is open, but the TLS hello gets no answer. It looks like a block by SNI or address."
+  );
+}
+function verdictLines(verdict) {
+  const notes = verdict.notes ?? [];
+  const active = verdict.source === "active";
+  const lines = [];
+  switch (verdict.block) {
+    case "none":
+      if (active) {
+        lines.push(_("The test download went through in full."));
+      }
+      break;
+    case "limit":
+      lines.push(
+        active ? _(
+          "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. Another server or a disguise as a whitelisted site may help; where the network also limits by address, the disguise will not."
+        ).format(verdict.kb ?? 0) : passiveLimitLine(notes, verdict.kb ?? 0)
+      );
+      break;
+    case "freeze":
+      lines.push(freezeLine(notes, verdict.fp ?? ""));
+      break;
+    case "wrongparams":
+      lines.push(
+        notes.includes("tls_cert") ? _(
+          "The server answered, but its certificate did not pass the check: expired, for another name, or from an unknown issuer."
+        ) : _(
+          "The server answered, but the REALITY check failed: a wrong key or shortId in the link, a name the server does not list, or the server has changed. Update the link or the subscription; if that does not help, the fault is on the server."
+        )
+      );
+      break;
+    case "rejected":
+      lines.push(
+        _(
+          "The server closed the requests without an answer. The usual reason is a user or password it does not know; a server with no way out looks the same from here."
+        )
+      );
+      break;
+    case "hellodrop":
+      lines.push(helloDropLine(notes, verdict.n ?? 0));
+      if (notes.includes("relay_silent")) lines.push(relayNotice());
+      break;
+    case "pathblock":
+      lines.push(
+        _(
+          "It does not connect from here, but the handshake passes through another server of yours. The server is on; the provider cuts the path or the server does not accept your network."
+        ),
+        relayNotice()
+      );
+      break;
+    case "dead":
+      lines.push(
+        _(
+          "The server does not answer from here or through your other servers (%d). It may be off, or its address may be closed to these networks; from another network it may work."
+        ).format(verdict.n ?? 0),
+        relayNotice()
+      );
+      break;
+    case "unreachable":
+      if (!active) {
+        lines.push(
+          _(
+            "The URL test of this server failed, and no connection opened since then has received data. Press \u201CCheck server\u201D to learn why."
+          )
+        );
+      } else if (notes.includes("relay_silent")) {
+        lines.push(
+          _(
+            "The server does not answer from here or through another server of yours, which may itself be unstable. The cause cannot be told from this one try."
+          ),
+          relayNotice()
+        );
+      } else if (
+        // these two know the cause
+        !notes.includes("uplink_down") && !notes.includes("dns_failed")
+      ) {
+        lines.push(
+          _(
+            "The port of the server does not answer from this router. The cause cannot be told from here."
+          )
+        );
+      }
+      break;
+    default:
+      break;
+  }
+  notes.forEach((note) => {
+    const line = noteLine(note, verdict);
+    if (line) lines.push(line);
+  });
+  return lines;
+}
+function noteLine(note, verdict) {
+  switch (note) {
+    case "clock_suspect":
+      return _("Also check the clock of the router.");
+    case "uplink_down":
+      return _(
+        "The router seems to have no internet connection: the uplink check failed."
+      );
+    case "dns_failed":
+      return _("The address of the server could not be resolved by its name.");
+    case "needs_mlkem":
+      return verdict.block === "none" || verdict.block === "unknown" ? _(
+        "The server accepts only connections with ML-KEM (Xray \u2265 26.9.8). This is not a block."
+      ) : _("The server accepts only connections with ML-KEM (Xray \u2265 26.9.8).");
+    case "fp_switched":
+      return (verdict.block === "none" || verdict.block === "unknown" ? _(
+        "The server works through the fallback fingerprint %s. Sometimes this is the trace of a block; a check will tell for sure."
+      ) : _(
+        "The server is reached through the fallback fingerprint %s. Sometimes this is the trace of a block; a check will tell for sure."
+      )).format(verdict.fp ?? "");
+    case "handshake_failed":
+      return _(
+        "The server answers, but the handshake does not complete with any fingerprint."
+      );
+    case "burst_any_fp":
+      return _(
+        "One request passes, the requests after it do not. It looks like a limit of the server or the line."
+      );
+    case "inconclusive":
+      return _("The check gave no clear answer, repeat it later.");
+    case "server_silent":
+      return _(
+        "The handshake with the server completes, but it did not answer a request during the check. The cause may be on the server or on the way to it, a check from here cannot tell. Try the server from another network, or ask whoever runs it."
+      );
+    case "target_failed":
+      return _(
+        "The address of the check did not answer, the server is not at fault."
+      );
+    case "some_lost":
+      return _("Some of the test connections were lost, the rest passed.");
+    case "through_detour":
+      return _(
+        "The server is reached through another one: the cause may be there."
+      );
+    case "not_applicable":
+      return _("The check does not apply to a server behind a tunnel.");
+    case "probe_hello_refused":
+      return _(
+        "The check's hello was refused, but the running connection through this server works. Nothing needs changing."
+      );
+    case "stand_in":
+      return _(
+        "The fingerprint of the link was not tested: this one stood in for it, so real connections may not be affected."
+      );
+    // the line of the verdict tells these
+    default:
+      return void 0;
+  }
+}
+function checkedAgo(seconds) {
+  if (seconds < 60) return _("Checked just now");
+  return _("Checked %d min ago").format(Math.floor(seconds / 60));
+}
+function forceDetectProblem(reply) {
+  switch (reply?.state) {
+    case "started":
+    case "queued":
+    case "running":
+    case "canceled":
+      return void 0;
+    case "throttled":
+      return _(
+        "A check is not possible now: this address was checked recently or is waiting in the queue, or the queue is full. Try again in %d s."
+      ).format(reply.retry_after ?? 180);
+    case "unknown":
+      return _("This server is no longer in the running configuration.");
+    case "not_running":
+      return _("Podkop is not running.");
+    case "denied":
+      return _("Your account may view this page but may not start a check.");
+    default:
+      return _("Failed to execute!");
+  }
+}
+function stopsChecks(reply) {
+  return !reply || reply.state === "not_running" || reply.state === "denied";
+}
+
+// src/podkop/tabs/dashboard/helpers/detectWidget.ts
+var REQUESTED_TIMEOUT_MS = 3e4;
+var USED_READ_MS = 3e3;
+var CHECK_QUEUE_LIMIT = 64;
+var NOT_SERVERS = [
+  "",
+  "Selector",
+  "URLTest",
+  "Direct",
+  "Block",
+  "Reject",
+  "DNS"
+];
+var NO_BURST = ["Hysteria", "Hysteria2", "TUIC"];
+function canCheck(outbound, noprobe) {
+  return !NOT_SERVERS.includes(outbound.type) && !noprobe.includes(outbound.code);
+}
+function isChecking(tag, detect) {
+  return detect.probing === tag || detect.queued.includes(tag) || detect.requested[tag] !== void 0;
+}
+function tileChip(tag, detect) {
+  if (detect.probing === tag) return { label: _("checking\u2026"), tone: "neutral" };
+  if (isChecking(tag, detect)) return { label: _("queued"), tone: "neutral" };
+  return verdictChip(detect.verdicts[tag]);
+}
+function problemTiles(section, detect) {
+  const probed = (outbound) => detect.verdicts[outbound.code]?.source === "active" ? 1 : 0;
+  return section.outbounds.filter((outbound) => {
+    if (!canCheck(outbound, detect.noprobe)) return false;
+    const verdict = detect.verdicts[outbound.code];
+    if (isWeakVerdict(verdict)) return false;
+    const chip = verdictChip(verdict);
+    return chip ? chip.tone !== "ok" : !outbound.latency;
+  }).sort((one, other) => probed(one) - probed(other));
+}
+function problemServers(section, detect) {
+  return problemTiles(section, detect).slice(0, CHECK_QUEUE_LIMIT);
+}
+function mayHang(outbound, used) {
+  if (NO_BURST.includes(outbound.type)) return false;
+  return used ? used.has(outbound.code) : outbound.inUse;
+}
+function oncePerControl(wait = USED_READ_MS) {
+  const pending = /* @__PURE__ */ new Set();
+  return async (control, read, then) => {
+    if (pending.has(control)) return;
+    pending.add(control);
+    let timer;
+    const value = await Promise.race([
+      (async () => read())().catch(() => void 0),
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(void 0), wait);
+      })
+    ]);
+    clearTimeout(timer);
+    pending.delete(control);
+    then(value);
+  };
+}
+function batchProgress(detect) {
+  const tags = detect.batch?.tags ?? [];
+  return {
+    done: tags.filter((tag) => !isChecking(tag, detect)).length,
+    total: tags.length
+  };
+}
+function settleRequested(requested, report, now) {
+  return Object.fromEntries(
+    Object.entries(requested).filter(([tag, at]) => {
+      if (report.probing === tag || report.queued.includes(tag)) return false;
+      const verdict = report.verdicts[tag];
+      if (verdict?.source === "active" && (verdict.age ?? 0) * 1e3 <= now - at) {
+        return false;
+      }
+      return now - at < REQUESTED_TIMEOUT_MS;
+    })
+  );
+}
+function widgetOfReport(previous, report, now) {
+  const verdicts = {};
+  for (const [tag, reply] of Object.entries(report.verdicts)) {
+    const verdict = { ...reply };
+    delete verdict.age;
+    delete verdict.why;
+    verdicts[tag] = verdict;
+  }
+  const next = {
+    ...previous,
+    verdicts,
+    requested: settleRequested(previous.requested, report, now),
+    probing: report.probing,
+    queued: report.queued,
+    noprobe: report.noprobe
+  };
+  const { done, total } = batchProgress(next);
+  if (done === total) next.batch = null;
+  return next;
+}
+function detectIsBusy(detect) {
+  return Boolean(
+    detect.probing || detect.queued.length || detect.batch || Object.keys(detect.requested).length
+  );
+}
+
 // src/podkop/tabs/dashboard/partials/renderSections.ts
 function renderFailedState() {
   return E(
@@ -1848,7 +2430,8 @@ function renderDefaultState({
   section,
   onChooseOutbound,
   onTestLatency,
-  latencyFetching
+  latencyFetching,
+  checks
 }) {
   function testLatency() {
     if (section.withTagSelect) {
@@ -1871,11 +2454,66 @@ function renderDefaultState({
       }
       return "pdk_dashboard-page__outbound-grid__item__latency--red";
     }
+    function renderCheckRow() {
+      if (!checks) return [];
+      const { detect, onShowVerdict, onCheckServer } = checks;
+      const chip = tileChip(outbound.code, detect);
+      const checkable = canCheck(outbound, detect.noprobe);
+      if (!chip && !checkable) return [];
+      return [
+        E(
+          "div",
+          {
+            class: "pdk_dashboard-page__outbound-grid__item__check",
+            // a tap beside a button, or on a disabled one
+            click: (event) => event.stopPropagation()
+          },
+          [
+            ...chip ? [
+              E(
+                "button",
+                {
+                  class: `pdk_dashboard-page__outbound-grid__item__block pdk_dashboard-page__outbound-grid__item__block--${chip.tone}`,
+                  click: (event) => {
+                    event.stopPropagation();
+                    onShowVerdict(outbound);
+                  }
+                },
+                [chip.label]
+              )
+            ] : [],
+            ...checkable ? [
+              E(
+                "button",
+                {
+                  class: "btn pdk_dashboard-page__outbound-grid__item__check-button",
+                  disabled: isChecking(outbound.code, detect) ? "disabled" : null,
+                  click: (event) => {
+                    event.stopPropagation();
+                    onCheckServer(outbound);
+                  }
+                },
+                [_("Check server")]
+              )
+            ] : []
+          ]
+        )
+      ];
+    }
+    const selectable = section.withTagSelect && outbound.selectable !== false;
+    const classes = [
+      "pdk_dashboard-page__outbound-grid__item",
+      ...outbound.active ?? outbound.selected ? ["pdk_dashboard-page__outbound-grid__item--active"] : [],
+      ...outbound.pick ? ["pdk_dashboard-page__outbound-grid__item--pick"] : [],
+      ...selectable ? ["pdk_dashboard-page__outbound-grid__item--selectable"] : []
+    ];
     return E(
       "div",
       {
-        class: `pdk_dashboard-page__outbound-grid__item ${outbound.selected ? "pdk_dashboard-page__outbound-grid__item--active" : ""} ${section.withTagSelect ? "pdk_dashboard-page__outbound-grid__item--selectable" : ""}`,
-        click: () => section.withTagSelect && onChooseOutbound(section.code, outbound.code)
+        class: classes.join(" "),
+        "data-tag": outbound.code,
+        title: outbound.pick ? _("Chosen inside the fallback") : null,
+        click: () => selectable && onChooseOutbound(section.code, outbound.code)
       },
       [
         E("b", {}, [outbound.displayName]),
@@ -1886,35 +2524,173 @@ function renderDefaultState({
           E("div", { class: getLatencyClass() }, [
             outbound.latency ? `${outbound.latency}ms` : "N/A"
           ])
-        ])
+        ]),
+        ...renderCheckRow()
       ]
     );
   }
-  return E("div", { class: "pdk_dashboard-page__outbound-section" }, [
-    // Title with test latency
-    E("div", { class: "pdk_dashboard-page__outbound-section__title-section" }, [
+  function renderChecks() {
+    if (!checks) return [];
+    const { detect, onCheckProblems, onCancelChecks } = checks;
+    const queuedHere = section.outbounds.filter(
+      (outbound) => detect.queued.includes(outbound.code)
+    ).length;
+    let progress = "";
+    if (detect.batch?.section === section.code) {
+      const { done, total } = batchProgress(detect);
+      const found = detect.batch.found;
+      progress = found ? _("%d of %d, first %d of %d").format(
+        done,
+        total,
+        CHECK_QUEUE_LIMIT,
+        found
+      ) : _("%d of %d").format(done, total);
+    } else if (!detect.batch && queuedHere) {
+      progress = _("Queued: %d").format(queuedHere);
+    }
+    if (progress) {
+      return [
+        E(
+          "span",
+          {
+            class: "dashboard-sections-grid-item-check-progress",
+            "aria-live": "polite"
+          },
+          [progress]
+        ),
+        E(
+          "button",
+          {
+            class: "btn dashboard-sections-grid-item-check-cancel",
+            click: () => onCancelChecks()
+          },
+          _("Cancel")
+        )
+      ];
+    }
+    if (!problemServers(section, detect).length) return [];
+    return [
+      E(
+        "button",
+        {
+          class: "btn dashboard-sections-grid-item-check-problems",
+          disabled: detect.batch ? "disabled" : null,
+          // the progress takes the place of the button in the section it belongs to
+          title: detect.batch ? _("Another section is being checked.") : null,
+          click: () => onCheckProblems(section)
+        },
+        _("Check problem servers")
+      )
+    ];
+  }
+  function renderRoute() {
+    const route = section.route;
+    if (!route || route.mode === "single") return [];
+    const latency = route.latency ? `${route.latency}ms` : "N/A";
+    const auto = section.auto;
+    let tone = "";
+    if (route.code === "block") tone = "error";
+    else if (route.mode === "manual" || route.tier) tone = "warning";
+    return [
       E(
         "div",
         {
-          class: "pdk_dashboard-page__outbound-section__title-section__title"
+          class: `pdk_dashboard-page__outbound-section__route${tone ? ` pdk_dashboard-page__outbound-section__route--${tone}` : ""}`
         },
-        [section.displayName]
+        [`${routeLabel(route)}: ${route.displayName} \xB7 ${latency}`]
       ),
-      latencyFetching ? E("div", { class: "skeleton", style: "width: 99px; height: 28px" }) : E(
-        "button",
+      ...route.mode === "manual" && auto ? [
+        E(
+          "button",
+          {
+            class: "btn dashboard-sections-grid-item-auto",
+            click: () => onChooseOutbound(section.code, auto)
+          },
+          _("Back to automatic choice")
+        )
+      ] : []
+    ];
+  }
+  function renderGrid() {
+    const tiers = section.tiers ?? [];
+    if (tiers.length < 2) {
+      return section.outbounds.map((outbound) => renderOutbound(outbound));
+    }
+    return section.outbounds.map((outbound, index) => {
+      const tier = outbound.tier ?? 0;
+      const first = index === 0 || section.outbounds[index - 1].tier !== tier;
+      return E(
+        "div",
         {
-          class: "btn dashboard-sections-grid-item-test-latency",
-          click: () => testLatency()
+          class: `pdk_dashboard-page__outbound-grid__cell pdk_dashboard-page__outbound-grid__cell--tint-${tier % 2}`
         },
-        _("Test latency")
+        [
+          ...first ? [
+            E(
+              "div",
+              {
+                class: "pdk_dashboard-page__outbound-grid__tier",
+                title: tiers[tier] ?? ""
+              },
+              [tiers[tier] ?? ""]
+            )
+          ] : [],
+          renderOutbound(outbound)
+        ]
+      );
+    });
+  }
+  return E(
+    "div",
+    {
+      class: "pdk_dashboard-page__outbound-section",
+      "data-section": section.code
+    },
+    [
+      // Title with test latency
+      E(
+        "div",
+        { class: "pdk_dashboard-page__outbound-section__title-section" },
+        [
+          E(
+            "div",
+            {
+              class: "pdk_dashboard-page__outbound-section__title-section__title"
+            },
+            [section.displayName]
+          ),
+          ...renderRoute(),
+          E(
+            "div",
+            {
+              class: "pdk_dashboard-page__outbound-section__title-section__actions"
+            },
+            [
+              ...renderChecks(),
+              latencyFetching ? E("div", {
+                class: "skeleton",
+                style: "width: 99px; height: 28px"
+              }) : E(
+                "button",
+                {
+                  class: "btn dashboard-sections-grid-item-test-latency",
+                  click: () => testLatency()
+                },
+                _("Test latency")
+              )
+            ]
+          )
+        ]
+      ),
+      E(
+        "div",
+        {
+          class: `pdk_dashboard-page__outbound-grid${(section.tiers?.length ?? 0) > 1 ? " pdk_dashboard-page__outbound-grid--tiers" : ""}`
+        },
+        renderGrid()
       )
-    ]),
-    E(
-      "div",
-      { class: "pdk_dashboard-page__outbound-grid" },
-      section.outbounds.map((outbound) => renderOutbound(outbound))
-    )
-  ]);
+    ]
+  );
 }
 function renderSections(props) {
   if (props.failed) {
@@ -2127,6 +2903,56 @@ function statsWidgets(current, previous) {
   }
   return widgets;
 }
+var SERVICES_REFRESH_MS = 1e4;
+function servicesStale(current, shown, lastRead, now) {
+  if (shown.loading || now - lastRead < SERVICES_REFRESH_MS) return false;
+  return Boolean(current?.running) !== Boolean(shown.data.singbox);
+}
+
+// src/podkop/tabs/dashboard/helpers/keepFocus.ts
+var CONTROLS = [
+  "pdk_dashboard-page__outbound-grid__item__block",
+  "pdk_dashboard-page__outbound-grid__item__check-button",
+  "dashboard-sections-grid-item-check-problems",
+  "dashboard-sections-grid-item-check-cancel",
+  "dashboard-sections-grid-item-test-latency"
+];
+function placeOf(element) {
+  return JSON.stringify([
+    element.closest("[data-section]")?.getAttribute("data-section") ?? null,
+    element.closest("[data-tag]")?.getAttribute("data-tag") ?? null
+  ]);
+}
+function keepFocus(container, rebuild) {
+  const focused = document.activeElement;
+  const control = focused && container.contains(focused) ? CONTROLS.find((name) => focused.classList.contains(name)) : void 0;
+  const place = control ? placeOf(focused) : "";
+  rebuild();
+  if (!control) return;
+  const same = Array.from(container.getElementsByClassName(control)).find(
+    (element) => placeOf(element) === place
+  );
+  if (same && !same.disabled) same.focus({ preventScroll: true });
+}
+
+// src/helpers/showToast.ts
+function showToast(message, type, duration = 3e3) {
+  let container = document.querySelector(".toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.classList.add("visible"), 100);
+  setTimeout(() => {
+    toast.classList.remove("visible");
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
 
 // src/podkop/tabs/dashboard/initController.ts
 async function fetchDashboardSections() {
@@ -2153,6 +2979,7 @@ async function fetchDashboardSections() {
 var STATS_MS = 2e3;
 var statsTimers = [];
 var lastStats;
+var servicesRead = 0;
 var backendStats;
 async function fetchStats() {
   if (document.hidden) {
@@ -2173,6 +3000,15 @@ async function fetchStats() {
   if (!mounted) return;
   store.set(statsWidgets(current, lastStats));
   lastStats = current;
+  if (servicesStale(
+    current,
+    store.get().servicesInfoWidget,
+    servicesRead,
+    Date.now()
+  )) {
+    servicesRead = Date.now();
+    await Promise.all([fetchServicesInfo(), fetchDashboardSections()]);
+  }
 }
 function startStats() {
   stopStats();
@@ -2186,6 +3022,219 @@ function stopStats() {
   statsTimers.forEach((timer) => clearTimeout(timer));
   statsTimers = [];
   lastStats = void 0;
+}
+var DETECT_IDLE_MS = 15e3;
+var DETECT_BUSY_MS = 2e3;
+var detectTimer;
+var detectAsking = false;
+var verdictAges = {};
+var checksRun = 0;
+function scheduleDetect(wait) {
+  clearTimeout(detectTimer);
+  detectTimer = setTimeout(fetchDetect, wait);
+}
+function nextDetectWait() {
+  return detectIsBusy(store.get().detectWidget) ? DETECT_BUSY_MS : DETECT_IDLE_MS;
+}
+async function fetchDetect() {
+  if (detectAsking) return;
+  if (document.hidden) {
+    scheduleDetect(nextDetectWait());
+    return;
+  }
+  detectAsking = true;
+  const run = checksRun;
+  const report = await CustomPodkopMethods.getVerdicts();
+  detectAsking = false;
+  if (!mounted) return;
+  if (run !== checksRun) {
+    scheduleDetect(DETECT_BUSY_MS);
+    return;
+  }
+  if (report) {
+    const now = Date.now();
+    verdictAges = Object.fromEntries(
+      Object.entries(report.verdicts).map(([tag, verdict]) => [
+        tag,
+        { age: verdict.age ?? 0, at: now }
+      ])
+    );
+    store.set({
+      detectWidget: widgetOfReport(store.get().detectWidget, report, now)
+    });
+  }
+  scheduleDetect(nextDetectWait());
+}
+function stopDetect() {
+  clearTimeout(detectTimer);
+  detectTimer = void 0;
+  verdictAges = {};
+  checksRun++;
+}
+function setDetect(change) {
+  store.set({ detectWidget: { ...store.get().detectWidget, ...change } });
+}
+async function sendChecks(tags, section, found) {
+  const run = checksRun;
+  const requested = { ...store.get().detectWidget.requested };
+  tags.forEach((tag) => requested[tag] = Date.now());
+  setDetect(
+    section ? { requested, batch: { section, tags, found } } : { requested }
+  );
+  scheduleDetect(DETECT_BUSY_MS);
+  let skipped = 0;
+  for (const tag of tags) {
+    const reply = await CustomPodkopMethods.forceDetect(tag);
+    if (run !== checksRun) return;
+    const problem = forceDetectProblem(reply);
+    if (!problem) continue;
+    const { requested: current, batch } = store.get().detectWidget;
+    const { [tag]: _sent, ...others } = current;
+    const left = batch?.tags.filter((other) => other !== tag);
+    setDetect({
+      requested: others,
+      batch: batch && left?.length ? { ...batch, tags: left } : null
+    });
+    if (!section) {
+      showToast(problem, "error", 5e3);
+    } else if (stopsChecks(reply)) {
+      showToast(problem, "error", 5e3);
+      setDetect({ requested: {}, batch: null });
+      return;
+    } else {
+      skipped++;
+    }
+  }
+  if (skipped) {
+    showToast(
+      _(
+        "Not queued: %d of %d. Their addresses were checked recently or are already in the queue, or they are gone."
+      ).format(skipped, tags.length),
+      "error",
+      5e3
+    );
+  }
+  fetchDetect();
+}
+function askToCheck(warning, check) {
+  ui.showModal(_("Server check"), [
+    E("p", {}, [warning]),
+    E("p", {}, [relayNotice()]),
+    E("div", { class: "right" }, [
+      E(
+        "button",
+        {
+          class: "cbi-button pdk-detect-modal__close",
+          click: () => ui.hideModal()
+        },
+        [_("Cancel")]
+      ),
+      " ",
+      E(
+        "button",
+        {
+          class: "cbi-button cbi-button-action pdk-detect-modal__confirm",
+          click: () => {
+            ui.hideModal();
+            check();
+          }
+        },
+        [_("Check server")]
+      )
+    ])
+  ]);
+}
+var readForPress = oncePerControl();
+function checkAfterRead(control, servers, warning, check) {
+  return readForPress(
+    control,
+    () => CustomPodkopMethods.getUsedTags(
+      store.get().sectionsWidget.data.map(({ code }) => code)
+    ),
+    (used) => {
+      if (!mounted) return;
+      if (!servers.some((server) => mayHang(server, used))) return check();
+      askToCheck(warning, check);
+    }
+  );
+}
+function handleCheckServer(outbound) {
+  return checkAfterRead(
+    `server:${outbound.code}`,
+    [outbound],
+    _(
+      "New connections through this server may hang for a couple of minutes after the check starts."
+    ),
+    () => sendChecks([outbound.code])
+  );
+}
+function handleCheckProblems(section) {
+  const detect = store.get().detectWidget;
+  const servers = problemServers(section, detect);
+  const found = problemTiles(section, detect).length;
+  return checkAfterRead(
+    `section:${section.code}`,
+    servers,
+    _(
+      "One of these servers is in use. New connections through it may hang for a couple of minutes after its check starts."
+    ),
+    () => sendChecks(
+      servers.map((server) => server.code),
+      section.code,
+      found > CHECK_QUEUE_LIMIT ? found : void 0
+    )
+  );
+}
+async function handleCancelChecks() {
+  checksRun++;
+  setDetect({ requested: {}, batch: null, queued: [] });
+  const problem = forceDetectProblem(
+    await CustomPodkopMethods.forceDetect("", true)
+  );
+  if (problem) showToast(problem, "error");
+  if (mounted) fetchDetect();
+}
+function handleShowVerdict(outbound) {
+  const detect = store.get().detectWidget;
+  const verdict = detect.verdicts[outbound.code];
+  const known = verdictAges[outbound.code];
+  const checking = isChecking(outbound.code, detect);
+  const lines = [
+    ...detect.probing === outbound.code ? [_("Checking now\u2026")] : [],
+    ...checking && detect.probing !== outbound.code ? [_("Waiting for its turn.")] : [],
+    ...verdict ? verdictLines(verdict) : [],
+    ...verdict?.source === "active" && known ? [checkedAgo(known.age + (Date.now() - known.at) / 1e3)] : []
+  ];
+  ui.showModal(
+    [outbound.displayName],
+    [
+      ...lines.map((line) => E("p", {}, [line])),
+      E("div", { class: "right" }, [
+        E(
+          "button",
+          {
+            class: "cbi-button pdk-detect-modal__close",
+            click: () => ui.hideModal()
+          },
+          [_("Close")]
+        ),
+        ...!checking && canCheck(outbound, detect.noprobe) ? [
+          " ",
+          E(
+            "button",
+            {
+              class: "cbi-button cbi-button-action pdk-detect-modal__check",
+              click: () => {
+                ui.hideModal();
+                handleCheckServer(outbound);
+              }
+            },
+            [_("Check server")]
+          )
+        ] : []
+      ])
+    ]
+  );
 }
 async function handleChooseOutbound(selector, tag) {
   await PodkopShellMethods.setClashApiGroupProxy(selector, tag);
@@ -2253,6 +3302,13 @@ async function renderSectionsWidget() {
       failed: sectionsWidget.failed,
       section,
       latencyFetching: sectionsWidget.latencyFetching,
+      checks: {
+        detect: store.get().detectWidget,
+        onShowVerdict: handleShowVerdict,
+        onCheckServer: handleCheckServer,
+        onCheckProblems: handleCheckProblems,
+        onCancelChecks: handleCancelChecks
+      },
       onTestLatency: (tag) => {
         if (section.withTagSelect) {
           return handleTestGroupLatency(tag);
@@ -2265,7 +3321,7 @@ async function renderSectionsWidget() {
     })
   );
   return preserveScrollForPage(() => {
-    container.replaceChildren(...renderedWidgets);
+    keepFocus(container, () => container.replaceChildren(...renderedWidgets));
   });
 }
 async function renderBandwidthWidget() {
@@ -2390,7 +3446,7 @@ async function renderServicesInfoWidget() {
   container.replaceChildren(renderedWidget);
 }
 async function onStoreUpdate(next, prev, diff) {
-  if (diff.sectionsWidget) {
+  if (diff.sectionsWidget || diff.detectWidget && !next.sectionsWidget.loading && !next.sectionsWidget.failed) {
     renderSectionsWidget();
   }
   if (diff.bandwidthWidget) {
@@ -2413,8 +3469,10 @@ async function onPageMount() {
   onPageUnmount();
   mounted = true;
   store.subscribe(onStoreUpdate);
+  fetchDetect();
   await fetchDashboardSections();
   await fetchServicesInfo();
+  servicesRead = Date.now();
   if (!mounted) return;
   startStats();
 }
@@ -2426,9 +3484,11 @@ function onPageUnmount() {
     "trafficTotalWidget",
     "systemInfoWidget",
     "servicesInfoWidget",
-    "sectionsWidget"
+    "sectionsWidget",
+    "detectWidget"
   ]);
   stopStats();
+  stopDetect();
 }
 function isCurrent() {
   return store.get().tabService.current === "dashboard";
@@ -2525,8 +3585,40 @@ var styles = `
 
 .pdk_dashboard-page__outbound-section__title-section {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
+    gap: 6px 10px;
+}
+
+.pdk_dashboard-page__outbound-section__title-section__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    margin-left: auto;
+}
+
+/* how the rule chose where its connections go, beside its name */
+.pdk_dashboard-page__outbound-section__route {
+    color: var(--text-color-high, inherit);
+    font-size: 13px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* A pinned server, or a fallback in use: the servers of the rule do not decide. The text keeps
+   its colour and the tint under it tells: the warn colour of the light theme is too pale for text. */
+.pdk_dashboard-page__outbound-section__route--warning,
+.pdk_dashboard-page__outbound-section__route--error {
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(240, 160, 0, 0.22);
+}
+
+/* a block fallback in use: the connections of the rule are refused */
+.pdk_dashboard-page__outbound-section__route--error {
+    background: rgba(220, 40, 30, 0.22);
 }
 
 .pdk_dashboard-page__outbound-section__title-section__title {
@@ -2541,10 +3633,56 @@ var styles = `
     grid-gap: 10px;
 }
 
+/* With fallbacks the tiles of a tier sit on its tint, two tints in turn: a cell of the grid per
+   tile, the tint in its padding, which joins the tiles of a tier. The padding replaces the gap,
+   and the margin keeps the tiles where the gap put them. */
+.pdk_dashboard-page__outbound-grid--tiers {
+    grid-gap: 0;
+    margin-left: -5px;
+    margin-right: -5px;
+}
+
+.pdk_dashboard-page__outbound-grid__cell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 18px 5px 5px;
+}
+
+.pdk_dashboard-page__outbound-grid__cell > .pdk_dashboard-page__outbound-grid__item {
+    flex: 1;
+}
+
+.pdk_dashboard-page__outbound-grid__cell--tint-0 {
+    background: rgba(127, 127, 127, 0.1);
+}
+
+.pdk_dashboard-page__outbound-grid__cell--tint-1 {
+    background: rgba(30, 144, 255, 0.12);
+}
+
+/* the name of a tier, over its first tile */
+.pdk_dashboard-page__outbound-grid__tier {
+    position: absolute;
+    top: 2px;
+    left: 7px;
+    right: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 14px;
+    color: var(--text-color-high, inherit);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .pdk_dashboard-page__outbound-grid__item {
     border: 2px var(--background-color-low, lightgray) solid;
     border-radius: 4px;
     padding: 10px;
+    min-width: 0;
+    overflow-wrap: anywhere;
     transition: border 0.2s ease;
 }
 
@@ -2556,15 +3694,87 @@ var styles = `
     border-color: var(--primary-color-high, dodgerblue);
 }
 
-.pdk_dashboard-page__outbound-grid__item--active {
+/* the marks stay under the pointer: a tile just clicked shows it is in use */
+.pdk_dashboard-page__outbound-grid__item--active,
+.pdk_dashboard-page__outbound-grid__item--active:hover {
+    border-color: var(--success-color-medium, green);
+}
+
+/* the choice of a fallback of several servers, for when its turn comes */
+.pdk_dashboard-page__outbound-grid__item--pick,
+.pdk_dashboard-page__outbound-grid__item--pick:hover {
+    border-style: dashed;
     border-color: var(--success-color-medium, green);
 }
 
 .pdk_dashboard-page__outbound-grid__item__footer {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
+    gap: 4px 8px;
     margin-top: 10px;
+}
+
+.pdk_dashboard-page__outbound-grid__item__check {
+    container-type: inline-size;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px 8px;
+    margin-top: 6px;
+}
+
+button.pdk_dashboard-page__outbound-grid__item__check-button {
+    min-height: 28px;
+    padding: 2px 8px;
+    font-size: 12px;
+    line-height: normal;
+}
+
+/* Wraps between words only, whatever the tile above allows. A word wider than the tile (the longest
+   label has 10 letters, about 0.6 em each) takes a smaller font; where the browser has no cqi, the
+   12px stays. At the very least it is cut, not out of the tile. The theme on a phone sets
+   button { font-size: 14px !important } (mobile.css), hence the !important here. */
+button.pdk_dashboard-page__outbound-grid__item__block {
+    min-height: 28px;
+    max-width: 100%;
+    padding: 2px 8px;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    background: transparent;
+    box-shadow: none;
+    text-shadow: none;
+    font-size: 12px !important;
+    font-size: clamp(9px, calc((100cqi - 18px) / 6.5), 12px) !important;
+    font-weight: 600;
+    line-height: normal;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+button.pdk_dashboard-page__outbound-grid__item__block--ok {
+    color: var(--success-color-medium, green);
+}
+
+button.pdk_dashboard-page__outbound-grid__item__block--warn {
+    color: var(--warn-color-medium, orange);
+}
+
+button.pdk_dashboard-page__outbound-grid__item__block--error {
+    color: var(--error-color-medium, red);
+}
+
+button.pdk_dashboard-page__outbound-grid__item__block--muted {
+    color: var(--text-color-low, gray);
+}
+
+button.pdk_dashboard-page__outbound-grid__item__block--neutral {
+    color: var(--text-color-high, inherit);
 }
 
 .pdk_dashboard-page__outbound-grid__item__type {}
@@ -2647,6 +3857,33 @@ function getMeta({ allGood, atLeastOneGood }) {
 }
 
 // src/podkop/tabs/diagnostic/checks/runDnsCheck.ts
+function serverName(server) {
+  if (server.type !== "provider") return `${server.server} [${server.type}]`;
+  return server.providers?.length ? _("The provider's DNS: %s").format(server.providers.join(", ")) : _("The provider's DNS: the router knows none now");
+}
+function serverItem(server, key) {
+  if (server.status)
+    return { state: "success", key, value: serverName(server) };
+  if (!server.refusal)
+    return { state: "error", key, value: serverName(server) };
+  return {
+    state: "warning",
+    key,
+    value: `${serverName(server)} \u2014 ${_("replies %s").format(server.refusal)}`
+  };
+}
+function dnsServerItems(servers, mode) {
+  if (servers.length === 1) {
+    return [serverItem(servers[0], _("Main DNS"))];
+  }
+  const asked = mode === "fastest" ? _("the fastest first") : _("in their order");
+  return servers.map(
+    (server, index) => serverItem(
+      server,
+      index === 0 ? _("DNS %d of %d, %s").format(index + 1, servers.length, asked) : _("DNS %d").format(index + 1)
+    )
+  );
+}
 async function runDnsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.DNS;
   updateCheckStore({
@@ -2670,7 +3907,14 @@ async function runDnsCheck() {
     throw new Error("DNS checks failed");
   }
   const data = dnsChecks.data;
-  const allGood = Boolean(data.dns_on_router) && Boolean(data.dhcp_config_status) && Boolean(data.bootstrap_dns_status) && Boolean(data.dns_status);
+  const servers = data.dns_servers?.length ? data.dns_servers : [
+    {
+      type: data.dns_type,
+      server: data.dns_server,
+      status: data.dns_status
+    }
+  ];
+  const allGood = Boolean(data.dns_on_router) && Boolean(data.dhcp_config_status) && Boolean(data.bootstrap_dns_status) && servers.every((server) => Boolean(server.status));
   const atLeastOneGood = Boolean(data.dns_on_router) || Boolean(data.dhcp_config_status) || Boolean(data.bootstrap_dns_status) || Boolean(data.dns_status);
   const { state, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
@@ -2681,7 +3925,9 @@ async function runDnsCheck() {
     state,
     items: [
       ...insertIf(
-        data.dns_type === "doh" || data.dns_type === "dot" || !data.bootstrap_dns_status,
+        servers.some(
+          (server) => server.type === "doh" || server.type === "dot"
+        ) || !data.bootstrap_dns_status,
         [
           {
             state: data.bootstrap_dns_status ? "success" : "error",
@@ -2690,11 +3936,7 @@ async function runDnsCheck() {
           }
         ]
       ),
-      {
-        state: data.dns_status ? "success" : "error",
-        key: _("Main DNS"),
-        value: `${data.dns_server} [${data.dns_type}]`
-      },
+      ...dnsServerItems(servers, data.dns_mode),
       {
         state: data.dns_on_router ? "success" : "error",
         key: _("DNS on router"),
@@ -3516,25 +4758,6 @@ function renderButton({
   );
 }
 
-// src/helpers/showToast.ts
-function showToast(message, type, duration = 3e3) {
-  let container = document.querySelector(".toast-container");
-  if (!container) {
-    container = document.createElement("div");
-    container.className = "toast-container";
-    document.body.appendChild(container);
-  }
-  const toast = document.createElement("div");
-  toast.className = `toast toast-${type}`;
-  toast.textContent = message;
-  container.appendChild(toast);
-  setTimeout(() => toast.classList.add("visible"), 100);
-  setTimeout(() => {
-    toast.classList.remove("visible");
-    setTimeout(() => toast.remove(), 300);
-  }, duration);
-}
-
 // src/helpers/copyToClipboard.ts
 function copyToClipboard(text) {
   const textarea = document.createElement("textarea");
@@ -3945,74 +5168,59 @@ function renderWikiDisclaimer(kind) {
 function responded(answer) {
   return answer.success && !answer.data.message ? answer.data.delay : 0;
 }
-async function chosenLatency(section, test, proxies, servers) {
-  const now = proxies[test.code]?.now;
-  if (!now || now === "block") {
-    return {
-      state: "error",
-      value: `[${test.displayName}] ${_("Not responding")}`,
-      servers
-    };
-  }
-  const offered = section.outbounds.find((item) => item.code === now);
-  const name = now === "direct-out" ? _("Directly") : offered?.displayName ?? now;
-  const fallback = now === "direct-out" || proxies[now]?.type === "URLTest";
-  const delay = responded(
-    await PodkopShellMethods.getClashApiProxyLatency(now)
-  );
-  if (!delay) {
-    return {
-      state: "error",
-      value: `[${test.displayName} \u2192 ${name}] ${_("Not responding")}`,
-      servers
-    };
-  }
-  return {
-    state: fallback ? "warning" : "success",
-    value: `[${test.displayName} \u2192 ${name}] ${delay}ms`,
-    servers
+function oncePerTag() {
+  const runs = /* @__PURE__ */ new Map();
+  return (tag) => {
+    let run = runs.get(tag);
+    if (!run) {
+      run = PodkopShellMethods.getClashApiProxyLatency(tag).then(responded);
+      runs.set(tag, run);
+    }
+    return run;
   };
 }
-async function ruleLatency(section, sources) {
-  const selected = section.outbounds.find((item) => item.selected);
-  if (!selected) {
-    return { state: "error", value: _("Not responding") };
-  }
-  if (selected.type !== "URLTest") {
-    const delay = responded(
-      await PodkopShellMethods.getClashApiProxyLatency(selected.code)
-    );
-    return delay ? { state: "success", value: `[${selected.displayName}] ${delay}ms` } : {
+async function routeLatency(route, measure) {
+  const label = routeLabel(route);
+  const name = label ? `${label}: ${route.displayName}` : route.displayName;
+  if (route.code === "block") {
+    return {
       state: "error",
-      value: `[${selected.displayName}] ${_("Not responding")}`
+      value: label ? `${label}: ${_("connections are refused")}` : route.displayName
     };
   }
-  const latencyGroup = await PodkopShellMethods.getClashApiGroupLatency(
-    selected.code
-  );
-  const answered = latencyGroup.success && !latencyGroup.data.message ? latencyGroup.data : {};
-  const listed = await PodkopShellMethods.getClashApiProxies();
-  const proxies = listed.success ? listed.data.proxies ?? {} : {};
-  const test = proxies[selected.code];
-  const members = (test?.all ?? Object.keys(answered)).slice(
-    0,
-    (test?.all?.length ?? Object.keys(answered).length) - (test?.fallbacks?.length ?? 0)
-  );
-  const servers = members.map((tag) => ({
-    name: serverDisplayName(tag, sources),
-    delay: answered[tag] || proxies[tag]?.history?.[0]?.delay || 0
-  })).sort(
-    (left, right) => (left.delay || Infinity) - (right.delay || Infinity) || left.name.localeCompare(right.name)
-  );
-  const answering = servers.filter((server) => server.delay).length;
-  if (!answering) {
-    return chosenLatency(section, selected, proxies, servers);
+  const delay = await measure(route.code);
+  if (!delay) {
+    return { state: "error", value: `${name} \u2014 ${_("Not responding")}` };
   }
   return {
-    state: "success",
-    value: `[${selected.displayName}] ${_("%s of %s answer").format(answering, servers.length)}`,
-    servers
+    state: route.mode === "auto" && route.tier ? "warning" : "success",
+    value: `${name} ${delay} ms`
   };
+}
+var REREAD_MS = 300;
+var REREADS = 4;
+async function ruleLatency(section, measure, model) {
+  if (!section.route) {
+    return { state: "error", value: _("Not responding") };
+  }
+  const line = await routeLatency(section.route, measure);
+  if (line.state !== "error" || section.route.mode !== "auto") return line;
+  for (let read = 0; read < REREADS; read++) {
+    if (read) await new Promise((done) => setTimeout(done, REREAD_MS));
+    const listed = await PodkopShellMethods.getClashApiProxies();
+    if (!listed.success) return line;
+    const { route } = ruleTiles(
+      listed.data.proxies ?? {},
+      section.code.replace(/-out$/, ""),
+      model.sources,
+      model.members,
+      /* @__PURE__ */ new Set()
+    );
+    if (route && route.code !== section.route.code) {
+      return routeLatency(route, measure);
+    }
+  }
+  return line;
 }
 async function runSectionsCheck() {
   const { order, title, code } = DIAGNOSTICS_CHECKS_MAP.OUTBOUNDS;
@@ -4036,27 +5244,26 @@ async function runSectionsCheck() {
     });
     throw new Error("Sections checks failed");
   }
-  const { sources } = await getConfigModel();
+  const model = await getConfigModel();
+  const measure = oncePerTag();
+  const direct = measure("direct-out");
   const items = await Promise.all(
     sections.data.map(async (section) => {
       async function getLatency() {
         if (section.withTagSelect) {
-          return ruleLatency(section, sources);
+          return ruleLatency(section, measure, model);
         }
-        const delay = responded(
-          await PodkopShellMethods.getClashApiProxyLatency(section.code)
-        );
+        const delay = await measure(section.code);
         return delay ? { state: "success", value: `${delay} ms` } : { state: "error", value: _("Not responding") };
       }
       return { key: section.displayName, ...await getLatency() };
     })
   );
-  const direct = await PodkopShellMethods.getClashApiProxyLatency("direct-out");
-  const directWorks = direct.success && !direct.data.message;
+  const directDelay = await direct;
   items.push({
-    state: directWorks ? "success" : "error",
+    state: directDelay ? "success" : "error",
     key: _("Direct (without a proxy)"),
-    value: directWorks ? `${direct.data.delay} ms` : _("Not responding")
+    value: directDelay ? `${directDelay} ms` : _("Not responding")
   });
   const allGood = items.every((item) => item.state === "success");
   const atLeastOneGood = items.some((item) => item.state !== "error");
@@ -5016,6 +6223,18 @@ ${DashboardTab.styles}
 ${DiagnosticTab.styles}
 ${PartialStyles}
 
+
+/* A row of the provider's DNS has no address: no title of the hidden cell on a phone. LuCI
+   marks the cell inactive only when the field is hidden later, not when the row is drawn so */
+#cbi-podkop-dns_server .td.cbi-value-field.inactive,
+#cbi-podkop-dns_server .td.cbi-value-field:has(> [data-field].hidden) {
+    padding: 0;
+}
+
+#cbi-podkop-dns_server .td.cbi-value-field.inactive::before,
+#cbi-podkop-dns_server .td.cbi-value-field:has(> [data-field].hidden)::before {
+    content: none;
+}
 
 /* Centered class helper */
 .centered {

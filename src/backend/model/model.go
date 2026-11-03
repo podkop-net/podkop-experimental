@@ -142,10 +142,30 @@ type Check struct {
 	DownloadURL   string
 }
 
+// DNS modes: the servers of the list asked in their order, or the fastest of them first
+const (
+	DNSModeOrder   = "order"
+	DNSModeFastest = "fastest"
+	// DNSTypeProvider is a row of the list that takes the DNS servers of the internet provider
+	DNSTypeProvider = "provider"
+)
+
+// DNSUpstream is a "config dns_server" block: a DNS server of the list, in the order of the
+// file.
+type DNSUpstream struct {
+	Type   string // udp, dot, doh, provider
+	Server string // host[:port][/path]; "" for provider
+}
+
 // Settings is the section "settings".
 type Settings struct {
-	DNSType            string // udp, dot, doh
-	DNSServer          string // host[:port][/path]
+	// DNSType and DNSServer are the options of the one server before the list; a file without
+	// "dns_server" blocks has its list made of them
+	DNSType   string // udp, dot, doh
+	DNSServer string // host[:port][/path]
+	// DNSUpstreams are the DNS servers in their order, DNSMode how they are asked
+	DNSUpstreams       []DNSUpstream
+	DNSMode            string
 	BootstrapDNSServer string
 	DNSRewriteTTL      string // a number is expected; kept as written
 
@@ -228,6 +248,7 @@ func Load(parsed *uci.Package) (*Config, error) {
 	config := &Config{Settings: Settings{
 		DNSType:                      get(settings, "dns_type", "doh"),
 		DNSServer:                    get(settings, "dns_server", "1.1.1.1"),
+		DNSMode:                      get(settings, "dns_mode", DNSModeOrder),
 		BootstrapDNSServer:           get(settings, "bootstrap_dns_server", "77.88.8.8"),
 		DNSRewriteTTL:                get(settings, "dns_rewrite_ttl", "60"),
 		SourceNetworkInterfaces:      list(settings, "source_network_interfaces"),
@@ -296,6 +317,14 @@ func Load(parsed *uci.Package) (*Config, error) {
 			DomainResolverDNSType:   get(section, "domain_resolver_dns_type", "udp"),
 			DomainResolverDNSServer: section.Get("domain_resolver_dns_server"),
 		})
+	}
+	for _, row := range parsed.SectionsOfType("dns_server") {
+		config.Settings.DNSUpstreams = append(config.Settings.DNSUpstreams, DNSUpstream{
+			Type: get(row, "type", "doh"), Server: strings.TrimSpace(row.Get("server")),
+		})
+	}
+	if len(config.Settings.DNSUpstreams) == 0 {
+		config.Settings.DNSUpstreams = []DNSUpstream{{Type: config.Settings.DNSType, Server: config.Settings.DNSServer}}
 	}
 	for _, member := range parsed.SectionsOfType("member") {
 		rule := config.Section(member.Get("section"))

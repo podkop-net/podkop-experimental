@@ -1,37 +1,118 @@
 "use strict";
 "require form";
 "require uci";
+"require ui";
 "require baseclass";
 "require tools.widgets as widgets";
 "require network";
 "require view.podkop.main as main";
 "require view.podkop.devices as devices";
 
-function createSettingsContent(section, singBoxFeatures = []) {
-  let o = section.option(
-    form.ListValue,
-    "dns_type",
-    _("DNS Protocol Type"),
-    _("Select DNS protocol to use"),
-  );
-  o.value("doh", _("DNS over HTTPS (DoH)"));
-  o.value("dot", _("DNS over TLS (DoT)"));
-  o.value("udp", _("UDP (Unprotected DNS)"));
-  o.default = "udp";
-  o.rmempty = false;
+// The provider's DNS servers netifd knows now, for the note under the list: those of the
+// interfaces with a default route, as the backend takes them.
+function providerDNS() {
+  return network
+    .getWANNetworks()
+    .then((networks) => {
+      const servers = [];
+      networks.forEach((wan) => {
+        (wan.getDNSAddrs() || []).forEach((server) => {
+          if (!servers.includes(server)) servers.push(server);
+        });
+      });
+      return servers;
+    })
+    .catch(() => []);
+}
 
-  o = section.option(
-    form.Value,
+// The DNS servers in their order, a row each, dragged by the handle to another place, as the
+// rows of a rule are. A file without the list has the one server of its options as the first row:
+// it is made in the page and written with the next save, so opening the page changes nothing.
+function dnsServersTable(section) {
+  const o = section.option(
+    form.SectionValue,
+    "_dns_servers",
+    form.TableSection,
     "dns_server",
-    _("DNS Server"),
-    _("Select or enter DNS server address"),
+    _("DNS servers"),
+    _(
+      "Asked in the order of the list or the fastest first, as chosen below. Drag a row by its handle to move it.",
+    ),
   );
+  const table = o.subsection;
+  table.anonymous = true;
+  table.addremove = true;
+  table.sortable = true;
+  table.nodescriptions = true;
+  table.load = function () {
+    if (!uci.sections("podkop", "dns_server").length) {
+      const row = uci.add("podkop", "dns_server");
+      uci.set(
+        "podkop",
+        row,
+        "type",
+        uci.get("podkop", "settings", "dns_type") || "doh",
+      );
+      uci.set(
+        "podkop",
+        row,
+        "server",
+        uci.get("podkop", "settings", "dns_server") || "1.1.1.1",
+      );
+    }
+    return Promise.all([
+      form.TableSection.prototype.load.apply(this, arguments),
+      providerDNS().then((servers) => {
+        table.description =
+          _(
+            "Asked in the order of the list or the fastest first, as chosen below. Drag a row by its handle to move it.",
+          ) +
+          " " +
+          (servers.length
+            ? _("The provider's DNS now: %s.").format(servers.join(", "))
+            : _("The router knows no DNS server of the provider now."));
+      }),
+    ]);
+  };
+  // the order is the order the servers are asked in: dragging only
+  table.handleSort = function () {};
+  // one server is left at least: without the list the server of the options would come back
+  table.handleRemove = function () {
+    if (this.cfgsections().length > 1) {
+      return form.TableSection.prototype.handleRemove.apply(this, arguments);
+    }
+    ui.addTimeLimitedNotification(
+      null,
+      E("p", {}, [
+        _(
+          "One DNS server is needed at least: change this one, or add another first.",
+        ),
+      ]),
+      5000,
+      "warning",
+    );
+    return Promise.resolve();
+  };
+  table.renderSectionPlaceholder = function () {
+    return E("em", {}, [_("No DNS server: add one.")]);
+  };
+
+  let column = table.option(form.ListValue, "type", _("Type"));
+  column.value("doh", _("DNS over HTTPS (DoH)"));
+  column.value("dot", _("DNS over TLS (DoT)"));
+  column.value("udp", _("UDP (Unprotected DNS)"));
+  column.value("provider", _("The provider's DNS"));
+  column.default = "doh";
+  column.rmempty = false;
+
+  column = table.option(form.Value, "server", _("Address"));
   Object.entries(main.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
-    o.value(key, _(label));
+    column.value(key, _(label));
   });
-  o.default = "8.8.8.8";
-  o.rmempty = false;
-  o.validate = function (section_id, value) {
+  // the provider's row has no address of its own
+  ["doh", "dot", "udp"].forEach((type) => column.depends("type", type));
+  column.rmempty = false;
+  column.validate = function (section_id, value) {
     const validation = main.validateDNS(value);
 
     if (validation.valid) {
@@ -40,6 +121,23 @@ function createSettingsContent(section, singBoxFeatures = []) {
 
     return validation.message;
   };
+}
+
+function createSettingsContent(section, singBoxFeatures = []) {
+  dnsServersTable(section);
+
+  let o = section.option(
+    form.ListValue,
+    "dns_mode",
+    _("How the DNS servers are asked"),
+    _(
+      "In their order: a server is asked only when the ones above it do not answer. The fastest first: the server that answered fastest lately is asked, the next fastest when it does not answer.",
+    ),
+  );
+  o.value("order", _("In their order"));
+  o.value("fastest", _("The fastest first"));
+  o.default = "order";
+  o.rmempty = false;
 
   o = section.option(
     form.Value,

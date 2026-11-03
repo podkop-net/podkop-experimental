@@ -14,6 +14,7 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/ctl"
 	"github.com/podkop-net/podkop-experimental/src/backend/diag"
 	"github.com/podkop-net/podkop-experimental/src/backend/dnsmasq"
+	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/plan"
 	"github.com/podkop-net/podkop-experimental/src/backend/render"
 	"github.com/podkop-net/podkop-experimental/src/backend/uci"
@@ -93,9 +94,16 @@ func checkDNS(output io.Writer, errorOutput io.Writer) int {
 	dhcp, _ := readUCI(commandCheckDNSFlagDHCP)
 	// as written, without the defaults of the generator: the check reports the settings
 	settings := parsed.Section("settings")
+	var upstreams []model.DNSUpstream
+	for _, row := range parsed.SectionsOfType("dns_server") {
+		upstreams = append(upstreams, model.DNSUpstream{Type: row.Get("type"), Server: row.Get("server")})
+	}
+	if len(upstreams) == 0 {
+		upstreams = []model.DNSUpstream{{Type: settings.Get("dns_type"), Server: settings.Get("dns_server")}}
+	}
 	report := diag.CheckDNS(context.Background(), diag.DNSSettings{
-		Type:      settings.Get("dns_type"),
-		Server:    settings.Get("dns_server"),
+		Upstreams: upstreams,
+		Mode:      settings.Get("dns_mode"),
 		Bootstrap: settings.Get("bootstrap_dns_server"),
 	}, dhcp)
 	content, err := json.MarshalIndent(ctl.AnswerDNS(report), "", "  ")
