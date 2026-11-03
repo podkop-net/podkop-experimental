@@ -19,7 +19,8 @@
         ],
         "podkop": [
           "run",
-          "stats"
+          "stats",
+          "detect"
         ]
       },
       "uci": [
@@ -29,6 +30,11 @@
       ]
     },
     "write": {
+      "ubus": {
+        "podkop": [
+          "force_detect"
+        ]
+      },
       "uci": [
         "podkop"
       ]

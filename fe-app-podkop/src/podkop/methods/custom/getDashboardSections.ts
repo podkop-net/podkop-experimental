@@ -1,32 +1,48 @@
 import { getConfigModel } from './getConfigModel';
-import { Podkop } from '../../types';
+import { ClashAPI, Podkop } from '../../types';
 import { PodkopShellMethods } from '../shell';
-import { ruleExit, serverDisplayName } from '../../sources';
+import { ruleExit } from '../../sources';
+import { ruleTiles } from './ruleTiles';
 
 interface IGetDashboardSectionsResponse {
   success: boolean;
   data: Podkop.OutboundGroup[];
 }
 
-// the tile of an outbound the selector of a rule offers: the URL test of the rule first, its
-// servers by the labels of their sources, the tiers of its fallbacks of several servers
-function outboundName(
-  code: string,
-  rule: string,
-  sources: Podkop.ConfigSource[],
-): string {
-  if (code === `${rule}-urltest-out`) return _('Fastest');
-  if (code === 'block') return _('Refused: the rule has no server now');
-  const tier = code.match(/^(.+)-fallback-(\d+)-out$/);
-  if (tier && tier[1] === rule) return _('Fallback %s').format(tier[2]);
-  return serverDisplayName(code, sources);
+// usedTags are the tags the connections go through by the selectors of all the rules: the choice of
+// a selector and on down the choices under it, to the end (a URL test may have chosen the URL test
+// of a fallback). Rules that take one source have the same tags, and their tests may choose
+// differently. A tag seen before has had the rest of its way walked.
+export function usedTags(
+  proxies: ClashAPI.Proxies['proxies'],
+  selectors: string[],
+): Set<string> {
+  const used = new Set<string>();
+  selectors.forEach((selector) => {
+    let tag = proxies[selector]?.now;
+    while (tag && !used.has(tag)) {
+      used.add(tag);
+      tag = proxies[tag]?.now;
+    }
+  });
+  return used;
+}
+
+// getUsedTags reads usedTags anew: a URL test may have switched since the grid was drawn. undefined
+// when the Clash API does not answer.
+export async function getUsedTags(
+  selectors: string[],
+): Promise<Set<string> | undefined> {
+  const clashProxies = await PodkopShellMethods.getClashApiProxies();
+  const proxies = clashProxies.success ? clashProxies.data.proxies : undefined;
+  return proxies ? usedTags(proxies, selectors) : undefined;
 }
 
 // The rules that go through servers, each as the selector "<rule>-out" of its outbounds
-// (the backend's plan/exits.go): the URL test "<rule>-urltest-out", the servers of its
-// rows, the URL tests "<rule>-fallback-N-out" of its fallbacks of several servers. A rule
-// whose one row is direct or block has no outbound, nor has one whose sources are not
-// filled yet; a disabled rule is not there.
+// (the backend's plan/exits.go): the URL test "<rule>-urltest-out" and all the servers of its
+// rows, those of its fallbacks too, laid out by ruleTiles. A rule whose one row is direct or
+// block has no outbound, nor has one whose sources are not filled yet; a disabled rule is not
+// there.
 export async function getDashboardSections(): Promise<IGetDashboardSectionsResponse> {
   const { rules, sources, members } = await getConfigModel();
   const clashProxies = await PodkopShellMethods.getClashApiProxies();
@@ -40,38 +56,33 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
 
   const proxies = clashProxies.data.proxies ?? {};
 
-  const data = rules
-    .filter(
-      (rule) =>
-        rule.enabled !== '0' && ruleExit(rule, sources, members) === 'servers',
-    )
-    .map((rule) => {
-      const name = rule['.name'];
-      const code = `${name}-out`;
-      const selector = proxies[code];
-      const displayName = String(rule.label ?? '').trim() || name;
+  const running = rules.filter(
+    (rule) =>
+      rule.enabled !== '0' && ruleExit(rule, sources, members) === 'servers',
+  );
+  const used = usedTags(
+    proxies,
+    running.map((rule) => `${rule['.name']}-out`),
+  );
 
-      // the running configuration does not have the rule yet
-      if (!selector) {
-        return { withTagSelect: false, code, displayName, outbounds: [] };
-      }
+  const data = running.map((rule) => {
+    const name = rule['.name'];
+    const code = `${name}-out`;
+    const selector = proxies[code];
+    const displayName = String(rule.label ?? '').trim() || name;
 
-      return {
-        withTagSelect: true,
-        code,
-        displayName,
-        outbounds: (selector.all ?? []).map((tag) => {
-          const item = proxies[tag];
-          return {
-            code: tag,
-            displayName: outboundName(tag, name, sources),
-            latency: item?.history?.[0]?.delay || 0,
-            type: item?.type || '',
-            selected: selector.now === tag,
-          };
-        }),
-      };
-    });
+    // the running configuration does not have the rule yet
+    if (!selector) {
+      return { withTagSelect: false, code, displayName, outbounds: [] };
+    }
+
+    return {
+      withTagSelect: true,
+      code,
+      displayName,
+      ...ruleTiles(proxies, name, sources, members, used),
+    };
+  });
 
   return {
     success: true,

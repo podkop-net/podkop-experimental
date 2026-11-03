@@ -31,8 +31,8 @@ type sourceServer struct {
 // itself and once for each source its rows connect through ("<tag> via <source>"). A rule
 // that goes through servers gets a URL test of the servers of its rows, with its fallback
 // rows in their order (a fallback row of several servers is a URL test of its own), and the
-// selector "<rule>-out" of the test and the servers, which its route rule goes to and the
-// dashboard pins a server on. A rule of one server and no fallback has nothing to choose from
+// selector "<rule>-out" of the test and all the servers, those of its fallbacks too, which its
+// route rule goes to and the dashboard pins a server on. A rule of one server and no fallback has nothing to choose from
 // and its selector takes the server alone, unless a subscription can bring more at any time.
 // A rule whose rows name no server now refuses its connections
 // through a selector of the block outbound: when servers come, sing-box replaces it while it
@@ -87,6 +87,8 @@ func (b *builder) buildExit(section *model.Section) error {
 	// a fallback that is a server of the rule or a fallback before it is there once: sing-box
 	// refuses a URL test that lists an outbound twice
 	var tiers []string
+	// the servers of a fallback of several servers, by the tag of its URL test
+	groups := make(map[string][]string)
 	addTier := func(tag string) {
 		if !slices.Contains(members, tag) && !slices.Contains(tiers, tag) {
 			tiers = append(tiers, tag)
@@ -113,6 +115,7 @@ func (b *builder) buildExit(section *model.Section) error {
 			tag := outboundTag(section.Name + "-fallback-" + strconv.Itoa(index+1))
 			b.addURLTest(tag, tags, nil)
 			addTier(tag)
+			groups[tag] = tags
 		}
 	}
 	var choices []string
@@ -128,8 +131,16 @@ func (b *builder) buildExit(section *model.Section) error {
 		b.addURLTest(test, members, tiers)
 		choices = append([]string{test}, members...)
 		for _, tier := range tiers {
-			if tier != tagDirectOutbound && tier != tagBlockOutbound && !slices.Contains(choices, tier) {
-				choices = append(choices, tier)
+			// a fallback of several servers is offered by its servers, so that the dashboard
+			// pins any server it shows; direct and block are only fallbacks
+			servers, isGroup := groups[tier]
+			if !isGroup && tier != tagDirectOutbound && tier != tagBlockOutbound {
+				servers = []string{tier}
+			}
+			for _, server := range servers {
+				if !slices.Contains(choices, server) {
+					choices = append(choices, server)
+				}
 			}
 		}
 	}

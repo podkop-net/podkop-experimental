@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/trafficcontrol"
@@ -39,6 +40,12 @@ type Instance struct {
 	// calls after it find the instance closed and do not touch what sing-box let go
 	use    sync.RWMutex
 	closed bool
+	// started is when Start was called; set once, before others have the instance
+	started time.Time
+	// detectForgotten is when a swap replaced the outbound of a tag: its connections opened before
+	// are of the old one (forgetDetect)
+	detectAccess    sync.Mutex
+	detectForgotten map[string]time.Time
 }
 
 // ErrClosed is what a call to an instance that was closed returns.
@@ -169,6 +176,7 @@ func (i *Instance) Start() error {
 	// late: a test of the instance before may still end and write its result while that
 	// one closes
 	history.forgetChanged(i.dialers)
+	i.started = time.Now()
 	// a start that failed is closed here, within a bound: box.Start would close it itself,
 	// for as long as a component takes, and the caller would never learn it is stuck
 	err := i.box.StartWithoutClose()
@@ -390,6 +398,90 @@ func (i *Instance) Traffic() (Traffic, error) {
 	}
 	up, down := manager.Total()
 	return Traffic{Up: up, Down: down, Connections: manager.ConnectionsLen()}, nil
+}
+
+// Connections returns the open TCP connections the tracker keeps, read in process (no Clash HTTP
+// API): a big one counts as a flow that goes past a limit before it closes, and one whose client
+// has long waited for the server as a cut. What the closed ones came to is in DetectFlows. Those of
+// an outbound a swap replaced are left out: they say nothing of the link that has its tag now.
+func (i *Instance) Connections() ([]detect.Conn, error) {
+	if !i.enter() {
+		return nil, ErrClosed
+	}
+	defer i.leave()
+	manager := service.PtrFromContext[trafficcontrol.Manager](i.ctx)
+	if manager == nil {
+		return nil, E.New("this sing-box keeps no count of its traffic")
+	}
+	open := manager.Connections()
+	conns := make([]detect.Conn, 0, len(open))
+	i.detectAccess.Lock()
+	defer i.detectAccess.Unlock()
+	for _, m := range open {
+		if m.Metadata.Network != N.NetworkTCP {
+			continue
+		}
+		if forgotten, found := i.detectForgotten[m.Outbound]; found && m.CreatedAt.Before(forgotten) {
+			continue
+		}
+		conns = append(conns, detect.Conn{Outbound: m.Outbound, Down: m.Download.Load(), Up: m.Upload.Load(), CreatedAt: m.CreatedAt, PendingSince: m.PendingSince()})
+	}
+	return conns, nil
+}
+
+// DetectFlows returns what the engine keeps for the block detector of the closed TCP connections
+// of the proxy outbounds, by tag: possible cuts and when flows last carried anything. Unlike the
+// closed connections of the Clash API, the cleanup at every GC does not wipe it.
+func (i *Instance) DetectFlows() (map[string]detect.FlowSample, error) {
+	if !i.enter() {
+		return nil, ErrClosed
+	}
+	defer i.leave()
+	manager := service.PtrFromContext[trafficcontrol.Manager](i.ctx)
+	if manager == nil {
+		return nil, E.New("this sing-box keeps no count of its traffic")
+	}
+	samples := manager.DetectFlows()
+	flows := make(map[string]detect.FlowSample, len(samples))
+	for tag, sample := range samples {
+		cuts := make([]detect.Flow, len(sample.Cuts))
+		for index, cut := range sample.Cuts {
+			cuts[index] = detect.Flow{Download: cut.Download, Upload: cut.Upload, CreatedAt: cut.CreatedAt, ClosedAt: cut.ClosedAt, PendingSince: cut.PendingSince}
+		}
+		flows[tag] = detect.FlowSample{Cuts: cuts, LastBigAt: sample.LastBigAt, LastDataAt: sample.LastDataAt}
+	}
+	return flows, nil
+}
+
+// DetectOutcome returns what the engine recorded of the handshakes with a server, from the cache
+// file; false when the configuration has no cache file or no record for the key. The caller
+// decides whether a record is still fresh. The key is the fallback's: the configured fingerprint,
+// the TLS server name and the server (host:port), as ServersOf reads them.
+func (i *Instance) DetectOutcome(fingerprint string, serverName string, destination string) (detect.Outcome, bool) {
+	if !i.enter() {
+		return detect.Outcome{}, false
+	}
+	defer i.leave()
+	cache := service.FromContext[adapter.CacheFile](i.ctx)
+	if cache == nil {
+		return detect.Outcome{}, false
+	}
+	flags, fp, at, loaded := cache.LoadDetectOutcome(fingerprint + " " + serverName + " " + destination)
+	if !loaded {
+		return detect.Outcome{}, false
+	}
+	return detect.Outcome{
+		NoAnswer:    flags&adapter.DetectNoAnswer != 0,
+		Refused:     flags&adapter.DetectRefused != 0,
+		Failed:      flags&adapter.DetectFailed != 0,
+		Fingerprint: fp,
+		At:          at,
+	}, true
+}
+
+// StartedAt is when the instance was asked to start: what it recorded since is of this run.
+func (i *Instance) StartedAt() time.Time {
+	return i.started
 }
 
 // Dial opens a TCP connection to an address (host:port) through an outbound of the instance,

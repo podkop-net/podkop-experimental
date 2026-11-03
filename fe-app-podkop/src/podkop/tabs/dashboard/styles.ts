@@ -57,8 +57,40 @@ export const styles = `
 
 .pdk_dashboard-page__outbound-section__title-section {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
+    gap: 6px 10px;
+}
+
+.pdk_dashboard-page__outbound-section__title-section__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    margin-left: auto;
+}
+
+/* how the rule chose where its connections go, beside its name */
+.pdk_dashboard-page__outbound-section__route {
+    color: var(--text-color-high, inherit);
+    font-size: 13px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* A pinned server, or a fallback in use: the servers of the rule do not decide. The text keeps
+   its colour and the tint under it tells: the warn colour of the light theme is too pale for text. */
+.pdk_dashboard-page__outbound-section__route--warning,
+.pdk_dashboard-page__outbound-section__route--error {
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(240, 160, 0, 0.22);
+}
+
+/* a block fallback in use: the connections of the rule are refused */
+.pdk_dashboard-page__outbound-section__route--error {
+    background: rgba(220, 40, 30, 0.22);
 }
 
 .pdk_dashboard-page__outbound-section__title-section__title {
@@ -73,10 +105,56 @@ export const styles = `
     grid-gap: 10px;
 }
 
+/* With fallbacks the tiles of a tier sit on its tint, two tints in turn: a cell of the grid per
+   tile, the tint in its padding, which joins the tiles of a tier. The padding replaces the gap,
+   and the margin keeps the tiles where the gap put them. */
+.pdk_dashboard-page__outbound-grid--tiers {
+    grid-gap: 0;
+    margin-left: -5px;
+    margin-right: -5px;
+}
+
+.pdk_dashboard-page__outbound-grid__cell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 18px 5px 5px;
+}
+
+.pdk_dashboard-page__outbound-grid__cell > .pdk_dashboard-page__outbound-grid__item {
+    flex: 1;
+}
+
+.pdk_dashboard-page__outbound-grid__cell--tint-0 {
+    background: rgba(127, 127, 127, 0.1);
+}
+
+.pdk_dashboard-page__outbound-grid__cell--tint-1 {
+    background: rgba(30, 144, 255, 0.12);
+}
+
+/* the name of a tier, over its first tile */
+.pdk_dashboard-page__outbound-grid__tier {
+    position: absolute;
+    top: 2px;
+    left: 7px;
+    right: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 14px;
+    color: var(--text-color-high, inherit);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .pdk_dashboard-page__outbound-grid__item {
     border: 2px var(--background-color-low, lightgray) solid;
     border-radius: 4px;
     padding: 10px;
+    min-width: 0;
+    overflow-wrap: anywhere;
     transition: border 0.2s ease;
 }
 
@@ -88,15 +166,87 @@ export const styles = `
     border-color: var(--primary-color-high, dodgerblue);
 }
 
-.pdk_dashboard-page__outbound-grid__item--active {
+/* the marks stay under the pointer: a tile just clicked shows it is in use */
+.pdk_dashboard-page__outbound-grid__item--active,
+.pdk_dashboard-page__outbound-grid__item--active:hover {
+    border-color: var(--success-color-medium, green);
+}
+
+/* the choice of a fallback of several servers, for when its turn comes */
+.pdk_dashboard-page__outbound-grid__item--pick,
+.pdk_dashboard-page__outbound-grid__item--pick:hover {
+    border-style: dashed;
     border-color: var(--success-color-medium, green);
 }
 
 .pdk_dashboard-page__outbound-grid__item__footer {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
+    gap: 4px 8px;
     margin-top: 10px;
+}
+
+.pdk_dashboard-page__outbound-grid__item__check {
+    container-type: inline-size;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px 8px;
+    margin-top: 6px;
+}
+
+button.pdk_dashboard-page__outbound-grid__item__check-button {
+    min-height: 28px;
+    padding: 2px 8px;
+    font-size: 12px;
+    line-height: normal;
+}
+
+/* Wraps between words only, whatever the tile above allows. A word wider than the tile (the longest
+   label has 10 letters, about 0.6 em each) takes a smaller font; where the browser has no cqi, the
+   12px stays. At the very least it is cut, not out of the tile. The theme on a phone sets
+   button { font-size: 14px !important } (mobile.css), hence the !important here. */
+button.pdk_dashboard-page__outbound-grid__item__block {
+    min-height: 28px;
+    max-width: 100%;
+    padding: 2px 8px;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    background: transparent;
+    box-shadow: none;
+    text-shadow: none;
+    font-size: 12px !important;
+    font-size: clamp(9px, calc((100cqi - 18px) / 6.5), 12px) !important;
+    font-weight: 600;
+    line-height: normal;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+button.pdk_dashboard-page__outbound-grid__item__block--ok {
+    color: var(--success-color-medium, green);
+}
+
+button.pdk_dashboard-page__outbound-grid__item__block--warn {
+    color: var(--warn-color-medium, orange);
+}
+
+button.pdk_dashboard-page__outbound-grid__item__block--error {
+    color: var(--error-color-medium, red);
+}
+
+button.pdk_dashboard-page__outbound-grid__item__block--muted {
+    color: var(--text-color-low, gray);
+}
+
+button.pdk_dashboard-page__outbound-grid__item__block--neutral {
+    color: var(--text-color-high, inherit);
 }
 
 .pdk_dashboard-page__outbound-grid__item__type {}

@@ -454,8 +454,8 @@ func (c *Config) HasOutbound(s *Section) bool {
 const FormatVersion = migrate.Version
 
 // DefaultCachePath is the cache file of sing-box (FakeIP, rule sets) when the settings name
-// none: in RAM, as the shell backend had it.
-const DefaultCachePath = dataplane.RunDir + "/cache.db"
+// none: on flash, as in the package's settings, so that a reboot leaves the lists in place.
+const DefaultCachePath = dataplane.DataDir + "/cache.db"
 
 // movedDirs are the directories of the sing-box package that podkop 0.7 offered for the
 // cache file, and where the backend has it instead.

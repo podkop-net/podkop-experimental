@@ -321,7 +321,7 @@ func answer(ctx context.Context, object Object, objectID uint32, call *message, 
 			result, code := handler.Call(ctx, arguments)
 			status = code
 			if status == StatusOK {
-				reply, status = asTable(result)
+				reply, status = AsTable(result)
 			}
 		}
 	}
@@ -359,9 +359,10 @@ func answer(ctx context.Context, object Object, objectID uint32, call *message, 
 	send(done)
 }
 
-// asTable gives what a method returned in the generic form of encoding/json, numbers kept
-// exact; an answer that is not an object is the method's mistake.
-func asTable(result any) (map[string]any, int) {
+// AsTable gives what a method returned in the generic form of encoding/json, numbers kept
+// exact, as the call of the method answers it; an answer that is not an object is the method's
+// mistake.
+func AsTable(result any) (map[string]any, int) {
 	encoded, err := json.Marshal(result)
 	if err != nil {
 		return nil, StatusUnknownError

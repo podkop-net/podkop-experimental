@@ -21,7 +21,7 @@ func TestLoadDefaults(t *testing.T) {
 	require.Equal(t, "60", config.Settings.DNSRewriteTTL)
 	require.Equal(t, "1d", config.Settings.UpdateInterval)
 	require.Equal(t, "warn", config.Settings.LogLevel)
-	require.Equal(t, "/var/run/podkop/cache.db", config.Settings.CachePath)
+	require.Equal(t, "/usr/share/podkop/cache.db", config.Settings.CachePath)
 	require.Equal(t, Check{Interval: "3m", Tolerance: "50", TestingURL: "https://www.gstatic.com/generate_204", DownloadCheck: "default"}, config.Settings.Check)
 	require.Len(t, config.Sections, 1)
 	section := &config.Sections[0]

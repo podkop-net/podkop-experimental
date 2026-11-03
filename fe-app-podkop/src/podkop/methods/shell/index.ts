@@ -39,10 +39,12 @@ export const PodkopShellMethods = {
       Podkop.AvailableMethods.CLASH_API,
       [Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag, '5000'],
     ),
+  // the deadline of the whole round in sing-box, as groupWaitMax of the backend: dead servers
+  // first in a long list hold the slots, and a shorter round never reaches the live ones
   getClashApiGroupLatency: async (tag: string) =>
     callBaseMethod<Podkop.GetClashApiGroupLatency>(
       Podkop.AvailableMethods.CLASH_API,
-      [Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag, '10000'],
+      [Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag, '12000'],
     ),
   setClashApiGroupProxy: async (group: string, proxy: string) =>
     callBaseMethod<unknown>(Podkop.AvailableMethods.CLASH_API, [

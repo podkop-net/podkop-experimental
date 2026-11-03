@@ -61,3 +61,20 @@ export function statsWidgets(
   }
   return widgets;
 }
+
+export const SERVICES_REFRESH_MS = 10000;
+
+// servicesStale tells whether the state of the services, read when the tab opened and after
+// a button, no longer agrees with an answer of the stats: a page opened while an update or a
+// restart had the backend down showed it stopped (and no grid) until it was opened again. At
+// most one read every SERVICES_REFRESH_MS, so that a read that keeps failing is not repeated
+// at every answer.
+export function servicesStale(
+  current: Podkop.Stats | undefined,
+  shown: StoreType['servicesInfoWidget'],
+  lastRead: number,
+  now: number,
+): boolean {
+  if (shown.loading || now - lastRead < SERVICES_REFRESH_MS) return false;
+  return Boolean(current?.running) !== Boolean(shown.data.singbox);
+}

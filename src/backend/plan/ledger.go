@@ -46,7 +46,7 @@ import (
 //     package: the rule-set files in /var/run/podkop/rulesets (the shell backend:
 //     /tmp/sing-box/rulesets), and a cache file the settings name in /tmp/sing-box or
 //     /usr/share/sing-box under the same name in /var/run/podkop or /usr/share/podkop
-//     (model.CachePath); without cache_path it is /var/run/podkop/cache.db (the shell
+//     (model.CachePath); without cache_path it is /usr/share/podkop/cache.db (the shell
 //     backend: /tmp/sing-box/cache.db).
 //  9. No rules for the names the checks of podkop 0.7's page ask an outside server with:
 //     the shell backend routes ip.podkop.fyi to the first section and sends

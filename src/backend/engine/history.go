@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"sync"
+	"time"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/urltest"
 	"github.com/sagernet/sing/service"
@@ -152,6 +154,20 @@ func Delays(tags []string) map[string]uint16 {
 		}
 	}
 	return result
+}
+
+// URLTestFailure is when the last URL test of an outbound failed, if it has passed none since.
+func URLTestFailure(tag string) (time.Time, bool) {
+	return history.storage.LoadURLTestFailure(tag)
+}
+
+// DownloadResult is what the last download test of an outbound found, for the block detector.
+func DownloadResult(tag string) (detect.DownloadResult, bool) {
+	result, found := history.storage.LoadDownloadResult(tag)
+	if !found {
+		return detect.DownloadResult{}, false
+	}
+	return detect.DownloadResult{At: result.At, Received: result.Received, Stopped: result.Stopped}, true
 }
 
 // carryRenamed gives a dialer of a tag that is new the result of the one gone of the same

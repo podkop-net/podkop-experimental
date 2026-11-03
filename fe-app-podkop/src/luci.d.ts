@@ -2,13 +2,22 @@ type HtmlTag = keyof HTMLElementTagNameMap;
 
 type HtmlElement<T extends HtmlTag> = HTMLElementTagNameMap[T];
 
+// dom.attr of LuCI: a function listens to the event of its name, null leaves the attribute out, and
+// anything else goes in by setAttribute
 type HtmlAttributes<T extends HtmlTag = 'div'> = Partial<
-  Omit<HtmlElement<T>, 'style' | 'children'> & {
+  Omit<
+    HtmlElement<T>,
+    'style' | 'children' | 'click' | 'disabled' | 'title'
+  > & {
     style?: string | Partial<CSSStyleDeclaration>;
     class?: string;
     onclick?: (event: MouseEvent) => void;
+    click?: (event: Event) => void;
+    disabled?: boolean | string | null;
+    title?: string | null;
+    'aria-live'?: string;
   }
->;
+> & { [key: `data-${string}`]: string };
 
 declare global {
   const fs: {
@@ -58,7 +67,7 @@ declare global {
   };
 
   const ui = {
-    showModal: (_title: stirng, _content: HtmlElement) => undefined,
+    showModal: (_title: string | string[], _content: HtmlElement) => undefined,
     hideModal: () => undefined,
     addNotification: (
       _title: string,

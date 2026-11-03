@@ -30,6 +30,7 @@ import (
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
+	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/podkop-net/podkop-experimental/src/backend/engine"
 	"github.com/podkop-net/podkop-experimental/src/backend/firewall"
 	"github.com/podkop-net/podkop-experimental/src/backend/lists"
@@ -107,6 +108,11 @@ type Engine interface {
 	CheckServers(servers []subscription.Server, known map[string]string) map[string]string
 	// Delays are what the URL tests last found for outbounds, by tag (engine.Delays).
 	Delays(tags []string) map[string]uint16
+	// URLTestFailure is when the last URL test of an outbound failed, if it has passed none since
+	// (engine.URLTestFailure); DownloadResult what its last download test found
+	// (engine.DownloadResult).
+	URLTestFailure(tag string) (time.Time, bool)
+	DownloadResult(tag string) (detect.DownloadResult, bool)
 }
 
 // Instance is a sing-box of one configuration (engine.Instance).
@@ -121,6 +127,15 @@ type Instance interface {
 	UpdateRuleSets(ctx context.Context) (engine.RuleSetUpdate, error)
 	FakeIPAddress(name string) (netip.Addr, bool, error)
 	Traffic() (engine.Traffic, error)
+	// Connections are the open TCP connections the tracker keeps, DetectFlows what it keeps of the
+	// closed ones, DetectOutcome what the engine recorded of the handshakes with a server, StartedAt
+	// when the instance started: what the block detector reads (diagnose.go).
+	Connections() ([]detect.Conn, error)
+	DetectFlows() (map[string]detect.FlowSample, error)
+	DetectOutcome(fingerprint string, serverName string, destination string) (detect.Outcome, bool)
+	StartedAt() time.Time
+	// Prober is the instance as the probes of the block detector use it.
+	Prober() detect.Prober
 	Dial(ctx context.Context, tag string, address string) (net.Conn, error)
 	// Swap replaces outbounds while the instance runs (hot.go).
 	Swap(configuration []byte, swap engine.Swap, limit int) (engine.Swapped, error)
@@ -165,6 +180,12 @@ func (realEngine) CheckServers(servers []subscription.Server, known map[string]s
 }
 
 func (realEngine) Delays(tags []string) map[string]uint16 { return engine.Delays(tags) }
+
+func (realEngine) URLTestFailure(tag string) (time.Time, bool) { return engine.URLTestFailure(tag) }
+
+func (realEngine) DownloadResult(tag string) (detect.DownloadResult, bool) {
+	return engine.DownloadResult(tag)
+}
 
 // Options say where the supervisor finds and puts things.
 type Options struct {
@@ -294,6 +315,14 @@ type Supervisor struct {
 	// liveLinks the proxy links of its configuration
 	live      Instance
 	liveLinks []plan.Link
+	// liveServers are the proxies of its configuration and liveFallback whether its uTLS fallback
+	// is on, for the block detector; the outbounds in them hold secrets and are never logged.
+	// liveEpoch counts the changes of these.
+	liveServers  []detect.Server
+	liveFallback bool
+	liveEpoch    uint64
+	// diag is the state of the block detector's probes (diagnose.go)
+	diag diagnosis
 
 	// subscriptions are the lists of the subscriptions and what is known of them;
 	// downloads bring what a download in the background came to, subscriptionRequests
@@ -400,6 +429,11 @@ func factsOf(current *running) api.Facts {
 // done records what a boot or a change came to and returns it.
 func (s *Supervisor) done(ok bool, replaced bool, message ...any) Result {
 	result := Result{OK: ok, Message: oneLine(E.New(message...).Error())}
+	var servers []detect.Server
+	var fallback bool
+	if s.current != nil {
+		servers, fallback = engine.ServersOf(s.current.result.Config)
+	}
 	s.statusAccess.Lock()
 	defer s.statusAccess.Unlock()
 	now := time.Now()
@@ -414,6 +448,8 @@ func (s *Supervisor) done(ok bool, replaced bool, message ...any) Result {
 	if s.current != nil {
 		s.live, s.liveLinks = s.current.instance, s.current.result.Links
 	}
+	s.liveServers, s.liveFallback = servers, fallback
+	s.liveEpoch++
 	switch {
 	case s.current != nil:
 		s.failed, s.failures = false, 0
@@ -1307,6 +1343,14 @@ func (s *Supervisor) keepConfig(name string, content []byte) {
 // supervisor is stuck: Run returns engine.ErrStuck, and the process that runs it ends,
 // so that the service manager starts another. It tells whether the instance closed.
 func (s *Supervisor) close(instance Instance) bool {
+	// what reads the instance that runs learns first: a probe the close cuts must not take what the
+	// cut did for a finding (diagnoseServer), nor the next probe of its queue start on the way out
+	s.statusAccess.Lock()
+	if s.live == instance {
+		s.live, s.liveLinks, s.liveServers = nil, nil, nil
+		s.liveEpoch++
+	}
+	s.statusAccess.Unlock()
 	// sing-box sets the memory limit of Go for the process while it runs and lifts it when
 	// it closes; the next one sets it again only when it starts. The limit it had stays
 	// meanwhile: the build of the next one reads its local lists, the biggest allocation
@@ -1786,6 +1830,8 @@ func (s *Supervisor) Stop() {
 	s.status.Running = false
 	s.facts = api.Facts{}
 	s.live = nil
+	s.liveServers, s.liveFallback = nil, false
+	s.liveEpoch++
 	s.statusAccess.Unlock()
 	s.writeState(stateStopped)
 }

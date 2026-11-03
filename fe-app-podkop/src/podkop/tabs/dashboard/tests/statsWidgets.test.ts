@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { statsWidgets } from '../helpers/statsWidgets';
+import {
+  SERVICES_REFRESH_MS,
+  servicesStale,
+  statsWidgets,
+} from '../helpers/statsWidgets';
 import type { Podkop } from '../../../types';
 
 function stats(patch: Partial<Podkop.Stats>): Podkop.Stats {
@@ -52,5 +56,33 @@ describe('statsWidgets', () => {
       expect(widgets.trafficTotalWidget?.failed).toBe(true);
       expect(widgets.systemInfoWidget?.failed).toBe(true);
     }
+  });
+});
+
+describe('servicesStale', () => {
+  const shown = (singbox: number, loading = false) => ({
+    loading,
+    failed: false,
+    data: { singbox, podkop: 1 },
+  });
+  const later = SERVICES_REFRESH_MS + 1;
+
+  it('reads the services again when the backend came up after the tab opened', () => {
+    expect(servicesStale(stats({}), shown(0), 0, later)).toBe(true);
+  });
+
+  it('reads them again when the backend went away', () => {
+    for (const current of [undefined, stats({ running: false })]) {
+      expect(servicesStale(current, shown(1), 0, later)).toBe(true);
+    }
+  });
+
+  it('leaves them while they agree, while a read goes on, and soon after a read', () => {
+    expect(servicesStale(stats({}), shown(1), 0, later)).toBe(false);
+    expect(servicesStale(undefined, shown(0), 0, later)).toBe(false);
+    expect(servicesStale(stats({}), shown(0, true), 0, later)).toBe(false);
+    expect(servicesStale(stats({}), shown(0), 5000, 5000 + later - 2)).toBe(
+      false,
+    );
   });
 });

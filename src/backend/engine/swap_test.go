@@ -3,11 +3,16 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing/service"
 
@@ -96,6 +101,230 @@ func TestInstanceSwap(t *testing.T) {
 	require.NoError(t, instance.Close(10*time.Second))
 	_, err = instance.Swap(after, Swap{}, 0)
 	require.ErrorIs(t, err, ErrClosed)
+}
+
+// detectConfiguration is an instance a client reaches through its mixed inbound, every connection
+// through a selector and a server of the test; packetEncoding only tells one outbound from another.
+func detectConfiguration(t *testing.T, mixedPort int, serverPort int, packetEncoding string) []byte {
+	return []byte(fmt.Sprintf(`{
+  "log": {"disabled": true},
+  "inbounds": [{"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": %d}],
+  "outbounds": [
+    {"type": "direct", "tag": "direct-out"},
+    {"type": "vless", "tag": "a", "server": "127.0.0.1", "server_port": %d, "uuid": %q, "packet_encoding": %q},
+    {"type": "selector", "tag": "sel", "outbounds": ["a"], "default": "a"}
+  ],
+  "route": {"final": "sel"},
+  "experimental": {"cache_file": {"enabled": true, "path": %q}}
+}`, mixedPort, serverPort, probeUUID, packetEncoding, filepath.Join(t.TempDir(), "cache.db")))
+}
+
+// detectInstance is a started instance of detectConfiguration; the manager of the traffic comes
+// with the build for a log.
+func detectInstance(t *testing.T, configuration []byte) *Instance {
+	t.Helper()
+	instance, err := BuildLogged(configuration, func(string, string) {})
+	require.NoError(t, err)
+	require.NoError(t, instance.Start())
+	t.Cleanup(func() { instance.Close(10 * time.Second) })
+	return instance
+}
+
+// detectServer is a VLESS server for what the block detector reads of a connection: it answers the
+// first bytes of each connection with as many as the test tells, then holds it until told to cut.
+type detectServer struct {
+	listener net.Listener
+	bytes    atomic.Int64
+	access   sync.Mutex
+	cuts     chan struct{}
+}
+
+func newDetectServer(t *testing.T) *detectServer {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	server := &detectServer{listener: listener, cuts: make(chan struct{})}
+	t.Cleanup(func() {
+		listener.Close()
+		server.cut()
+	})
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			go server.serve(conn.(*net.TCPConn))
+		}
+	}()
+	return server
+}
+
+// cut resets the connections held now: no end of the stream for the copy of the instance to see.
+func (s *detectServer) cut() {
+	s.access.Lock()
+	defer s.access.Unlock()
+	close(s.cuts)
+	s.cuts = make(chan struct{})
+}
+
+func (s *detectServer) port() int {
+	return s.listener.Addr().(*net.TCPAddr).Port
+}
+
+func (s *detectServer) serve(conn *net.TCPConn) {
+	defer conn.Close()
+	s.access.Lock()
+	cuts := s.cuts
+	s.access.Unlock()
+	buffer := make([]byte, 4096)
+	if _, err := conn.Read(buffer); err != nil {
+		return
+	}
+	// the answer of VLESS, what the test asked for after it
+	if _, err := conn.Write(append([]byte{0, 0}, make([]byte, s.bytes.Load())...)); err != nil {
+		return
+	}
+	go io.Copy(io.Discard, conn)
+	<-cuts
+	_ = conn.SetLinger(0)
+}
+
+// detectClient opens a connection through the mixed inbound and reads what the server sends.
+func detectClient(t *testing.T, mixedPort int, want int64) net.Conn {
+	t.Helper()
+	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", mixedPort))
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+	_, err = fmt.Fprint(conn, "CONNECT 203.0.113.9:80 HTTP/1.1\r\nHost: 203.0.113.9:80\r\n\r\n")
+	require.NoError(t, err)
+	answer := make([]byte, 64)
+	n, err := conn.Read(answer)
+	require.NoError(t, err)
+	require.Contains(t, string(answer[:n]), " 200 ")
+	// the request goes with the first bytes
+	_, err = conn.Write([]byte("hello"))
+	require.NoError(t, err)
+	_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	_, err = io.ReadFull(conn, make([]byte, want))
+	require.NoError(t, err)
+	return conn
+}
+
+func openOf(t *testing.T, instance *Instance) []detect.Conn {
+	t.Helper()
+	conns, err := instance.Connections()
+	require.NoError(t, err)
+	return conns
+}
+
+func flowsOf(t *testing.T, instance *Instance) map[string]detect.FlowSample {
+	t.Helper()
+	flows, err := instance.DetectFlows()
+	require.NoError(t, err)
+	return flows
+}
+
+// What the block detector reads of a real connection: a client that writes after a silence of the
+// server waits for it, and such a connection that is cut counts; one that never waited does not.
+func TestDetectFlowsOfRealConnections(t *testing.T) {
+	const band = 18 << 10
+	server := newDetectServer(t)
+	mixedPort := freePort(t)
+	instance := detectInstance(t, detectConfiguration(t, mixedPort, server.port(), "xudp"))
+
+	server.bytes.Store(band)
+	conn := detectClient(t, mixedPort, band)
+	require.Eventually(t, func() bool {
+		conns := openOf(t, instance)
+		return len(conns) == 1 && conns[0].Down >= band
+	}, 5*time.Second, 10*time.Millisecond)
+	open := openOf(t, instance)[0]
+	require.Equal(t, "a", open.Outbound, "the server, not the selector")
+	require.True(t, open.PendingSince.IsZero(), "nothing asked of the server yet")
+
+	// the silence of the server, and the client asks
+	time.Sleep(5200 * time.Millisecond)
+	_, err := conn.Write([]byte("more"))
+	require.NoError(t, err)
+	var since time.Time
+	require.Eventually(t, func() bool {
+		since = openOf(t, instance)[0].PendingSince
+		return !since.IsZero()
+	}, 5*time.Second, 10*time.Millisecond)
+	require.Less(t, time.Since(since), 5*time.Second)
+	require.GreaterOrEqual(t, openOf(t, instance)[0].Up, int64(len("more")))
+	time.Sleep(3200 * time.Millisecond)
+	server.cut()
+	require.Eventually(t, func() bool { return len(flowsOf(t, instance)["a"].Cuts) == 1 }, 5*time.Second, 10*time.Millisecond)
+	sample := flowsOf(t, instance)["a"]
+	require.GreaterOrEqual(t, sample.Cuts[0].Download, int64(band))
+	require.GreaterOrEqual(t, sample.Cuts[0].Upload, int64(len("more")), "a flow above the upload of a wait is no cut")
+	require.WithinDuration(t, since, sample.Cuts[0].PendingSince, time.Second)
+	require.GreaterOrEqual(t, sample.Cuts[0].ClosedAt.Sub(sample.Cuts[0].PendingSince), 3*time.Second)
+	require.False(t, sample.LastDataAt.IsZero())
+	require.True(t, sample.LastBigAt.IsZero())
+	require.Empty(t, openOf(t, instance))
+
+	// cut with its client never having waited: no cut
+	detectClient(t, mixedPort, band)
+	server.cut()
+	require.Eventually(t, func() bool { return len(openOf(t, instance)) == 0 }, 5*time.Second, 10*time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
+	require.Len(t, flowsOf(t, instance)["a"].Cuts, 1)
+}
+
+// A swap leaves out of what the block detector reads all that the outbound a tag had before did, its
+// connections still open too; a swap that fails forgets nothing.
+func TestSwapForgetsWhatTheOldOutboundDid(t *testing.T) {
+	const big, band = 64 << 10, 18 << 10
+	server := newDetectServer(t)
+	mixedPort := freePort(t)
+	instance := detectInstance(t, detectConfiguration(t, mixedPort, server.port(), "xudp"))
+
+	// a big flow closed, and another that stays open
+	server.bytes.Store(big)
+	detectClient(t, mixedPort, big).Close()
+	server.cut()
+	require.Eventually(t, func() bool { return !flowsOf(t, instance)["a"].LastBigAt.IsZero() }, 5*time.Second, 10*time.Millisecond)
+	held := detectClient(t, mixedPort, big)
+	require.Eventually(t, func() bool {
+		conns := openOf(t, instance)
+		return len(conns) == 1 && conns[0].Down >= big
+	}, 5*time.Second, 10*time.Millisecond)
+
+	after := detectConfiguration(t, mixedPort, server.port(), "packetaddr")
+	// the selector that stays goes through the server replaced: sing-box refuses, and nothing changes
+	_, err := instance.Swap(after, Swap{Put: pickOutbounds(t, after, "a")}, 0)
+	require.Error(t, err)
+	require.False(t, flowsOf(t, instance)["a"].LastBigAt.IsZero(), "a swap that failed forgets nothing")
+	require.Len(t, openOf(t, instance), 1)
+
+	_, err = instance.Swap(after, Swap{Put: pickOutbounds(t, after, "a", "sel")}, 0)
+	require.NoError(t, err)
+	require.NotContains(t, flowsOf(t, instance), "a")
+	require.Empty(t, openOf(t, instance), "a connection of the old outbound says nothing of the new link")
+
+	// what the new outbound carries counts
+	server.bytes.Store(band)
+	fresh := detectClient(t, mixedPort, band)
+	require.Eventually(t, func() bool {
+		conns := openOf(t, instance)
+		return len(conns) == 1 && conns[0].Down >= band
+	}, 5*time.Second, 10*time.Millisecond)
+	fresh.Close()
+
+	// and the old connection, when it closes, does not
+	held.Close()
+	server.cut()
+	require.Eventually(t, func() bool {
+		traffic, err := instance.Traffic()
+		return err == nil && traffic.Connections == 0
+	}, 5*time.Second, 10*time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
+	sample := flowsOf(t, instance)["a"]
+	require.True(t, sample.LastBigAt.IsZero(), "the big flow of the old outbound")
+	require.False(t, sample.LastDataAt.IsZero(), "the flow of the new one")
 }
 
 // Servers of one name that changed places in the list: their tags are numbered in its order, and

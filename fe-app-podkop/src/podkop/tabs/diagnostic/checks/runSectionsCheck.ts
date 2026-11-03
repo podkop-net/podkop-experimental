@@ -3,12 +3,12 @@ import { PodkopShellMethods } from '../../../methods';
 import { updateCheckStore } from './updateCheckStore';
 import { getMeta } from '../helpers/getMeta';
 import { getDashboardSections } from '../../../methods/custom/getDashboardSections';
+import { routeLabel, ruleTiles } from '../../../methods/custom/ruleTiles';
 import { IDiagnosticsChecksItem } from '../../../services';
-import { ClashAPI, Podkop } from '../../../types';
+import { Podkop } from '../../../types';
 import { getConfigModel } from '../../../methods/custom/getConfigModel';
-import { serverDisplayName } from '../../../sources';
 
-type Latency = Pick<IDiagnosticsChecksItem, 'state' | 'value' | 'servers'>;
+type Latency = Pick<IDiagnosticsChecksItem, 'state' | 'value'>;
 
 function responded(answer: {
   success: boolean;
@@ -17,112 +17,85 @@ function responded(answer: {
   return answer.success && !answer.data.message ? answer.data.delay : 0;
 }
 
-// What a URL test none of whose servers gives a delay goes through now: a fallback of the rule,
-// or nothing. A server that was chosen before the test is tested again here too.
-async function chosenLatency(
-  section: Podkop.OutboundGroup,
-  test: Podkop.Outbound,
-  proxies: Record<string, ClashAPI.ProxyBase>,
-  servers: Latency['servers'],
-): Promise<Latency> {
-  const now = proxies[test.code]?.now;
+// measure tests an outbound once a run, however many rules go through it, the direct one too
+type Measure = (tag: string) => Promise<number>;
 
-  if (!now || now === 'block') {
-    return {
-      state: 'error',
-      value: `[${test.displayName}] ${_('Not responding')}`,
-      servers,
-    };
-  }
-
-  // the selector of the rule offers every server and tier the URL test may take but direct
-  const offered = section.outbounds.find((item) => item.code === now);
-  const name =
-    now === 'direct-out' ? _('Directly') : (offered?.displayName ?? now);
-  // a fallback: direct, or a URL test of several servers
-  const fallback = now === 'direct-out' || proxies[now]?.type === 'URLTest';
-  const delay = responded(
-    await PodkopShellMethods.getClashApiProxyLatency(now),
-  );
-
-  if (!delay) {
-    return {
-      state: 'error',
-      value: `[${test.displayName} → ${name}] ${_('Not responding')}`,
-      servers,
-    };
-  }
-
-  return {
-    state: fallback ? 'warning' : 'success',
-    value: `[${test.displayName} → ${name}] ${delay}ms`,
-    servers,
+function oncePerTag(): Measure {
+  const runs = new Map<string, Promise<number>>();
+  return (tag) => {
+    let run = runs.get(tag);
+    if (!run) {
+      run = PodkopShellMethods.getClashApiProxyLatency(tag).then(responded);
+      runs.set(tag, run);
+    }
+    return run;
   };
 }
 
-// What the selector of a rule has chosen is tested: the URL test of the rule with its own
-// servers, the one server of the rule, or what is pinned on the dashboard. A test of the
-// selector would test every server of every fallback with them.
+// The line of a rule: how it chose where its connections go and that server's answer, as
+// "Fastest: EE 158 ms", "Fastest → Fallback 2: LV 120 ms", "Manual: DE — Not responding" or,
+// for a rule of one server, "RU 80 ms". A fallback in use is a warning: the servers of the rule
+// do not answer.
+async function routeLatency(
+  route: Podkop.OutboundRoute,
+  measure: Measure,
+): Promise<Latency> {
+  const label = routeLabel(route);
+  const name = label ? `${label}: ${route.displayName}` : route.displayName;
+  if (route.code === 'block') {
+    // the block of a rule whose sources name no server now names itself
+    return {
+      state: 'error',
+      value: label
+        ? `${label}: ${_('connections are refused')}`
+        : route.displayName,
+    };
+  }
+  const delay = await measure(route.code);
+  if (!delay) {
+    return { state: 'error', value: `${name} — ${_('Not responding')}` };
+  }
+  return {
+    state: route.mode === 'auto' && route.tier ? 'warning' : 'success',
+    value: `${name} ${delay} ms`,
+  };
+}
+
+// how often and how long what a rule goes through is read again after its server failed
+const REREAD_MS = 300;
+const REREADS = 4;
+
+// Only the server each rule goes through now is tested, not its URL test: a group test waits for
+// the slowest of the servers, and a dead one holds it to the deadline. The URL test of the rule
+// tests its servers itself. A chosen server that does not answer has its failure stored by the
+// test, and sing-box then has the URL test choose again, just after it answered the test: what
+// the rule goes through is read again for a moment, and a new choice is tested in its turn, alone.
 async function ruleLatency(
   section: Podkop.OutboundGroup,
-  sources: Podkop.ConfigSource[],
+  measure: Measure,
+  model: Podkop.ConfigModel,
 ): Promise<Latency> {
-  const selected = section.outbounds.find((item) => item.selected);
-
-  if (!selected) {
+  if (!section.route) {
     return { state: 'error', value: _('Not responding') };
   }
-
-  if (selected.type !== 'URLTest') {
-    const delay = responded(
-      await PodkopShellMethods.getClashApiProxyLatency(selected.code),
+  const line = await routeLatency(section.route, measure);
+  if (line.state !== 'error' || section.route.mode !== 'auto') return line;
+  for (let read = 0; read < REREADS; read++) {
+    if (read) await new Promise((done) => setTimeout(done, REREAD_MS));
+    const listed = await PodkopShellMethods.getClashApiProxies();
+    if (!listed.success) return line;
+    const { route } = ruleTiles(
+      listed.data.proxies ?? {},
+      section.code.replace(/-out$/, ''),
+      model.sources,
+      model.members,
+      new Set(),
     );
-
-    return delay
-      ? { state: 'success', value: `[${selected.displayName}] ${delay}ms` }
-      : {
-          state: 'error',
-          value: `[${selected.displayName}] ${_('Not responding')}`,
-        };
+    if (route && route.code !== section.route.code) {
+      return routeLatency(route, measure);
+    }
   }
-
-  const latencyGroup = await PodkopShellMethods.getClashApiGroupLatency(
-    selected.code,
-  );
-  const answered =
-    latencyGroup.success && !latencyGroup.data.message ? latencyGroup.data : {};
-  const listed = await PodkopShellMethods.getClashApiProxies();
-  const proxies = listed.success ? (listed.data.proxies ?? {}) : {};
-  const test = proxies[selected.code];
-  const members = (test?.all ?? Object.keys(answered)).slice(
-    0,
-    (test?.all?.length ?? Object.keys(answered).length) -
-      (test?.fallbacks?.length ?? 0),
-  );
-  // sing-box answers the delays of the servers that answered. It answers nothing while a round
-  // of the test is under way, and a long round is cut by the timeout: the server keeps the delay
-  // of its last test then, and a server that failed its last test has none.
-  const servers = members
-    .map((tag) => ({
-      name: serverDisplayName(tag, sources),
-      delay: answered[tag] || proxies[tag]?.history?.[0]?.delay || 0,
-    }))
-    .sort(
-      (left, right) =>
-        (left.delay || Infinity) - (right.delay || Infinity) ||
-        left.name.localeCompare(right.name),
-    );
-  const answering = servers.filter((server) => server.delay).length;
-
-  if (!answering) {
-    return chosenLatency(section, selected, proxies, servers);
-  }
-
-  return {
-    state: 'success',
-    value: `[${selected.displayName}] ${_('%s of %s answer').format(answering, servers.length)}`,
-    servers,
-  };
+  return line;
 }
 
 export async function runSectionsCheck() {
@@ -152,18 +125,19 @@ export async function runSectionsCheck() {
     throw new Error('Sections checks failed');
   }
 
-  const { sources } = await getConfigModel();
+  const model = await getConfigModel();
+  const measure = oncePerTag();
+  // what goes without a proxy, through the WAN of the router: tested the same way, at once
+  const direct = measure('direct-out');
 
   const items = (await Promise.all(
     sections.data.map(async (section) => {
       async function getLatency(): Promise<Latency> {
         if (section.withTagSelect) {
-          return ruleLatency(section, sources);
+          return ruleLatency(section, measure, model);
         }
 
-        const delay = responded(
-          await PodkopShellMethods.getClashApiProxyLatency(section.code),
-        );
+        const delay = await measure(section.code);
 
         return delay
           ? { state: 'success', value: `${delay} ms` }
@@ -174,13 +148,11 @@ export async function runSectionsCheck() {
     }),
   )) as Array<IDiagnosticsChecksItem>;
 
-  // what goes without a proxy, through the WAN of the router: tested the same way
-  const direct = await PodkopShellMethods.getClashApiProxyLatency('direct-out');
-  const directWorks = direct.success && !direct.data.message;
+  const directDelay = await direct;
   items.push({
-    state: directWorks ? 'success' : 'error',
+    state: directDelay ? 'success' : 'error',
     key: _('Direct (without a proxy)'),
-    value: directWorks ? `${direct.data.delay} ms` : _('Not responding'),
+    value: directDelay ? `${directDelay} ms` : _('Not responding'),
   });
 
   const allGood = items.every((item) => item.state === 'success');

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/podkop-net/podkop-experimental/src/backend/engine"
 	"github.com/podkop-net/podkop-experimental/src/backend/firewall"
 	"github.com/podkop-net/podkop-experimental/src/backend/plan"
@@ -57,6 +58,13 @@ type fakeEngine struct {
 	carried  int
 	carry    map[string]string
 	selected []map[string]string
+	// what the block detector reads: the closed flows and how often they were read, the prober of
+	// the instances
+	flows     map[string]detect.FlowSample
+	flowReads int
+	prober    detect.Prober
+	// onClose, when set, runs in the Close of an instance
+	onClose func()
 }
 
 type fakeInstance struct {
@@ -130,6 +138,12 @@ func (e *fakeEngine) Delays(tags []string) map[string]uint16 {
 	return result
 }
 
+func (e *fakeEngine) URLTestFailure(tag string) (time.Time, bool) { return time.Time{}, false }
+
+func (e *fakeEngine) DownloadResult(tag string) (detect.DownloadResult, bool) {
+	return detect.DownloadResult{}, false
+}
+
 func (i *fakeInstance) OnRuleSetUpdate(tags []string, updated func(tag string)) {
 	i.loaded = updated
 }
@@ -150,6 +164,9 @@ func (i *fakeInstance) Start() error {
 func (i *fakeInstance) Close(time.Duration) error {
 	if i.stuck {
 		return engine.ErrStuck
+	}
+	if i.engine.onClose != nil {
+		i.engine.onClose()
 	}
 	i.closed = true
 	return nil
@@ -216,6 +233,35 @@ func (i *fakeInstance) Traffic() (engine.Traffic, error) {
 		return engine.Traffic{}, engine.ErrClosed
 	}
 	return engine.Traffic{Up: int64(len(i.config)), Down: 2, Connections: 3}, nil
+}
+
+func (i *fakeInstance) Connections() ([]detect.Conn, error) {
+	if !i.started || i.closed {
+		return nil, engine.ErrClosed
+	}
+	return nil, nil
+}
+
+func (i *fakeInstance) DetectFlows() (map[string]detect.FlowSample, error) {
+	if !i.started || i.closed {
+		return nil, engine.ErrClosed
+	}
+	i.engine.access.Lock()
+	defer i.engine.access.Unlock()
+	i.engine.flowReads++
+	return i.engine.flows, nil
+}
+
+func (i *fakeInstance) DetectOutcome(fingerprint string, serverName string, destination string) (detect.Outcome, bool) {
+	return detect.Outcome{}, false
+}
+
+func (i *fakeInstance) StartedAt() time.Time { return time.Time{} }
+
+func (i *fakeInstance) Prober() detect.Prober {
+	i.engine.access.Lock()
+	defer i.engine.access.Unlock()
+	return i.engine.prober
 }
 
 // fakeFixture is a supervisor of a fake engine and a recorder: no root is needed.

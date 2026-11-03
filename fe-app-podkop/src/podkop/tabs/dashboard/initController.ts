@@ -4,7 +4,27 @@ import { CustomPodkopMethods, PodkopShellMethods } from '../../methods';
 import { logger, store, StoreType } from '../../services';
 import { renderSections, renderWidget } from './partials';
 import { fetchServicesInfo } from '../../fetchers';
-import { statsWidgets } from './helpers/statsWidgets';
+import { servicesStale, statsWidgets } from './helpers/statsWidgets';
+import {
+  canCheck,
+  CHECK_QUEUE_LIMIT,
+  detectIsBusy,
+  isChecking,
+  mayHang,
+  oncePerControl,
+  problemServers,
+  problemTiles,
+  widgetOfReport,
+} from './helpers/detectWidget';
+import { keepFocus } from './helpers/keepFocus';
+import {
+  checkedAgo,
+  forceDetectProblem,
+  stopsChecks,
+  relayNotice,
+  verdictLines,
+} from './helpers/verdictText';
+import { showToast } from '../../../helpers/showToast';
 import type { Podkop } from '../../types';
 
 // Fetchers
@@ -43,6 +63,7 @@ async function fetchDashboardSections() {
 const STATS_MS = 2000;
 let statsTimers: ReturnType<typeof setTimeout>[] = [];
 let lastStats: Podkop.Stats | undefined;
+let servicesRead = 0;
 let backendStats: (() => Promise<Podkop.Stats | number>) | undefined;
 
 async function fetchStats() {
@@ -66,6 +87,18 @@ async function fetchStats() {
   if (!mounted) return;
   store.set(statsWidgets(current, lastStats));
   lastStats = current;
+  if (
+    servicesStale(
+      current,
+      store.get().servicesInfoWidget,
+      servicesRead,
+      Date.now(),
+    )
+  ) {
+    // the backend came up or went away since the services were read: the grid with them
+    servicesRead = Date.now();
+    await Promise.all([fetchServicesInfo(), fetchDashboardSections()]);
+  }
 }
 
 function startStats() {
@@ -83,7 +116,269 @@ function stopStats() {
   lastStats = undefined;
 }
 
+// The verdicts of the block detector come from the method detect of the backend, on a timer of
+// their own and not with the sections: those ask the Clash API and the configuration, and a hiccup
+// there fails the whole grid. A change of a verdict rebuilds the grid, so the age of a verdict,
+// which changes with every answer, stays out of the store and is only read by its window.
+const DETECT_IDLE_MS = 15000;
+const DETECT_BUSY_MS = 2000;
+let detectTimer: ReturnType<typeof setTimeout> | undefined;
+let detectAsking = false;
+let verdictAges: Record<string, { age: number; at: number }> = {};
+// what a check still sends is left off when this changes: the queue was cancelled, the tab left
+let checksRun = 0;
+
+function scheduleDetect(wait: number) {
+  clearTimeout(detectTimer);
+  detectTimer = setTimeout(fetchDetect, wait);
+}
+
+function nextDetectWait() {
+  return detectIsBusy(store.get().detectWidget)
+    ? DETECT_BUSY_MS
+    : DETECT_IDLE_MS;
+}
+
+async function fetchDetect() {
+  // the answer on its way asks for the next one
+  if (detectAsking) return;
+  if (document.hidden) {
+    scheduleDetect(nextDetectWait());
+    return;
+  }
+  detectAsking = true;
+  const run = checksRun;
+  const report = await CustomPodkopMethods.getVerdicts();
+  detectAsking = false;
+  if (!mounted) return;
+  // asked before a cancel, the answer still holds the old queue: the next one comes soon
+  if (run !== checksRun) {
+    scheduleDetect(DETECT_BUSY_MS);
+    return;
+  }
+  if (report) {
+    const now = Date.now();
+    verdictAges = Object.fromEntries(
+      Object.entries(report.verdicts).map(([tag, verdict]) => [
+        tag,
+        { age: verdict.age ?? 0, at: now },
+      ]),
+    );
+    store.set({
+      detectWidget: widgetOfReport(store.get().detectWidget, report, now),
+    });
+  }
+  scheduleDetect(nextDetectWait());
+}
+
+function stopDetect() {
+  clearTimeout(detectTimer);
+  detectTimer = undefined;
+  verdictAges = {};
+  checksRun++;
+}
+
+function setDetect(change: Partial<StoreType['detectWidget']>) {
+  store.set({ detectWidget: { ...store.get().detectWidget, ...change } });
+}
+
 // Handlers
+
+// sendChecks asks the backend for the checks of servers, one call each: its queue keeps the order
+// and runs them one at a time. The tiles show them as waiting from the first moment; one the
+// backend does not take goes back at once.
+async function sendChecks(tags: string[], section?: string, found?: number) {
+  const run = checksRun;
+  const requested = { ...store.get().detectWidget.requested };
+  tags.forEach((tag) => (requested[tag] = Date.now()));
+  setDetect(
+    section ? { requested, batch: { section, tags, found } } : { requested },
+  );
+  scheduleDetect(DETECT_BUSY_MS);
+
+  let skipped = 0;
+  for (const tag of tags) {
+    const reply = await CustomPodkopMethods.forceDetect(tag);
+    if (run !== checksRun) return;
+
+    const problem = forceDetectProblem(reply);
+    if (!problem) continue;
+
+    const { requested: current, batch } = store.get().detectWidget;
+    const { [tag]: _sent, ...others } = current;
+    const left = batch?.tags.filter((other) => other !== tag);
+    setDetect({
+      requested: others,
+      batch: batch && left?.length ? { ...batch, tags: left } : null,
+    });
+    if (!section) {
+      showToast(problem, 'error', 5000);
+    } else if (stopsChecks(reply)) {
+      showToast(problem, 'error', 5000);
+      setDetect({ requested: {}, batch: null });
+      return;
+    } else {
+      skipped++;
+    }
+  }
+  if (skipped) {
+    showToast(
+      _(
+        'Not queued: %d of %d. Their addresses were checked recently or are already in the queue, or they are gone.',
+      ).format(skipped, tags.length),
+      'error',
+      5000,
+    );
+  }
+  fetchDetect();
+}
+
+// askToCheck warns before a check of what the connections go through: its burst may freeze the
+// destination for the real ones too.
+function askToCheck(warning: string, check: () => void) {
+  ui.showModal(_('Server check'), [
+    E('p', {}, [warning]),
+    E('p', {}, [relayNotice()]),
+    E('div', { class: 'right' }, [
+      E(
+        'button',
+        {
+          class: 'cbi-button pdk-detect-modal__close',
+          click: () => ui.hideModal(),
+        },
+        [_('Cancel')],
+      ),
+      ' ',
+      E(
+        'button',
+        {
+          class: 'cbi-button cbi-button-action pdk-detect-modal__confirm',
+          click: () => {
+            ui.hideModal();
+            check();
+          },
+        },
+        [_('Check server')],
+      ),
+    ]),
+  ]);
+}
+
+const readForPress = oncePerControl();
+
+// checkAfterRead reads what the connections go through at the press: a URL test may have switched
+// since the grid was drawn. The check waits for that read, up to its bound; without an answer in
+// time it goes by what the grid knows. A press of the same control meanwhile is ignored.
+function checkAfterRead(
+  control: string,
+  servers: Podkop.Outbound[],
+  warning: string,
+  check: () => void,
+) {
+  return readForPress(
+    control,
+    () =>
+      CustomPodkopMethods.getUsedTags(
+        store.get().sectionsWidget.data.map(({ code }) => code),
+      ),
+    (used) => {
+      if (!mounted) return;
+      if (!servers.some((server) => mayHang(server, used))) return check();
+      askToCheck(warning, check);
+    },
+  );
+}
+
+function handleCheckServer(outbound: Podkop.Outbound) {
+  return checkAfterRead(
+    `server:${outbound.code}`,
+    [outbound],
+    _(
+      'New connections through this server may hang for a couple of minutes after the check starts.',
+    ),
+    () => sendChecks([outbound.code]),
+  );
+}
+
+function handleCheckProblems(section: Podkop.OutboundGroup) {
+  const detect = store.get().detectWidget;
+  const servers = problemServers(section, detect);
+  const found = problemTiles(section, detect).length;
+  return checkAfterRead(
+    `section:${section.code}`,
+    servers,
+    _(
+      'One of these servers is in use. New connections through it may hang for a couple of minutes after its check starts.',
+    ),
+    () =>
+      sendChecks(
+        servers.map((server) => server.code),
+        section.code,
+        found > CHECK_QUEUE_LIMIT ? found : undefined,
+      ),
+  );
+}
+
+// the queue goes, the probe that runs goes on: its burst is out already
+async function handleCancelChecks() {
+  checksRun++;
+  setDetect({ requested: {}, batch: null, queued: [] });
+  const problem = forceDetectProblem(
+    await CustomPodkopMethods.forceDetect('', true),
+  );
+  if (problem) showToast(problem, 'error');
+  if (mounted) fetchDetect();
+}
+
+function handleShowVerdict(outbound: Podkop.Outbound) {
+  const detect = store.get().detectWidget;
+  const verdict = detect.verdicts[outbound.code];
+  const known = verdictAges[outbound.code];
+  const checking = isChecking(outbound.code, detect);
+  const lines = [
+    ...(detect.probing === outbound.code ? [_('Checking now…')] : []),
+    ...(checking && detect.probing !== outbound.code
+      ? [_('Waiting for its turn.')]
+      : []),
+    ...(verdict ? verdictLines(verdict) : []),
+    ...(verdict?.source === 'active' && known
+      ? [checkedAgo(known.age + (Date.now() - known.at) / 1000)]
+      : []),
+  ];
+  // a title that is not in an array goes in as HTML, and the name may come from a subscription
+  ui.showModal(
+    [outbound.displayName],
+    [
+      ...lines.map((line) => E('p', {}, [line])),
+      E('div', { class: 'right' }, [
+        E(
+          'button',
+          {
+            class: 'cbi-button pdk-detect-modal__close',
+            click: () => ui.hideModal(),
+          },
+          [_('Close')],
+        ),
+        ...(!checking && canCheck(outbound, detect.noprobe)
+          ? [
+              ' ',
+              E(
+                'button',
+                {
+                  class: 'cbi-button cbi-button-action pdk-detect-modal__check',
+                  click: () => {
+                    ui.hideModal();
+                    handleCheckServer(outbound);
+                  },
+                },
+                [_('Check server')],
+              ),
+            ]
+          : []),
+      ]),
+    ],
+  );
+}
 
 async function handleChooseOutbound(selector: string, tag: string) {
   await PodkopShellMethods.setClashApiGroupProxy(selector, tag);
@@ -161,6 +456,13 @@ async function renderSectionsWidget() {
       failed: sectionsWidget.failed,
       section,
       latencyFetching: sectionsWidget.latencyFetching,
+      checks: {
+        detect: store.get().detectWidget,
+        onShowVerdict: handleShowVerdict,
+        onCheckServer: handleCheckServer,
+        onCheckProblems: handleCheckProblems,
+        onCancelChecks: handleCancelChecks,
+      },
       onTestLatency: (tag) => {
         if (section.withTagSelect) {
           return handleTestGroupLatency(tag);
@@ -175,7 +477,7 @@ async function renderSectionsWidget() {
   );
 
   return preserveScrollForPage(() => {
-    container!.replaceChildren(...renderedWidgets);
+    keepFocus(container!, () => container!.replaceChildren(...renderedWidgets));
   });
 }
 
@@ -337,7 +639,13 @@ async function onStoreUpdate(
   prev: StoreType,
   diff: Partial<StoreType>,
 ) {
-  if (diff.sectionsWidget) {
+  // the skeleton of the grid has nothing of the detector to show
+  if (
+    diff.sectionsWidget ||
+    (diff.detectWidget &&
+      !next.sectionsWidget.loading &&
+      !next.sectionsWidget.failed)
+  ) {
     renderSectionsWidget();
   }
 
@@ -375,9 +683,13 @@ async function onPageMount() {
   // Add new listener
   store.subscribe(onStoreUpdate);
 
+  // The chips may come before the grid, the grid then draws them
+  fetchDetect();
+
   // Initial sections fetch
   await fetchDashboardSections();
   await fetchServicesInfo();
+  servicesRead = Date.now();
   // the tab may have been left while the answers came
   if (!mounted) return;
   startStats();
@@ -394,8 +706,10 @@ function onPageUnmount() {
     'systemInfoWidget',
     'servicesInfoWidget',
     'sectionsWidget',
+    'detectWidget',
   ]);
   stopStats();
+  stopDetect();
 }
 
 function isCurrent() {

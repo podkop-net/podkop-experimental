@@ -237,7 +237,7 @@ memory_state() {
 	rss=$(dmesg 2>/dev/null | grep 'Killed process .*(podkop)' | tail -n 1 | sed -n 's/.*anon-rss:\([0-9]*\)kB.*/\1/p')
 	[ -n "$oom_last" ] && [ -n "$rss" ] && printf "; the backend had %d MB when killed" $((rss / 1024))
 	df -k /tmp 2>/dev/null | awk 'NR == 2 {printf "; /tmp %d of %d MB", $3 / 1024, $2 / 1024}'
-	cache=$(uci -q get podkop.settings.cache_path || echo /var/run/podkop/cache.db)
+	cache=$(uci -q get podkop.settings.cache_path || echo /usr/share/podkop/cache.db)
 	[ -f "$cache" ] && wc -c < "$cache" | awk -v c="$cache" '{printf "; %s %.1f MB", c, $1 / 1048576}'
 	for status in /proc/[0-9]*/status; do
 		awk '/^Name:/ {n = $2} /^VmRSS:/ {print $2, n}' "$status" 2>/dev/null

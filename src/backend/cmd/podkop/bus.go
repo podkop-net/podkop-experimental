@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/ctl"
+	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/podkop-net/podkop-experimental/src/backend/engine"
 	"github.com/podkop-net/podkop-experimental/src/backend/ubus"
 )
@@ -29,12 +30,18 @@ type Stats struct {
 
 type trafficSource interface {
 	Traffic() (engine.Traffic, bool)
+	// Detect is what the block detector tells of the servers (detect.Report).
+	Detect() detect.Report
+	// ForceDetect asks for a probe of a server by its tag, or to empty the queue of them; the
+	// answer comes at once, the verdict in a later Detect.
+	ForceDetect(tag string, cancel bool) detect.ForceAnswer
 }
 
 var processStart = time.Now()
 
 // busObject is the object "podkop" of the backend on ubus: the commands of the page
-// (ctl.BusObject) and the method stats.
+// (ctl.BusObject) and the methods stats, detect and force_detect. A method here is denied to the
+// page unless the ACL of its package names it (TestBusMethodsInACL).
 func busObject(env ctl.Environment, source trafficSource) ubus.Object {
 	object := ctl.BusObject(env)
 	object.Methods["stats"] = ubus.Method{
@@ -50,6 +57,22 @@ func busObject(env ctl.Environment, source trafficSource) ubus.Object {
 				Connections: traffic.Connections,
 				Memory:      memory.StackInuse + memory.HeapInuse + memory.HeapIdle - memory.HeapReleased,
 			}, ubus.StatusOK
+		},
+	}
+	object.Methods["detect"] = ubus.Method{
+		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
+			return source.Detect(), ubus.StatusOK
+		},
+	}
+	object.Methods["force_detect"] = ubus.Method{
+		Arguments: map[string]int{"tag": ubus.TypeString, "cancel": ubus.TypeBool},
+		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
+			tag, _ := arguments["tag"].(string)
+			cancel, _ := arguments["cancel"].(bool)
+			if tag == "" && !cancel {
+				return nil, ubus.StatusInvalidArgument
+			}
+			return source.ForceDetect(tag, cancel), ubus.StatusOK
 		},
 	}
 	return object

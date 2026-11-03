@@ -138,6 +138,20 @@ export interface IDiagnosticsChecksStoreItem {
   items: Array<IDiagnosticsChecksItem>;
 }
 
+// The detector of the dashboard, as the last detect told it. No age and no why: a change here
+// rebuilds the grid of the servers, and those two change with every answer.
+export interface IDetectWidget {
+  verdicts: Record<string, Podkop.Verdict>;
+  // the servers a check was asked of and the backend does not yet tell (their time, in ms)
+  requested: Record<string, number>;
+  probing: string;
+  queued: string[];
+  noprobe: string[];
+  // the servers of the check of a whole section that runs; found is how many tiles its press found
+  // when the queue of the backend took only the first of them
+  batch: { section: string; tags: string[]; found?: number } | null;
+}
+
 export interface StoreType {
   tabService: {
     current: string;
@@ -169,6 +183,7 @@ export interface StoreType {
     data: Podkop.OutboundGroup[];
     latencyFetching: boolean;
   };
+  detectWidget: IDetectWidget;
   diagnosticsRunAction: {
     loading: boolean;
   };
@@ -224,6 +239,14 @@ const initialStore: StoreType = {
     failed: false,
     latencyFetching: false,
     data: [],
+  },
+  detectWidget: {
+    verdicts: {},
+    requested: {},
+    probing: '',
+    queued: [],
+    noprobe: [],
+    batch: null,
   },
   ...initialDiagnosticStore,
 };

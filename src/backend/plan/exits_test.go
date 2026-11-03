@@ -193,6 +193,8 @@ func TestExitsOfRows(t *testing.T) {
 	require.Equal(t, []string{nl}, yt.Outbounds)
 	require.Equal(t, []string{"yt-fallback-1-out", "block"}, yt.Fallbacks)
 	require.Equal(t, []string{de1, de2}, outbounds["yt-fallback-1-out"].Outbounds)
+	// the servers of a fallback of several servers are offered one by one, not by its URL test
+	require.Equal(t, []string{"yt-urltest-out", nl, de1, de2}, outbounds["yt-out"].Outbounds)
 
 	require.Equal(t, []string{"main-out", "ai-out", "yt-out", "duo-out"}, ruleRoutes(config))
 	for tag := range outbounds {

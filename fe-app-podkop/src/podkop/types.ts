@@ -168,6 +168,27 @@ export namespace Podkop {
     yacd_secret_key?: string;
     label?: string;
     enabled?: string;
+    // the connections of some rule go through it: selected, or the choice of the selected URL test
+    inUse: boolean;
+    // the connections of this rule go through it: the end of the choices of its selector
+    active?: boolean;
+    // the choice of the URL test of a fallback of several servers whose turn has not come
+    pick?: boolean;
+    // the place of its tier in the order the rule takes them: 0 its servers, n its fallback n
+    tier?: number;
+    // false for what the selector does not offer (direct or block as a fallback): no click pins it
+    selectable?: boolean;
+  }
+
+  // Where the connections of a rule go now. auto: by its URL test, from its servers (tier 0) or
+  // from its fallback tier; manual: a server pinned on the dashboard; single: the one server of
+  // a rule that has nothing to choose from.
+  export interface OutboundRoute {
+    mode: 'auto' | 'manual' | 'single';
+    tier: number;
+    code: string;
+    displayName: string;
+    latency: number;
   };
 
   export interface MethodSuccessResponse<T> {
@@ -175,6 +196,11 @@ export namespace Podkop {
     data: T;
   }
 
+    // the names of the tiers, in the order the rule takes them; none without fallbacks
+    tiers?: string[];
+    // the URL test of the rule, which the selector takes unless a server is pinned
+    auto?: string;
+    route?: OutboundRoute;
   export interface MethodFailureResponse {
     success: false;
     error: string;

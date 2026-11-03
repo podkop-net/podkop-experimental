@@ -462,7 +462,7 @@ function createSettingsContent(section, singBoxFeatures = []) {
   );
   o.value("/var/run/podkop/cache.db", "RAM (/var/run/podkop/cache.db)");
   o.value("/usr/share/podkop/cache.db", "Flash (/usr/share/podkop/cache.db)");
-  o.default = "/var/run/podkop/cache.db";
+  o.default = "/usr/share/podkop/cache.db";
   o.rmempty = false;
   o.validate = function (section_id, value) {
     if (!value) {

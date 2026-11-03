@@ -3,9 +3,11 @@ package engine
 import (
 	"bytes"
 	"encoding/json"
+	"time"
 
 	"github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/common/trafficcontrol"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/option"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -66,8 +68,28 @@ func (i *Instance) Swap(configuration []byte, swap Swap, limit int) (Swapped, er
 	// and again: a round of a group replaced, which stops only at the end of the swap, may have
 	// stored meanwhile what it found through the outbound a tag had before
 	history.forget(forgot.tags)
+	i.forgetDetect(forgot.tags)
 	i.dialers = next
 	return Swapped{Added: update.Added, Replaced: update.Replaced, Removed: update.Removed, Kept: update.Kept}, nil
+}
+
+// forgetDetect leaves out of what the block detector reads all that the outbounds the tags had
+// before did: a new link does not inherit a verdict of the old one. The manager stays over a swap,
+// and the old outbounds keep their connections under the same tags: it drops those when they close,
+// Connections while they are open. Each tag keeps one small entry for good, as in the manager.
+func (i *Instance) forgetDetect(tags []string) {
+	if manager := service.PtrFromContext[trafficcontrol.Manager](i.ctx); manager != nil {
+		manager.ForgetDetectFlows(tags)
+	}
+	now := time.Now()
+	i.detectAccess.Lock()
+	defer i.detectAccess.Unlock()
+	if i.detectForgotten == nil {
+		i.detectForgotten = make(map[string]time.Time, len(tags))
+	}
+	for _, tag := range tags {
+		i.detectForgotten[tag] = now
+	}
 }
 
 // CarrySelections moves the choices of the selectors to the tags the servers chosen have in
