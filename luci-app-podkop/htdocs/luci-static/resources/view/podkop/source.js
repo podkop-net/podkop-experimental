@@ -559,6 +559,93 @@ function block(lines) {
 
 // The servers of a download: a table of their names, protocols and addresses, and why one
 // cannot be used.
+// copyText puts text on the clipboard. The page of LuCI is mostly served over plain http,
+// where the browser has no navigator.clipboard: a selected text area is copied there.
+function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text).then(
+      () => true,
+      () => copyBySelection(text),
+    );
+  }
+  return Promise.resolve(copyBySelection(text));
+}
+
+function copyBySelection(text) {
+  const area = E("textarea", {
+    style: "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0",
+  });
+  area.value = text;
+  document.body.appendChild(area);
+  area.select();
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch (err) {
+    copied = false;
+  }
+  document.body.removeChild(area);
+  return copied;
+}
+
+// A button that copies text and says for two seconds whether it did.
+function copyButton(label, text) {
+  const button = E(
+    "button",
+    {
+      class: "cbi-button cbi-button-action",
+      click: (ev) => {
+        ev.preventDefault();
+        copyText(text).then((copied) => {
+          button.textContent = copied
+            ? _("Copied")
+            : _("Not copied: show the links and copy them by hand");
+          setTimeout(() => {
+            button.textContent = label;
+          }, 2000);
+        });
+      },
+    },
+    [label],
+  );
+  return button;
+}
+
+// The links of the list, secrets: copied, or shown on request, never in the table itself.
+function linksBlock(servers) {
+  const links = servers.map((server) => server.link).filter(Boolean);
+  if (links.length === 0) {
+    return E("div", {}, []);
+  }
+  const area = E("textarea", {
+    class: "cbi-input-textarea",
+    readonly: "readonly",
+    wrap: "off",
+    rows: String(Math.min(links.length, 10)),
+    style: "display:none;width:100%;font-family:monospace;margin-top:.5em",
+  });
+  area.value = links.join("\n");
+  const show = E(
+    "button",
+    {
+      class: "cbi-button",
+      click: (ev) => {
+        ev.preventDefault();
+        const hidden = area.style.display === "none";
+        area.style.display = hidden ? "" : "none";
+        show.textContent = hidden ? _("Hide links") : _("Show links");
+      },
+    },
+    [_("Show links")],
+  );
+  return E("div", { style: "margin:.5em 0" }, [
+    copyButton(_("Copy all links"), links.join("\n")),
+    " ",
+    show,
+    area,
+  ]);
+}
+
 function serversTable(preview) {
   const servers = preview.servers || [];
   const usable = servers.filter((server) => !server.reason).length;
@@ -575,12 +662,14 @@ function serversTable(preview) {
     .join(" · ");
   return E("div", {}, [
     E("div", {}, [summary]),
+    linksBlock(servers),
     E("table", { class: "table" }, [
       E("tr", { class: "tr table-titles" }, [
         E("th", { class: "th" }, [_("Server")]),
         E("th", { class: "th" }, [_("Protocol")]),
         E("th", { class: "th" }, [_("Address")]),
         E("th", { class: "th" }, [_("Note")]),
+        E("th", { class: "th" }, [_("Link")]),
       ]),
       ...servers.map((server) =>
         E("tr", { class: "tr" }, [
@@ -599,6 +688,11 @@ function serversTable(preview) {
               .filter(Boolean)
               .join("; "),
           ]),
+          E(
+            "td",
+            { class: "td", "data-title": _("Link") },
+            server.link ? [copyButton(_("Copy"), server.link)] : [],
+          ),
         ]),
       ),
     ]),

@@ -74,6 +74,7 @@ type exitOutbound struct {
 	Outbounds      []string `json:"outbounds"`
 	Fallbacks      []string `json:"fallbacks"`
 	Interval       string   `json:"interval"`
+	URLs           []string `json:"urls"`
 	Tolerance      int      `json:"tolerance"`
 	DownloadURL    *string  `json:"download_url"`
 	UDPOverTCP     *struct {
@@ -182,6 +183,7 @@ func TestExitsOfRows(t *testing.T) {
 	require.Equal(t, []string{nl, de1, de2, spain}, main.Outbounds)
 	require.Equal(t, []string{"own", "direct-out"}, main.Fallbacks)
 	require.Equal(t, "1m", main.Interval)
+	require.Equal(t, model.DefaultTestingURLs, main.URLs, "the five URLs of the default, taken in turn by the engine")
 	require.Equal(t, 80, main.Tolerance)
 	require.NotNil(t, main.DownloadURL)
 	require.Empty(t, *main.DownloadURL, "the download check is off")

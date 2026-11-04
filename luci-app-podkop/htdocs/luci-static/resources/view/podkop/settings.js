@@ -338,13 +338,14 @@ function createSettingsContent(section, singBoxFeatures = []) {
   o.default = "0";
   o.rmempty = false;
 
-  // The check of the servers: one for the servers of every rule (urltest of sing-box)
+  // The check of the servers: one for the servers of every rule (urltest of sing-box). The
+  // rounds take the URLs in turn; the delay of a server is the median of a cycle of them.
   o = section.option(
-    form.Value,
+    form.DynamicList,
     "urltest_testing_url",
-    _("Server check URL"),
+    _("Server check URLs"),
     _(
-      "One check for the servers of every rule: each server is tested with this URL",
+      "One check for the servers of every rule. Each round tests every server with the next URL of the list; the delay of a server is the median of a full cycle, so one slow URL or one stray test does not change the server in use. A server is unavailable when two URLs do not answer through it. URLs of different companies are best",
     ),
   );
   o.value(
@@ -355,12 +356,25 @@ function createSettingsContent(section, singBoxFeatures = []) {
     "https://cp.cloudflare.com/generate_204",
     "https://cp.cloudflare.com/generate_204 (Cloudflare)",
   );
-  o.value("https://captive.apple.com", "https://captive.apple.com (Apple)");
   o.value(
-    "https://connectivity-check.ubuntu.com",
-    "https://connectivity-check.ubuntu.com (Ubuntu)",
+    "https://captive.apple.com/hotspot-detect.html",
+    "https://captive.apple.com/hotspot-detect.html (Apple)",
   );
-  o.default = "https://www.gstatic.com/generate_204";
+  o.value(
+    "https://detectportal.firefox.com/success.txt",
+    "https://detectportal.firefox.com/success.txt (Fastly)",
+  );
+  o.value(
+    "https://www.apple.com/library/test/success.html",
+    "https://www.apple.com/library/test/success.html (Akamai)",
+  );
+  o.default = [
+    "https://www.gstatic.com/generate_204",
+    "https://cp.cloudflare.com/generate_204",
+    "https://captive.apple.com/hotspot-detect.html",
+    "https://detectportal.firefox.com/success.txt",
+    "https://www.apple.com/library/test/success.html",
+  ];
   o.rmempty = false;
   o.validate = function (section_id, value) {
     if (!value || value.length === 0) {
@@ -400,7 +414,7 @@ function createSettingsContent(section, singBoxFeatures = []) {
       cfgvalue,
     );
   };
-  o.default = "3m";
+  o.default = "1m";
   o.rmempty = false;
 
   o = section.option(

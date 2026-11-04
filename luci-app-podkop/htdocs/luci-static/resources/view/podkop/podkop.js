@@ -207,12 +207,14 @@ const EntryPoint = {
       "source",
       _("Servers"),
       _(
-        "Subscriptions, links of servers and interfaces. The rules take their servers from here.",
+        "Subscriptions, links of servers and interfaces. The rules take their servers from here. Drag ☰ to put them in the order you like: it changes nothing else.",
       ),
     );
     sourcesSection.hidetitle = true;
     sourcesSection.anonymous = true;
     sourcesSection.addremove = true;
+    // the order of the sources is the user's own: the rules name them
+    sourcesSection.sortable = true;
     source.createSourceContent(sourcesSection, singBoxFeatures);
     gridSection(sourcesSection, "src", {
       removed: (name) => source.sourceRemoved(name),

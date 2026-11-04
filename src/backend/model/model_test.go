@@ -22,7 +22,7 @@ func TestLoadDefaults(t *testing.T) {
 	require.Equal(t, "1d", config.Settings.UpdateInterval)
 	require.Equal(t, "warn", config.Settings.LogLevel)
 	require.Equal(t, "/usr/share/podkop/cache.db", config.Settings.CachePath)
-	require.Equal(t, Check{Interval: "3m", Tolerance: "50", TestingURL: "https://www.gstatic.com/generate_204", DownloadCheck: "default"}, config.Settings.Check)
+	require.Equal(t, Check{Interval: "1m", Tolerance: "50", TestingURLs: DefaultTestingURLs, DownloadCheck: "default"}, config.Settings.Check)
 	require.Len(t, config.Sections, 1)
 	section := &config.Sections[0]
 	require.True(t, section.Enabled)
@@ -154,4 +154,24 @@ func TestReservedSourceNames(t *testing.T) {
 	require.NoError(t, err)
 	_, err = Load(parsed)
 	require.ErrorContains(t, err, "cannot be named block")
+}
+
+// The URLs of the server check: a list; the option of one URL that releases before 0.8.10 wrote
+// is a list of one; empty and repeated ones are left out; none is the default.
+func TestTestingURLs(t *testing.T) {
+	t.Parallel()
+	for _, testCase := range []struct {
+		text string
+		want []string
+	}{
+		{"\toption urltest_testing_url 'https://kept.example/generate_204'\n", []string{"https://kept.example/generate_204"}},
+		{"\tlist urltest_testing_url 'https://a.example/'\n\tlist urltest_testing_url ''\n\tlist urltest_testing_url 'https://b.example/'\n\tlist urltest_testing_url 'https://a.example/'\n", []string{"https://a.example/", "https://b.example/"}},
+		{"", DefaultTestingURLs},
+	} {
+		parsed, err := uci.Parse([]byte("config settings 'settings'\n\toption config_version '2'\n" + testCase.text))
+		require.NoError(t, err)
+		config, err := Load(parsed)
+		require.NoError(t, err)
+		require.Equal(t, testCase.want, config.Settings.Check.TestingURLs)
+	}
 }

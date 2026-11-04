@@ -48,4 +48,18 @@ uci -q commit podkop
 # of a section move to the tab Servers (sources) and to the rows of the section (members).
 # The old file stays as /etc/config/podkop.pre-0.8.8. Settings of the format already are left alone.
 /usr/bin/podkop migrate 2>&1 | logger -t podkop
+
+# The server check of 0.8.10: five URLs of different operators taken in turn, a round every
+# minute. Settings that kept the defaults of an older release take the new ones, once: the URL
+# of Google alone and a round every 3 minutes (LuCI wrote both when its page was saved) are
+# removed, and the defaults of the backend apply. URLs and an interval set by hand stay.
+# podkop.settings.urltest_defaults tells that it was done.
+if [ "$(uci -q get podkop.settings)" = settings ] && [ -z "$(uci -q get podkop.settings.urltest_defaults)" ]; then
+	[ "$(uci -q get podkop.settings.urltest_testing_url)" = https://www.gstatic.com/generate_204 ] &&
+		uci -q delete podkop.settings.urltest_testing_url
+	[ "$(uci -q get podkop.settings.urltest_check_interval)" = 3m ] &&
+		uci -q delete podkop.settings.urltest_check_interval
+	uci -q set podkop.settings.urltest_defaults='0.8.10'
+	uci -q commit podkop
+fi
 exit 0

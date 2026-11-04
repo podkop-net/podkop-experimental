@@ -7,6 +7,7 @@
 package model
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 
@@ -135,12 +136,31 @@ func notWordRune(r rune) bool {
 
 // Check is how the servers are tested: one check for every rule.
 type Check struct {
-	Interval      string
-	Tolerance     string
-	TestingURL    string
+	Interval  string
+	Tolerance string
+	// TestingURLs are tested with one a round in turn; the delay of a server is the median of
+	// a cycle (podkop-engine, urltest.urls)
+	TestingURLs   []string
 	DownloadCheck string // default, off, custom
 	DownloadURL   string
 }
+
+// DefaultTestingURLs are the URLs of the server check of a new installation, and of an
+// upgrade from a release whose single URL was the default: one of each operator (Google,
+// Cloudflare, the network of Apple, Fastly, Akamai). A server's way to one operator may be
+// hundreds of milliseconds longer than to another; the median over them is the delay to all
+// of them (research_notes/urltest/02).
+var DefaultTestingURLs = []string{
+	"https://www.gstatic.com/generate_204",
+	"https://cp.cloudflare.com/generate_204",
+	"https://captive.apple.com/hotspot-detect.html",
+	"https://detectportal.firefox.com/success.txt",
+	"https://www.apple.com/library/test/success.html",
+}
+
+// DefaultCheckInterval is the interval of the server check: with five URLs, a cycle of them
+// takes five minutes.
+const DefaultCheckInterval = "1m"
 
 // DNS modes: the servers of the list asked in their order, or the fastest of them first
 const (
@@ -268,9 +288,9 @@ func Load(parsed *uci.Package) (*Config, error) {
 		LogLevel:                     get(settings, "log_level", "warn"),
 		ServiceListenAddress:         settings.Get("service_listen_address"),
 		Check: Check{
-			Interval:      get(settings, "urltest_check_interval", "3m"),
+			Interval:      get(settings, "urltest_check_interval", DefaultCheckInterval),
 			Tolerance:     get(settings, "urltest_tolerance", "50"),
-			TestingURL:    get(settings, "urltest_testing_url", "https://www.gstatic.com/generate_204"),
+			TestingURLs:   testingURLs(settings),
 			DownloadCheck: get(settings, "urltest_download_check", "default"),
 			DownloadURL:   settings.Get("urltest_download_url"),
 		},
@@ -376,6 +396,23 @@ func (c *Config) Section(name string) *Section {
 
 // list returns the items of a list option; none when all there is to it is empty items,
 // which the shell backend takes for an option that is not set.
+// testingURLs are the URLs of the server check: the list of the settings (an option of one
+// URL, as releases before 0.8.10 wrote it, is a list of one), without empty and repeated
+// ones; the default when there is none.
+func testingURLs(settings *uci.Section) []string {
+	var urls []string
+	for _, url := range list(settings, "urltest_testing_url") {
+		url = strings.TrimSpace(url)
+		if url != "" && !slices.Contains(urls, url) {
+			urls = append(urls, url)
+		}
+	}
+	if len(urls) == 0 {
+		return slices.Clone(DefaultTestingURLs)
+	}
+	return urls
+}
+
 func list(section *uci.Section, name string) []string {
 	if section.Get(name) == "" {
 		return nil

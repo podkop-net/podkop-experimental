@@ -155,7 +155,7 @@ func (b *builder) addURLTest(tag string, members []string, fallbacks []string) {
 	check := &b.config.Settings.Check
 	tolerance, _ := numberOf(check.Tolerance)
 	group := newObject("type", "urltest", "tag", tag, "outbounds", listOrEmpty(stringsToAny(members)),
-		"url", check.TestingURL, "interval", check.Interval, "tolerance", tolerance)
+		"urls", stringsToAny(check.TestingURLs), "interval", check.Interval, "tolerance", tolerance)
 	if len(fallbacks) > 0 {
 		group.set("fallbacks", stringsToAny(fallbacks))
 	}

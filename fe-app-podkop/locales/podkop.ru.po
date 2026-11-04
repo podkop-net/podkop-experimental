@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-03 00:00+0000\n"
-"PO-Revision-Date: 2026-11-03 00:00+0000\n"
+"POT-Creation-Date: 2026-11-04 07:08+0000\n"
+"PO-Revision-Date: 2026-11-04 07:08+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -299,8 +299,14 @@ msgstr "Соединения обрываются около %d КБ — это 
 msgid "connections are refused"
 msgstr "соединения отклоняются"
 
+msgid "Copied"
+msgstr "Скопировано"
+
 msgid "Copy"
 msgstr "Копировать"
+
+msgid "Copy all links"
+msgstr "Копировать все ссылки"
 
 msgid "Currently unavailable"
 msgstr "Временно недоступно"
@@ -560,6 +566,9 @@ msgstr "Получить глобальную проверку"
 msgid "Global check"
 msgstr "Глобальная проверка"
 
+msgid "Hide links"
+msgstr "Скрыть ссылки"
+
 msgid "How the DNS servers are asked"
 msgstr "Как опрашивать DNS-серверы"
 
@@ -652,6 +661,9 @@ msgstr "лимит"
 
 msgid "limit?"
 msgstr "лимит?"
+
+msgid "Link"
+msgstr "Ссылка"
 
 msgid "Link or subscription"
 msgstr "Ссылка или подписка"
@@ -809,6 +821,9 @@ msgstr "Нет серверов: правило не действует"
 msgid "no TLS"
 msgstr "нет TLS"
 
+msgid "Not copied: show the links and copy them by hand"
+msgstr "Не скопировано: покажите ссылки и скопируйте их вручную"
+
 msgid "Not downloaded yet: the router downloads the list after Save & Apply"
 msgstr "Ещё не загружен: роутер загрузит список после «Сохранить и применить»"
 
@@ -845,8 +860,8 @@ msgstr "норма"
 msgid "On"
 msgstr "Вкл."
 
-msgid "One check for the servers of every rule: each server is tested with this URL"
-msgstr "Одна проверка для серверов всех правил: каждый сервер проверяется этой ссылкой"
+msgid "One check for the servers of every rule. Each round tests every server with the next URL of the list; the delay of a server is the median of a full cycle, so one slow URL or one stray test does not change the server in use. A server is unavailable when two URLs do not answer through it. URLs of different companies are best"
+msgstr "Одна проверка для серверов всех правил. Каждый раунд проверяет все серверы следующей ссылкой списка; задержка сервера — медиана за полный круг, поэтому одна медленная ссылка или случайный выброс не меняют сервер. Сервер недоступен, если через него не ответили две ссылки. Лучше брать ссылки разных компаний"
 
 msgid "One DNS server is needed at least: change this one, or add another first."
 msgstr "Нужен хотя бы один DNS-сервер: измените этот или сначала добавьте другой."
@@ -1043,8 +1058,8 @@ msgstr "Интервал проверки серверов"
 msgid "Server check tolerance, ms"
 msgstr "Допуск проверки серверов, мс"
 
-msgid "Server check URL"
-msgstr "Ссылка проверки серверов"
+msgid "Server check URLs"
+msgstr "Ссылки проверки серверов"
 
 msgid "Server link"
 msgstr "Ссылка на сервер"
@@ -1097,6 +1112,9 @@ msgstr "Ссылки: vless, ss, trojan, socks, http(s), hysteria2, tuic, а т�
 msgid "Show"
 msgstr "Показать"
 
+msgid "Show links"
+msgstr "Показать ссылки"
+
 msgid "Show sing-box config"
 msgstr "Показать sing-box конфигурацию"
 
@@ -1145,8 +1163,8 @@ msgstr "Страница подписки"
 msgid "Subscription: %s"
 msgstr "Подписка: %s"
 
-msgid "Subscriptions, links of servers and interfaces. The rules take their servers from here."
-msgstr "Подписки, ссылки на серверы и интерфейсы. Правила берут серверы отсюда."
+msgid "Subscriptions, links of servers and interfaces. The rules take their servers from here. Drag ☰ to put them in the order you like: it changes nothing else."
+msgstr "Подписки, ссылки на серверы и интерфейсы. Правила берут серверы отсюда. Порядок меняется перетаскиванием за ☰ и больше ни на что не влияет."
 
 msgid "Successfully copied!"
 msgstr "Успешно скопировано!"
