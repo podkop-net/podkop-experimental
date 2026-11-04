@@ -84,6 +84,9 @@ define Package/podkop-exp/postinst
 # start what is stopped, restart what runs
 again() { if "$$1" running; then "$$1" restart; else "$$1" start; fi; }
 if [ "$${PKG_UPGRADE}" = "1" ]; then
+	# an upgrade enables no init script of the package by itself: one new in this version
+	# would never run
+	/etc/init.d/podkop-early enable
 	case "$$(uci -q get podkop.settings.guard)" in
 	0 | off | false | no | disabled) ;;
 	*) /etc/init.d/podkop-guard enable; again /etc/init.d/podkop-guard ;;
@@ -124,6 +127,7 @@ define Package/podkop-exp/install
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/etc/init.d/podkop $(1)/etc/init.d/podkop
 	$(INSTALL_BIN) ./files/etc/init.d/podkop-guard $(1)/etc/init.d/podkop-guard
+	$(INSTALL_BIN) ./files/etc/init.d/podkop-early $(1)/etc/init.d/podkop-early
 	$(INSTALL_DIR) $(1)/usr/libexec/podkop
 	$(INSTALL_BIN) ./files/usr/libexec/podkop/guard $(1)/usr/libexec/podkop/guard
 	$(INSTALL_DIR) $(1)/etc/uci-defaults

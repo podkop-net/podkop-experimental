@@ -108,6 +108,29 @@ func TestTakeOver(t *testing.T) {
 	}, lines(system.scripts[0]))
 }
 
+// At boot dnsmasq is set before it starts: the same settings as TakeOver, no restart.
+func TestPrepare(t *testing.T) {
+	t.Parallel()
+	settings := "config dnsmasq\n\toption cachesize '1000'\n\tlist server '8.8.8.8'\n"
+	prepared := &router{settings: settings}
+	changed, err := Prepare(prepared)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Zero(t, prepared.restarts)
+	taken := &router{settings: settings}
+	_, err = TakeOver(taken)
+	require.NoError(t, err)
+	require.Equal(t, taken.scripts, prepared.scripts)
+
+	// set already (a boot after a lost power, when the stop that gives it back never ran)
+	prepared = &router{settings: "config dnsmasq\n\tlist server '127.0.0.42'\n\toption noresolv '1'\n\toption cachesize '0'\n\toption podkop_taken '1'\n"}
+	changed, err = Prepare(prepared)
+	require.NoError(t, err)
+	require.False(t, changed)
+	require.Empty(t, prepared.scripts)
+	require.Zero(t, prepared.restarts)
+}
+
 func TestRestore(t *testing.T) {
 	t.Parallel()
 	system := &router{settings: "config dnsmasq\n\tlist server '127.0.0.42'\n\toption noresolv '1'\n\toption cachesize '0'\n\tlist podkop_server '8.8.8.8'\n\tlist podkop_server '9.9.9.9'\n\toption podkop_noresolv '1'\n\toption podkop_cachesize '1000'\n"}

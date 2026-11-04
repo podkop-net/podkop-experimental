@@ -1,6 +1,7 @@
 package diag
 
 import (
+	"bytes"
 	"net"
 	"net/netip"
 	"os"
@@ -116,13 +117,29 @@ func interfaceAddresses(name string) []netip.Addr {
 	return result
 }
 
-// dnsmasqForwards reads the configuration a dnsmasq process runs with: the file of its
-// command line (-C, --conf-file) and the files of its conf-dir lines. It tells the servers
-// every name goes to and whether no-resolv is there; read is false when the file is not found.
+// dnsmasqForwards reads the configuration a dnsmasq process runs with, as the process sees
+// it (see CheckDnsmasq): the file of its command line (-C, --conf-file) and the files of its
+// conf-dir lines. It tells the servers every name goes to and whether no-resolv is there;
+// read is false when the file is not found.
 func dnsmasqForwards(pid int) (servers []string, noResolv bool, read bool) {
+	file := dnsmasqFile(pid)
+	if file == "" {
+		return nil, false, false
+	}
+	forwards, _, read := readForwards(processRoot(pid), file)
+	if !read {
+		// its root cannot be read: the file of the system
+		forwards, _, read = readForwards(procRoot, file)
+	}
+	return forwards.Servers, forwards.NoResolv, read
+}
+
+// dnsmasqFile is the configuration file of the command line of a dnsmasq process (-C,
+// --conf-file); empty when there is none or the process is gone.
+func dnsmasqFile(pid int) string {
 	commandLine, err := os.ReadFile(filepath.Join(procRoot, "proc", strconv.Itoa(pid), "cmdline"))
 	if err != nil {
-		return nil, false, false
+		return ""
 	}
 	arguments := strings.Split(strings.TrimRight(string(commandLine), "\x00"), "\x00")
 	var file string
@@ -134,26 +151,41 @@ func dnsmasqForwards(pid int) (servers []string, noResolv bool, read bool) {
 			file = strings.TrimPrefix(argument, "--conf-file=")
 		}
 	}
-	if file == "" {
-		return nil, false, false
-	}
-	content, err := os.ReadFile(filepath.Join(procRoot, file))
+	return file
+}
+
+// processRoot is the root of the file system as a process sees it.
+func processRoot(pid int) string {
+	return filepath.Join(procRoot, "proc", strconv.Itoa(pid), "root")
+}
+
+// Forwards is where a configuration of dnsmasq sends every name: the servers of its "server="
+// lines without a domain, and whether it reads no resolv file ("no-resolv").
+type Forwards struct {
+	Servers  []string
+	NoResolv bool
+}
+
+// readForwards reads a configuration file of dnsmasq and the files of its conf-dir lines,
+// each under root. It returns the content of the file itself too; read is false when the
+// file is not found.
+func readForwards(root string, file string) (forwards Forwards, content []byte, read bool) {
+	content, err := os.ReadFile(filepath.Join(root, file))
 	if err != nil {
-		return nil, false, false
+		return Forwards{}, nil, false
 	}
 	var directories []string
-	read = true
 	readLines := func(content []byte) {
 		for _, line := range strings.Split(string(content), "\n") {
 			line = strings.TrimSpace(line)
 			key, value, _ := strings.Cut(line, "=")
 			switch key {
 			case "no-resolv":
-				noResolv = true
+				forwards.NoResolv = true
 			case "server":
 				// "server=/domain/address" is for the names of a domain only
 				if !strings.HasPrefix(value, "/") {
-					servers = append(servers, value)
+					forwards.Servers = append(forwards.Servers, value)
 				}
 			case "conf-dir":
 				directory, _, _ := strings.Cut(value, ",")
@@ -163,18 +195,76 @@ func dnsmasqForwards(pid int) (servers []string, noResolv bool, read bool) {
 	}
 	readLines(content)
 	for _, directory := range directories {
-		entries, _ := os.ReadDir(filepath.Join(procRoot, directory))
+		entries, _ := os.ReadDir(filepath.Join(root, directory))
 		for _, entry := range entries {
 			if entry.IsDir() || strings.HasSuffix(entry.Name(), "~") {
 				continue
 			}
-			content, err := os.ReadFile(filepath.Join(procRoot, directory, entry.Name()))
+			content, err := os.ReadFile(filepath.Join(root, directory, entry.Name()))
 			if err == nil {
 				readLines(content)
 			}
 		}
 	}
-	return servers, noResolv, read
+	return forwards, content, true
+}
+
+// DnsmasqLoaded is the configuration a dnsmasq process runs with against the one written for
+// it now.
+type DnsmasqLoaded struct {
+	PID  int
+	File string
+	// Stale tells that the process runs with another content than its file has now
+	Stale           bool
+	Loaded, Written Forwards
+}
+
+// CheckDnsmasq compares, for each dnsmasq process in a jail, the configuration it runs with
+// to the one written for it. procd starts dnsmasq in a jail of its own (ujail) where the
+// file of its start is mounted, and the init script puts a new file in place of the old one
+// on every start and reload: the process sees the file it was started with, and procd
+// starts it again when the content changes. One it did not start again (a restart while
+// procd restarted it for an interface that came up) runs with the old content for good.
+// A process outside a jail reads the file of the system: what it was started with cannot be
+// seen, and it is left out.
+func CheckDnsmasq(listeners []sockets.Listener) []DnsmasqLoaded {
+	var result []DnsmasqLoaded
+	seen := make(map[int]bool)
+	for _, listener := range listeners {
+		if listener.Program != "dnsmasq" || seen[listener.PID] {
+			continue
+		}
+		seen[listener.PID] = true
+		if !ownMountNamespace(listener.PID) {
+			continue
+		}
+		file := dnsmasqFile(listener.PID)
+		if file == "" {
+			continue
+		}
+		loaded, loadedContent, readLoaded := readForwards(processRoot(listener.PID), file)
+		written, writtenContent, readWritten := readForwards(procRoot, file)
+		if !readLoaded || !readWritten {
+			continue
+		}
+		result = append(result, DnsmasqLoaded{
+			PID: listener.PID, File: file,
+			Stale:  !bytes.Equal(loadedContent, writtenContent),
+			Loaded: loaded, Written: written,
+		})
+	}
+	return result
+}
+
+// ownMountNamespace tells whether a process has a file system of its own (a jail), not that
+// of this process.
+func ownMountNamespace(pid int) bool {
+	own, err := os.Readlink(filepath.Join(procRoot, "proc", strconv.Itoa(pid), "ns", "mnt"))
+	if err != nil {
+		return false
+	}
+	this, err := os.Readlink(filepath.Join(procRoot, "proc", "self", "ns", "mnt"))
+	return err == nil && own != this
 }
 
 // MarkedRoute is where the kernel sends a packet marked for the transparent proxy that

@@ -1,0 +1,19 @@
+#!/bin/sh /etc/rc.common
+# Before dnsmasq starts at boot (its START is 19): when podkop starts at boot, dnsmasq is set
+# to ask the backend now (podkop boot-dns; nothing with dont_touch_dhcp on), so that it
+# starts that way and the backend finds it set and does not restart it. A restart of dnsmasq
+# at boot comes while procd restarts dnsmasq for the interfaces that come up, and the two may
+# leave dnsmasq running with its old configuration for good.
+# The stop of podkop at a reboot still gives dnsmasq back (an image flashed meanwhile, a boot
+# with the autostart off). A boot after a lost power, or the first one after a sysupgrade
+# that kept the settings, starts dnsmasq this way already.
+# Until sing-box answers, a few seconds after podkop starts, neither the LAN nor the router
+# resolves names: the clock check of the backend finds the NTP servers without dnsmasq, and
+# the guard gives dnsmasq back when the backend fails for good.
+# Nothing at other times: the backend sets dnsmasq up itself when it starts.
+START=18
+
+boot() {
+	/etc/init.d/podkop enabled || return 0
+	/usr/bin/podkop boot-dns 2>&1 | logger -t podkop
+}

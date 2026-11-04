@@ -185,6 +185,21 @@ func TakeOver(system System) (bool, error) {
 	return true, system.Restart()
 }
 
+// Prepare makes dnsmasq ask the backend as TakeOver does, without the restart: at boot,
+// before the service of dnsmasq starts, so that it starts that way and the backend that
+// starts later finds it set and leaves it alone. A restart at boot comes while procd
+// restarts dnsmasq for the interfaces that come up, and the two may leave the process
+// started with the old file running: procd does not start it again for the new one.
+// It tells whether anything was changed.
+func Prepare(system System) (bool, error) {
+	return TakeOver(notRestarted{system})
+}
+
+// notRestarted is a System whose dnsmasq is not running yet: nothing to restart.
+type notRestarted struct{ System }
+
+func (notRestarted) Restart() error { return nil }
+
 // Restore gives dnsmasq back what was kept when it was taken over, and restarts it. With
 // nothing kept it gets the resolvers netifd collects, as the shell backend does it. Only
 // a dnsmasq a backend took over is given back (see taken): one that was set to ask the

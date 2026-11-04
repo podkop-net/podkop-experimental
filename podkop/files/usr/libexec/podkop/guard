@@ -31,7 +31,21 @@
 #    good: from RETRY seconds after the failure the guard asks the backend that failed to
 #    try again, every RETRY seconds. The backend tries when a try is due: after the first
 #    few, it waits longer after each failure, up to an hour.
-# Off: uci set podkop.settings.guard=0 (both parts) or podkop.settings.liveness=0 (the probe
+# 4. dnsmasq running with an old configuration. procd starts dnsmasq in a jail (ujail) where
+#    its configuration file is mounted as it was at the start; the init script of dnsmasq
+#    puts a new file in its place at every start and reload, and procd starts dnsmasq again
+#    when the content changed. A restart of dnsmasq (the backend's, when it takes the DNS of
+#    the LAN or gives it back) that comes while procd restarts dnsmasq for an interface that
+#    came up may leave the process started with the old file running, and procd never
+#    starts it again: the LAN asks the router's servers while the backend has it ask the
+#    backend, or asks the backend that has given it back. After every start or stop of
+#    dnsmasq procd reports, and every DNSMASQ_EVERY seconds, the guard compares the file each
+#    dnsmasq process sees with the file of the system. A difference still there
+#    DNSMASQ_SETTLE seconds later, with the same process and the same file, while no init
+#    script of dnsmasq runs, is no restart in progress: dnsmasq is restarted, at most
+#    DNSMASQ_RESTARTS times in 10 minutes. A dnsmasq outside a jail reads the file of the
+#    system: what it was started with cannot be seen, and it is left alone.
+# Off: uci set podkop.settings.guard=0 (every part) or podkop.settings.liveness=0 (the probe
 # only); uci commit podkop; service podkop-guard restart
 
 FIFO=/var/run/podkop-guard.fifo
@@ -51,6 +65,13 @@ PROBE_NAME=ready.fakeipchecker.podkop.net
 PROBE_SERVER=127.0.0.42
 STUCK=480
 RETRY=300
+# touched at every start and stop of dnsmasq procd reports: compare its files for 30 s
+KICK=/var/run/podkop-guard.dnsmasq
+DNSMASQ_EVERY=30
+# procd ends a restart it began within the term_timeout of the instance, 5 s by default,
+# which the init script of dnsmasq keeps
+DNSMASQ_SETTLE=6
+DNSMASQ_RESTARTS=3
 
 log() { logger -t podkop-guard "$*"; }
 off() { case "$1" in 0 | off | false | no | disabled) return 0 ;; esac; return 1; }
@@ -62,7 +83,7 @@ last_error() {
 		sed 's/^.*podkop\[[0-9]*\]: //' | cut -c 1-300
 }
 
-rm -f "$FIFO" "$MARK"
+rm -f "$FIFO" "$MARK" "$KICK"
 mkfifo "$FIFO" || exit 1
 # Keep one `ubus subscribe` running. After a restart of ubusd the old subscriber keeps
 # running but receives nothing, so subscribe again when the ubusd process changes. The
@@ -221,6 +242,92 @@ fi
 	done
 ) &
 
+# the dnsmasq processes in a jail and the configuration file of each: "<pid> <file>"
+dnsmasq_jailed() {
+	this=$(readlink /proc/self/ns/mnt)
+	for dir in /proc/[0-9]*; do
+		name=""
+		{ read -r name < "$dir/comm"; } 2>/dev/null
+		[ "$name" = dnsmasq ] || continue
+		[ "$(readlink "$dir/ns/mnt" 2>/dev/null)" != "$this" ] || continue
+		file=$(tr '\0' '\n' < "$dir/cmdline" 2>/dev/null | sed -n -e '/^-C$/{n;p;q}' -e 's/^--conf-file=//p')
+		[ -n "$file" ] && echo "${dir#/proc/} $file"
+	done
+}
+
+# cmp is in the default BusyBox of OpenWrt; md5sum where it is left out
+if command -v cmp > /dev/null 2>&1; then
+	same() { cmp -s "$1" "$2"; }
+else
+	same() { [ "$(md5sum < "$1")" = "$(md5sum < "$2")" ]; }
+fi
+
+# the first dnsmasq process that sees another file than the system has:
+# "<pid> <file> <md5 of the file of the system>"; nothing when there is none
+dnsmasq_stale() {
+	dnsmasq_jailed | while read -r dpid dfile; do
+		[ -f "/proc/$dpid/root$dfile" ] && [ -f "$dfile" ] || continue
+		same "/proc/$dpid/root$dfile" "$dfile" && continue
+		echo "$dpid $dfile $(md5sum < "$dfile" | cut -c 1-32)"
+		break
+	done
+}
+
+# 4. dnsmasq running with an old configuration
+(
+	until=$(($(date +%s) + 30))   # the boot: dnsmasq has just started
+	checked=0
+	pending=""                    # the difference seen, since when
+	since=0
+	restarted=""                  # when the guard restarted dnsmasq
+	told=""
+	while kill -0 "$main" 2>/dev/null; do
+		sleep 5
+		kill -0 "$main" 2>/dev/null || break
+		now=$(date +%s)
+		if [ -f "$KICK" ]; then
+			rm -f "$KICK"
+			until=$((now + 30))
+		fi
+		# every round for 30 s after a start or a stop of dnsmasq and while a difference
+		# waits, every DNSMASQ_EVERY seconds otherwise
+		[ "$now" -lt "$until" ] || [ -n "$pending" ] || [ $((now - checked)) -ge "$DNSMASQ_EVERY" ] || continue
+		checked=$now
+		stale=$(dnsmasq_stale)
+		if [ -z "$stale" ]; then
+			pending=""
+			continue
+		fi
+		if [ "$stale" != "$pending" ]; then
+			pending=$stale
+			since=$now
+			continue
+		fi
+		[ $((now - since)) -ge "$DNSMASQ_SETTLE" ] || continue
+		# an init script of dnsmasq runs: what it does is not done yet
+		flock -n /var/lock/procd_dnsmasq.lock true 2>/dev/null || continue
+		recent=""
+		count=0
+		for at in $restarted; do
+			[ $((now - at)) -lt 600 ] || continue
+			recent="$recent $at"
+			count=$((count + 1))
+		done
+		restarted=$recent
+		set -- $pending
+		if [ "$count" -ge "$DNSMASQ_RESTARTS" ]; then
+			[ "$told" = "$pending" ] || log "dnsmasq (pid $1) still runs with an older configuration than $2 after $count restarts in 10 minutes: left as it is"
+			told=$pending
+			continue
+		fi
+		restarted="$restarted $now"
+		log "dnsmasq (pid $1) runs with an older configuration than $2: procd did not start it again after a change; restarting it"
+		/etc/init.d/dnsmasq restart >/dev/null 2>&1
+		pending=""
+		until=$(($(date +%s) + 30))
+	done
+) &
+
 # seconds without an answer after which the probe has just killed the backend, if it has
 liveness_kill() {
 	[ -f "$MARK" ] || return 1
@@ -335,6 +442,9 @@ while read -r event; do
 		# after DNS is back, and never in its way: the overlay may be full or read-only
 		mkdir -p "${LAST%/*}" 2>/dev/null
 		{ date '+%Y-%m-%d %H:%M:%S %z'; echo "$state"; echo "$cause"; } > "$LAST" 2>/dev/null || true
+		;;
+	*'"instance.start"'*'"service":"dnsmasq"'* | *'"instance.stop"'*'"service":"dnsmasq"'*)
+		: > "$KICK"
 		;;
 	esac
 done < "$FIFO"

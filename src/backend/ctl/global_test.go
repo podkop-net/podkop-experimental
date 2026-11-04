@@ -56,6 +56,17 @@ func TestLANDNSLines(t *testing.T) {
 	require.Equal(t, []string{"❌ DNS on wg0: the interface has no address"}, lanDNSLines(diag.LANDNS{Interface: "wg0"}, true))
 }
 
+// What dnsmasq runs with: the line of the report case, a restart procd lost.
+func TestDnsmasqLoadedLine(t *testing.T) {
+	t.Parallel()
+	asks := diag.Forwards{Servers: []string{"127.0.0.42"}, NoResolv: true}
+	require.Equal(t, "✅ dnsmasq (pid 3706) runs with the configuration written for it",
+		dnsmasqLoadedLine(diag.DnsmasqLoaded{PID: 3706, Loaded: asks, Written: asks}))
+	require.Equal(t, "❌ dnsmasq (pid 3706) runs with an older configuration than the one written for it (written: forwards to 127.0.0.42, no-resolv; "+
+		"in use: forwards to the servers of its resolv file only): procd did not start it again; /etc/init.d/dnsmasq restart applies it",
+		dnsmasqLoadedLine(diag.DnsmasqLoaded{PID: 3706, Stale: true, Written: asks}))
+}
+
 func TestCutSettings(t *testing.T) {
 	t.Parallel()
 	require.Equal(t, "config settings 'settings'", cutSettings("config settings 'settings'"))

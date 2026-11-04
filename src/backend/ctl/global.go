@@ -163,6 +163,11 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 	for _, lan := range diag.CheckLANDNS(sources, listeners) {
 		add(lanDNSLines(lan, running)...)
 	}
+	// what dnsmasq runs with, not what its settings say: a restart of it that procd lost
+	// leaves it with the old configuration
+	for _, loaded := range diag.CheckDnsmasq(listeners) {
+		add(dnsmasqLoadedLine(loaded))
+	}
 
 	add(rule, "📦 Podkop status")
 	// sing-box is a part of the backend: what is asked is whether the backend runs it and
@@ -328,18 +333,33 @@ func lanDNSLines(lan diag.LANDNS, running bool) []string {
 			result = append(result, "⚠️ "+who+", its configuration not found")
 			continue
 		}
-		forwards := "forwards to " + strings.Join(lan.Servers, ", ")
-		if len(lan.Servers) == 0 {
-			forwards = "forwards to the servers of its resolv file only"
-		} else if !lan.NoResolv {
-			forwards += " and to the servers of its resolv file"
-		} else {
-			forwards += ", no-resolv"
-		}
 		asks := len(lan.Servers) == 1 && lan.Servers[0] == dataplane.DNSAddress && lan.NoResolv
-		result = append(result, mark(asks, "✅ ", mark(running, "❌ ", "⚠️ "))+who+", "+forwards)
+		result = append(result, mark(asks, "✅ ", mark(running, "❌ ", "⚠️ "))+who+", "+forwardsText(diag.Forwards{Servers: lan.Servers, NoResolv: lan.NoResolv}))
 	}
 	return result
+}
+
+// forwardsText tells where a configuration of dnsmasq sends every name.
+func forwardsText(forwards diag.Forwards) string {
+	switch {
+	case len(forwards.Servers) == 0:
+		return "forwards to the servers of its resolv file only"
+	case !forwards.NoResolv:
+		return "forwards to " + strings.Join(forwards.Servers, ", ") + " and to the servers of its resolv file"
+	}
+	return "forwards to " + strings.Join(forwards.Servers, ", ") + ", no-resolv"
+}
+
+// dnsmasqLoadedLine tells whether a dnsmasq process runs with the configuration written
+// for it.
+func dnsmasqLoadedLine(loaded diag.DnsmasqLoaded) string {
+	who := "dnsmasq (pid " + strconv.Itoa(loaded.PID) + ")"
+	if !loaded.Stale {
+		return "✅ " + who + " runs with the configuration written for it"
+	}
+	return "❌ " + who + " runs with an older configuration than the one written for it (written: " +
+		forwardsText(loaded.Written) + "; in use: " + forwardsText(loaded.Loaded) +
+		"): procd did not start it again; /etc/init.d/dnsmasq restart applies it"
 }
 
 // markedRouteLine tells where the kernel sends a marked packet of an interface.
