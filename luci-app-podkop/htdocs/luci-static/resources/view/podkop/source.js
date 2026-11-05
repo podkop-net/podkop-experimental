@@ -326,6 +326,75 @@ function attemptLine(attempt) {
 
 // What the router knows of a subscription, a line a fact: its servers, the last check and its
 // way, when its servers changed, the next check; a failure with the list kept.
+// The state of a subscription in its window: the check, then what the provider told.
+function statusLines(state) {
+  const lines = stateLines(state);
+  if (state && state.provider) {
+    // the data of the provider is of the last check that brought a list: after a failure it
+    // is marked with its time; since the start, with the time of the list kept on flash
+    const stale =
+      state.error || !state.checked
+        ? when(state.checked || state.changed, state.now)
+        : null;
+    lines.push(...providerLines(state.provider, stale));
+  }
+  return lines;
+}
+
+// The list of a saved subscription downloaded now and taken as a planned download is: the
+// state in the window follows the download until it ends (its attempted time is new).
+function updateNow(name) {
+  const box = document.getElementById("pdk-status-" + name);
+  const show = (state, extra) => {
+    if (box) {
+      box.replaceChildren(block(statusLines(state).concat(extra || [])));
+    }
+  };
+  const known = stateOf(name);
+  if (!known) {
+    show(null, [_("Save & Apply first: the router updates saved subscriptions only")]);
+    return Promise.resolve();
+  }
+  const before = known.attempted || "";
+  return main.PodkopShellMethods.subscriptionUpdateStart(name).then(
+    (response) => {
+      if (!response.success) {
+        show(known, [_("The router did not answer")]);
+        return;
+      }
+      // the click is answered at once, before the first poll
+      show(Object.assign({}, known, { busy: true }));
+      const started = Date.now();
+      return new Promise((resolve) => {
+        const poll = () => {
+          refreshStates()
+            .catch(() => states)
+            .then(() => {
+              const state = stateOf(name) || known;
+              if (!state.busy && (state.attempted || "") !== before) {
+                show(state);
+                return resolve();
+              }
+              // the backend gives up a download after three minutes
+              if (Date.now() - started > 200000) {
+                show(state, [
+                  _(
+                    "The download takes long: the state tells what it came to once it ends",
+                  ),
+                ]);
+                return resolve();
+              }
+              show(state.busy ? state : Object.assign({}, state, { busy: true }));
+              // a hidden tab asks less often
+              setTimeout(poll, document.hidden ? 5000 : 1000);
+            });
+        };
+        poll();
+      });
+    },
+  );
+}
+
 function stateLines(state) {
   if (!state) {
     return [
@@ -879,8 +948,37 @@ function rulesUsing(name) {
   return [...rules];
 }
 
+// The sources whose outbound JSON connects through the source of the name (detour)
+function jsonSourcesThrough(name) {
+  return uci
+    .sections("podkop", "source")
+    .filter((item) => {
+      try {
+        const value = JSON.parse(
+          String(item.outbound_json || "").replace(/^\ufeff/, ""),
+        );
+        return value && String(value.detour || "").trim() === name;
+      } catch (e) {
+        return false;
+      }
+    })
+    .map((item) => main.sourceLabel(item));
+}
+
 // A source deleted: the rows of the rules that name it stay, marked as deleted in their rule
 function sourceRemoved(name) {
+  const through = jsonSourcesThrough(name);
+  if (through.length) {
+    ui.addNotification(
+      null,
+      E("p", {}, [
+        _(
+          "The outbound JSON of %s connects through the deleted source (detour): change its detour",
+        ).format(through.join(", ")),
+      ]),
+      "warning",
+    );
+  }
   const used = rulesUsing(name);
   if (used.length) {
     ui.addNotification(
@@ -1201,21 +1299,29 @@ function createSourceContent(section) {
     if (arguments.length > 1) {
       return null;
     }
-    const state = stateOf(section_id);
-    const lines = stateLines(state);
-    if (state && state.provider) {
-      // the data of the provider is of the last check that brought a list: after a failure it
-      // is marked with its time; since the start, with the time of the list kept on flash
-      const stale =
-        state.error || !state.checked
-          ? when(state.checked || state.changed, state.now)
-          : null;
-      lines.push(...providerLines(state.provider, stale));
-    }
-    return block(lines);
+    return E("div", { id: "pdk-status-" + section_id }, [
+      block(statusLines(stateOf(section_id))),
+    ]);
   };
   o.parse = function () {
     return Promise.resolve();
+  };
+
+  // the list of the saved address downloaded now, not waiting for its time
+  o = section.option(
+    form.Button,
+    "_update",
+    _("Update now"),
+    _(
+      "The router downloads the list of the saved address now and takes it, as at its time. When a list comes, the next download is counted from now; when the download fails, the list in use and the planned time stay",
+    ),
+  );
+  o.modalonly = true;
+  o.depends("type", "subscription");
+  o.inputtitle = _("Update now");
+  o.inputstyle = "action";
+  o.onclick = function (ev, section_id) {
+    return updateNow(section_id);
   };
 
   o = section.option(

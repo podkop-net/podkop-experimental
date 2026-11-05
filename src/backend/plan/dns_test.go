@@ -1,6 +1,7 @@
 package plan
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -83,4 +84,30 @@ func TestDNSOfListRefused(t *testing.T) {
 		_, err := buildRules(t, rows, nil)
 		require.Error(t, err, rows)
 	}
+}
+
+// A row with neither a type nor an address (staged by the Add of the page, applied later as it
+// is) is left out with a warning; a row with a type and no address is still refused.
+func TestDNSOfListEmptyRow(t *testing.T) {
+	t.Parallel()
+	empty := "\nconfig dns_server\n"
+	result, err := buildRules(t, dnsRow("udp", "77.88.8.8")+empty+dnsRow("provider", ""), nil)
+	require.NoError(t, err)
+	config, _ := outboundsOf(t, result)
+	var group map[string]any
+	for _, server := range config.DNS.Servers {
+		if server["tag"] == "dns-server" {
+			group = server
+		}
+	}
+	require.Equal(t, []any{"dns-server-1", "dns-server-2"}, group["servers"])
+	require.Contains(t, strings.Join(result.Warnings, "\n"), "1 row(s) of the DNS server list have neither a type nor an address")
+
+	// only empty rows: the server of the options, as without the list
+	servers, tags := dnsServersOf(t, empty)
+	require.Equal(t, []string{"bootstrap-dns-server", "dns-server", "fakeip-server"}, tags)
+	require.Equal(t, "8.8.8.8", servers["dns-server"]["server"])
+
+	_, err = buildRules(t, dnsRow("udp", "77.88.8.8")+dnsRow("doh", ""), nil)
+	require.Error(t, err)
 }

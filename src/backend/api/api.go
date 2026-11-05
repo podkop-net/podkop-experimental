@@ -352,7 +352,15 @@ func Serve(ctx context.Context, path string, backend Backend, logs *logbuf.Buffe
 		answer(writer, backend.Subscriptions(request.Context()))
 	})
 	mux.HandleFunc("POST /subscriptions/update", func(writer http.ResponseWriter, request *http.Request) {
-		answer(writer, backend.UpdateSubscriptions(request.Context(), request.URL.Query().Get("name")))
+		ctx := request.Context()
+		if request.URL.Query().Get("wait") == "0" {
+			// the download is started and the states told at once: the page asks for them
+			// again until the download has ended
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, startWait)
+			defer cancel()
+		}
+		answer(writer, backend.UpdateSubscriptions(ctx, request.URL.Query().Get("name")))
 	})
 	mux.HandleFunc("POST /subscriptions/load", func(writer http.ResponseWriter, request *http.Request) {
 		var asked struct {
@@ -550,6 +558,19 @@ func (c Client) ProbeSelf() (*ProbeResult, error) {
 func (c Client) Subscriptions() ([]SubscriptionState, error) {
 	var states []SubscriptionState
 	err := c.call(http.MethodGet, "/subscriptions", 5*time.Second, &states)
+	return states, err
+}
+
+// startWait is how long a start of a download (StartSubscriptionUpdate) waits for the backend
+// to take the request: the download itself goes on without the caller.
+const startWait = 2 * time.Second
+
+// StartSubscriptionUpdate makes the backend start a download of the list of a subscription now
+// (of all of them with no name) and returns the states at once; Subscriptions tells how it
+// goes, the attempted time of the subscription is new once it has ended.
+func (c Client) StartSubscriptionUpdate(name string) ([]SubscriptionState, error) {
+	var states []SubscriptionState
+	err := c.call(http.MethodPost, "/subscriptions/update?wait=0&name="+url.QueryEscape(name), startWait+5*time.Second, &states)
 	return states, err
 }
 

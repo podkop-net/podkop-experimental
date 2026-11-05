@@ -26,14 +26,29 @@
 // where a row goes without a server and are never given. Nor is a name rows or the settings
 // still name (a source deleted keeps the rows that show it as deleted): the new section would
 // take them over silently.
+// The detour an outbound JSON names: another source by its name, as the "Through" of a row
+function jsonDetour(text) {
+  try {
+    const value = JSON.parse(String(text || "").replace(/^\ufeff/, ""));
+    return value && typeof value.detour === "string" ? value.detour.trim() : "";
+  } catch (e) {
+    return "";
+  }
+}
+
 function freeName(prefix) {
   const deleted =
     (uci.state && uci.state.deletes && uci.state.deletes.podkop) || {};
+  // a name still named somewhere is not given to a new section: the rows of the rules and the
+  // detours of outbound JSONs would take the new one for the old one
   const named = new Set(
     [uci.get("podkop", "settings", "download_lists_via_proxy_section")].concat(
       ...uci
         .sections("podkop", "member")
         .map((row) => [row.section, row.source, row.via]),
+      uci
+        .sections("podkop", "source")
+        .map((item) => jsonDetour(item.outbound_json)),
     ),
   );
   for (let index = 1; ; index++) {

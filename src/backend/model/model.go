@@ -184,7 +184,11 @@ type Settings struct {
 	DNSType   string // udp, dot, doh
 	DNSServer string // host[:port][/path]
 	// DNSUpstreams are the DNS servers in their order, DNSMode how they are asked
-	DNSUpstreams       []DNSUpstream
+	DNSUpstreams []DNSUpstream
+	// EmptyDNSRows counts the rows of the list with neither a type nor an address, left out of
+	// DNSUpstreams: the Add of LuCI stages a new row before its fields are filled, and pending
+	// changes applied later (from another page) write it as it is
+	EmptyDNSRows       int
 	DNSMode            string
 	BootstrapDNSServer string
 	DNSRewriteTTL      string // a number is expected; kept as written
@@ -339,8 +343,13 @@ func Load(parsed *uci.Package) (*Config, error) {
 		})
 	}
 	for _, row := range parsed.SectionsOfType("dns_server") {
+		server := strings.TrimSpace(row.Get("server"))
+		if row.Get("type") == "" && server == "" {
+			config.Settings.EmptyDNSRows++
+			continue
+		}
 		config.Settings.DNSUpstreams = append(config.Settings.DNSUpstreams, DNSUpstream{
-			Type: get(row, "type", "doh"), Server: strings.TrimSpace(row.Get("server")),
+			Type: get(row, "type", "doh"), Server: server,
 		})
 	}
 	if len(config.Settings.DNSUpstreams) == 0 {

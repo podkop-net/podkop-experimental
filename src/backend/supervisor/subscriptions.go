@@ -105,6 +105,9 @@ type downloaded struct {
 	err     error
 	// through is the instance whose outbounds the download went through; none directly
 	through Instance
+	// planned is when the next download was due before one was asked for now (forced): a
+	// download asked for by hand that fails leaves that time as it was
+	planned *time.Time
 }
 
 type subscriptionRequest struct {
@@ -408,6 +411,11 @@ func (s *Supervisor) downloadDue(now time.Time, force string) {
 			continue
 		}
 		busy++
+		var planned *time.Time
+		if t.forced[name] && !due && state.Next != nil {
+			at := *state.Next
+			planned = &at
+		}
 		delete(t.forced, name)
 		state.Busy = true
 		address := t.addresses[name]
@@ -418,7 +426,7 @@ func (s *Supervisor) downloadDue(now time.Time, force string) {
 			ctx, cancel := context.WithTimeout(context.Background(), downloadBudget)
 			defer cancel()
 			list, through, tries, err := s.fetch(ctx, address, downloadProxies, nil)
-			s.downloads <- downloaded{name: name, address: address, list: list, tries: tries, err: err, through: through}
+			s.downloads <- downloaded{name: name, address: address, list: list, tries: tries, err: err, through: through, planned: planned}
 		}()
 	}
 }
@@ -443,18 +451,25 @@ func (s *Supervisor) takeList(result downloaded) {
 	next := now.Add(t.interval(result.name))
 	state.Attempted, state.Attempts = &now, attempts(result.tries)
 	if result.err != nil {
-		if t.failures == nil {
-			t.failures = make(map[string]int)
-		}
-		t.failures[result.name]++
-		next = now.Add(min(downloadRetry, t.interval(result.name)))
-		if t.lists[result.name] == nil {
-			// no list at all: the groups of the subscription go by their rule for no server
-			next = now.Add(min(downloadBackoff(t.failures[result.name]), t.interval(result.name)))
-		}
-		if result.through != nil && result.through != s.liveInstance() {
-			// the sing-box it went through was replaced meanwhile: again at the next tick
-			next = now
+		replaced := result.through != nil && result.through != s.liveInstance()
+		if result.planned != nil && result.planned.After(now) && t.lists[result.name] != nil && !replaced {
+			// asked for by hand and failed, with a list in use: the download that was planned
+			// stays when it was, and the failure does not count towards the backoff
+			next = *result.planned
+		} else {
+			if t.failures == nil {
+				t.failures = make(map[string]int)
+			}
+			t.failures[result.name]++
+			next = now.Add(min(downloadRetry, t.interval(result.name)))
+			if t.lists[result.name] == nil {
+				// no list at all: the groups of the subscription go by their rule for no server
+				next = now.Add(min(downloadBackoff(t.failures[result.name]), t.interval(result.name)))
+			}
+			if replaced {
+				// the sing-box it went through was replaced meanwhile: again at the next tick
+				next = now
+			}
 		}
 		state.Next = &next
 		state.Error, state.ErrorCode, state.ErrorArgs = failureOf(result.err)

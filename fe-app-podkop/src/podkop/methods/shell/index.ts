@@ -143,6 +143,14 @@ export const PodkopShellMethods = {
     callBaseMethod<Podkop.SubscriptionState[]>(
       Podkop.AvailableMethods.SUBSCRIPTION_STATUS,
     ),
+  // starts a download of the list of a subscription now; subscriptionStatus tells how it goes
+  subscriptionUpdateStart: async (name: string) =>
+    callBaseMethod<Podkop.SubscriptionState[]>(
+      Podkop.AvailableMethods.SUBSCRIPTION_UPDATE_START,
+      [name],
+      '/usr/bin/podkop',
+      10000,
+    ),
   groupCheck: async (check: Podkop.GroupCheck) =>
     callBaseMethod<Podkop.GroupPreview>(
       Podkop.AvailableMethods.GROUP_CHECK,

@@ -25,6 +25,20 @@ function providerDNS() {
     .catch(() => []);
 }
 
+// A field of the DNS table keeps its value in a row the page has not drawn yet: LuCI removes
+// the value of a field it cannot see when it parses the form (a hidden one, as the address of
+// the provider's row, is still removed), and a row Add has just made is not drawn when the
+// save that stages it parses the form.
+function keepUndrawn(column) {
+  column.remove = function (section_id) {
+    const root = this.map.root;
+    if (root && !root.querySelector('[data-sid="' + section_id + '"]')) {
+      return;
+    }
+    return form.AbstractValue.prototype.remove.apply(this, arguments);
+  };
+}
+
 // The DNS servers in their order, a row each, dragged by the handle to another place, as the
 // rows of a rule are. A file without the list has the one server of its options as the first row:
 // it is made in the page and written with the next save, so opening the page changes nothing.
@@ -76,6 +90,22 @@ function dnsServersTable(section) {
   };
   // the order is the order the servers are asked in: dragging only
   table.handleSort = function () {};
+  // A new row is a server at once. LuCI stages the section of a new row before its fields
+  // are filled in; left so and applied later from the pending changes (another page's Save &
+  // Apply), an empty row was a list the backend refused. The save that stages it parses the
+  // form, where the row is not drawn yet: its fields keep what Add gave them (keepUndrawn).
+  table.handleAdd = function (ev, name) {
+    const config = this.uciconfig || this.map.config;
+    const row = this.map.data.add(config, this.sectiontype, name);
+    this.map.data.set(config, row, "type", "doh");
+    this.map.data.set(
+      config,
+      row,
+      "server",
+      Object.keys(main.DNS_SERVER_OPTIONS)[0] || "1.1.1.1",
+    );
+    return this.map.save(null, true);
+  };
   // one server is left at least: without the list the server of the options would come back
   table.handleRemove = function () {
     if (this.cfgsections().length > 1) {
@@ -104,6 +134,7 @@ function dnsServersTable(section) {
   column.value("provider", _("The provider's DNS"));
   column.default = "doh";
   column.rmempty = false;
+  keepUndrawn(column);
 
   column = table.option(form.Value, "server", _("Address"));
   Object.entries(main.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
@@ -112,6 +143,7 @@ function dnsServersTable(section) {
   // the provider's row has no address of its own
   ["doh", "dot", "udp"].forEach((type) => column.depends("type", type));
   column.rmempty = false;
+  keepUndrawn(column);
   column.validate = function (section_id, value) {
     const validation = main.validateDNS(value);
 

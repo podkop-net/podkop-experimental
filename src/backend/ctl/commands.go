@@ -95,6 +95,7 @@ var Commands = [][2]string{
 	{"group_check", "<JSON {subscriptions, include, exclude}>: the servers a group would choose, as JSON: {chosen, total, missing}"},
 	{"subscription_status", "Each subscription of the settings, as JSON: its servers, when its list was taken and checked, the way it came, the last error, the next download"},
 	{"subscription_update", "[name]: download the list of a subscription now (every one without a name)"},
+	{"subscription_update_start", "<name>: start a download of the list of a subscription now, as JSON: the states of subscription_status at once; the attempted time of the subscription is new once it has ended"},
 	{"hwid", "What the identifier of this device that providers are told (x-hwid) is made of, and its beginning"},
 	{"check_logs", "[--since RUN:NUMBER]: the log of the backend and of sing-box; with --since, as JSON, only the lines after that number of that run (all of another run), and where to go on from"},
 	{"show_sing_box_config", "The sing-box configuration that runs, secrets masked; --rejected: the last one refused"},
@@ -215,6 +216,16 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 		return compact(preview)
 	case "subscription_status":
 		states, err := client.Subscriptions()
+		if err != nil {
+			states = []api.SubscriptionState{}
+		}
+		return compact(states)
+	case "subscription_update_start":
+		name := ""
+		if len(arguments) > 1 {
+			name = arguments[1]
+		}
+		states, err := client.StartSubscriptionUpdate(name)
 		if err != nil {
 			states = []api.SubscriptionState{}
 		}
@@ -406,7 +417,8 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 func usage(errorOutput io.Writer) int {
 	io.WriteString(errorOutput, "Commands:\n")
 	for _, command := range Commands {
-		io.WriteString(errorOutput, "    "+command[0]+strings.Repeat(" ", 24-len(command[0]))+command[1]+"\n")
+		// a name longer than the column gets one space
+		io.WriteString(errorOutput, "    "+command[0]+strings.Repeat(" ", max(1, 24-len(command[0])))+command[1]+"\n")
 	}
 	return 1
 }

@@ -528,6 +528,7 @@ var Podkop;
     AvailableMethods2["SUBSCRIPTION_LOAD_STATE"] = "subscription_load_state";
     AvailableMethods2["SUBSCRIPTION_LOAD_CANCEL"] = "subscription_load_cancel";
     AvailableMethods2["SUBSCRIPTION_STATUS"] = "subscription_status";
+    AvailableMethods2["SUBSCRIPTION_UPDATE_START"] = "subscription_update_start";
     AvailableMethods2["GROUP_CHECK"] = "group_check";
   })(AvailableMethods = Podkop2.AvailableMethods || (Podkop2.AvailableMethods = {}));
   let AvailableClashAPIMethods;
@@ -654,6 +655,13 @@ var PodkopShellMethods = {
   ),
   subscriptionStatus: async () => callBaseMethod(
     Podkop.AvailableMethods.SUBSCRIPTION_STATUS
+  ),
+  // starts a download of the list of a subscription now; subscriptionStatus tells how it goes
+  subscriptionUpdateStart: async (name) => callBaseMethod(
+    Podkop.AvailableMethods.SUBSCRIPTION_UPDATE_START,
+    [name],
+    "/usr/bin/podkop",
+    1e4
   ),
   groupCheck: async (check) => callBaseMethod(
     Podkop.AvailableMethods.GROUP_CHECK,

@@ -189,15 +189,31 @@ func (b *builder) rowServers(section *model.Section, row model.Member) ([]string
 	if err != nil {
 		return nil, err
 	}
+	// The outbound JSON of a source may name its own way (detour). With the "Through" of the
+	// row set, the row's way is taken and replaces it: the tag tells it ("… via <source>"), and
+	// the log and the dashboard show the way the connections go. Without, a detour that names
+	// another source is taken as a "Through" is (its server, or the best of its servers), with
+	// the tag telling it; a detour that names no source (an outbound the JSON brings along, one
+	// of podkop) stays as it is.
+	throughName := row.Via
+	if detour := jsonDetour(source, servers); detour != "" {
+		switch {
+		case row.Via != "" && detour != row.Via:
+			b.warnOnce("rule ", section.Name, ": the outbound JSON of the source ", source.Name, " connects through ", detour,
+				"; the row connects it through ", row.Via, " instead, as its tag tells")
+		case row.Via == "" && b.config.Source(detour) != nil:
+			throughName = detour
+		}
+	}
 	var via string
-	if row.Via != "" {
+	if throughName != "" {
 		// a row that cannot go the way it names takes no server: the rule goes by its other
 		// rows and its fallbacks, and the rest of the settings run
 		if source.Type == "interface" {
 			b.warnOnce("rule ", section.Name, ": the interface of the source ", source.Name, " does not connect through another source: the row takes no server")
 			return nil, nil
 		}
-		via, err = b.viaTag(section.Name, row.Via, source.Name)
+		via, err = b.viaTag(section.Name, throughName, source.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -217,7 +233,7 @@ func (b *builder) rowServers(section *model.Section, row model.Member) ([]string
 			tags = append(tags, server.tag)
 			continue
 		}
-		tag := server.tag + " via " + row.Via
+		tag := server.tag + " via " + throughName
 		if kind, _ := server.outbound.get("type"); kind == "selector" || kind == "urltest" {
 			return nil, E.New("the outbound JSON of the source ", source.Name, " is a ", kind, ", which connects through nothing: set detour in the outbounds it chooses from")
 		}
@@ -241,15 +257,25 @@ func (b *builder) addServer(section *model.Section, server sourceServer, tag str
 	}
 	outbound.set("tag", tag)
 	if via != "" {
-		if _, has := outbound.get("detour"); !has {
-			outbound.set("detour", via)
-		}
+		// the way of the tag, also over a detour of an outbound JSON (rowServers)
+		outbound.set("detour", via)
 		b.warnSpoofThrough(tag, outbound, via)
 	}
 	b.outbounds = append(b.outbounds, outbound)
 	if server.link != "" {
 		b.links = append(b.links, Link{Section: section.Name, Name: tag, Tag: tag, Text: server.link})
 	}
+}
+
+// jsonDetour is the detour the outbound JSON of a source names; "" for a source of another
+// type, or one without.
+func jsonDetour(source *model.Source, servers []sourceServer) string {
+	if source.Type != "json" || len(servers) != 1 {
+		return ""
+	}
+	detour, _ := servers[0].outbound.get("detour")
+	name, _ := detour.(string)
+	return strings.TrimSpace(name)
 }
 
 // viaTag is the outbound the servers of a row connect through: the one server of the

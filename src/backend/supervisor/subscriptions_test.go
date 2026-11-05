@@ -25,11 +25,12 @@ type provider struct {
 	body   string
 	// block, when set, holds every download until it is closed or the download ends
 	block chan struct{}
-	// refused are the routes that do not reach it
-	refused []string
-	asked   []string
-	headers []http.Header
-	plans   []subscription.Plan
+	// refused are the routes that do not reach it; with refuseAll none does
+	refused   []string
+	refuseAll bool
+	asked     []string
+	headers   []http.Header
+	plans     []subscription.Plan
 }
 
 func (p *provider) serve(body string) {
@@ -53,7 +54,7 @@ func (p *provider) download(ctx context.Context, address string, header http.Hea
 	var tries []subscription.Try
 	for _, route := range routes {
 		p.asked = append(p.asked, route.Name)
-		refused := false
+		refused := p.refuseAll
 		for _, name := range p.refused {
 			refused = refused || name == route.Name
 		}
@@ -77,10 +78,18 @@ func subscriptionSettings(directory string, empty string) string {
 		"\toption user_domain_list_type 'dynamic'\n\tlist user_domains 'youtube.lab.example'\n"
 }
 
-// download runs a download of every subscription now, as Run would, and takes what it came to.
+// download runs a download of every subscription now, as Run would, and takes what it came to:
+// each is made due, not asked for (a download asked for by hand that fails keeps the time
+// planned before).
 func downloadNow(t *testing.T, s *Supervisor) {
 	t.Helper()
-	s.downloadDue(time.Now(), "*")
+	s.subscriptions.access.Lock()
+	past := time.Now().Add(-time.Second)
+	for _, state := range s.subscriptions.states {
+		state.Next = &past
+	}
+	s.subscriptions.access.Unlock()
+	s.downloadDue(time.Now(), "")
 	select {
 	case result := <-s.downloads:
 		s.takeList(result)
@@ -514,5 +523,60 @@ func TestSubscriptionLoadJobs(t *testing.T) {
 	require.Equal(t, "canceled", job.Preview.ErrorCode)
 	_, known = s.LoadState(ctx, "nosuchjob")
 	require.False(t, known)
+	s.Stop()
+}
+
+// A download asked for by hand: one that brings a list counts the next download from it; one
+// that fails, with a list in use, leaves the next download when it was planned and does not
+// count towards the backoff.
+func TestSubscriptionUpdateByHand(t *testing.T) {
+	directory := t.TempDir()
+	fake, system := &fakeEngine{refuse: map[string]error{}}, new(recorder)
+	source := &provider{body: "vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\n"}
+	options := Options{
+		SettingsPath: filepath.Join(directory, "podkop"), RuleSetDir: filepath.Join(directory, "rulesets"),
+		StagingDir: filepath.Join(directory, "candidate"), StatePath: filepath.Join(directory, "state"),
+		ConfigDir: filepath.Join(directory, "run"), ReadyTimeout: time.Second, System: system, Engine: fake,
+		Download: source.download,
+	}
+	require.NoError(t, os.WriteFile(options.SettingsPath, []byte(subscriptionSettings(directory, "block")), 0o644))
+	s := New(options)
+	require.True(t, s.Boot().OK)
+	downloadNow(t, s)
+	state := s.subscriptions.states["prov1"]
+	require.Empty(t, state.ErrorCode)
+	require.WithinDuration(t, time.Now().Add(time.Hour), *state.Next, 5*time.Second, "the interval of the settings")
+
+	// planned in 40 minutes; asked for now, it fails on every way
+	planned := time.Now().Add(40 * time.Minute)
+	state.Next = &planned
+	source.access.Lock()
+	source.refuseAll = true
+	source.access.Unlock()
+	s.downloadDue(time.Now(), "prov1")
+	s.takeList(<-s.downloads)
+	require.Equal(t, "unreachable", state.ErrorCode)
+	require.Equal(t, planned, *state.Next, "the planned download stays")
+	require.Zero(t, s.subscriptions.failures["prov1"])
+
+	// asked for now again, it brings a list: the next one in an interval from now
+	source.access.Lock()
+	source.refuseAll = false
+	source.access.Unlock()
+	s.downloadDue(time.Now(), "prov1")
+	s.takeList(<-s.downloads)
+	require.Empty(t, state.ErrorCode)
+	require.WithinDuration(t, time.Now().Add(time.Hour), *state.Next, 5*time.Second)
+
+	// a failure of a planned download (not asked for) is retried soon, as before
+	source.access.Lock()
+	source.refuseAll = true
+	source.access.Unlock()
+	past := time.Now().Add(-time.Second)
+	state.Next = &past
+	s.downloadDue(time.Now(), "")
+	s.takeList(<-s.downloads)
+	require.True(t, state.Next.Before(time.Now().Add(downloadRetry+5*time.Second)))
+	require.Equal(t, 1, s.subscriptions.failures["prov1"])
 	s.Stop()
 }

@@ -378,3 +378,35 @@ func TestExitTagsOfNames(t *testing.T) {
 	require.Equal(t, "block", outbounds["block"].Type, "a rule named block keeps the block outbound apart")
 	require.Equal(t, "selector", outbounds["block-out"].Type)
 }
+
+// The way of a row and the detour of an outbound JSON agree with the tag: the "Through" of the
+// row is taken over a detour of the JSON, with a warning; a detour that names another source is
+// taken as a "Through" is, and the tag tells it; a detour that names no source stays.
+func TestExitsOfJSONDetour(t *testing.T) {
+	t.Parallel()
+	settings := "\nconfig source 'warp'\n\toption type 'interface'\n\toption interface 'awg0'\n" +
+		"\nconfig source 'other'\n\toption type 'links'\n\tlist link 'socks5://other.example:1080#Other'\n" +
+		"\nconfig source 'js'\n\toption type 'json'\n\toption outbound_json '{\"type\":\"socks\",\"server\":\"j.example\",\"server_port\":1080,\"detour\":\"other\"}'\n" +
+		"\nconfig source 'js2'\n\toption type 'json'\n\toption outbound_json '{\"type\":\"socks\",\"server\":\"k.example\",\"server_port\":1080,\"detour\":\"own-chain\"}'\n" +
+		ruleText("a", row("server", "js")) +
+		ruleText("b", row("server", "js", "via warp")) +
+		ruleText("c", row("server", "js2"))
+	result, err := buildRules(t, settings, nil)
+	require.NoError(t, err)
+	_, outbounds := outboundsOf(t, result)
+
+	// the detour names the source "other": taken as a "Through", told by the tag
+	viaOther, found := outbounds["js via other"]
+	require.True(t, found, "the tag tells the way of the detour")
+	require.Equal(t, "other", viaOther.Detour)
+	require.Equal(t, "socks", outbounds["other"].Type, "the source it goes through is there")
+	_, plain := outbounds["js"]
+	require.False(t, plain, "no tag of js without its way")
+
+	// the row connects through warp: the tag and the detour say warp, the JSON's way is replaced
+	require.Equal(t, "warp", outbounds["js via warp"].Detour)
+	require.Contains(t, strings.Join(result.Warnings, "\n"), "the outbound JSON of the source js connects through other; the row connects it through warp instead")
+
+	// a detour that names no source stays as the JSON has it
+	require.Equal(t, "own-chain", outbounds["js2"].Detour)
+}

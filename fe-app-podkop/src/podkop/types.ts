@@ -75,6 +75,7 @@ export namespace Podkop {
     SUBSCRIPTION_LOAD_STATE = 'subscription_load_state',
     SUBSCRIPTION_LOAD_CANCEL = 'subscription_load_cancel',
     SUBSCRIPTION_STATUS = 'subscription_status',
+    SUBSCRIPTION_UPDATE_START = 'subscription_update_start',
     GROUP_CHECK = 'group_check',
   }
 

@@ -537,6 +537,9 @@ func upstreamServer(upstream model.DNSUpstream, tag string) (*object, error) {
 // or the fastest first. A row given twice is used once.
 func (b *builder) buildDNSServers() error {
 	settings := &b.config.Settings
+	if settings.EmptyDNSRows > 0 {
+		b.warnOnce(settings.EmptyDNSRows, " row(s) of the DNS server list have neither a type nor an address (added on the page and never filled in): left out")
+	}
 	var upstreams []model.DNSUpstream
 	for _, upstream := range settings.DNSUpstreams {
 		if slices.Contains(upstreams, upstream) {

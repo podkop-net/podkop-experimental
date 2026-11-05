@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-04 07:08+0000\n"
-"PO-Revision-Date: 2026-11-04 07:08+0000\n"
+"POT-Creation-Date: 2026-11-05 20:41+0000\n"
+"PO-Revision-Date: 2026-11-05 20:41+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -1016,6 +1016,9 @@ msgstr "Запустить диагностику"
 msgid "Russia inside restrictions"
 msgstr "Ограничения Russia inside"
 
+msgid "Save & Apply first: the router updates saved subscriptions only"
+msgstr "Сначала «Сохранить и применить»: роутер обновляет только сохранённые подписки"
+
 msgid "secure connection…"
 msgstr "защищённое соединение…"
 
@@ -1262,6 +1265,9 @@ msgstr "Загрузка потеряна: podkop перезапускался �
 msgid "The download stopped on a fault of podkop: see the log"
 msgstr "Загрузка прервана сбоем podkop: подробности в журнале"
 
+msgid "The download takes long: the state tells what it came to once it ends"
+msgstr "Загрузка идёт долго: чем она кончилась, будет видно в состоянии, когда она завершится"
+
 msgid "The download test of the group stopped at about %d KB. It looks like the DPI limit."
 msgstr "Загрузочный тест группы остановился около %d КБ. Похоже на лимит ТСПУ."
 
@@ -1324,6 +1330,9 @@ msgstr "Метка соединений для mwan3 или pbr. Пусто: б�
 
 msgid "the name is not found in DNS"
 msgstr "имя не найдено в DNS"
+
+msgid "The outbound JSON of %s connects through the deleted source (detour): change its detour"
+msgstr "Outbound JSON у %s подключается через удалённый источник (detour): поменяйте его detour"
 
 msgid "The port is open, but the TLS hello gets no answer. It looks like a block by SNI or address."
 msgstr "Порт открыт, но на TLS-приветствие нет ответа. Похоже на блокировку по SNI или адресу."
@@ -1399,6 +1408,9 @@ msgstr "Роутер не ответил"
 
 msgid "The router downloads the list of the address above to show it here, first directly, then through the working servers. It is taken after Save & Apply"
 msgstr "Роутер загружает список по адресу выше, чтобы показать его здесь: сначала напрямую, затем через работающие серверы. Применяется после «Сохранить и применить»"
+
+msgid "The router downloads the list of the saved address now and takes it, as at its time. When a list comes, the next download is counted from now; when the download fails, the list in use and the planned time stay"
+msgstr "Роутер сейчас скачивает список по сохранённому адресу и берёт его, как при плановом обновлении. Если список пришёл, следующее обновление считается от этого момента; если загрузка не удалась, остаются прежний список и плановое время"
 
 msgid "The router downloads the list…"
 msgstr "Роутер загружает список…"
@@ -1570,6 +1582,9 @@ msgstr "до %s"
 
 msgid "Update interval"
 msgstr "Интервал обновления"
+
+msgid "Update now"
+msgstr "Обновить сейчас"
 
 msgid "Uplink"
 msgstr "Исходящий"
