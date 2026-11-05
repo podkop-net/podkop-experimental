@@ -25,6 +25,11 @@ type sourceServer struct {
 	outbound *object
 	// link is the proxy link it came from; "" for an outbound JSON or an interface
 	link string
+	// source is the section of its source and index its place there; shown is its name in
+	// the tag after the name of the source, "" for a source of one server
+	source string
+	index  int
+	shown  string
 }
 
 // buildExits makes the outbounds of the rules (ledger item 17). A server is there once for
@@ -50,13 +55,13 @@ func (b *builder) buildExits() error {
 		switch b.config.Exit(section) {
 		case model.ExitServers:
 			if err := b.buildExit(section); err != nil {
-				return E.Cause(err, "rule ", section.Name)
+				return E.Cause(err, "rule ", b.names.RuleText(section.Name))
 			}
 		case model.ExitNone:
 			if len(section.Servers)+len(section.Fallbacks) > 0 {
-				b.warn("rule ", section.Name, ": its sources are not filled yet: the rule does nothing")
+				b.warn("rule ", b.names.RuleText(section.Name), ": its sources are not filled yet: the rule does nothing")
 			} else {
-				b.warn("rule ", section.Name, " has no servers: the rule does nothing")
+				b.warn("rule ", b.names.RuleText(section.Name), " has no servers: the rule does nothing")
 			}
 		}
 	}
@@ -68,7 +73,7 @@ func (b *builder) buildExit(section *model.Section) error {
 	changing := false
 	for _, row := range section.Servers {
 		if row.Source == model.SourceDirect || row.Source == model.SourceBlock {
-			b.warn("rule ", section.Name, ": ", row.Source, " among the servers counts only as the one row of the servers: the row is left out; as a fallback it is used")
+			b.warn("rule ", b.names.RuleText(section.Name), ": ", row.Source, " among the servers counts only as the one row of the servers: the row is left out; as a fallback it is used")
 			continue
 		}
 		if source := b.config.Source(row.Source); source != nil && source.Type == "subscription" {
@@ -112,23 +117,28 @@ func (b *builder) buildExit(section *model.Section) error {
 		case 1:
 			addTier(tags[0])
 		default:
-			tag := outboundTag(section.Name + "-fallback-" + strconv.Itoa(index+1))
+			kind := "fallback-" + strconv.Itoa(index+1)
+			tag := b.claim(ruleTag(b.names.Rule(section.Name), kind), "rule\x00"+section.Name+"\x00"+kind)
 			b.addURLTest(tag, tags, nil)
+			b.tags.Outbounds[tag] = TagOf{Rule: section.Name, Fallback: index + 1}
 			addTier(tag)
 			groups[tag] = tags
 		}
 	}
 	var choices []string
+	tags := RuleTags{Name: b.names.Rule(section.Name), Selector: b.ruleOutbound(section.Name)}
 	switch {
 	case len(members) == 0 && len(tiers) == 0:
-		b.warn("rule ", section.Name, ": its sources name no server now: its connections are refused")
+		b.warn("rule ", b.names.RuleText(section.Name), ": its sources name no server now: its connections are refused")
 		choices = []string{tagBlockOutbound}
 		b.refused[section.Name] = true
 	case len(members) == 1 && len(tiers) == 0 && !changing:
 		choices = members
 	default:
-		test := outboundTag(section.Name + "-urltest")
+		test := b.claim(ruleTag(tags.Name, "urltest"), "rule\x00"+section.Name+"\x00urltest")
 		b.addURLTest(test, members, tiers)
+		tags.Test = test
+		b.tags.Outbounds[test] = TagOf{Rule: section.Name}
 		choices = append([]string{test}, members...)
 		for _, tier := range tiers {
 			// a fallback of several servers is offered by its servers, so that the dashboard
@@ -144,9 +154,10 @@ func (b *builder) buildExit(section *model.Section) error {
 			}
 		}
 	}
-	tag := outboundTag(section.Name)
-	b.outbounds = append(b.outbounds, newObject("type", "selector", "tag", tag, "outbounds", stringsToAny(choices), "default", choices[0]))
-	b.swappable[tag] = true
+	b.outbounds = append(b.outbounds, newObject("type", "selector", "tag", tags.Selector, "outbounds", stringsToAny(choices), "default", choices[0]))
+	b.swappable[tags.Selector] = true
+	b.tags.Rules[section.Name] = tags
+	b.tags.Outbounds[tags.Selector] = TagOf{Rule: section.Name}
 	return nil
 }
 
@@ -175,13 +186,14 @@ func (b *builder) addURLTest(tag string, members []string, fallbacks []string) {
 // source.
 func (b *builder) rowServers(section *model.Section, row model.Member) ([]string, error) {
 	source := b.config.Source(row.Source)
+	rule := b.names.RuleText(section.Name)
 	if source == nil {
-		b.warnOnce("rule ", section.Name, ": there is no source ", row.Source)
+		b.warnOnce("rule ", rule, ": there is no source ", row.Source)
 		return nil, nil
 	}
 	if !source.Filled() {
 		if source.Type != "" && !slices.Contains(model.SourceTypes, source.Type) {
-			b.warnOnce("rule ", section.Name, ": the source ", source.Name, " is of a type podkop does not know (", source.Type, "): its row takes no server")
+			b.warnOnce("rule ", rule, ": the source ", b.names.SourceText(source.Name), " is of a type podkop does not know (", source.Type, "): its row takes no server")
 		}
 		return nil, nil
 	}
@@ -199,8 +211,8 @@ func (b *builder) rowServers(section *model.Section, row model.Member) ([]string
 	if detour := jsonDetour(source, servers); detour != "" {
 		switch {
 		case row.Via != "" && detour != row.Via:
-			b.warnOnce("rule ", section.Name, ": the outbound JSON of the source ", source.Name, " connects through ", detour,
-				"; the row connects it through ", row.Via, " instead, as its tag tells")
+			b.warnOnce("rule ", rule, ": the outbound JSON of the source ", b.names.SourceText(source.Name), " connects through ", detour,
+				"; the row connects it through ", b.names.SourceText(row.Via), " instead, as its tag tells")
 		case row.Via == "" && b.config.Source(detour) != nil:
 			throughName = detour
 		}
@@ -210,7 +222,7 @@ func (b *builder) rowServers(section *model.Section, row model.Member) ([]string
 		// a row that cannot go the way it names takes no server: the rule goes by its other
 		// rows and its fallbacks, and the rest of the settings run
 		if source.Type == "interface" {
-			b.warnOnce("rule ", section.Name, ": the interface of the source ", source.Name, " does not connect through another source: the row takes no server")
+			b.warnOnce("rule ", rule, ": the interface of the source ", b.names.SourceText(source.Name), " does not connect through another source: the row takes no server")
 			return nil, nil
 		}
 		via, err = b.viaTag(section.Name, throughName, source.Name)
@@ -229,28 +241,34 @@ func (b *builder) rowServers(section *model.Section, row model.Member) ([]string
 			continue
 		}
 		if via == "" {
-			b.addServer(section, server, server.tag, "")
-			tags = append(tags, server.tag)
+			tags = append(tags, b.addServer(section, server, "", ""))
 			continue
 		}
-		tag := server.tag + " via " + throughName
 		if kind, _ := server.outbound.get("type"); kind == "selector" || kind == "urltest" {
-			return nil, E.New("the outbound JSON of the source ", source.Name, " is a ", kind, ", which connects through nothing: set detour in the outbounds it chooses from")
+			return nil, E.New("the outbound JSON of the source ", b.names.SourceText(source.Name), " is a ", kind, ", which connects through nothing: set detour in the outbounds it chooses from")
 		}
-		b.addServer(section, server, tag, via)
-		tags = append(tags, tag)
+		tags = append(tags, b.addServer(section, server, via, throughName))
 	}
 	return tags, nil
 }
 
-// addServer puts the outbound of a server in once, under the tag, connecting through the
-// outbound via ("": directly).
-func (b *builder) addServer(section *model.Section, server sourceServer, tag string, via string) {
+// addServer puts the outbound of a server in once and returns its tag: "<tag of the server>",
+// or "<tag of the server> via <name of the source>" connecting through the outbound via of the
+// source through.
+func (b *builder) addServer(section *model.Section, server sourceServer, via string, through string) string {
+	owner := "server\x00" + server.source + "\x00" + strconv.Itoa(server.index)
+	tag := server.tag
+	if via != "" {
+		owner += "\x00" + through
+		tag += " via " + b.names.Source(through)
+	}
+	tag = b.claim(tag, owner)
 	if b.servers[tag] {
-		return
+		return tag
 	}
 	b.servers[tag] = true
 	b.swappable[tag] = true
+	b.tags.Outbounds[tag] = TagOf{Source: server.source, Server: server.shown, Via: through}
 	outbound := server.outbound
 	if via != "" || tag != server.tag {
 		outbound = cloneObject(server.outbound)
@@ -259,11 +277,65 @@ func (b *builder) addServer(section *model.Section, server sourceServer, tag str
 	if via != "" {
 		// the way of the tag, also over a detour of an outbound JSON (rowServers)
 		outbound.set("detour", via)
-		b.warnSpoofThrough(tag, outbound, via)
+		b.warnSpoofThrough(tag, outbound, through)
 	}
 	b.outbounds = append(b.outbounds, outbound)
 	if server.link != "" {
 		b.links = append(b.links, Link{Section: section.Name, Name: tag, Tag: tag, Text: server.link})
+	}
+	if source := b.config.Source(server.source); source != nil && source.Type == "json" {
+		b.jsonOutbounds = append(b.jsonOutbounds, outbound)
+	}
+	return tag
+}
+
+// renameOldTags puts the tags of now in an outbound JSON that names outbounds of podkop by the
+// tags they had while tags were made of sections: "src2" (a source of one server), "src2-best",
+// "main-out", "main-urltest-out", "main-fallback-1-out". A selector or a URL test of the JSON
+// chooses from them, a detour names one. A name that is a tag of now stays.
+func (b *builder) renameOldTags() {
+	rename := func(name string) string {
+		if b.owners[name] != "" {
+			return name
+		}
+		var owners []string
+		if b.config.Source(name) != nil {
+			owners = append(owners, "server\x00"+name+"\x000")
+		}
+		if source, found := strings.CutSuffix(name, "-best"); found {
+			owners = append(owners, "best\x00"+source)
+		}
+		if base, found := strings.CutSuffix(name, "-out"); found {
+			if rule, found := strings.CutSuffix(base, "-urltest"); found {
+				owners = append(owners, "rule\x00"+rule+"\x00urltest")
+			}
+			if at := strings.LastIndex(base, "-fallback-"); at > 0 {
+				owners = append(owners, "rule\x00"+base[:at]+"\x00"+base[at+1:])
+			}
+			owners = append(owners, "rule\x00"+base)
+		}
+		for _, owner := range owners {
+			if tag, found := b.tagOf[owner]; found {
+				return tag
+			}
+		}
+		return name
+	}
+	for _, outbound := range b.jsonOutbounds {
+		if detour, _ := outbound.get("detour"); detour != nil {
+			if name, isText := detour.(string); isText {
+				outbound.set("detour", rename(name))
+			}
+		}
+		if list, _ := outbound.get("outbounds"); list != nil {
+			if items, isItems := list.([]any); isItems {
+				for index, item := range items {
+					if name, isText := item.(string); isText {
+						items[index] = rename(name)
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -281,8 +353,9 @@ func jsonDetour(source *model.Source, servers []sourceServer) string {
 // viaTag is the outbound the servers of a row connect through: the one server of the
 // source, or a URL test of its servers ("<source>-best").
 func (b *builder) viaTag(rule string, name string, rowSource string) (string, error) {
+	rule = b.names.RuleText(rule)
 	if name == rowSource {
-		b.warnOnce("rule ", rule, ": a row of the source ", name, " connects through the same source: the row takes no server")
+		b.warnOnce("rule ", rule, ": a row of the source ", b.names.SourceText(name), " connects through the same source: the row takes no server")
 		return "", nil
 	}
 	source := b.config.Source(name)
@@ -291,7 +364,7 @@ func (b *builder) viaTag(rule string, name string, rowSource string) (string, er
 		return "", nil
 	}
 	if !source.Filled() {
-		b.warnOnce("rule ", rule, ": the source ", name, " to connect through is not filled: the row takes no server")
+		b.warnOnce("rule ", rule, ": the source ", b.names.SourceText(name), " to connect through is not filled: the row takes no server")
 		return "", nil
 	}
 	servers, err := b.sourceServers(source)
@@ -301,28 +374,29 @@ func (b *builder) viaTag(rule string, name string, rowSource string) (string, er
 	if len(servers) == 0 {
 		// a subscription not downloaded yet: the rows through it take no server for now, and
 		// the rule goes by its fallbacks, as when a filter takes none
-		b.warnOnce("the source ", name, " to connect through has no servers yet: the rows through it take none for now")
+		b.warnOnce("the source ", b.names.SourceText(name), " to connect through has no servers yet: the rows through it take none for now")
 		return "", nil
 	}
 	var tags []string
 	for _, server := range servers {
-		b.addServer(&model.Section{Name: name}, server, server.tag, "")
-		tags = append(tags, server.tag)
+		tags = append(tags, b.addServer(&model.Section{Name: name}, server, "", ""))
 	}
 	if len(tags) == 1 {
 		return tags[0], nil
 	}
-	tag := name + "-best"
+	tag := b.claim(b.names.Source(name)+"-best", "best\x00"+name)
 	if !b.groups[tag] {
 		b.groups[tag] = true
 		b.addURLTest(tag, tags, nil)
+		b.tags.Outbounds[tag] = TagOf{Source: name}
 	}
 	return tag, nil
 }
 
 // warnSpoofThrough says once that tls.spoof fails through a proxy: it needs the socket of its
 // own connection (common/tls of the engine), which an interface gives and a proxy does not.
-func (b *builder) warnSpoofThrough(tag string, outbound *object, via string) {
+// through is the source the outbound connects through.
+func (b *builder) warnSpoofThrough(tag string, outbound *object, through string) {
 	value, _ := outbound.get("tls")
 	tls, isObject := value.(*object)
 	if !isObject {
@@ -331,7 +405,7 @@ func (b *builder) warnSpoofThrough(tag string, outbound *object, via string) {
 	if spoof, _ := tls.get("spoof"); spoof == nil || spoof == "" {
 		return
 	}
-	if source := b.config.Source(strings.TrimSuffix(via, "-best")); source != nil && source.Type == "interface" {
+	if source := b.config.Source(through); source != nil && source.Type == "interface" {
 		return
 	}
 	b.warnOnce("server ", tag, ": tls.spoof does not work through a proxy: its connections will fail; it works through an interface")
@@ -354,7 +428,7 @@ func (b *builder) sourceServers(source *model.Source) ([]sourceServer, error) {
 	case "interface":
 		servers, err = b.interfaceServers(source)
 	default:
-		err = E.New("the source ", source.Name, " is of an unknown type \"", source.Type, "\"")
+		err = E.New("the source ", b.names.SourceText(source.Name), " is of an unknown type \"", source.Type, "\"")
 	}
 	if err != nil {
 		return nil, err
@@ -369,14 +443,16 @@ func (b *builder) sourceServers(source *model.Source) ([]sourceServer, error) {
 func (b *builder) subscriptionServers(source *model.Source) []sourceServer {
 	list := b.options.Servers[source.Name]
 	if len(list) == 0 {
-		b.warnOnce("source ", source.Name, " has no servers yet")
+		b.warnOnce("source ", b.names.SourceText(source.Name), " has no servers yet")
 		return nil
 	}
+	prefix := b.names.Source(source.Name) + ": "
 	var servers []sourceServer
 	for index, server := range list {
 		tag := b.serverTags(source.Name)[index]
 		if outbound := b.serverOutbound(source.Name, index); outbound != nil {
-			servers = append(servers, sourceServer{name: server.Name, tag: tag, outbound: outbound, link: server.Link})
+			servers = append(servers, sourceServer{name: server.Name, tag: tag, outbound: outbound, link: server.Link,
+				source: source.Name, index: index, shown: strings.TrimPrefix(tag, prefix)})
 		}
 	}
 	return servers
@@ -393,7 +469,7 @@ func (b *builder) serverTags(subscription string) []string {
 	for index, server := range servers {
 		names[index] = server.Name
 	}
-	tags := numberedTags(subscription+": ", names)
+	tags := numberedTags(b.names.Source(subscription)+": ", names)
 	b.subscriptionTags[subscription] = tags
 	return tags
 }
@@ -422,7 +498,8 @@ func numberedTags(prefix string, names []string) []string {
 // another version.
 func (b *builder) serverOutbound(subscription string, index int) *object {
 	tag := b.serverTags(subscription)[index]
-	if outbound, done := b.decoded[tag]; done {
+	key := subscription + "\x00" + strconv.Itoa(index)
+	if outbound, done := b.decoded[key]; done {
 		return outbound
 	}
 	content, _, err := b.options.DecodeLink(b.options.Servers[subscription][index].Link)
@@ -438,7 +515,7 @@ func (b *builder) serverOutbound(subscription string, index int) *object {
 	} else {
 		outbound.set("tag", tag)
 	}
-	b.decoded[tag] = outbound
+	b.decoded[key] = outbound
 	return outbound
 }
 
@@ -450,18 +527,18 @@ func (b *builder) linkServers(source *model.Source) ([]sourceServer, error) {
 	for index, link := range source.Links {
 		content, warnings, err := b.options.DecodeLink(link)
 		if err != nil {
-			return nil, E.Cause(err, "cannot use the proxy link ", index+1, " of the source ", source.Name)
+			return nil, E.Cause(err, "cannot use the proxy link ", index+1, " of the source ", b.names.SourceText(source.Name))
 		}
 		for _, warning := range warnings {
-			b.warn("proxy link ", index+1, " of the source ", source.Name, ": ", warning)
+			b.warn("proxy link ", index+1, " of the source ", b.names.SourceText(source.Name), ": ", warning)
 		}
 		parsed, err := parseValue(content)
 		if err != nil {
-			return nil, E.Cause(err, "the outbound of the proxy link ", index+1, " of the source ", source.Name)
+			return nil, E.Cause(err, "the outbound of the proxy link ", index+1, " of the source ", b.names.SourceText(source.Name))
 		}
 		outbound, isObject := parsed.(*object)
 		if !isObject {
-			return nil, E.New("the outbound of the proxy link ", index+1, " of the source ", source.Name, " is not an object")
+			return nil, E.New("the outbound of the proxy link ", index+1, " of the source ", b.names.SourceText(source.Name), " is not an object")
 		}
 		if kind, _ := outbound.get("type"); source.UDPOverTCP && (kind == "socks" || kind == "shadowsocks") {
 			outbound.set("udp_over_tcp", newObject("enabled", true, "version", versionUDPOverTCP))
@@ -471,14 +548,18 @@ func (b *builder) linkServers(source *model.Source) ([]sourceServer, error) {
 		outbounds = append(outbounds, outbound)
 		names = append(names, text)
 	}
-	tags := []string{source.Name}
+	name := b.names.Source(source.Name)
+	tags := []string{name}
 	if len(outbounds) > 1 {
-		tags = numberedTags(source.Name+": ", names)
+		tags = numberedTags(name+": ", names)
 	}
 	servers := make([]sourceServer, len(outbounds))
 	for index, outbound := range outbounds {
 		outbound.set("tag", tags[index])
-		servers[index] = sourceServer{name: names[index], tag: tags[index], outbound: outbound, link: source.Links[index]}
+		servers[index] = sourceServer{name: names[index], tag: tags[index], outbound: outbound, link: source.Links[index], source: source.Name, index: index}
+		if len(outbounds) > 1 {
+			servers[index].shown = strings.TrimPrefix(tags[index], name+": ")
+		}
 	}
 	return servers, nil
 }
@@ -487,44 +568,46 @@ func (b *builder) jsonServers(source *model.Source) ([]sourceServer, error) {
 	// a byte order mark comes with text copied out of a file
 	parsed, err := parseValue([]byte(strings.TrimPrefix(source.OutboundJSON, "\ufeff")))
 	if err != nil {
-		return nil, E.Cause(err, "the outbound of the source ", source.Name, " is not JSON")
+		return nil, E.Cause(err, "the outbound of the source ", b.names.SourceText(source.Name), " is not JSON")
 	}
 	outbound, isObject := parsed.(*object)
 	if !isObject {
-		return nil, E.New("the outbound of the source ", source.Name, " is not a JSON object")
+		return nil, E.New("the outbound of the source ", b.names.SourceText(source.Name), " is not a JSON object")
 	}
-	outbound.set("tag", source.Name)
-	return []sourceServer{{name: source.Name, tag: source.Name, outbound: outbound}}, nil
+	name := b.names.Source(source.Name)
+	outbound.set("tag", name)
+	return []sourceServer{{name: source.Name, tag: name, outbound: outbound, source: source.Name}}, nil
 }
 
 // interfaceServers is the outbound of a network interface: a direct one bound to its device
 // (none: the main route) and given its routing mark. With a domain resolver, the names of
 // the connections through it are resolved by a DNS server reached through it.
 func (b *builder) interfaceServers(source *model.Source) ([]sourceServer, error) {
-	outbound := newObject("type", "direct", "tag", source.Name)
+	name := b.names.Source(source.Name)
+	outbound := newObject("type", "direct", "tag", name)
 	if source.Interface != "" {
 		outbound.set("bind_interface", b.device(source.Interface))
 	}
 	if source.RoutingMark != "" {
 		mark, err := strconv.ParseUint(source.RoutingMark, 0, 32)
 		if err != nil {
-			return nil, E.New("the routing mark of the source ", source.Name, " is not a number")
+			return nil, E.New("the routing mark of the source ", b.names.SourceText(source.Name), " is not a number")
 		}
 		outbound.set("routing_mark", mark)
 	}
 	if source.DomainResolverEnabled {
 		if source.DomainResolverDNSServer == "" {
-			return nil, E.New("the domain resolver of the source ", source.Name, " has no DNS server")
+			return nil, E.New("the domain resolver of the source ", b.names.SourceText(source.Name), " has no DNS server")
 		}
-		resolverTag := source.Name + "-domain-resolver"
+		resolverTag := name + "-domain-resolver"
 		server, err := dnsServer(source.DomainResolverDNSType, resolverTag, source.DomainResolverDNSServer, tagBootstrapDNSServer, source.Name)
 		if err != nil {
-			return nil, E.Cause(err, "the domain resolver of the source ", source.Name)
+			return nil, E.Cause(err, "the domain resolver of the source ", b.names.SourceText(source.Name))
 		}
 		b.dnsServers = append(b.dnsServers, server)
 		outbound.set("domain_resolver", resolverTag)
 	}
-	return []sourceServer{{name: source.Name, tag: source.Name, outbound: outbound}}, nil
+	return []sourceServer{{name: source.Name, tag: name, outbound: outbound, source: source.Name}}, nil
 }
 
 // warnOnce warns of what every rule of a source would repeat.
@@ -551,7 +634,7 @@ func (b *builder) sectionRoute(section *model.Section, inbound string) *object {
 	case model.ExitDirect:
 		return newObject("action", "route", "inbound", inbound, "outbound", tagDirectOutbound)
 	}
-	return newObject("action", "route", "inbound", inbound, "outbound", outboundTag(section.Name))
+	return newObject("action", "route", "inbound", inbound, "outbound", b.ruleOutbound(section.Name))
 }
 
 // cloneObject is a deep copy of an object: a server reached directly and through a source is

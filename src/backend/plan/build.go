@@ -149,6 +149,44 @@ type Result struct {
 	// the type group. A configuration that differs from another only by these is applied
 	// without a new sing-box.
 	Swappable map[string]bool
+	// Tags tell what the outbounds are, by the sections of the settings.
+	Tags Tags
+}
+
+// Tags tell the user interface what the outbounds of a configuration are, by the section names
+// the settings refer by: the tags are made of the names of the rules and the sources
+// (model.Names), which a label changes, and are not to be taken apart.
+type Tags struct {
+	// Rules are the outbounds of each rule that goes through servers, by its section.
+	Rules map[string]RuleTags `json:"rules"`
+	// Outbounds tell what the outbound of each tag of a server or a group is.
+	Outbounds map[string]TagOf `json:"outbounds"`
+}
+
+// RuleTags are the outbounds of a rule.
+type RuleTags struct {
+	// Name is the name of the rule in the tags.
+	Name string `json:"name"`
+	// Selector is the outbound its route rule goes to; Test the URL test of its servers, ""
+	// for a rule of one server.
+	Selector string `json:"selector"`
+	Test     string `json:"test,omitempty"`
+}
+
+// TagOf is what an outbound is: a group of a rule, a server of a source, or the URL test of the
+// servers of a source that rows connect through.
+type TagOf struct {
+	// Rule is the rule of a selector or a URL test; Fallback the fallback row (from 1) a URL
+	// test is of.
+	Rule     string `json:"rule,omitempty"`
+	Fallback int    `json:"fallback,omitempty"`
+	// Source is the source of a server, or of the URL test of its servers.
+	Source string `json:"source,omitempty"`
+	// Server is the name of the server in its source as the tag has it (a name the list has
+	// more than once numbered); "" for a source of one server.
+	Server string `json:"server,omitempty"`
+	// Via is the source the server connects through.
+	Via string `json:"via,omitempty"`
 }
 
 // Dataplane is what the router needs around a configuration, made of the settings: the
@@ -322,6 +360,15 @@ type builder struct {
 	groups           map[string]bool
 	swappable        map[string]bool
 	refused          map[string]bool
+
+	// the names of the rules and the sources the tags are made of; the owner of each tag and
+	// the tag of each owner (claim); what the tags are, for the user interface
+	names  model.Names
+	owners map[string]string
+	tagOf  map[string]string
+	tags   Tags
+	// the outbounds of outbound JSONs, which may name others (renameOldTags)
+	jsonOutbounds []*object
 }
 
 // rule is a route or a DNS rule while it is built: later steps find it by its name to add
@@ -344,7 +391,10 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 	}
 	b := &builder{config: config, facts: facts, options: options, experimental: new(object), files: make(map[string]*object),
 		subscriptionTags: make(map[string][]string), decoded: make(map[string]*object), sourceCache: make(map[string][]sourceServer), servers: make(map[string]bool), groups: make(map[string]bool),
-		swappable: make(map[string]bool), refused: make(map[string]bool)}
+		swappable: make(map[string]bool), refused: make(map[string]bool),
+		names: config.Names(), owners: make(map[string]string), tagOf: make(map[string]string),
+		tags: Tags{Rules: make(map[string]RuleTags), Outbounds: make(map[string]TagOf)}}
+	b.claimRuleTags()
 	b.buildInbounds()
 	err := b.buildOutbounds()
 	if err != nil {
@@ -404,7 +454,7 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 		return nil, E.Cause(err, "encode the configuration")
 	}
 	result := &Result{Config: content, Files: make(map[string][]byte), FileOrder: b.fileOrder, Warnings: b.warnings, Links: b.links, Dataplane: b.dataplane(), Facts: b.facts,
-		Swappable: b.swappable}
+		Swappable: b.swappable, Tags: b.tags}
 	for _, entry := range b.ruleSets {
 		fields := entry.(*object)
 		tag, _ := fields.get("tag")
@@ -440,12 +490,65 @@ func (b *builder) buildInbounds() {
 	)
 }
 
-func outboundTag(section string) string {
-	return section + "-out"
+// ruleTag is the tag of an outbound of a rule of the name: its selector (kind ""), the URL
+// test of its servers ("urltest") or of a fallback row of several servers ("fallback-N").
+func ruleTag(name string, kind string) string {
+	if kind == "" {
+		return name + "-out"
+	}
+	return name + "-" + kind + "-out"
+}
+
+// RuleOutbound is the tag of the selector of a rule, which its route rule goes to.
+func RuleOutbound(config *model.Config, section string) string {
+	return ruleTag(config.Names().Rule(section), "")
+}
+
+// ruleOutbound is the tag of the selector of a rule.
+func (b *builder) ruleOutbound(section string) string {
+	return b.claim(ruleTag(b.names.Rule(section), ""), "rule\x00"+section)
+}
+
+// claimRuleTags gives the outbounds of the rules their tags before any other: the tags of
+// the rules are a matter of the settings alone (RuleOutbound), and a source of the same name
+// yields.
+func (b *builder) claimRuleTags() {
+	b.claim(tagDirectOutbound, "podkop\x00direct")
+	b.claim(tagBlockOutbound, "podkop\x00block")
+	for index := range b.config.Sections {
+		section := &b.config.Sections[index]
+		name := b.names.Rule(section.Name)
+		b.ruleOutbound(section.Name)
+		b.claim(ruleTag(name, "urltest"), "rule\x00"+section.Name+"\x00urltest")
+		for row := range section.Fallbacks {
+			kind := "fallback-" + strconv.Itoa(row+1)
+			b.claim(ruleTag(name, kind), "rule\x00"+section.Name+"\x00"+kind)
+		}
+	}
+}
+
+// claim gives the owner the tag, or the tag numbered when another owner has it: two outbounds
+// of one tag would be taken for one (addServer puts a tag in once). An owner keeps the tag it
+// got first.
+func (b *builder) claim(tag string, owner string) string {
+	if got, found := b.tagOf[owner]; found {
+		return got
+	}
+	candidate := tag
+	for number := 2; b.owners[candidate] != ""; number++ {
+		candidate = tag + " #" + strconv.Itoa(number)
+	}
+	b.owners[candidate] = owner
+	b.tagOf[owner] = candidate
+	return candidate
 }
 
 func (b *builder) buildOutbounds() error {
-	return b.buildExits()
+	if err := b.buildExits(); err != nil {
+		return err
+	}
+	b.renameOldTags()
+	return nil
 }
 
 // dnsServer makes a DNS server of the settings "type" and "host[:port][/path]".
@@ -754,14 +857,14 @@ func (b *builder) buildAdditionalInbounds() error {
 		}
 		port := argument(section.MixedProxyPort)
 		if _, isText := port.(string); isText {
-			return E.New("section ", section.Name, ": the port of the mixed proxy is not a number")
+			return E.New("rule ", b.names.RuleText(section.Name), ": the port of the mixed proxy is not a number")
 		}
 		// sing-box would fail to start on the second socket, and so would every try again
 		if other, taken := ports[fmt.Sprint(port)]; taken {
-			return E.New("sections ", other, " and ", section.Name, ": the mixed proxies have the same port ", port)
+			return E.New("rules ", other, " and ", b.names.RuleText(section.Name), ": the mixed proxies have the same port ", port)
 		}
-		ports[fmt.Sprint(port)] = section.Name
-		tag := section.Name + "-mixed-in"
+		ports[fmt.Sprint(port)] = b.names.RuleText(section.Name)
+		tag := b.names.Rule(section.Name) + "-mixed-in"
 		b.inbounds = append(b.inbounds, newObject("type", "mixed", "tag", tag, "listen", address, "listen_port", port))
 		b.addRouteRule("", b.sectionRoute(section, tag))
 	}

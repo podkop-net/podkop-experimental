@@ -92,6 +92,90 @@ describe('getDashboardSections', () => {
     });
   });
 
+  it('takes the outbounds of a rule as the backend tells them', async () => {
+    mockModel({
+      rules: [{ '.name': 'rule1', label: 'Cats' }],
+      sources: [
+        {
+          '.name': 'src5',
+          type: 'links',
+          link: ['socks5://m.example:1080'],
+          label: 'mouse',
+        },
+        {
+          '.name': 'src6',
+          type: 'links',
+          link: ['socks5://d.example:1080'],
+          label: 'dog',
+        },
+        SUB,
+      ],
+      members: [
+        { section: 'rule1', role: 'server', source: 'src5', via: 'src6' },
+        { section: 'rule1', role: 'fallback', source: 'src1' },
+      ],
+    });
+    PodkopShellMethods.getClashApiProxies.mockResolvedValue({
+      success: true,
+      data: {
+        proxies: {
+          'Cats-out': proxy('Cats-out', {
+            type: 'Selector',
+            now: 'Cats-urltest-out',
+            all: ['Cats-urltest-out', 'mouse via cat', 'S: NL', 'S: DE'],
+          }),
+          'Cats-urltest-out': proxy('Cats-urltest-out', {
+            type: 'URLTest',
+            now: 'Cats-fallback-1-out',
+            all: ['mouse via cat', 'Cats-fallback-1-out'],
+            fallbacks: ['Cats-fallback-1-out'],
+          }),
+          'Cats-fallback-1-out': proxy('Cats-fallback-1-out', {
+            type: 'URLTest',
+            now: 'S: DE',
+            all: ['S: NL', 'S: DE'],
+          }),
+          'mouse via cat': proxy('mouse via cat', { type: 'Socks' }),
+          'S: NL': proxy('S: NL', { type: 'VLESS' }),
+          'S: DE': proxy('S: DE', { type: 'VLESS' }),
+        },
+        podkop_tags: {
+          rules: {
+            rule1: {
+              name: 'Cats',
+              selector: 'Cats-out',
+              test: 'Cats-urltest-out',
+            },
+          },
+          outbounds: {
+            'Cats-out': { rule: 'rule1' },
+            'Cats-urltest-out': { rule: 'rule1' },
+            'Cats-fallback-1-out': { rule: 'rule1', fallback: 1 },
+            'mouse via cat': { source: 'src5', via: 'src6' },
+            'S: NL': { source: 'src1', server: 'NL' },
+            'S: DE': { source: 'src1', server: 'DE' },
+          },
+        },
+      },
+    });
+    const { data } = await getDashboardSections();
+    expect(data[0].rule).toBe('rule1');
+    expect(data[0].code).toBe('Cats-out');
+    expect(data[0].displayName).toBe('Cats');
+    expect(data[0].auto).toBe('Cats-urltest-out');
+    expect(data[0].tiers).toEqual(['Fastest', 'Fallback 1 · sub.example.org']);
+    expect(data[0].outbounds.map(({ displayName }) => displayName)).toEqual([
+      'mouse via dog',
+      'sub.example.org: NL',
+      'sub.example.org: DE',
+    ]);
+    expect(data[0].route).toMatchObject({
+      mode: 'auto',
+      tier: 1,
+      code: 'S: DE',
+    });
+  });
+
   it('tells a server another rule goes through as in use', async () => {
     mockModel({
       rules: [{ '.name': 'one' }, { '.name': 'two' }],

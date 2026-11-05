@@ -508,14 +508,27 @@ export function ruleRowProblems(
   return problems;
 }
 
-// serverDisplayName names an outbound of a server by the labels of the sources: its tag is
-// "<source>", "<source>: <name>", with " via <source>" for a row that connects through one
+// serverDisplayName names an outbound of a server by the labels of the sources. What it is comes
+// with the tag from the backend (Podkop.Tags); a tag of a backend that does not tell is
+// "<source>", "<source>: <name>", with " via <source>" for a row that connects through one, the
+// sources by their sections. A source the page does not have leaves the tag as it is.
 export function serverDisplayName(
   tag: string,
   sources: Podkop.ConfigSource[],
+  tags?: Podkop.Tags,
 ): string {
   const byName = (name: string) =>
     sources.find((source) => source['.name'] === name);
+  if (tags?.outbounds) {
+    const what = tags.outbounds[tag];
+    const source = what?.source ? byName(what.source) : undefined;
+    const through = what?.via ? byName(what.via) : undefined;
+    if (!source || (what?.via && !through)) return tag;
+    const shown = what?.server
+      ? `${sourceLabel(source)}: ${what.server}`
+      : sourceLabel(source);
+    return through ? _('%s via %s').format(shown, sourceLabel(through)) : shown;
+  }
   let base = tag;
   let through = '';
   const via = tag.match(/^(.*) via ([A-Za-z0-9_]+)$/);

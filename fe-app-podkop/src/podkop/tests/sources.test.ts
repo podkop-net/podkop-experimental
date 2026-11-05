@@ -198,6 +198,29 @@ describe('the names of the sources', () => {
     expect(serverDisplayName('src2', sources)).toBe('Helsinki');
     expect(serverDisplayName('other: x', sources)).toBe('other: x');
   });
+
+  it('names a server by what the backend tells of its tag, not by the tag', () => {
+    const sources = [
+      { '.name': 'src1', type: 'subscription', url: SUB_URL, label: 'Lab' },
+      { '.name': 'src2', type: 'links', link: [HY2], label: 'dog' },
+    ];
+    // the tags were made of the names of a configuration before a label changed
+    const tags = {
+      outbounds: {
+        'Old: USA via cat': { source: 'src1', server: 'USA', via: 'src2' },
+        cat: { source: 'src2' },
+        'gone via cat': { source: 'src9', via: 'src2' },
+      },
+    };
+    expect(serverDisplayName('Old: USA via cat', sources, tags)).toBe(
+      'Lab: USA via dog',
+    );
+    expect(serverDisplayName('cat', sources, tags)).toBe('dog');
+    expect(serverDisplayName('gone via cat', sources, tags)).toBe(
+      'gone via cat',
+    );
+    expect(serverDisplayName('untold', sources, tags)).toBe('untold');
+  });
 });
 
 describe('validateRoutingMark', () => {

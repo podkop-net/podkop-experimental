@@ -42,6 +42,7 @@ vi.mock('../../../../methods/custom/getDashboardSections', async () => {
       success: true,
       data: rules.map((name) => ({
         withTagSelect: true,
+        rule: name,
         code: `${name}-out`,
         displayName: name,
         ...ruleTiles(proxies, name, [], [], new Set()),

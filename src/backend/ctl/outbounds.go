@@ -71,26 +71,33 @@ func outboundLines(caller *clashCaller, config *model.Config) []string {
 	}
 	var tests []test
 	var refused []string
+	// the outbounds of a rule are those the backend that runs tells; without, those the
+	// settings make
+	tags := caller.tags()
+	names := config.Names()
 	for index := range config.Sections {
 		section := &config.Sections[index]
 		if !config.HasOutbound(section) {
 			continue
 		}
-		tag := section.Name + "-out"
-		proxy, found := listed.Proxies[tag]
+		outbounds := plan.RuleTags{Name: names.Rule(section.Name), Selector: plan.RuleOutbound(config, section.Name)}
+		if tags != nil {
+			outbounds = tags.Rules[section.Name]
+		}
+		proxy, found := listed.Proxies[outbounds.Selector]
 		if !found {
 			continue
 		}
 		if proxy.Now == blockTag {
-			refused = append(refused, "⛔ "+section.Name+": its sources name no server now, and its connections are refused")
+			refused = append(refused, "⛔ "+outbounds.Name+": its sources name no server now, and its connections are refused")
 			continue
 		}
-		item := test{label: section.Name, tag: tag, kind: proxy.Type}
+		item := test{label: outbounds.Name, tag: outbounds.Selector, kind: proxy.Type}
 		var details []string
 		if proxy.Type == "Selector" && proxy.Now != "" {
 			item.tag, item.kind = proxy.Now, listed.Proxies[proxy.Now].Type
 			// a selector of one outbound is a rule of one server: nothing is pinned
-			if proxy.Now != section.Name+"-urltest-out" && len(proxy.All) > 1 {
+			if proxy.Now != outbounds.Test && proxy.Now != ruleTest(outbounds) && len(proxy.All) > 1 {
 				details = append(details, "pinned "+proxy.Now)
 			}
 		}
@@ -131,6 +138,11 @@ func outboundLines(caller *clashCaller, config *model.Config) []string {
 		return []string{"⚠️ No rule has an outbound"}
 	}
 	return results
+}
+
+// ruleTest is the tag the URL test of a rule has when the backend did not tell it.
+func ruleTest(outbounds plan.RuleTags) string {
+	return strings.TrimSuffix(outbounds.Selector, "-out") + "-urltest-out"
 }
 
 // named is a label with what is said of it in parentheses: "main (via entry, selector, main-2-out)".

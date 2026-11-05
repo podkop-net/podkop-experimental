@@ -720,11 +720,11 @@ func TestServersOfPlan(t *testing.T) {
 	socks := "socks5://192.0.2.5:1080"
 	multiplexed := `{"type": "trojan", "server": "192.0.2.6", "server_port": 443, "password": "secret", "tls": {"enabled": true, "server_name": "m.example", "utls": {"enabled": true}}, "multiplex": {"enabled": true, "protocol": "h2mux"}}`
 	text := "config settings 'settings'\n\toption config_version '2'\n\toption dns_type 'udp'\n\toption dns_server '8.8.8.8'\n\toption urltest_check_interval '1m'\n" +
-		"\nconfig source 'prov'\n\toption type 'subscription'\n\toption url 'https://sub.example/x'\n" +
-		"\nconfig source 'links'\n\toption type 'links'\n\tlist link '" + reality + "'\n\tlist link '" + noName + "'\n" +
-		"\nconfig source 'one'\n\toption type 'links'\n\tlist link '" + socks + "'\n" +
-		"\nconfig source 'own'\n\toption type 'json'\n\toption outbound_json '" + multiplexed + "'\n" +
-		"\nconfig source 'wan2'\n\toption type 'interface'\n\toption interface 'eth2'\n" +
+		"\nconfig source 'prov'\n\toption label 'prov'\n\toption type 'subscription'\n\toption url 'https://sub.example/x'\n" +
+		"\nconfig source 'links'\n\toption label 'links'\n\toption type 'links'\n\tlist link '" + reality + "'\n\tlist link '" + noName + "'\n" +
+		"\nconfig source 'one'\n\toption label 'one'\n\toption type 'links'\n\tlist link '" + socks + "'\n" +
+		"\nconfig source 'own'\n\toption label 'own'\n\toption type 'json'\n\toption outbound_json '" + multiplexed + "'\n" +
+		"\nconfig source 'wan2'\n\toption label 'wan2'\n\toption type 'interface'\n\toption interface 'eth2'\n" +
 		"\nconfig section 'x'\n\toption user_domain_list_type 'dynamic'\n\tlist user_domains 'x.example'\n" +
 		"\nconfig member\n\toption section 'x'\n\toption role 'server'\n\toption source 'prov'\n" +
 		"\nconfig member\n\toption section 'x'\n\toption role 'server'\n\toption source 'links'\n" +
@@ -733,6 +733,7 @@ func TestServersOfPlan(t *testing.T) {
 		"\nconfig member\n\toption section 'x'\n\toption role 'server'\n\toption source 'wan2'\n" +
 		"\nconfig member\n\toption section 'x'\n\toption role 'server'\n\toption source 'one'\n\toption via 'own'\n" +
 		"\nconfig member\n\toption section 'x'\n\toption role 'server'\n\toption source 'own'\n\toption via 'wan2'\n"
+	// the sources are labelled as their sections: the tags are made of the labels
 	parsed, err := uci.Parse([]byte(text))
 	require.NoError(t, err)
 	config, err := model.Load(parsed)

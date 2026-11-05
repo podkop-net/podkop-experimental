@@ -1032,8 +1032,16 @@ function ruleRowProblems(rules, sources, members) {
   }
   return problems;
 }
-function serverDisplayName(tag, sources) {
+function serverDisplayName(tag, sources, tags) {
   const byName = (name) => sources.find((source) => source[".name"] === name);
+  if (tags?.outbounds) {
+    const what = tags.outbounds[tag];
+    const source = what?.source ? byName(what.source) : void 0;
+    const through2 = what?.via ? byName(what.via) : void 0;
+    if (!source || what?.via && !through2) return tag;
+    const shown2 = what?.server ? `${sourceLabel(source)}: ${what.server}` : sourceLabel(source);
+    return through2 ? _("%s via %s").format(shown2, sourceLabel(through2)) : shown2;
+  }
   let base = tag;
   let through = "";
   const via = tag.match(/^(.*) via ([A-Za-z0-9_]+)$/);
@@ -1054,33 +1062,47 @@ function serverDisplayName(tag, sources) {
 }
 
 // src/podkop/methods/custom/ruleTiles.ts
-function outboundName(code, rule, sources) {
-  if (code === `${rule}-urltest-out`) return _("Fastest");
+function ruleOutbounds(rule, tags) {
+  const told = tags?.rules?.[rule];
+  if (told) return { selector: told.selector, test: told.test ?? "" };
+  return { selector: `${rule}-out`, test: `${rule}-urltest-out` };
+}
+function fallbackRow(tag, rule, tags) {
+  if (tags?.outbounds) {
+    const what = tags.outbounds[tag];
+    return what?.rule === rule ? what.fallback ?? 0 : 0;
+  }
+  const group = tag.match(/^(.+)-fallback-(\d+)-out$/);
+  return group && group[1] === rule ? Number(group[2]) : 0;
+}
+function outboundName(code, rule, sources, tags) {
+  if (code === ruleOutbounds(rule, tags).test) return _("Fastest");
   if (code === "block") return _("Refused: the rule has no server now");
-  const tier = code.match(/^(.+)-fallback-(\d+)-out$/);
-  if (tier && tier[1] === rule) return _("Fallback %s").format(tier[2]);
-  return serverDisplayName(code, sources);
+  const row = fallbackRow(code, rule, tags);
+  if (row) return _("Fallback %s").format(row);
+  return serverDisplayName(code, sources, tags);
 }
 var DIRECT_TAG = "direct-out";
 var BLOCK_TAG = "block";
-function tierName(place, tag, rule, sources, members) {
+function tierName(place, tag, rule, sources, members, tags) {
   const name = _("Fallback %s").format(place);
-  const group = tag.match(/^(.+)-fallback-(\d+)-out$/);
-  if (!group || group[1] !== rule) return name;
+  const number = fallbackRow(tag, rule, tags);
+  if (!number) return name;
   const row = members.filter(
     (item) => item.section === rule && item.role === "fallback"
-  )[Number(group[2]) - 1];
+  )[number - 1];
   const source = sources.find((item) => item[".name"] === row?.source);
   return source ? `${name} \xB7 ${sourceLabel(source)}` : name;
 }
-function ruleTiles(proxies, rule, sources, members, used) {
-  const selector = proxies[`${rule}-out`];
+function ruleTiles(proxies, rule, sources, members, used, tags) {
+  const ruleTags = ruleOutbounds(rule, tags);
+  const selector = proxies[ruleTags.selector];
   const offered = selector?.all ?? [];
-  const autoTag = `${rule}-urltest-out`;
-  const test = offered.includes(autoTag) ? proxies[autoTag] : void 0;
+  const autoTag = ruleTags.test;
+  const test = autoTag && offered.includes(autoTag) ? proxies[autoTag] : void 0;
   const tile = (tag, tier2) => {
     const item = proxies[tag];
-    let displayName2 = outboundName(tag, rule, sources);
+    let displayName2 = outboundName(tag, rule, sources, tags);
     if (tag === DIRECT_TAG) displayName2 = _("Directly");
     else if (tag === BLOCK_TAG && tier2 > 0) displayName2 = _("Block");
     return {
@@ -1133,7 +1155,7 @@ function ruleTiles(proxies, rule, sources, members, used) {
   const tiers = fallbacks.length ? [
     _("Fastest"),
     ...fallbacks.map(
-      (tag, index) => tierName(index + 1, tag, rule, sources, members)
+      (tag, index) => tierName(index + 1, tag, rule, sources, members, tags)
     )
   ] : [];
   let active;
@@ -1196,26 +1218,34 @@ async function getDashboardSections() {
     };
   }
   const proxies = clashProxies.data.proxies ?? {};
+  const tags = clashProxies.data.podkop_tags;
   const running = rules.filter(
     (rule) => rule.enabled !== "0" && ruleExit(rule, sources, members) === "servers"
   );
   const used = usedTags(
     proxies,
-    running.map((rule) => `${rule[".name"]}-out`)
+    running.map((rule) => ruleOutbounds(rule[".name"], tags).selector)
   );
   const data = running.map((rule) => {
     const name = rule[".name"];
-    const code = `${name}-out`;
+    const code = ruleOutbounds(name, tags).selector;
     const selector = proxies[code];
     const displayName = String(rule.label ?? "").trim() || name;
     if (!selector) {
-      return { withTagSelect: false, code, displayName, outbounds: [] };
+      return {
+        withTagSelect: false,
+        rule: name,
+        code,
+        displayName,
+        outbounds: []
+      };
     }
     return {
       withTagSelect: true,
+      rule: name,
       code,
       displayName,
-      ...ruleTiles(proxies, name, sources, members, used)
+      ...ruleTiles(proxies, name, sources, members, used, tags)
     };
   });
   return {
@@ -5219,10 +5249,11 @@ async function ruleLatency(section, measure, model) {
     if (!listed.success) return line;
     const { route } = ruleTiles(
       listed.data.proxies ?? {},
-      section.code.replace(/-out$/, ""),
+      section.rule ?? section.code.replace(/-out$/, ""),
       model.sources,
       model.members,
-      /* @__PURE__ */ new Set()
+      /* @__PURE__ */ new Set(),
+      listed.data.podkop_tags
     );
     if (route && route.code !== section.route.code) {
       return routeLatency(route, measure);

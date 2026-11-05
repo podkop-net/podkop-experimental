@@ -223,7 +223,7 @@ func FromShell(content []byte, shell Shell) (*Converted, error) {
 			if detour == nil && shell.Settings.Settings.DownloadListsViaProxy {
 				// a configuration whose only downloaded lists were plain ones had no
 				// download_detour to take the section from
-				detour = outboundTag(shell.Settings.Settings.DownloadListsViaProxySection)
+				detour = RuleOutbound(shell.Settings, shell.Settings.Settings.DownloadListsViaProxySection)
 			}
 			client := newObject("tag", tagListsHTTPClient)
 			if detour != nil {

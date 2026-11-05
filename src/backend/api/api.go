@@ -68,6 +68,9 @@ type Facts struct {
 	// router (host:port), and ClashSecret its key; empty when nothing runs.
 	ClashAPI    string `json:"clash_api"`
 	ClashSecret string `json:"clash_secret"`
+	// Tags tell what the outbounds of the configuration that runs are (plan.Tags), as JSON:
+	// their tags are made of the names of the rules and the sources.
+	Tags json.RawMessage `json:"tags,omitempty"`
 }
 
 // ListsUpdate is what an update of the lists asked for from outside came to.

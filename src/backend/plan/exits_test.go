@@ -132,12 +132,13 @@ func ruleRoutes(config exitConfig) []string {
 
 func TestExitsOfRows(t *testing.T) {
 	t.Parallel()
+	// the sources are labelled as their sections: the tags are made of the labels
 	settings := "\toption urltest_check_interval '1m'\n\toption urltest_tolerance '80'\n\toption urltest_download_check 'off'\n" +
-		"\nconfig source 'prov1'\n\toption type 'subscription'\n\toption url 'https://sub.example/x'\n" +
-		"\nconfig source 'warp'\n\toption type 'interface'\n\toption interface 'awg0'\n\toption routing_mark '0x10000'\n" +
+		"\nconfig source 'prov1'\n\toption label 'prov1'\n\toption type 'subscription'\n\toption url 'https://sub.example/x'\n" +
+		"\nconfig source 'warp'\n\toption label 'warp'\n\toption type 'interface'\n\toption interface 'awg0'\n\toption routing_mark '0x10000'\n" +
 		"\toption domain_resolver_enabled '1'\n\toption domain_resolver_dns_type 'doh'\n\toption domain_resolver_dns_server '1.1.1.1'\n" +
-		"\nconfig source 'own'\n\toption type 'links'\n\tlist link 'socks5://own.example:1080#Own'\n\toption udp_over_tcp '1'\n" +
-		"\nconfig source 'pair'\n\toption type 'links'\n\tlist link 'vless://u@a.example:443#A'\n\tlist link 'vless://u@b.example:443#B'\n" +
+		"\nconfig source 'own'\n\toption label 'own'\n\toption type 'links'\n\tlist link 'socks5://own.example:1080#Own'\n\toption udp_over_tcp '1'\n" +
+		"\nconfig source 'pair'\n\toption label 'pair'\n\toption type 'links'\n\tlist link 'vless://u@a.example:443#A'\n\tlist link 'vless://u@b.example:443#B'\n" +
 		ruleText("main", row("server", "prov1", "exclude AI"), row("fallback", "own"), row("fallback", "direct")) +
 		ruleText("ai", row("server", "prov1", "include AI", "via warp"), row("server", "prov1", "exclude AI")) +
 		ruleText("yt", row("server", "prov1", "include NL"), row("fallback", "prov1", "include DE"), row("fallback", "block")) +
@@ -214,7 +215,8 @@ func TestExitsOfRows(t *testing.T) {
 }
 
 // A rule of one server and no fallback has no URL test, whatever the source other than a
-// subscription, which can bring more servers at any time. A fallback keeps the test.
+// subscription, which can bring more servers at any time. A fallback keeps the test. The
+// sources have no label: their tags are the names the page gives them.
 func TestExitOfOneServer(t *testing.T) {
 	t.Parallel()
 	settings := "\nconfig source 'own'\n\toption type 'links'\n\tlist link 'vless://u@own.example:443#Own'\n" +
@@ -227,14 +229,14 @@ func TestExitOfOneServer(t *testing.T) {
 	result, err := buildRules(t, settings, map[string][]SubscriptionServer{"prov1": subscriptionList("NL 1")})
 	require.NoError(t, err)
 	config, outbounds := outboundsOf(t, result)
-	for rule, server := range map[string]string{"link": "own", "iface": "warp", "obj": "json", "twice": "own"} {
+	for rule, server := range map[string]string{"link": "Own", "iface": "awg0", "obj": "socks", "twice": "Own"} {
 		_, hasTest := outbounds[rule+"-urltest-out"]
 		require.False(t, hasTest, rule)
 		require.Equal(t, exitOutbound{Type: "selector", Tag: rule + "-out", Default: server, Outbounds: []string{server}}, outbounds[rule+"-out"], rule)
 		require.True(t, result.Swappable[rule+"-out"], rule)
 	}
-	require.Equal(t, []string{"prov1: NL 1"}, outbounds["sub-urltest-out"].Outbounds)
-	require.Equal(t, []string{"own"}, outbounds["spare-urltest-out"].Outbounds)
+	require.Equal(t, []string{"sub.example: NL 1"}, outbounds["sub-urltest-out"].Outbounds)
+	require.Equal(t, []string{"Own"}, outbounds["spare-urltest-out"].Outbounds)
 	require.Equal(t, []string{"link-out", "iface-out", "obj-out", "sub-out", "spare-out", "twice-out"}, ruleRoutes(config))
 }
 
@@ -264,7 +266,7 @@ func TestExitsWithoutServers(t *testing.T) {
 	warnings := strings.Join(result.Warnings, "\n")
 	require.Contains(t, warnings, "rule a: its sources name no server now: its connections are refused")
 	require.Contains(t, warnings, "rule c: its sources are not filled yet: the rule does nothing")
-	require.Contains(t, warnings, "source prov1 has no servers yet")
+	require.Contains(t, warnings, "source sub.example (prov1) has no servers yet", "a source named by its name and its section")
 }
 
 // Rows that repeat a fallback, or name a server of the rule as a fallback, give each outbound
@@ -277,7 +279,7 @@ func TestExitRepeatedRows(t *testing.T) {
 	result, err := buildRules(t, settings, nil)
 	require.NoError(t, err)
 	config, outbounds := outboundsOf(t, result)
-	require.Equal(t, []string{"own"}, outbounds["x-urltest-out"].Outbounds)
+	require.Equal(t, []string{"Own"}, outbounds["x-urltest-out"].Outbounds)
 	require.Equal(t, []string{"direct-out", "block"}, outbounds["x-urltest-out"].Fallbacks)
 	_, hasY := outbounds["y-out"]
 	require.False(t, hasY)
@@ -312,9 +314,13 @@ func TestExitViaSourceOfSeveralServers(t *testing.T) {
 	result, err := buildRules(t, settings, nil)
 	require.NoError(t, err)
 	_, outbounds := outboundsOf(t, result)
-	require.Equal(t, "pair-best", outbounds["far via pair"].Detour)
-	require.Equal(t, []string{"pair: A", "pair: B"}, outbounds["pair-best"].Outbounds)
-	require.True(t, result.Swappable["pair-best"])
+	// links without a label: "My servers", as the page calls them, and the name of the link
+	require.Equal(t, "My servers-best", outbounds["Far via My servers"].Detour)
+	require.Equal(t, []string{"My servers: A", "My servers: B"}, outbounds["My servers-best"].Outbounds)
+	require.True(t, result.Swappable["My servers-best"])
+	require.Equal(t, TagOf{Source: "pair"}, result.Tags.Outbounds["My servers-best"])
+	require.Equal(t, TagOf{Source: "far", Via: "pair"}, result.Tags.Outbounds["Far via My servers"])
+	require.Equal(t, TagOf{Source: "pair", Server: "B"}, result.Tags.Outbounds["My servers: B"])
 }
 
 // A row through a subscription not downloaded yet takes no server for now: the rule goes by its
@@ -329,7 +335,7 @@ func TestExitViaSourceWithoutServers(t *testing.T) {
 	_, outbounds := outboundsOf(t, result)
 	require.Empty(t, outbounds["x-urltest-out"].Outbounds)
 	require.Equal(t, []string{"direct-out"}, outbounds["x-urltest-out"].Fallbacks)
-	require.Contains(t, strings.Join(result.Warnings, "\n"), "the source prov1 to connect through has no servers yet")
+	require.Contains(t, strings.Join(result.Warnings, "\n"), "the source sub.example (prov1) to connect through has no servers yet")
 }
 
 func TestExitMistakes(t *testing.T) {
@@ -338,7 +344,7 @@ func TestExitMistakes(t *testing.T) {
 		"\nconfig source 'warp'\n\toption type 'interface'\n\toption interface 'awg0'\n" +
 		"\nconfig source 'bad'\n\toption type 'links'\n\tlist link 'vless://u@bad.example:443#Bad'\n"
 	for _, testCase := range []struct{ rows, mistake string }{
-		{row("server", "bad"), "cannot use the proxy link 1 of the source bad"},
+		{row("server", "bad"), "cannot use the proxy link 1 of the source Bad (bad)"},
 	} {
 		_, err := buildRules(t, sources+ruleText("x", testCase.rows), nil)
 		require.ErrorContains(t, err, testCase.mistake)
@@ -346,8 +352,8 @@ func TestExitMistakes(t *testing.T) {
 	// a row that cannot go the way it names takes no server: the rule goes by its fallback,
 	// and the rest of the settings run
 	for _, testCase := range []struct{ rows, warning string }{
-		{row("server", "one", "via one"), "rule x: a row of the source one connects through the same source: the row takes no server"},
-		{row("server", "warp", "via one"), "rule x: the interface of the source warp does not connect through another source: the row takes no server"},
+		{row("server", "one", "via one"), "rule x: a row of the source One (one) connects through the same source: the row takes no server"},
+		{row("server", "warp", "via one"), "rule x: the interface of the source awg0 (warp) does not connect through another source: the row takes no server"},
 		{row("server", "one", "via gone"), "rule x: there is no source gone to connect through: the row takes no server"},
 		{row("server", "one", "via empty"), "rule x: the source empty to connect through is not filled: the row takes no server"},
 		{row("server", "odd"), "rule x: the source odd is of a type podkop does not know (wireguard): its row takes no server"},
@@ -360,7 +366,7 @@ func TestExitMistakes(t *testing.T) {
 		_, outbounds := outboundsOf(t, result)
 		require.Empty(t, outbounds["x-urltest-out"].Outbounds, testCase.warning)
 		require.Equal(t, []string{"direct-out"}, outbounds["x-urltest-out"].Fallbacks, testCase.warning)
-		require.Equal(t, []string{"one"}, outbounds["y-out"].Outbounds, testCase.warning)
+		require.Equal(t, []string{"One"}, outbounds["y-out"].Outbounds, testCase.warning)
 	}
 	_, err := buildRules(t, "\toption urltest_tolerance 'much'\n", nil)
 	require.ErrorContains(t, err, "tolerance")
@@ -374,7 +380,8 @@ func TestExitTagsOfNames(t *testing.T) {
 	result, err := buildRules(t, settings, map[string][]SubscriptionServer{"prov1": subscriptionList("NL", "NL", "")})
 	require.NoError(t, err)
 	_, outbounds := outboundsOf(t, result)
-	require.Equal(t, []string{"prov1: NL", "prov1: NL #2", "prov1: server 3"}, outbounds["block-urltest-out"].Outbounds)
+	require.Equal(t, []string{"sub.example: NL", "sub.example: NL #2", "sub.example: server 3"}, outbounds["block-urltest-out"].Outbounds)
+	require.Equal(t, TagOf{Source: "prov1", Server: "NL #2"}, result.Tags.Outbounds["sub.example: NL #2"])
 	require.Equal(t, "block", outbounds["block"].Type, "a rule named block keeps the block outbound apart")
 	require.Equal(t, "selector", outbounds["block-out"].Type)
 }
@@ -384,10 +391,11 @@ func TestExitTagsOfNames(t *testing.T) {
 // taken as a "Through" is, and the tag tells it; a detour that names no source stays.
 func TestExitsOfJSONDetour(t *testing.T) {
 	t.Parallel()
-	settings := "\nconfig source 'warp'\n\toption type 'interface'\n\toption interface 'awg0'\n" +
-		"\nconfig source 'other'\n\toption type 'links'\n\tlist link 'socks5://other.example:1080#Other'\n" +
-		"\nconfig source 'js'\n\toption type 'json'\n\toption outbound_json '{\"type\":\"socks\",\"server\":\"j.example\",\"server_port\":1080,\"detour\":\"other\"}'\n" +
-		"\nconfig source 'js2'\n\toption type 'json'\n\toption outbound_json '{\"type\":\"socks\",\"server\":\"k.example\",\"server_port\":1080,\"detour\":\"own-chain\"}'\n" +
+	// labelled as their sections: the detour names a section, the tag the label
+	settings := "\nconfig source 'warp'\n\toption label 'warp'\n\toption type 'interface'\n\toption interface 'awg0'\n" +
+		"\nconfig source 'other'\n\toption label 'other'\n\toption type 'links'\n\tlist link 'socks5://other.example:1080#Other'\n" +
+		"\nconfig source 'js'\n\toption label 'js'\n\toption type 'json'\n\toption outbound_json '{\"type\":\"socks\",\"server\":\"j.example\",\"server_port\":1080,\"detour\":\"other\"}'\n" +
+		"\nconfig source 'js2'\n\toption label 'js2'\n\toption type 'json'\n\toption outbound_json '{\"type\":\"socks\",\"server\":\"k.example\",\"server_port\":1080,\"detour\":\"own-chain\"}'\n" +
 		ruleText("a", row("server", "js")) +
 		ruleText("b", row("server", "js", "via warp")) +
 		ruleText("c", row("server", "js2"))
@@ -409,4 +417,74 @@ func TestExitsOfJSONDetour(t *testing.T) {
 
 	// a detour that names no source stays as the JSON has it
 	require.Equal(t, "own-chain", outbounds["js2"].Detour)
+}
+
+// The tags are made of the names of the rules and the sources (model.Names): a label changed on
+// the page changes them, while the rows keep naming the sections. Tags tell what each tag is.
+func TestExitTagsFollowLabels(t *testing.T) {
+	t.Parallel()
+	sources := func(cat string) string {
+		return "\nconfig source 'src1'\n\toption label 'mouse'\n\toption type 'links'\n\tlist link 'socks5://m.example:1080'\n" +
+			"\nconfig source 'src2'\n\toption label '" + cat + "'\n\toption type 'links'\n\tlist link 'socks5://c.example:1080'\n"
+	}
+	rule := strings.Replace(ruleText("rule1", row("server", "src1", "via src2"), row("fallback", "direct")),
+		"config section 'rule1'\n", "config section 'rule1'\n\toption label 'Cats'\n", 1)
+	for _, cat := range []string{"cat", "dog"} {
+		result, err := buildRules(t, sources(cat)+rule, nil)
+		require.NoError(t, err)
+		config, outbounds := outboundsOf(t, result)
+		chain := "mouse via " + cat
+		require.Equal(t, cat, outbounds[chain].Detour, cat)
+		require.Equal(t, "socks", outbounds[cat].Type, cat)
+		require.Equal(t, []string{chain}, outbounds["Cats-urltest-out"].Outbounds, cat)
+		require.Equal(t, []string{"Cats-out"}, ruleRoutes(config), cat)
+		require.Equal(t, RuleTags{Name: "Cats", Selector: "Cats-out", Test: "Cats-urltest-out"}, result.Tags.Rules["rule1"], cat)
+		require.Equal(t, TagOf{Source: "src1", Via: "src2"}, result.Tags.Outbounds[chain], cat)
+		require.Equal(t, TagOf{Source: "src2"}, result.Tags.Outbounds[cat], cat)
+		require.Equal(t, TagOf{Rule: "rule1"}, result.Tags.Outbounds["Cats-urltest-out"], cat)
+	}
+}
+
+// Names alike are told apart: two sources of one label by the section, a source named as an
+// outbound of a rule or of podkop by a number.
+func TestExitTagsOfNamesAlike(t *testing.T) {
+	t.Parallel()
+	settings := "\nconfig source 'a'\n\toption label 'Germany'\n\toption type 'links'\n\tlist link 'socks5://a.example:1080'\n" +
+		"\nconfig source 'b'\n\toption label 'Germany'\n\toption type 'links'\n\tlist link 'socks5://b.example:1080'\n" +
+		"\nconfig source 'c'\n\toption label 'x-out'\n\toption type 'links'\n\tlist link 'socks5://c.example:1080'\n" +
+		"\nconfig source 'd'\n\toption label 'direct-out'\n\toption type 'links'\n\tlist link 'socks5://d.example:1080'\n" +
+		ruleText("x", row("server", "a"), row("server", "b"), row("server", "c"), row("server", "d"))
+	result, err := buildRules(t, settings, nil)
+	require.NoError(t, err)
+	_, outbounds := outboundsOf(t, result)
+	require.Equal(t, []string{"Germany", "Germany (b)", "x-out #2", "direct-out #2"}, outbounds["x-urltest-out"].Outbounds)
+	require.Equal(t, "selector", outbounds["x-out"].Type)
+	require.Equal(t, "direct", outbounds["direct-out"].Type)
+	require.Equal(t, TagOf{Source: "c"}, result.Tags.Outbounds["x-out #2"])
+}
+
+// An outbound JSON that names outbounds of podkop by the tags they had while tags were made of
+// sections ("src1", "main-out") gets the tags of now.
+func TestExitJSONOfOldTags(t *testing.T) {
+	t.Parallel()
+	settings := "\nconfig source 'src1'\n\toption label 'mouse'\n\toption type 'links'\n\tlist link 'socks5://m.example:1080'\n" +
+		"\nconfig source 'pick'\n\toption label 'pick'\n\toption type 'json'\n\toption outbound_json '{\"type\":\"selector\",\"outbounds\":[\"src1\",\"main-out\",\"direct-out\",\"nothing\"]}'\n" +
+		"\nconfig source 'hop'\n\toption label 'hop'\n\toption type 'json'\n\toption outbound_json '{\"type\":\"socks\",\"server\":\"h.example\",\"server_port\":1080,\"detour\":\"main-out\"}'\n" +
+		strings.Replace(ruleText("main", row("server", "src1")), "config section 'main'\n", "config section 'main'\n\toption label 'Main'\n", 1) +
+		ruleText("p", row("server", "pick")) + ruleText("h", row("server", "hop"))
+	result, err := buildRules(t, settings, nil)
+	require.NoError(t, err)
+	_, outbounds := outboundsOf(t, result)
+	require.Equal(t, []string{"mouse", "Main-out", "direct-out", "nothing"}, outbounds["pick"].Outbounds)
+	require.Equal(t, "Main-out", outbounds["hop"].Detour)
+	require.Equal(t, "Main-out", RuleOutbound(mustConfig(t, settings), "main"))
+}
+
+func mustConfig(t *testing.T, settings string) *model.Config {
+	t.Helper()
+	parsed, err := uci.Parse([]byte(exitHead + settings))
+	require.NoError(t, err)
+	config, err := model.Load(parsed)
+	require.NoError(t, err)
+	return config
 }

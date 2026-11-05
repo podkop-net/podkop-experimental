@@ -273,8 +273,10 @@ type Supervisor struct {
 	probes chan probeRequest
 	// statuses are questions about the state of the lists from another goroutine
 	statuses chan chan []ListState
-	// firewallTold is what the log last said of the sets of the firewall
+	// firewallTold is what the log last said of the sets of the firewall, configTold of the
+	// configuration (describeConfig)
 	firewallTold string
+	configTold   string
 	// restores are asks to put back what the network took, from another goroutine
 	restores chan chan string
 	// failed tells that the last start of sing-box failed, or the start of the settings
@@ -423,7 +425,11 @@ func factsOf(current *running) api.Facts {
 	if current == nil {
 		return api.Facts{}
 	}
-	return api.Facts{ClashAPI: current.result.Dataplane.ClashAPI, ClashSecret: current.result.Dataplane.ClashSecret}
+	facts := api.Facts{ClashAPI: current.result.Dataplane.ClashAPI, ClashSecret: current.result.Dataplane.ClashSecret}
+	if tags := current.result.Tags; len(tags.Rules)+len(tags.Outbounds) > 0 {
+		facts.Tags, _ = json.Marshal(tags)
+	}
+	return facts
 }
 
 // done records what a boot or a change came to and returns it.
@@ -1287,7 +1293,7 @@ func (s *Supervisor) start(next *candidate, previous *plan.Result) (Instance, er
 	}
 	s.tellNotes()
 	s.storeConfig(next)
-	s.log("info", describeConfig(next))
+	s.tellConfig(next, true)
 	for _, tag := range tags {
 		s.log("info", "list ", tag, ": ", sources[tag])
 	}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
+	"github.com/podkop-net/podkop-experimental/src/backend/model"
 
 	"github.com/stretchr/testify/require"
 )
@@ -23,9 +24,9 @@ func TestSubscriptionLines(t *testing.T) {
 			Provider: &api.ProviderInfo{Traffic: true, Upload: 1 << 20, Expire: &ended}},
 		{Name: "prov3", Error: "the provider sent a web page, not a list of servers"},
 		{Name: "prov4"},
-	}, now)
+	}, model.Names{Sources: map[string]string{"prov1": "Lab", "prov2": "prov2"}}, now)
 	require.Equal(t, []string{
-		`✅ prov1: 12 servers, 11 can be used; checked 5 min ago (direct); servers changed 2 days ago; "My VPN", traffic 12.5 GiB of 100.0 GiB, until ` + expire.Local().Format("2006-01-02") + ` (64 days)`,
+		`✅ Lab (prov1): 12 servers, 11 can be used; checked 5 min ago (direct); servers changed 2 days ago; "My VPN", traffic 12.5 GiB of 100.0 GiB, until ` + expire.Local().Format("2006-01-02") + ` (64 days)`,
 		`⚠️ prov2: 3 servers, 3 can be used; servers changed 2 days ago; not checked since the start; the last download failed: no answer in time; traffic 1 MiB, no limit, ended ` + ended.Local().Format("2006-01-02"),
 		`❌ prov3: no list: the provider sent a web page, not a list of servers`,
 		`⏳ prov4: the list is not downloaded yet`,

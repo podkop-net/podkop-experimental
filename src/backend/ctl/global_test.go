@@ -93,7 +93,7 @@ func TestInterfaceLines(t *testing.T) {
 		found, exists := addresses[device]
 		return found, exists
 	}
-	uses := interfaceUses(settings, sources)
+	uses := interfaceUses(settings, sources, model.Names{})
 	require.Equal(t, []string{
 		"✅ Source: lan → br-lan",
 		"⚠️ Source: lan1: no IPv4 address (a port of a bridge, a network that is down, or a wrong name): podkop sees no traffic from it",

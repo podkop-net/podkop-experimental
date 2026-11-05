@@ -73,7 +73,7 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 	}
 	// the devices of layer 3 the interface names of the settings stand for now: the
 	// firewall and sing-box use those
-	uses := interfaceUses(settings, config.Sources)
+	uses := interfaceUses(settings, config.Sources, config.Names())
 	names := make([]string, 0, len(uses))
 	for _, use := range uses {
 		names = append(names, use.name)

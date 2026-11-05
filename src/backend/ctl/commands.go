@@ -244,7 +244,7 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 			}
 			return 1
 		}
-		io.WriteString(output, strings.Join(subscriptionLines(states, time.Now()), "\n")+"\n")
+		io.WriteString(output, strings.Join(subscriptionLines(states, config.Names(), time.Now()), "\n")+"\n")
 		return 0
 	case "hwid":
 		device := subscription.ReadDevice("/")
@@ -313,7 +313,7 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 			if err != nil {
 				return nil
 			}
-			return subscriptionLines(states, time.Now())
+			return subscriptionLines(states, config.Names(), time.Now())
 		}, device))
 		return 0
 	case "check_logs":
@@ -605,7 +605,8 @@ func clashAPI(client api.Client, arguments []string, output io.Writer) int {
 			output.Write(content)
 		}
 	}
-	call := (&clashCaller{client: client}).call
+	caller := &clashCaller{client: client}
+	call := caller.call
 	argument := func(index int) string {
 		if index < len(arguments) {
 			return arguments[index]
@@ -637,7 +638,7 @@ func clashAPI(client api.Client, arguments []string, output io.Writer) int {
 		if len(bytes.TrimSpace(content)) == 0 {
 			return 1
 		}
-		say(string(content))
+		say(string(withTags(content, caller.facts.Tags)))
 		return 0
 	case "get_proxy_latency":
 		return delay("proxies", "proxy_tag", "2000")
@@ -698,4 +699,23 @@ func clashAPI(client api.Client, arguments []string, output io.Writer) int {
 	}
 	say(`{"error":"unknown action","available":["get_proxies","get_proxy_latency","get_group_latency","set_group_proxy","upgrade_ui"]}`)
 	return 1
+}
+
+// withTags is the answer of the Clash API about the proxies with what their tags are
+// (plan.Tags) under "podkop_tags": the page cannot take the tags apart, which are made of the
+// names of the rules and the sources. An answer that is no JSON object stays as it is.
+func withTags(content []byte, tags json.RawMessage) []byte {
+	if len(tags) == 0 {
+		return content
+	}
+	var answer map[string]json.RawMessage
+	if json.Unmarshal(content, &answer) != nil || answer == nil {
+		return content
+	}
+	answer["podkop_tags"] = tags
+	joined, err := json.Marshal(answer)
+	if err != nil {
+		return content
+	}
+	return joined
 }

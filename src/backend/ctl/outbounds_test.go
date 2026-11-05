@@ -483,3 +483,42 @@ func TestOutboundLinesGroupsShareTheSlots(t *testing.T) {
 	require.Len(t, lines, 2)
 	require.Contains(t, lines[0], "a1 100 ms")
 }
+
+// The outbounds of a rule are those the backend that runs tells (plan.Tags): their tags are made
+// of the names of the rules and the sources, and a rule is told by its name. Without a backend
+// that tells, the settings name them.
+func TestOutboundLinesOfNames(t *testing.T) {
+	proxies := map[string]map[string]any{
+		"Cats-out":         {"type": "Selector", "now": "Cats-urltest-out", "all": []string{"Cats-urltest-out", "mouse via dog"}},
+		"Cats-urltest-out": {"type": "URLTest", "now": "mouse via dog", "all": []string{"mouse via dog"}},
+		"Pin-out":          {"type": "Selector", "now": "mouse via dog", "all": []string{"Pin-urltest-out", "mouse via dog"}},
+		"Pin-urltest-out":  {"type": "URLTest", "now": "mouse via dog", "all": []string{"mouse via dog"}},
+		"mouse via dog":    {"type": "Socks"},
+	}
+	groups := map[string]string{"Cats-urltest-out": `{"mouse via dog": 99}`}
+	rows := []model.Member{{Source: "src1", Via: "src2"}}
+	config := &model.Config{
+		Sources: []model.Source{{Name: "src1", Label: "mouse", Type: "links", Links: []string{"socks5://m.example:1080"}},
+			{Name: "src2", Label: "dog", Type: "links", Links: []string{"socks5://d.example:1080"}}},
+		Sections: []model.Section{{Name: "rule1", Label: "Cats", Enabled: true, Servers: rows}, {Name: "rule2", Label: "Pin", Enabled: true, Servers: rows}},
+	}
+
+	caller := outboundsCaller(t, proxies, groups)
+	facts, err := caller.client.Facts()
+	require.NoError(t, err)
+	facts.Tags = json.RawMessage(`{"rules":{"rule1":{"name":"Cats","selector":"Cats-out","test":"Cats-urltest-out"}},"outbounds":{}}`)
+	caller.once.Do(func() { caller.facts = *facts })
+	require.Equal(t, []string{"✅ Cats (urltest): mouse via dog 99 ms"}, outboundLines(caller, config), "rule2 does not run")
+
+	// what the settings make: the tags of the names
+	require.Equal(t, []string{"✅ Cats (urltest): mouse via dog 99 ms", "✅ Pin (pinned mouse via dog): 120 ms"},
+		outboundLines(outboundsCaller(t, proxies, groups), config))
+}
+
+// The proxies of the Clash API go to the page with what their tags are.
+func TestProxiesWithTags(t *testing.T) {
+	joined := withTags([]byte(`{"proxies":{"a":{"type":"Socks"}}}`), json.RawMessage(`{"rules":{}}`))
+	require.JSONEq(t, `{"proxies":{"a":{"type":"Socks"}},"podkop_tags":{"rules":{}}}`, string(joined))
+	require.Equal(t, `[1]`, string(withTags([]byte(`[1]`), json.RawMessage(`{}`))))
+	require.Equal(t, `{"proxies":{}}`, string(withTags([]byte(`{"proxies":{}}`), nil)))
+}

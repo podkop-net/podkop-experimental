@@ -333,7 +333,7 @@ func TestLeftOutItemsAreTold(t *testing.T) {
 	}
 	warnings := strings.Join(outcome.Warnings, "\n")
 	for _, want := range []string{
-		`section main, the user domain list: 2 item(s) are no domain and are left out, the first: "bad!one"`,
+		`rule main, the user domain list: 2 item(s) are no domain and are left out, the first: "bad!one"`,
 		`local list /list.lst: 1 item(s) are neither a domain nor an IP CIDR and are left out, the first: "not a domain"`,
 	} {
 		if !strings.Contains(warnings, want) {
@@ -361,8 +361,9 @@ func TestRefusedLinkIsNamed(t *testing.T) {
 	if err == nil {
 		t.Fatal("the settings are taken")
 	}
-	// the links of the section became the source main_links (podkop migrate); the second has no name
-	if !strings.HasPrefix(err.Error(), "section main: cannot use the proxy link of main_links: server 2: ") || strings.Contains(err.Error(), canary) || strings.Contains(err.Error(), uuid) {
+	// the links of the section became the source main_links (podkop migrate), named as the page
+	// names links without a label; the second has no name
+	if !strings.HasPrefix(err.Error(), "section main: cannot use the proxy link of My servers: server 2: ") || strings.Contains(err.Error(), canary) || strings.Contains(err.Error(), uuid) {
 		t.Fatalf("refused with %q", err)
 	}
 	if left := leftFiles(t, root, "out"); len(left) != 0 {

@@ -2,7 +2,7 @@ import { getConfigModel } from './getConfigModel';
 import { ClashAPI, Podkop } from '../../types';
 import { PodkopShellMethods } from '../shell';
 import { ruleExit } from '../../sources';
-import { ruleTiles } from './ruleTiles';
+import { ruleOutbounds, ruleTiles } from './ruleTiles';
 
 interface IGetDashboardSectionsResponse {
   success: boolean;
@@ -38,8 +38,8 @@ export async function getUsedTags(
   return proxies ? usedTags(proxies, selectors) : undefined;
 }
 
-// The rules that go through servers, each as the selector "<rule>-out" of its outbounds
-// (the backend's plan/exits.go): the URL test "<rule>-urltest-out" and all the servers of its
+// The rules that go through servers, each as the selector of its outbounds (the backend's
+// plan/exits.go, which tells their tags): the URL test of the rule and all the servers of its
 // rows, those of its fallbacks too, laid out by ruleTiles. A rule whose one row is direct or
 // block has no outbound, nor has one whose sources are not filled yet; a disabled rule is not
 // there.
@@ -55,6 +55,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
   }
 
   const proxies = clashProxies.data.proxies ?? {};
+  const tags = clashProxies.data.podkop_tags;
 
   const running = rules.filter(
     (rule) =>
@@ -62,25 +63,32 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
   );
   const used = usedTags(
     proxies,
-    running.map((rule) => `${rule['.name']}-out`),
+    running.map((rule) => ruleOutbounds(rule['.name'], tags).selector),
   );
 
   const data = running.map((rule) => {
     const name = rule['.name'];
-    const code = `${name}-out`;
+    const code = ruleOutbounds(name, tags).selector;
     const selector = proxies[code];
     const displayName = String(rule.label ?? '').trim() || name;
 
     // the running configuration does not have the rule yet
     if (!selector) {
-      return { withTagSelect: false, code, displayName, outbounds: [] };
+      return {
+        withTagSelect: false,
+        rule: name,
+        code,
+        displayName,
+        outbounds: [],
+      };
     }
 
     return {
       withTagSelect: true,
+      rule: name,
       code,
       displayName,
-      ...ruleTiles(proxies, name, sources, members, used),
+      ...ruleTiles(proxies, name, sources, members, used, tags),
     };
   });
 

@@ -4,38 +4,61 @@ import { serverDisplayName, sourceLabel } from '../../sources';
 // The layout of the tiles of a rule on the dashboard and the line of the outbounds check, from
 // the Clash API alone: no import here reaches the services of the page.
 
+// the outbounds of a rule: those the backend tells (Podkop.Tags), or those of the tags a backend
+// that does not tell makes of the section
+export function ruleOutbounds(
+  rule: string,
+  tags?: Podkop.Tags,
+): { selector: string; test: string } {
+  const told = tags?.rules?.[rule];
+  if (told) return { selector: told.selector, test: told.test ?? '' };
+  return { selector: `${rule}-out`, test: `${rule}-urltest-out` };
+}
+
+// the fallback row (from 1) of the rule whose URL test the tag is; 0 for another
+function fallbackRow(tag: string, rule: string, tags?: Podkop.Tags): number {
+  if (tags?.outbounds) {
+    const what = tags.outbounds[tag];
+    return what?.rule === rule ? (what.fallback ?? 0) : 0;
+  }
+  const group = tag.match(/^(.+)-fallback-(\d+)-out$/);
+  return group && group[1] === rule ? Number(group[2]) : 0;
+}
+
 // the name of a tile: a server by the labels of its sources; a URL test of the rule and the block
 // of a rule whose sources name no server now by what they do
 function outboundName(
   code: string,
   rule: string,
   sources: Podkop.ConfigSource[],
+  tags?: Podkop.Tags,
 ): string {
-  if (code === `${rule}-urltest-out`) return _('Fastest');
+  if (code === ruleOutbounds(rule, tags).test) return _('Fastest');
   if (code === 'block') return _('Refused: the rule has no server now');
-  const tier = code.match(/^(.+)-fallback-(\d+)-out$/);
-  if (tier && tier[1] === rule) return _('Fallback %s').format(tier[2]);
-  return serverDisplayName(code, sources);
+  const row = fallbackRow(code, rule, tags);
+  if (row) return _('Fallback %s').format(row);
+  return serverDisplayName(code, sources, tags);
 }
 
 const DIRECT_TAG = 'direct-out';
 const BLOCK_TAG = 'block';
 
 // the name of the nth fallback tier, with the label of the source of a fallback of several servers:
-// its URL test "<rule>-fallback-N-out" is that of the Nth fallback row of the rule
+// its URL test is that of a fallback row of the rule
 function tierName(
   place: number,
   tag: string,
   rule: string,
   sources: Podkop.ConfigSource[],
   members: Podkop.ConfigMember[],
+  tags?: Podkop.Tags,
 ): string {
   const name = _('Fallback %s').format(place);
-  const group = tag.match(/^(.+)-fallback-(\d+)-out$/);
-  if (!group || group[1] !== rule) return name;
+  const number = fallbackRow(tag, rule, tags);
+  if (!number) return name;
   const row = members.filter(
     (item) => item.section === rule && item.role === 'fallback',
-  )[Number(group[2]) - 1];
+  )[number - 1];
   const source = sources.find((item) => item['.name'] === row?.source);
   return source ? `${name} · ${sourceLabel(source)}` : name;
 }
@@ -46,22 +69,26 @@ function tierName(
 // test of its own and shows its servers; direct and block as a fallback show as tiles the
 // selector does not offer. route is where the connections go: the choice of the URL test, on
 // down through the URL test of a fallback, or a server pinned on the dashboard. used is what the
-// connections of all the rules go through (usedTags).
+// connections of all the rules go through (usedTags). tags are what the outbounds are, as the
+// backend tells (Podkop.Tags).
 export function ruleTiles(
   proxies: ClashAPI.Proxies['proxies'],
   rule: string,
   sources: Podkop.ConfigSource[],
   members: Podkop.ConfigMember[],
   used: Set<string>,
+  tags?: Podkop.Tags,
 ): Required<Pick<Podkop.OutboundGroup, 'outbounds' | 'tiers'>> &
   Pick<Podkop.OutboundGroup, 'auto' | 'route'> {
-  const selector = proxies[`${rule}-out`];
+  const ruleTags = ruleOutbounds(rule, tags);
+  const selector = proxies[ruleTags.selector];
   const offered = selector?.all ?? [];
-  const autoTag = `${rule}-urltest-out`;
-  const test = offered.includes(autoTag) ? proxies[autoTag] : undefined;
+  const autoTag = ruleTags.test;
+  const test =
+    autoTag && offered.includes(autoTag) ? proxies[autoTag] : undefined;
   const tile = (tag: string, tier: number): Podkop.Outbound => {
     const item = proxies[tag];
-    let displayName = outboundName(tag, rule, sources);
+    let displayName = outboundName(tag, rule, sources, tags);
     if (tag === DIRECT_TAG) displayName = _('Directly');
     else if (tag === BLOCK_TAG && tier > 0) displayName = _('Block');
     return {
@@ -123,7 +150,7 @@ export function ruleTiles(
     ? [
         _('Fastest'),
         ...fallbacks.map((tag, index) =>
-          tierName(index + 1, tag, rule, sources, members),
+          tierName(index + 1, tag, rule, sources, members, tags),
         ),
       ]
     : [];

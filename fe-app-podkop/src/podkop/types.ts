@@ -18,6 +18,9 @@ export namespace ClashAPI {
 
   export interface Proxies {
     proxies: Record<string, ProxyBase>;
+    // what the outbounds are (the backend's plan.Tags), added by podkop: the tags are made of
+    // the names of the rules and the sources and are not taken apart
+    podkop_tags?: Podkop.Tags;
   }
 }
 
@@ -192,8 +195,33 @@ export namespace Podkop {
     latency: number;
   }
 
+  // what an outbound is, by the sections of the settings: a group of a rule (of its fallback row
+  // from 1), a server of a source (its name there; none for a source of one server, through a
+  // source), the URL test of the servers of a source rows go through
+  export interface TagOf {
+    rule?: string;
+    fallback?: number;
+    source?: string;
+    server?: string;
+    via?: string;
+  }
+
+  // the outbounds of a rule: its selector and the URL test of its servers
+  export interface RuleTags {
+    name: string;
+    selector: string;
+    test?: string;
+  }
+
+  export interface Tags {
+    rules?: Record<string, RuleTags>;
+    outbounds?: Record<string, TagOf>;
+  }
+
   export interface OutboundGroup {
     withTagSelect: boolean;
+    // the section of the rule
+    rule?: string;
     code: string;
     displayName: string;
     outbounds: Outbound[];

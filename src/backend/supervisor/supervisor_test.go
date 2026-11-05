@@ -327,7 +327,11 @@ func TestClashKey(t *testing.T) {
 	require.Len(t, key, 32)
 	require.Contains(t, string(s.current.result.Config), `"secret": "`+key+`"`)
 	// the commands ask the API where it listens, with the key
-	require.Equal(t, api.Facts{ClashAPI: "127.0.0.1:9090", ClashSecret: key}, s.Facts())
+	facts := s.Facts()
+	require.Equal(t, "127.0.0.1:9090", facts.ClashAPI)
+	require.Equal(t, key, facts.ClashSecret)
+	require.JSONEq(t, `{"rules":{"main":{"name":"main","selector":"main-out"}},"outbounds":{"main-out":{"rule":"main"},"s5":{"source":"main_link"}}}`, string(facts.Tags),
+		"what the outbounds are, for the page")
 	first := s.current.instance
 	s.Apply()
 	require.Equal(t, []string{key, key}, f.system.secrets)
@@ -376,6 +380,9 @@ func TestCacheDirectoryIsMade(t *testing.T) {
 func TestFactsOf(t *testing.T) {
 	require.Equal(t, api.Facts{}, factsOf(nil))
 	require.Equal(t, api.Facts{ClashAPI: "192.168.1.1:9090", ClashSecret: "k"}, factsOf(&running{result: &plan.Result{Dataplane: plan.Dataplane{ClashAPI: "192.168.1.1:9090", ClashSecret: "k"}}}))
+	tags := plan.Tags{Rules: map[string]plan.RuleTags{"main": {Name: "Main", Selector: "Main-out"}}}
+	require.JSONEq(t, `{"rules":{"main":{"name":"Main","selector":"Main-out"}},"outbounds":null}`,
+		string(factsOf(&running{result: &plan.Result{Tags: tags}}).Tags))
 }
 
 // dont_touch_dhcp turned on gives back, at the apply, the dnsmasq the backend took.

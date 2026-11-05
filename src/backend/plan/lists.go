@@ -23,7 +23,7 @@ func (b *builder) buildSectionLists(section *model.Section) error {
 	}
 	if !section.HasEnabledLists() {
 		if len(section.FullyRoutedIPs) == 0 && !section.MixedProxyEnabled {
-			b.warn("rule ", section.Name, " has no list: no route rule for it")
+			b.warn("rule ", b.names.RuleText(section.Name), " has no list: no route rule for it")
 		}
 		return nil
 	}
@@ -32,7 +32,7 @@ func (b *builder) buildSectionLists(section *model.Section) error {
 	for _, list := range section.CommunityLists {
 		if !slices.Contains(communityLists, list) {
 			// as the shell backend: a name of no list would be retried for ever
-			return E.New("section ", section.Name, ": no community list is named \"", list, "\"")
+			return E.New("rule ", b.names.RuleText(section.Name), ": no community list is named \"", list, "\"")
 		}
 		tag := ruleSetTag(section.Name, list, "community")
 		b.addRemoteRuleSet(tag, "binary", urlCommunityLists+"/"+list+".srs")
@@ -50,7 +50,7 @@ func (b *builder) buildSectionLists(section *model.Section) error {
 		}
 		var dropped leftOut
 		patchRuleSetFile(file, "domain_suffix", parseItems(items, model.IsDomainSuffix, &dropped))
-		b.warnLeftOut(dropped, "no domain", "section ", section.Name, ", the user domain list")
+		b.warnLeftOut(dropped, "no domain", "rule ", b.names.RuleText(section.Name), ", the user domain list")
 	}
 	if section.UserSubnetListType != "disabled" {
 		file := b.addSourceRuleSet(section.Name, "user", "subnets", target)
@@ -63,7 +63,7 @@ func (b *builder) buildSectionLists(section *model.Section) error {
 		}
 		var dropped leftOut
 		patchRuleSetFile(file, "ip_cidr", parseItems(items, isSubnet, &dropped))
-		b.warnLeftOut(dropped, "no subnet", "section ", section.Name, ", the user subnet list")
+		b.warnLeftOut(dropped, "no subnet", "rule ", b.names.RuleText(section.Name), ", the user subnet list")
 	}
 	b.addLocalLists(section, "domains", target)
 	b.addLocalLists(section, "subnets", target)
@@ -98,10 +98,10 @@ func (b *builder) downloadDetour() string {
 	}
 	name := b.config.Settings.DownloadListsViaProxySection
 	if section := b.config.Section(name); section != nil && (!b.config.HasOutbound(section) || b.isRefused(section)) {
-		b.warnOnce("the lists are downloaded directly: rule ", name, " has no servers now")
+		b.warnOnce("the lists are downloaded directly: rule ", b.names.RuleText(name), " has no servers now")
 		return ""
 	}
-	return outboundTag(name)
+	return b.ruleOutbound(name)
 }
 
 // addRemoteRuleSet names a rule set sing-box downloads. It downloads with the HTTP

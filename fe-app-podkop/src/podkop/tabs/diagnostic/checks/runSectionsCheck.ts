@@ -86,10 +86,11 @@ async function ruleLatency(
     if (!listed.success) return line;
     const { route } = ruleTiles(
       listed.data.proxies ?? {},
-      section.code.replace(/-out$/, ''),
+      section.rule ?? section.code.replace(/-out$/, ''),
       model.sources,
       model.members,
       new Set(),
+      listed.data.podkop_tags,
     );
     if (route && route.code !== section.route.code) {
       return routeLatency(route, measure);

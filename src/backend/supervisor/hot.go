@@ -245,5 +245,7 @@ func (s *Supervisor) swap(current *running, next *candidate, started time.Time) 
 	took := time.Since(started).Milliseconds()
 	s.log("info", "the settings are applied in ", took, " ms: the servers of the groups are replaced (", next.hot.added, " new outbounds, ",
 		next.hot.changed, " rebuilt, ", next.hot.removed, " taken out; ", swapped.Kept, " replaced ones kept while connections may use them), sing-box keeps running")
+	// a label changed on the page renames outbounds, which are replaced so
+	s.tellConfig(next, false)
 	return s.done(true, false, "applied in ", took, " ms, sing-box keeps running"), true
 }

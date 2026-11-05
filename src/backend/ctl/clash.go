@@ -2,6 +2,7 @@ package ctl
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
+	"github.com/podkop-net/podkop-experimental/src/backend/plan"
 )
 
 // clashCaller asks the Clash API of sing-box. Where the API listens and its key are what the
@@ -20,12 +22,27 @@ type clashCaller struct {
 	facts  api.Facts
 }
 
-func (c *clashCaller) call(method string, path string, body string, timeout time.Duration) (int, []byte) {
+func (c *clashCaller) ask() {
 	c.once.Do(func() {
 		if facts, _ := c.client.Facts(); facts != nil {
 			c.facts = *facts
 		}
 	})
+}
+
+// tags tell what the outbounds of the configuration that runs are; nil when no backend
+// tells.
+func (c *clashCaller) tags() *plan.Tags {
+	c.ask()
+	var tags plan.Tags
+	if len(c.facts.Tags) == 0 || json.Unmarshal(c.facts.Tags, &tags) != nil {
+		return nil
+	}
+	return &tags
+}
+
+func (c *clashCaller) call(method string, path string, body string, timeout time.Duration) (int, []byte) {
+	c.ask()
 	if c.facts.ClashAPI == "" {
 		return 0, nil
 	}

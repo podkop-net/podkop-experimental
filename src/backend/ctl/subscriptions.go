@@ -6,15 +6,17 @@ import (
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
+	"github.com/podkop-net/podkop-experimental/src/backend/model"
 )
 
 // subscriptionLines tell what is known of each subscription, a line each: its servers, when
 // a download last brought its list and by which way, when its servers last changed, and what
-// the provider tells of it (the traffic, the end); or why no list came.
-func subscriptionLines(states []api.SubscriptionState, now time.Time) []string {
+// the provider tells of it (the traffic, the end); or why no list came. A subscription is
+// called by its name, with its section when that differs (model.Names).
+func subscriptionLines(states []api.SubscriptionState, names model.Names, now time.Time) []string {
 	var lines []string
 	for _, state := range states {
-		line := state.Name + ": "
+		line := names.SourceText(state.Name) + ": "
 		switch {
 		case state.Changed == nil && state.Error != "":
 			line = "❌ " + line + "no list: " + state.Error
