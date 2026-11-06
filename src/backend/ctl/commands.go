@@ -308,13 +308,14 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 		io.WriteString(output, globalCheck(ctx, env.Paths, config, env.Version, env.SingBoxVersion, env.Engine, running(), func() (bool, bool) {
 			result, err := client.ProbeSelf()
 			return err == nil && result.DNS && result.Connection, err == nil
-		}, func() []string { return outboundLines(&clashCaller{client: client}, config) }, func() []string {
-			states, err := client.Subscriptions()
-			if err != nil {
-				return nil
-			}
-			return subscriptionLines(states, config.Names(), time.Now())
-		}, device))
+		}, func() []string { return outboundLines(&clashCaller{client: client}, config) },
+			func() []string { return choiceLines(&clashCaller{client: client}, config) }, func() []string {
+				states, err := client.Subscriptions()
+				if err != nil {
+					return nil
+				}
+				return subscriptionLines(states, config.Names(), time.Now())
+			}, device))
 		return 0
 	case "check_logs":
 		if len(arguments) > 2 && arguments[1] == "--since" {

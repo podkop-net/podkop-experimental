@@ -58,7 +58,7 @@ func counted(value bool, text string) string {
 //
 // engine tells what the sing-box inside is (podkop.Engine); outbounds tests the outbound of
 // every section and the direct one (outboundLines).
-func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, version string, singBoxVersion string, engine string, running bool, routerFakeIP func() (works bool, answered bool), outbounds func() []string, subscriptions func() []string, device *deviceCheck) string {
+func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, version string, singBoxVersion string, engine string, running bool, routerFakeIP func() (works bool, answered bool), outbounds func() []string, choices func() []string, subscriptions func() []string, device *deviceCheck) string {
 	settings := &config.Settings
 	var lines []string
 	add := func(text ...string) { lines = append(lines, text...) }
@@ -90,6 +90,7 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 		works, answered bool
 		address         string
 		outboundResults []string
+		choiceResults   []string
 		subscriptionAt  []string
 		deviceLines     []string
 		clockReport     []string
@@ -119,6 +120,11 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 		func() {
 			if running && outbounds != nil {
 				outboundResults = outbounds()
+			}
+		},
+		func() {
+			if running && choices != nil {
+				choiceResults = choices()
 			}
 		},
 		func() {
@@ -273,6 +279,10 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 		add(outboundResults...)
 		// a VPN section whose test did not pass: the MTU of its tunnel against the way out
 		add(vpnMTUHints(config, outboundResults, network, devices, routerMTUFacts)...)
+		if len(choiceResults) > 0 {
+			add(rule, "🎯 Server choice")
+			add(choiceResults...)
+		}
 	}
 	if device != nil {
 		add(rule, "🌐 This device")
