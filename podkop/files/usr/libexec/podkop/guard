@@ -32,8 +32,8 @@
 #    try again, every RETRY seconds. The backend tries when a try is due: after the first
 #    few, it waits longer after each failure, up to an hour.
 # A dnsmasq that runs with an older configuration than its file is the backend's to look
-# after (dnsmasq.Watch): the backend changes dnsmasq with a reload, which leaves no such
-# process, and restarts one that a restart by another program left.
+# after (dnsmasq.Watch): the backend changes dnsmasq with a start of its init script, which
+# leaves no such process, and restarts one that a restart by another program left.
 # Off: uci set podkop.settings.guard=0 (every part) or podkop.settings.liveness=0 (the probe
 # only); uci commit podkop; service podkop-guard restart
 
@@ -286,7 +286,7 @@ raw_release() {
 	# given back: a later release must not take the servers put back here for its own
 	uci -q delete $S.podkop_taken
 	uci commit dhcp
-	# a restart, not the backend's reload: nothing looks after dnsmasq once the backend is
+	# a restart, not the backend's start: nothing looks after dnsmasq once the backend is
 	# gone, and only a restart replaces a process left running with an older file
 	/etc/init.d/dnsmasq restart >/dev/null 2>&1
 	nft delete table inet PodkopTable 2>/dev/null

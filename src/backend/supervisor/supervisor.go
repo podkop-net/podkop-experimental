@@ -98,14 +98,22 @@ type DnsmasqWatch interface {
 	Settle(budget time.Duration)
 }
 
+// When the watch of dnsmasq looks, from measurements on an emulated MIPS 24Kc (a program
+// start 9.7 ms, 5.4 times rodeo's aarch64) and an x86-64 VM, twice over for a router slower
+// than the emulator; research_notes/guard/README.md has the numbers.
 const (
-	// dnsmasqAfterChange is when the watch looks after a reload of dnsmasq by the backend,
-	// dnsmasqAfterNetwork after an interface came up: procd reloads dnsmasq for it a moment
-	// later, and a slow router takes seconds to write its file.
-	dnsmasqAfterChange  = 10 * time.Second
-	dnsmasqAfterNetwork = 15 * time.Second
-	// dnsmasqAtStop is how long the stop waits at most for dnsmasq to run with its file
-	dnsmasqAtStop = 12 * time.Second
+	// dnsmasqAfterChange: after the backend changed dnsmasq, procd has the new process up
+	// 1.35-1.50 s after "start" (MIPS; 0.11-0.24 s on x86-64). A look before that only
+	// finds the old process, which counts once it has stayed Hold.
+	dnsmasqAfterChange = 3 * time.Second
+	// dnsmasqAfterNetwork: after an interface came up, the reload procd runs for dnsmasq ends
+	// 3.1-4.3 s later (MIPS; 1.6-2.2 s on x86-64: its PROCD_RELOAD_DELAY of 1 s and the
+	// script), and a changed file has the new process up 1.5 s after that. A look before
+	// then would see nothing wrong and the next would be Every away.
+	dnsmasqAfterNetwork = 12 * time.Second
+	// dnsmasqAtStop: the stop waits for an old process to stay Hold (12 s) and the new one
+	// to start
+	dnsmasqAtStop = 15 * time.Second
 )
 
 // Engine is sing-box as the supervisor uses it. The real one is the package engine's

@@ -18,9 +18,9 @@ var commandBootDNS = &cobra.Command{
 	Use:   "boot-dns",
 	Short: "At boot, before dnsmasq starts: set it to ask the backend",
 	Long: "For /etc/init.d/podkop-early, which runs it at boot before dnsmasq starts when podkop\n" +
-		"starts at boot: dnsmasq is set to ask the backend as the backend sets it, without a\n" +
-		"reload, unless dont_touch_dhcp is on or a backend runs. The backend then finds it set\n" +
-		"and does not reload it.",
+		"starts at boot: dnsmasq is set to ask the backend as the backend sets it, so that it\n" +
+		"starts that way, unless dont_touch_dhcp is on or a backend runs. The backend then finds\n" +
+		"it set and does not start it again.",
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		os.Exit(bootDNS(os.Stdout, "/etc/config/podkop", dnsmasq.Router{}, func() (io.Closer, error) {
@@ -69,7 +69,7 @@ func bootDNS(output io.Writer, settingsPath string, system dnsmasq.System, lock 
 		return fail(err.Error())
 	}
 	if changed {
-		io.WriteString(output, "[info] dnsmasq starts asking the backend: the backend does not reload it at its start\n")
+		io.WriteString(output, "[info] dnsmasq starts asking the backend: the backend does not start it again at its start\n")
 	}
 	return 0
 }

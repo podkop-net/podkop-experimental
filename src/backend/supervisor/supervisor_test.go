@@ -456,7 +456,7 @@ func TestRestoreRouting(t *testing.T) {
 	require.Equal(t, []string{"dns"}, f.system.take())
 }
 
-// The watch of dnsmasq looks a while after the backend reloaded dnsmasq and after an interface
+// The watch of dnsmasq looks a while after the backend changed dnsmasq and after an interface
 // came up, and the release waits for dnsmasq to run with its file.
 func TestDnsmasqWatchAsked(t *testing.T) {
 	f := newFixture(t)
@@ -464,14 +464,14 @@ func TestDnsmasqWatchAsked(t *testing.T) {
 	f.settings("", oneName)
 	s.Boot()
 	require.True(t, s.Running(), "%v", f.lines())
-	require.Equal(t, []string{"look after 10s"}, f.watch.take())
+	require.Equal(t, []string{"look after 3s"}, f.watch.take())
 	// asking the backend already: no reload, nothing to look at
 	require.True(t, s.Apply().OK, "%v", f.lines())
 	require.Empty(t, f.watch.take())
 	require.Equal(t, "nothing was missing", s.restoreRouting())
-	require.Equal(t, []string{"look after 15s"}, f.watch.take())
+	require.Equal(t, []string{"look after 12s"}, f.watch.take())
 	s.Release()
-	require.Equal(t, []string{"look after 10s", "settle within 12s"}, f.watch.take())
+	require.Equal(t, []string{"look after 3s", "settle within 15s"}, f.watch.take())
 	s.Stop()
 }
 

@@ -31,8 +31,8 @@ type System interface {
 	ReadSettings() ([]byte, error)
 	// Batch runs commands of the uci program, one a line.
 	Batch(script string) error
-	// Reload has dnsmasq take its settings now.
-	Reload() error
+	// Apply has dnsmasq take its settings now.
+	Apply() error
 	// Exists tells whether a file is there.
 	Exists(path string) bool
 }
@@ -52,18 +52,22 @@ func (Router) Batch(script string) error {
 	return nil
 }
 
-// Reload runs "reload" of the init script of dnsmasq, not "restart": the script writes the
-// configuration file from the settings and hands it to procd, which starts dnsmasq again
-// when the content changed, with the last configuration it was handed. A "restart" is a
-// stop and a start: its stop deletes the instance in procd, and one that comes while procd
-// starts dnsmasq again for an interface that came up (that trigger runs "reload") leaves
-// the process started with the old file running for good (8 of 30 rounds on the stand,
-// "reload" 0 of 30). A running dnsmasq left that way by another program takes no reload:
-// the watcher (Watch) finds it and restarts it.
-func (Router) Reload() error {
-	output, err := exec.Command("/etc/init.d/dnsmasq", "reload").CombinedOutput()
+// Apply runs "start" of the init script of dnsmasq: the script writes the configuration file
+// from the settings and hands it to procd ("service set"), which starts dnsmasq again when the
+// content changed, with the last configuration it was handed. Not "restart": its stop deletes
+// the instance in procd, and one that comes while procd starts dnsmasq again for an interface
+// that came up (that trigger runs "reload") leaves the process started with the old file
+// running for good (on the stand "restart" 20 of 60 rounds, "start" 0 of 30, "reload" 0 of
+// 30). Not "reload": it
+// is the same start followed by a SIGHUP, which on a slow router reaches the new process
+// before it has set its handlers and kills it; procd starts it again after its respawn
+// timeout, 5 s without DNS (7 of 33 rounds on an emulated MIPS 24Kc, 0 of 15 with "start").
+// A running dnsmasq that another program's restart left with an old file takes no new
+// configuration at all: the watch (Watch) finds it and restarts it.
+func (Router) Apply() error {
+	output, err := exec.Command("/etc/init.d/dnsmasq", "start").CombinedOutput()
 	if err != nil {
-		return E.Cause(err, "reload dnsmasq: ", strings.TrimSpace(string(output)))
+		return E.Cause(err, "start dnsmasq with its settings: ", strings.TrimSpace(string(output)))
 	}
 	return nil
 }
@@ -136,8 +140,8 @@ func Ours(system System) (bool, error) {
 }
 
 // TakeOver makes dnsmasq ask the backend: its servers, its "noresolv" and its cache size
-// are kept under other names, and it is reloaded. A dnsmasq that asks the backend
-// already is left alone, without a reload: the shell backend restarts it on every start,
+// are kept under other names, and it takes them (Apply). A dnsmasq that asks the backend
+// already is left alone, not started again: the shell backend restarts it on every start,
 // which takes the DNS of the LAN away for three seconds each time.
 // A dnsmasq taken over before and changed since (a server added by hand while the backend
 // ran) keeps what was kept the first time: its "noresolv" and its cache size now are the
@@ -190,23 +194,23 @@ func TakeOver(system System) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return true, system.Reload()
+	return true, system.Apply()
 }
 
-// Prepare makes dnsmasq ask the backend as TakeOver does, without the reload: at boot,
+// Prepare makes dnsmasq ask the backend as TakeOver does, without Apply: at boot,
 // before the service of dnsmasq starts, so that it starts that way and the backend that
 // starts later finds it set and leaves it alone: dnsmasq is not started again at boot.
 // It tells whether anything was changed.
 func Prepare(system System) (bool, error) {
-	return TakeOver(notReloaded{system})
+	return TakeOver(notApplied{system})
 }
 
-// notReloaded is a System whose dnsmasq is not running yet: nothing to reload.
-type notReloaded struct{ System }
+// notApplied is a System whose dnsmasq is not running yet: nothing to apply.
+type notApplied struct{ System }
 
-func (notReloaded) Reload() error { return nil }
+func (notApplied) Apply() error { return nil }
 
-// Restore gives dnsmasq back what was kept when it was taken over, and reloads it. With
+// Restore gives dnsmasq back what was kept when it was taken over, and applies it. With
 // nothing kept it gets the resolvers netifd collects, as the shell backend does it. Only
 // a dnsmasq a backend took over is given back (see taken): one that was set to ask the
 // backend by hand, with dont_touch_dhcp, is left as it is. The shell backend instead
@@ -268,7 +272,7 @@ func Restore(system System) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return true, system.Reload()
+	return true, system.Apply()
 }
 
 // general tells whether a server of a list is asked for every name: "server=/domain/address"

@@ -30,9 +30,9 @@ type Stale struct {
 // a jail of its own (ujail) where the configuration file of its start is mounted; the init
 // script writes a new file at every start and reload, and procd starts dnsmasq again when
 // the content changed. A restart of dnsmasq that comes while procd starts it again for an
-// interface that came up leaves the process started with the old file running, and no
-// reload replaces it after that: only a restart does. The backend itself only reloads
-// dnsmasq (Router.Reload), another program may restart it.
+// interface that came up leaves the process started with the old file running, and no new
+// configuration replaces it after that: only a restart does. The backend never restarts
+// dnsmasq to change it (Router.Apply); another program may.
 //
 // The watch looks a while after each change of dnsmasq by the backend and each change of
 // the network (Kick: the interfaces that come up are what procd starts dnsmasq again for),
@@ -69,16 +69,24 @@ type Watch struct {
 }
 
 // NewWatch is a Watch of the router.
+// The times of NewWatch come from the code of procd and from measurements on an emulated MIPS
+// 24Kc (OpenWrt 24.10.8, a program start 9.7 ms, 5.4 times rodeo's aarch64) and an x86-64
+// VM (25.12.6); research_notes/guard/README.md has the numbers.
 func NewWatch(log func(level string, message string)) *Watch {
 	return &Watch{
 		Find:    FindStale,
 		Busy:    InitScriptRuns,
 		Restart: Router{}.Restart,
 		Log:     log,
-		Every:   5 * time.Minute,
-		// procd ends a start it began within the term_timeout of the instance, 5 s by
-		// default, which the init script of dnsmasq keeps
-		Hold:   6 * time.Second,
+		// a look costs 35-39 ms on the emulated MIPS, 0.6 ms on x86-64: every 5 minutes is
+		// 0.013 % of the MIPS (the guard's shell look took 0.7 %)
+		Every: 5 * time.Minute,
+		// procd keeps the old process of a jailed instance it starts again until the process
+		// exits or term_timeout twice over has passed (instance_term_timeout: 5 s by default,
+		// which the init script of dnsmasq keeps, doubled with a jail), then kills it; the new
+		// process starts within 1.5 s after (MIPS)
+		Hold: 12 * time.Second,
+		// an init script of dnsmasq runs 2-4 s on the MIPS
 		Poll:   2 * time.Second,
 		Limit:  3,
 		Window: 10 * time.Minute,

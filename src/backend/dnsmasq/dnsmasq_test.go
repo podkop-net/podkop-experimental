@@ -11,13 +11,13 @@ import (
 type router struct {
 	settings   string
 	scripts    []string
-	reloads    int
+	applies    int
 	resolvFile bool
 }
 
 func (r *router) ReadSettings() ([]byte, error) { return []byte(r.settings), nil }
 func (r *router) Batch(script string) error     { r.scripts = append(r.scripts, script); return nil }
-func (r *router) Reload() error                 { r.reloads++; return nil }
+func (r *router) Apply() error                  { r.applies++; return nil }
 func (r *router) Exists(string) bool            { return r.resolvFile }
 
 func lines(script string) []string {
@@ -30,7 +30,7 @@ func TestTakeOver(t *testing.T) {
 	changed, err := TakeOver(system)
 	require.NoError(t, err)
 	require.True(t, changed)
-	require.Equal(t, 1, system.reloads)
+	require.Equal(t, 1, system.applies)
 	require.Equal(t, []string{
 		"add_list dhcp.@dnsmasq[0].podkop_server='8.8.8.8'",
 		"add_list dhcp.@dnsmasq[0].podkop_server='/lan/192.168.1.1'",
@@ -51,21 +51,21 @@ func TestTakeOver(t *testing.T) {
 	require.Equal(t, []string{"add_list dhcp.@dnsmasq[0].server='127.0.0.42'", "set dhcp.@dnsmasq[0].noresolv='1'", "set dhcp.@dnsmasq[0].cachesize='0'",
 		"set dhcp.@dnsmasq[0].podkop_taken='1'", "commit dhcp"}, lines(system.scripts[0]))
 
-	// it asks the backend already: nothing is done, dnsmasq is not reloaded
+	// it asks the backend already: nothing is done, dnsmasq is not started again
 	system = &router{settings: "config dnsmasq\n\tlist server '127.0.0.42'\n\toption noresolv '1'\n\toption cachesize '0'\n\tlist podkop_server '8.8.8.8'\n"}
 	changed, err = TakeOver(system)
 	require.NoError(t, err)
 	require.False(t, changed)
 	require.Empty(t, system.scripts)
-	require.Zero(t, system.reloads)
+	require.Zero(t, system.applies)
 
-	// it asks the backend with nothing kept and no marker: marked, not reloaded
+	// it asks the backend with nothing kept and no marker: marked, not started again
 	system = &router{settings: "config dnsmasq\n\tlist server '127.0.0.42'\n\toption noresolv '1'\n\toption cachesize '0'\n"}
 	changed, err = TakeOver(system)
 	require.NoError(t, err)
 	require.False(t, changed)
 	require.Equal(t, []string{"set dhcp.@dnsmasq[0].podkop_taken='1'", "commit dhcp"}, lines(system.scripts[0]))
-	require.Zero(t, system.reloads)
+	require.Zero(t, system.applies)
 
 	// marked and kept, but given back by hand since (no 127.0.0.42): what was kept is
 	// stale, what it has now is kept
@@ -108,7 +108,7 @@ func TestTakeOver(t *testing.T) {
 	}, lines(system.scripts[0]))
 }
 
-// At boot dnsmasq is set before it starts: the same settings as TakeOver, no reload.
+// At boot dnsmasq is set before it starts: the same settings as TakeOver, no start.
 func TestPrepare(t *testing.T) {
 	t.Parallel()
 	settings := "config dnsmasq\n\toption cachesize '1000'\n\tlist server '8.8.8.8'\n"
@@ -116,7 +116,7 @@ func TestPrepare(t *testing.T) {
 	changed, err := Prepare(prepared)
 	require.NoError(t, err)
 	require.True(t, changed)
-	require.Zero(t, prepared.reloads)
+	require.Zero(t, prepared.applies)
 	taken := &router{settings: settings}
 	_, err = TakeOver(taken)
 	require.NoError(t, err)
@@ -128,7 +128,7 @@ func TestPrepare(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, changed)
 	require.Empty(t, prepared.scripts)
-	require.Zero(t, prepared.reloads)
+	require.Zero(t, prepared.applies)
 }
 
 func TestRestore(t *testing.T) {
@@ -137,7 +137,7 @@ func TestRestore(t *testing.T) {
 	changed, err := Restore(system)
 	require.NoError(t, err)
 	require.True(t, changed)
-	require.Equal(t, 1, system.reloads)
+	require.Equal(t, 1, system.applies)
 	require.Equal(t, []string{
 		"set dhcp.@dnsmasq[0].cachesize='1000'",
 		"delete dhcp.@dnsmasq[0].podkop_cachesize",
@@ -187,7 +187,7 @@ func TestRestore(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, changed)
 	require.Empty(t, system.scripts)
-	require.Zero(t, system.reloads)
+	require.Zero(t, system.applies)
 }
 
 func TestQuote(t *testing.T) {

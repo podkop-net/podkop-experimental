@@ -246,3 +246,12 @@ func TestWatchSettle(t *testing.T) {
 	require.Equal(t, 1, restarts)
 	require.Contains(t, log, "dnsmasq (pid 330) runs with an older configuration than "+confFile+" at the stop of the backend: left as it is")
 }
+
+// The cost of one look on the system the test runs on, for the period of the watch: built
+// with "go test -c" and run on a router as
+// ./dnsmasq.test -test.run '^$' -test.bench FindStale -test.benchmem
+func BenchmarkFindStale(b *testing.B) {
+	for b.Loop() {
+		findStale("/")
+	}
+}
