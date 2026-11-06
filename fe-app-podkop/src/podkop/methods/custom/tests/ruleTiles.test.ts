@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lossOf, routeLabel, ruleTiles } from '../ruleTiles';
+import { lossOf, routeLabel, ruleOutbounds, ruleTiles } from '../ruleTiles';
 
 const proxy = (name: string, extra: Record<string, unknown> = {}) =>
   ({ name, type: 'VLESS', udp: true, history: [], ...extra }) as never;
@@ -106,5 +106,26 @@ describe('ruleTiles with the modes of the URL test', () => {
     expect(route?.choice).toBe('loss');
     expect(route?.balance).toBeUndefined();
     expect(routeLabel(route!)).toBe('Fastest, avoiding loss');
+  });
+});
+
+describe('the tone of the loss and the tags of a rule not running', () => {
+  it('reads a loss as ok, warn or error', () => {
+    expect(lossOf(windows([[1, 1000, 5]])).tone).toBe('ok');
+    expect(lossOf(windows([[1, 1000, 20]])).tone).toBe('warn');
+    expect(lossOf(windows([[1, 1000, 60]])).tone).toBe('error');
+    expect(lossOf(undefined).tone).toBeUndefined();
+  });
+
+  it('guesses no tags of a rule the backend does not run', () => {
+    const tags = {
+      rules: { other: { name: 'rule3', selector: 'rule3-out', test: '' } },
+      outbounds: {},
+    } as never;
+    expect(ruleOutbounds('rule3', tags)).toEqual({ selector: '', test: '' });
+    expect(ruleOutbounds('rule3')).toEqual({
+      selector: 'rule3-out',
+      test: 'rule3-urltest-out',
+    });
   });
 });

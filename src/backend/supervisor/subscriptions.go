@@ -637,8 +637,22 @@ func (s *Supervisor) UpdateSubscriptions(ctx context.Context, name string) []Sub
 	ctx, cancel := context.WithTimeout(ctx, updateWait)
 	defer cancel()
 	reply := make(chan []SubscriptionState, 1)
+	// the request waits for the goroutine of Run as long as a caller that waits would, even
+	// when this one does not (the page, which asks for the states at once): Run applies
+	// settings and replaces sing-box in its own goroutine, which may take longer than the
+	// caller is told to wait, and a download asked for is still made once Run takes it
+	taken := make(chan struct{})
+	go func() {
+		timer := time.NewTimer(updateWait)
+		defer timer.Stop()
+		select {
+		case s.subscriptionRequests <- subscriptionRequest{name: name, reply: reply}:
+			close(taken)
+		case <-timer.C:
+		}
+	}()
 	select {
-	case s.subscriptionRequests <- subscriptionRequest{name: name, reply: reply}:
+	case <-taken:
 	case <-ctx.Done():
 		return s.subscriptionStates()
 	}

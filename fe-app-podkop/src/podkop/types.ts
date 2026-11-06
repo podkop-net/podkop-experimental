@@ -203,6 +203,7 @@ export namespace Podkop {
     loss?: string;
     lossTitle?: string;
     lossPreliminary?: boolean;
+    lossTone?: 'ok' | 'warn' | 'error';
     // a server of the balance of the rule, and the devices it carries
     balanced?: boolean;
     devices?: number;

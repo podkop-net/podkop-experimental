@@ -1065,6 +1065,7 @@ function serverDisplayName(tag, sources, tags) {
 function ruleOutbounds(rule, tags) {
   const told = tags?.rules?.[rule];
   if (told) return { selector: told.selector, test: told.test ?? "" };
+  if (tags?.rules) return { selector: "", test: "" };
   return { selector: `${rule}-out`, test: `${rule}-urltest-out` };
 }
 function fallbackRow(tag, rule, tags) {
@@ -1106,10 +1107,13 @@ function lossOf(loss) {
   const day = windows[windows.length - 1];
   const preliminary = !decided && !!day?.segments;
   if (preliminary) lines.push(_("preliminary: too few probes yet"));
+  const shown = decided ?? (preliminary ? day : void 0);
+  const percent = shown ? shown.lost * 100 / shown.segments : 0;
   return {
-    text: decided ? rate(decided.lost, decided.segments) : preliminary ? rate(day.lost, day.segments) : void 0,
+    text: shown ? rate(shown.lost, shown.segments) : void 0,
     title: lines.length ? `${_("Loss")}: ${lines.join(", ")}` : void 0,
-    preliminary: preliminary || void 0
+    preliminary: preliminary || void 0,
+    tone: shown ? percent >= 5 ? "error" : percent >= 1 ? "warn" : "ok" : void 0
   };
 }
 function ruleTiles(proxies, rule, sources, members, used, tags) {
@@ -1132,6 +1136,7 @@ function ruleTiles(proxies, rule, sources, members, used, tags) {
       loss: loss.text,
       lossTitle: loss.title,
       lossPreliminary: loss.preliminary,
+      lossTone: loss.tone,
       balanced: balanced !== void 0,
       devices: balanced,
       code: tag,
@@ -2609,7 +2614,13 @@ function renderDefaultState({
               E(
                 "span",
                 {
-                  class: outbound.lossPreliminary ? "pdk_dashboard-page__outbound-grid__item__loss--preliminary" : "pdk_dashboard-page__outbound-grid__item__loss"
+                  class: [
+                    "pdk_dashboard-page__outbound-grid__item__loss",
+                    `pdk_dashboard-page__outbound-grid__item__loss--${outbound.lossTone ?? "ok"}`,
+                    ...outbound.lossPreliminary ? [
+                      "pdk_dashboard-page__outbound-grid__item__loss--preliminary"
+                    ] : []
+                  ].join(" ")
                 },
                 [
                   outbound.lossPreliminary ? `~${outbound.loss}` : outbound.loss
@@ -2675,6 +2686,23 @@ function renderDefaultState({
         },
         _("Check problem servers")
       )
+    ];
+  }
+  function renderLegend() {
+    const loss = section.outbounds.some((outbound) => outbound.loss);
+    const preliminary = section.outbounds.some(
+      (outbound) => outbound.lossPreliminary
+    );
+    const balance = section.outbounds.some((outbound) => outbound.balanced);
+    if (!loss && !balance) return [];
+    const parts = [];
+    if (loss) parts.push(_("%: the loss its checks counted"));
+    if (preliminary) parts.push(_("~: too few checks yet"));
+    if (balance) parts.push(_("\u21C4N: devices in the balance on the server"));
+    return [
+      E("div", { class: "pdk_dashboard-page__outbound-section__legend" }, [
+        parts.join(" \xB7 ")
+      ])
     ];
   }
   function renderRoute() {
@@ -2784,7 +2812,8 @@ function renderDefaultState({
           class: `pdk_dashboard-page__outbound-grid${(section.tiers?.length ?? 0) > 1 ? " pdk_dashboard-page__outbound-grid--tiers" : ""}`
         },
         renderGrid()
-      )
+      ),
+      ...renderLegend()
     ]
   );
 }
@@ -3875,8 +3904,27 @@ button.pdk_dashboard-page__outbound-grid__item__block--neutral {
 
 .pdk_dashboard-page__outbound-grid__item__type {}
 
+.pdk_dashboard-page__outbound-grid__item__loss--ok {
+  color: var(--text-color-medium, inherit);
+}
+
+.pdk_dashboard-page__outbound-grid__item__loss--warn {
+  color: var(--warn-color-medium, orange);
+}
+
+.pdk_dashboard-page__outbound-grid__item__loss--error {
+  color: var(--error-color-medium, red);
+}
+
 .pdk_dashboard-page__outbound-grid__item__loss--preliminary {
   opacity: 0.55;
+}
+
+.pdk_dashboard-page__outbound-section__legend {
+  font-size: 0.85em;
+  opacity: 0.75;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
 }
 
 .pdk_dashboard-page__outbound-grid__item__latency--empty {

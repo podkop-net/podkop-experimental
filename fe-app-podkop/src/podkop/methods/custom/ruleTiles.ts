@@ -12,6 +12,9 @@ export function ruleOutbounds(
 ): { selector: string; test: string } {
   const told = tags?.rules?.[rule];
   if (told) return { selector: told.selector, test: told.test ?? '' };
+  // a backend that tells the tags and not this rule does not run it (yet): its section name
+  // may be another rule's label, and the tiles would be that rule's
+  if (tags?.rules) return { selector: '', test: '' };
   return { selector: `${rule}-out`, test: `${rule}-urltest-out` };
 }
 
@@ -74,6 +77,9 @@ export function lossOf(loss?: ClashAPI.ProxyLoss): {
   title?: string;
   // the text is of fewer segments than the engine decides by
   preliminary?: boolean;
+  // how the loss reads: ok under 1 %, warn under 5 %, error from 5 % (a page over a path
+  // with 1 % of loss takes about twice as long, report 02)
+  tone?: 'ok' | 'warn' | 'error';
 } {
   const windows = loss?.windows ?? [];
   const rate = (lost: number, segments: number) =>
@@ -91,14 +97,19 @@ export function lossOf(loss?: ClashAPI.ProxyLoss): {
   const day = windows[windows.length - 1];
   const preliminary = !decided && !!day?.segments;
   if (preliminary) lines.push(_('preliminary: too few probes yet'));
+  const shown = decided ?? (preliminary ? day : undefined);
+  const percent = shown ? (shown.lost * 100) / shown.segments : 0;
   return {
-    text: decided
-      ? rate(decided.lost, decided.segments)
-      : preliminary
-        ? rate(day.lost, day.segments)
-        : undefined,
+    text: shown ? rate(shown.lost, shown.segments) : undefined,
     title: lines.length ? `${_('Loss')}: ${lines.join(', ')}` : undefined,
     preliminary: preliminary || undefined,
+    tone: shown
+      ? percent >= 5
+        ? 'error'
+        : percent >= 1
+          ? 'warn'
+          : 'ok'
+      : undefined,
   };
 }
 
@@ -139,6 +150,7 @@ export function ruleTiles(
       loss: loss.text,
       lossTitle: loss.title,
       lossPreliminary: loss.preliminary,
+      lossTone: loss.tone,
       balanced: balanced !== undefined,
       devices: balanced,
       code: tag,

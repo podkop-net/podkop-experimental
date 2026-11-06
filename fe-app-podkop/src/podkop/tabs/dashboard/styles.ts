@@ -251,8 +251,27 @@ button.pdk_dashboard-page__outbound-grid__item__block--neutral {
 
 .pdk_dashboard-page__outbound-grid__item__type {}
 
+.pdk_dashboard-page__outbound-grid__item__loss--ok {
+  color: var(--text-color-medium, inherit);
+}
+
+.pdk_dashboard-page__outbound-grid__item__loss--warn {
+  color: var(--warn-color-medium, orange);
+}
+
+.pdk_dashboard-page__outbound-grid__item__loss--error {
+  color: var(--error-color-medium, red);
+}
+
 .pdk_dashboard-page__outbound-grid__item__loss--preliminary {
   opacity: 0.55;
+}
+
+.pdk_dashboard-page__outbound-section__legend {
+  font-size: 0.85em;
+  opacity: 0.75;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
 }
 
 .pdk_dashboard-page__outbound-grid__item__latency--empty {

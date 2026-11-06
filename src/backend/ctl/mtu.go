@@ -54,8 +54,10 @@ func vpnMTUHints(config *model.Config, results []string, network *uci.Package, d
 	}
 	var hints []string
 	seen := make(map[string]bool)
+	names := config.Names()
 	for _, section := range config.Sections {
-		if !failed(results, section.Name) {
+		// the lines of the outbounds name a rule by its name, its label or its section
+		if !failed(results, names.Rule(section.Name)) {
 			continue
 		}
 		for _, row := range section.Servers {

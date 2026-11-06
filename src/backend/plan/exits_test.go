@@ -239,7 +239,7 @@ func TestExitOfOneServer(t *testing.T) {
 		require.Equal(t, exitOutbound{Type: "selector", Tag: rule + "-out", Default: server, Outbounds: []string{server}}, outbounds[rule+"-out"], rule)
 		require.True(t, result.Swappable[rule+"-out"], rule)
 	}
-	require.Equal(t, []string{"sub.example: NL 1"}, outbounds["sub-urltest-out"].Outbounds)
+	require.Equal(t, []string{"Subscription: NL 1"}, outbounds["sub-urltest-out"].Outbounds)
 	require.Equal(t, []string{"Own"}, outbounds["spare-urltest-out"].Outbounds)
 	require.Equal(t, []string{"link-out", "iface-out", "obj-out", "sub-out", "spare-out", "twice-out"}, ruleRoutes(config))
 }
@@ -270,7 +270,7 @@ func TestExitsWithoutServers(t *testing.T) {
 	warnings := strings.Join(result.Warnings, "\n")
 	require.Contains(t, warnings, "rule a: its sources name no server now: its connections are refused")
 	require.Contains(t, warnings, "rule c: its sources are not filled yet: the rule does nothing")
-	require.Contains(t, warnings, "source sub.example (prov1) has no servers yet", "a source named by its name and its section")
+	require.Contains(t, warnings, "source Subscription (prov1) has no servers yet", "a source named by its name and its section")
 }
 
 // Rows that repeat a fallback, or name a server of the rule as a fallback, give each outbound
@@ -339,7 +339,7 @@ func TestExitViaSourceWithoutServers(t *testing.T) {
 	_, outbounds := outboundsOf(t, result)
 	require.Empty(t, outbounds["x-urltest-out"].Outbounds)
 	require.Equal(t, []string{"direct-out"}, outbounds["x-urltest-out"].Fallbacks)
-	require.Contains(t, strings.Join(result.Warnings, "\n"), "the source sub.example (prov1) to connect through has no servers yet")
+	require.Contains(t, strings.Join(result.Warnings, "\n"), "the source Subscription (prov1) to connect through has no servers yet")
 }
 
 func TestExitMistakes(t *testing.T) {
@@ -384,8 +384,8 @@ func TestExitTagsOfNames(t *testing.T) {
 	result, err := buildRules(t, settings, map[string][]SubscriptionServer{"prov1": subscriptionList("NL", "NL", "")})
 	require.NoError(t, err)
 	_, outbounds := outboundsOf(t, result)
-	require.Equal(t, []string{"sub.example: NL", "sub.example: NL #2", "sub.example: server 3"}, outbounds["block-urltest-out"].Outbounds)
-	require.Equal(t, TagOf{Source: "prov1", Server: "NL #2"}, result.Tags.Outbounds["sub.example: NL #2"])
+	require.Equal(t, []string{"Subscription: NL", "Subscription: NL #2", "Subscription: server 3"}, outbounds["block-urltest-out"].Outbounds)
+	require.Equal(t, TagOf{Source: "prov1", Server: "NL #2"}, result.Tags.Outbounds["Subscription: NL #2"])
 	require.Equal(t, "block", outbounds["block"].Type, "a rule named block keeps the block outbound apart")
 	require.Equal(t, "selector", outbounds["block-out"].Type)
 }
@@ -547,4 +547,52 @@ func TestLossURLDefault(t *testing.T) {
 	require.NoError(t, err)
 	_, outbounds := outboundsOf(t, result)
 	require.Equal(t, model.DefaultLossURL, outbounds["lossy-urltest-out"].LossURL)
+}
+
+// An interface source without a label, with a domain resolver: the DNS server of the resolver
+// goes through the outbound by its tag of now, numbered when another source has the name.
+func TestInterfaceResolverDetour(t *testing.T) {
+	t.Parallel()
+	settings := "\nconfig source 'src2'\n\toption type 'interface'\n\toption interface 'awg0'\n" +
+		"\toption domain_resolver_enabled '1'\n\toption domain_resolver_dns_type 'udp'\n\toption domain_resolver_dns_server '1.1.1.1'\n" +
+		"\nconfig source 'src3'\n\toption label 'awg0'\n\toption type 'interface'\n\toption interface 'awg1'\n" +
+		"\toption domain_resolver_enabled '1'\n\toption domain_resolver_dns_type 'udp'\n\toption domain_resolver_dns_server '8.8.8.8'\n" +
+		ruleText("main", row("server", "src2")) + ruleText("second", row("server", "src3"))
+	result, err := buildRules(t, settings, nil)
+	require.NoError(t, err)
+	config, outbounds := outboundsOf(t, result)
+	resolvers := make(map[string]string)
+	for _, server := range config.DNS.Servers {
+		if tag, _ := server["tag"].(string); strings.HasSuffix(tag, "-domain-resolver") {
+			resolvers[tag], _ = server["detour"].(string)
+		}
+	}
+	require.Len(t, resolvers, 2)
+	for tag, detour := range resolvers {
+		outbound, found := outbounds[detour]
+		require.True(t, found, "the DNS server %s goes through %q, which is no outbound", tag, detour)
+		require.Equal(t, tag, outbound.DomainResolver)
+	}
+}
+
+// The tags of v0.8.10 map to those of now, for the choices of the dashboard the cache file
+// keeps; a rule renamed carries its selector over.
+func TestLegacyTagsAndAdoptions(t *testing.T) {
+	t.Parallel()
+	settings := "\nconfig source 'src3'\n\toption type 'links'\n\tlist link 'vless://u@a.example:443#A'\n\tlist link 'vless://u@b.example:443#B'\n" +
+		withOptions(ruleText("main", row("server", "src3")), "label Cats")
+	result, err := buildRules(t, settings, nil)
+	require.NoError(t, err)
+	require.Equal(t, "My servers: A", result.Legacy["src3: A"])
+	require.Equal(t, "Cats-out", result.Legacy["main-out"])
+	require.Equal(t, "Cats-urltest-out", result.Legacy["main-urltest-out"])
+	selectors, members := Adoptions(result, nil)
+	require.Equal(t, "Cats-out", selectors["main-out"])
+	require.Equal(t, "My servers: B", members["src3: B"])
+	renamed, err := buildRules(t, strings.Replace(settings, "label 'Cats'", "label 'Dogs'", 1), nil)
+	require.NoError(t, err)
+	require.Equal(t, "Dogs-out", renamed.Tags.Rules["main"].Selector)
+	selectors, members = Adoptions(renamed, result)
+	require.Equal(t, "Dogs-out", selectors["Cats-out"])
+	require.Equal(t, "Dogs-urltest-out", members["Cats-urltest-out"])
 }

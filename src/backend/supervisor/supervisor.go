@@ -145,6 +145,8 @@ type Instance interface {
 	CarrySelections(configuration []byte) map[string]string
 	// Select gives the selectors the choices, by the tag of the selector.
 	Select(choices map[string]string)
+	// AdoptSelections takes over the choices kept under the old tags of renamed selectors.
+	AdoptSelections(selectors map[string]string, members map[string]string)
 }
 
 var _ Instance = (*engine.Instance)(nil)
@@ -1291,6 +1293,8 @@ func (s *Supervisor) start(next *candidate, previous *plan.Result) (Instance, er
 		s.close(instance)
 		return nil, err
 	}
+	// the choices of the dashboard kept under the tags of a renamed rule, or of v0.8.10
+	instance.AdoptSelections(plan.Adoptions(next.result, previous))
 	s.tellNotes()
 	s.storeConfig(next)
 	s.tellConfig(next, true)

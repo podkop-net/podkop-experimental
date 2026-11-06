@@ -35,8 +35,8 @@ func TestNames(t *testing.T) {
 	names := config.Names()
 	require.Equal(t, map[string]string{"main": "main", "rule2": "YouTube", "rule3": "YouTube (rule3)"}, names.Rules)
 	require.Equal(t, map[string]string{
-		"src1": "mouse", "src2": "🇩🇪 Germany", "src3": "socks5 203.0.113.5:1080", "src4": "ss", "src5": "My servers",
-		"src6": "sub.example", "src7": "my socks", "src8": "trojan", "src9": "awg0", "src10": "Main route", "src11": "src11",
+		"src1": "mouse", "src2": "🇩🇪 Germany", "src3": "socks5 link", "src4": "ss link", "src5": "My servers",
+		"src6": "Subscription", "src7": "my socks", "src8": "trojan", "src9": "awg0", "src10": "Main route", "src11": "src11",
 		"src12": "mouse (src12)",
 	}, names.Sources)
 	require.Equal(t, "gone", names.Source("gone"))

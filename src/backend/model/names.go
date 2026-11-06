@@ -3,7 +3,6 @@ package model
 import (
 	"encoding/json"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -13,9 +12,9 @@ import (
 // check. They are what the page shows, so a label changed on the page reaches all of them
 // with the next configuration; the section names stay the keys the rows and the settings
 // refer by. A rule is called by its label, otherwise by its section. A source is called by
-// its label, otherwise as the page calls it (sourceAutoLabel): the host of a subscription,
-// the name after "#" of its one link (or its scheme and host), the tag or type of its
-// outbound JSON, its interface. A name an earlier rule (or source) has is told apart by the
+// its label, otherwise by its kind and contents, never by an address: "Subscription", the
+// name after "#" of its one link (or "<scheme> link"), the tag or type of its outbound JSON,
+// its interface. A name an earlier rule (or source) has is told apart by the
 // section in parentheses: "Germany (src4)".
 type Names struct {
 	// Rules are the names of the rules, by section.
@@ -96,23 +95,27 @@ func oneLine(text string) string {
 	return strings.Join(strings.Fields(text), " ")
 }
 
-// autoName is the label of the source, or the name the page gives a source without one.
+// autoName is the label of the source, or a name of its kind and its contents without an
+// address (the page shows the host of a source without a label; the tags do not).
 func (s *Source) autoName() string {
 	if label := oneLine(s.Label); label != "" {
 		return label
 	}
+	// no address: the names are in the tags of the outbounds, which the log, the dashboard and
+	// the global check show, and users paste those where anyone reads them
 	switch s.Type {
 	case "subscription":
-		if address, err := url.Parse(strings.TrimSpace(s.URL)); err == nil {
-			return address.Hostname()
-		}
+		return "Subscription"
 	case "links":
 		links := s.linkList()
 		if len(links) == 1 {
 			if name := oneLine(linkName(links[0])); name != "" {
 				return name
 			}
-			return strings.TrimSpace(linkScheme(links[0]) + " " + linkHost(links[0]))
+			if scheme := linkScheme(links[0]); scheme != "" {
+				return scheme + " link"
+			}
+			return "Link"
 		}
 		if len(links) > 1 {
 			return "My servers"
@@ -164,23 +167,4 @@ func linkScheme(link string) string {
 		return ""
 	}
 	return strings.ToLower(scheme)
-}
-
-var linkHostPattern = regexp.MustCompile(`(?i)^[a-z0-9+.-]+://(?:[^@/?#]*@)?(\[[^\]]+\]|[^:/?#]+)(?::(\d+))?`)
-
-// linkHost is the host and port of a link; "" for vmess:// and ss:// links that keep the
-// server inside base64.
-func linkHost(link string) string {
-	match := linkHostPattern.FindStringSubmatch(link)
-	if match == nil {
-		return ""
-	}
-	_, rest, _ := strings.Cut(link, "://")
-	if !strings.Contains(rest, "@") && (linkScheme(link) == "vmess" || linkScheme(link) == "ss") {
-		return ""
-	}
-	if match[2] != "" {
-		return match[1] + ":" + match[2]
-	}
-	return match[1]
 }

@@ -151,6 +151,10 @@ type Check struct {
 // DefaultLossURL is the loss URL without the option urltest_loss_url.
 const DefaultLossURL = "https://speed.cloudflare.com/__down?bytes=1048576"
 
+// MinLossInterval is the least loss check interval of a rule, in minutes: four servers probed
+// with 256 KB every 5 minutes are some 300 MB a day.
+const MinLossInterval = 5
+
 // The server choices of a rule (podkop-engine urltest mode).
 const (
 	ChoiceFastest = "fastest"

@@ -186,9 +186,15 @@ export function renderDefaultState({
                   E(
                     'span',
                     {
-                      class: outbound.lossPreliminary
-                        ? 'pdk_dashboard-page__outbound-grid__item__loss--preliminary'
-                        : 'pdk_dashboard-page__outbound-grid__item__loss',
+                      class: [
+                        'pdk_dashboard-page__outbound-grid__item__loss',
+                        `pdk_dashboard-page__outbound-grid__item__loss--${outbound.lossTone ?? 'ok'}`,
+                        ...(outbound.lossPreliminary
+                          ? [
+                              'pdk_dashboard-page__outbound-grid__item__loss--preliminary',
+                            ]
+                          : []),
+                      ].join(' '),
                     },
                     [
                       outbound.lossPreliminary
@@ -263,6 +269,25 @@ export function renderDefaultState({
         },
         _('Check problem servers'),
       ),
+    ];
+  }
+
+  // What the figures of loss and balance on the tiles are: a title does not show on a phone
+  function renderLegend() {
+    const loss = section.outbounds.some((outbound) => outbound.loss);
+    const preliminary = section.outbounds.some(
+      (outbound) => outbound.lossPreliminary,
+    );
+    const balance = section.outbounds.some((outbound) => outbound.balanced);
+    if (!loss && !balance) return [];
+    const parts: string[] = [];
+    if (loss) parts.push(_('%: the loss its checks counted'));
+    if (preliminary) parts.push(_('~: too few checks yet'));
+    if (balance) parts.push(_('⇄N: devices in the balance on the server'));
+    return [
+      E('div', { class: 'pdk_dashboard-page__outbound-section__legend' }, [
+        parts.join(' · '),
+      ]),
     ];
   }
 
@@ -391,6 +416,7 @@ export function renderDefaultState({
         },
         renderGrid(),
       ),
+      ...renderLegend(),
     ],
   );
 }

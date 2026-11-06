@@ -341,9 +341,21 @@ function statusLines(state) {
   return lines;
 }
 
+// addressPending tells whether the address of a subscription in its window is not the one
+// the router runs with: edited in the window, or saved and not applied yet. The router
+// downloads the address it runs with.
+function addressPending(map, name) {
+  const changes = uci.state && uci.state.changes && uci.state.changes.podkop;
+  const creates = uci.state && uci.state.creates && uci.state.creates.podkop;
+  if ((changes && changes[name] && "url" in changes[name]) || (creates && creates[name])) {
+    return true;
+  }
+  return currentValue(map, name, "url") !== uci.get("podkop", name, "url");
+}
+
 // The list of a saved subscription downloaded now and taken as a planned download is: the
 // state in the window follows the download until it ends (its attempted time is new).
-function updateNow(name) {
+function updateNow(map, name) {
   const box = document.getElementById("pdk-status-" + name);
   const show = (state, extra) => {
     if (box) {
@@ -351,26 +363,40 @@ function updateNow(name) {
     }
   };
   const known = stateOf(name);
-  if (!known) {
-    show(null, [_("Save & Apply first: the router updates saved subscriptions only")]);
+  if (!known || addressPending(map, name)) {
+    show(known || null, [
+      _("Save & Apply first: the router downloads the address it runs with"),
+    ]);
     return Promise.resolve();
   }
-  const before = known.attempted || "";
   return main.PodkopShellMethods.subscriptionUpdateStart(name).then(
     (response) => {
-      if (!response.success) {
+      // the states come back at once; none of the subscription: the backend does not run
+      const answered = response.success && Array.isArray(response.data) ? response.data : [];
+      const fresh = answered.find((item) => item.name === name);
+      if (!fresh) {
         show(known, [_("The router did not answer")]);
         return;
       }
+      // what the download is told apart from: the states of now, not those of the opening of
+      // the window (a planned download may have ended since)
+      const before = fresh.attempted || "";
       // the click is answered at once, before the first poll
-      show(Object.assign({}, known, { busy: true }));
+      show(Object.assign({}, fresh, { busy: true }));
       const started = Date.now();
+      let silent = 0;
       return new Promise((resolve) => {
         const poll = () => {
           refreshStates()
-            .catch(() => states)
+            .catch(() => [])
             .then(() => {
-              const state = stateOf(name) || known;
+              const current = stateOf(name);
+              silent = current ? 0 : silent + 1;
+              if (silent >= 5) {
+                show(fresh, [_("The router did not answer")]);
+                return resolve();
+              }
+              const state = current || fresh;
               if (!state.busy && (state.attempted || "") !== before) {
                 show(state);
                 return resolve();
@@ -1321,7 +1347,7 @@ function createSourceContent(section) {
   o.inputtitle = _("Update now");
   o.inputstyle = "action";
   o.onclick = function (ev, section_id) {
-    return updateNow(section_id);
+    return updateNow(this.map, section_id);
   };
 
   o = section.option(

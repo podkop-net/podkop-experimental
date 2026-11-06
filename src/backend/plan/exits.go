@@ -2,6 +2,7 @@ package plan
 
 import (
 	"encoding/json"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -199,23 +200,35 @@ func (b *builder) setChoice(group *object, section *model.Section) {
 		return
 	}
 	group.set("mode", section.Choice)
-	group.set("loss_url", b.config.Settings.Check.LossURL)
+	group.set("loss_url", b.lossURL())
 	if section.LossInterval != "" {
 		minutes, err := strconv.Atoi(section.LossInterval)
-		if err != nil || minutes < 1 || minutes > 1440 {
-			b.warnOnce("rule ", rule, ": the loss check interval ", strconv.Quote(section.LossInterval), " is not a number of minutes from 1 to 1440: 30 minutes are used")
+		if err != nil || minutes < model.MinLossInterval || minutes > 1440 {
+			b.warnOnce("rule ", rule, ": the loss check interval ", strconv.Quote(section.LossInterval), " is not a number of minutes from ", model.MinLossInterval, " to 1440: 30 minutes are used")
 		} else {
 			group.set("loss_interval", strconv.Itoa(minutes)+"m")
 		}
 	}
 	if section.Choice == model.ChoiceBalance && section.LossThreshold != "" {
 		percent, err := strconv.ParseFloat(section.LossThreshold, 64)
-		if err != nil || percent <= 0 || percent > 50 {
+		// written as it is, so that NaN, which no comparison holds, is refused too
+		if err != nil || !(percent > 0 && percent <= 50) {
 			b.warnOnce("rule ", rule, ": the loss threshold ", strconv.Quote(section.LossThreshold), " is not a percentage above 0 and up to 50: 1 % is used")
 		} else {
 			group.set("loss_threshold", json.Number(strconv.FormatFloat(percent, 'f', -1, 64)))
 		}
 	}
+}
+
+// lossURL is the loss URL of the settings, the default one when it is not an http or https
+// URL with a host (the engine would refuse the whole configuration).
+func (b *builder) lossURL() string {
+	link := b.config.Settings.Check.LossURL
+	if parsed, err := url.Parse(link); err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Hostname() == "" {
+		b.warnOnce("the loss URL ", strconv.Quote(link), " is not an http or https URL with a host: ", model.DefaultLossURL, " is used")
+		return model.DefaultLossURL
+	}
+	return link
 }
 
 // rowServers puts in the servers a row takes and returns their tags, in the order of the
@@ -325,18 +338,49 @@ func (b *builder) addServer(section *model.Section, server sourceServer, via str
 	return tag
 }
 
+// oldServerOwner is the owner of a server by the tag it had while tags were made of sections:
+// "src2" (a source of one server) or "src3: NL 1" (a server of a source of several, its name
+// numbered as then).
+func (b *builder) oldServerOwner(name string) (string, bool) {
+	if b.config.Source(name) != nil {
+		return "server\x00" + name + "\x000", true
+	}
+	section, shown, found := strings.Cut(name, ": ")
+	source := b.config.Source(section)
+	if !found || source == nil || !source.Filled() {
+		return "", false
+	}
+	servers, err := b.sourceServers(source)
+	if err != nil {
+		return "", false
+	}
+	for _, server := range servers {
+		if server.shown == shown {
+			return "server\x00" + section + "\x00" + strconv.Itoa(server.index), true
+		}
+	}
+	return "", false
+}
+
 // renameOldTags puts the tags of now in an outbound JSON that names outbounds of podkop by the
-// tags they had while tags were made of sections: "src2" (a source of one server), "src2-best",
-// "main-out", "main-urltest-out", "main-fallback-1-out". A selector or a URL test of the JSON
-// chooses from them, a detour names one. A name that is a tag of now stays.
+// tags they had while tags were made of sections: "src2" (a source of one server), "src3: NL 1"
+// (a server of a source of several), "src3: NL 1 via src2", "src2-best", "main-out",
+// "main-urltest-out", "main-fallback-1-out". A selector or a URL test of the JSON chooses from
+// them, a detour names one. A name that is a tag of now stays.
 func (b *builder) renameOldTags() {
 	rename := func(name string) string {
 		if b.owners[name] != "" {
 			return name
 		}
 		var owners []string
-		if b.config.Source(name) != nil {
-			owners = append(owners, "server\x00"+name+"\x000")
+		if owner, found := b.oldServerOwner(name); found {
+			owners = append(owners, owner)
+		}
+		if at := strings.LastIndex(name, " via "); at > 0 {
+			through := name[at+len(" via "):]
+			if owner, found := b.oldServerOwner(name[:at]); found && b.config.Source(through) != nil {
+				owners = append(owners, owner+"\x00"+through)
+			}
 		}
 		if source, found := strings.CutSuffix(name, "-best"); found {
 			owners = append(owners, "best\x00"+source)
@@ -619,7 +663,9 @@ func (b *builder) jsonServers(source *model.Source) ([]sourceServer, error) {
 // (none: the main route) and given its routing mark. With a domain resolver, the names of
 // the connections through it are resolved by a DNS server reached through it.
 func (b *builder) interfaceServers(source *model.Source) ([]sourceServer, error) {
-	name := b.names.Source(source.Name)
+	// the tag the outbound gets (addServer claims it for the same owner, numbered when
+	// another has the name): the DNS server of the domain resolver goes through it by it
+	name := b.claim(b.names.Source(source.Name), "server\x00"+source.Name+"\x000")
 	outbound := newObject("type", "direct", "tag", name)
 	if source.Interface != "" {
 		outbound.set("bind_interface", b.device(source.Interface))
@@ -636,7 +682,7 @@ func (b *builder) interfaceServers(source *model.Source) ([]sourceServer, error)
 			return nil, E.New("the domain resolver of the source ", b.names.SourceText(source.Name), " has no DNS server")
 		}
 		resolverTag := name + "-domain-resolver"
-		server, err := dnsServer(source.DomainResolverDNSType, resolverTag, source.DomainResolverDNSServer, tagBootstrapDNSServer, source.Name)
+		server, err := dnsServer(source.DomainResolverDNSType, resolverTag, source.DomainResolverDNSServer, tagBootstrapDNSServer, name)
 		if err != nil {
 			return nil, E.Cause(err, "the domain resolver of the source ", b.names.SourceText(source.Name))
 		}

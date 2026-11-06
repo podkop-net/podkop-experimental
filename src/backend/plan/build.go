@@ -151,6 +151,94 @@ type Result struct {
 	Swappable map[string]bool
 	// Tags tell what the outbounds are, by the sections of the settings.
 	Tags Tags
+	// Legacy maps the tags the outbounds had while tags were made of the sections (v0.8.10
+	// and before: "main-out", "src3: NL 1") to their tags of now: the cache file keeps the
+	// choices of the dashboard by those (Adoptions).
+	Legacy map[string]string
+}
+
+// legacyTags is Result.Legacy.
+func (b *builder) legacyTags() map[string]string {
+	legacy := make(map[string]string)
+	for section, rule := range b.tags.Rules {
+		legacy[section+"-out"] = rule.Selector
+		if rule.Test != "" {
+			legacy[section+"-urltest-out"] = rule.Test
+		}
+	}
+	for tag, owner := range b.tags.Outbounds {
+		switch {
+		case owner.Rule != "" && owner.Fallback > 0:
+			legacy[owner.Rule+"-fallback-"+strconv.Itoa(owner.Fallback)+"-out"] = tag
+		case owner.Source != "":
+			old := owner.Source
+			if b.groups[tag] {
+				old += "-best"
+			} else if owner.Server != "" {
+				old += ": " + owner.Server
+			}
+			if owner.Via != "" {
+				old += " via " + owner.Via
+			}
+			legacy[old] = tag
+		}
+	}
+	for old, now := range legacy {
+		if old == now {
+			delete(legacy, old)
+		}
+	}
+	return legacy
+}
+
+// Adoptions are the choices of the dashboard the cache file keeps under tags the outbounds
+// had before next: the selectors renamed, old tag → new (a rule renamed, or the tags of the
+// sections of v0.8.10 at the first start of this release), and the outbounds a choice may
+// name, old tag → new. previous is the configuration that ran before, nil at a start.
+func Adoptions(next *Result, previous *Result) (selectors map[string]string, members map[string]string) {
+	selectors = make(map[string]string)
+	members = make(map[string]string)
+	if previous != nil {
+		for section, rule := range next.Tags.Rules {
+			if old := previous.Tags.Rules[section]; old.Selector != "" && old.Selector != rule.Selector {
+				selectors[old.Selector] = rule.Selector
+				if old.Test != "" && rule.Test != "" && old.Test != rule.Test {
+					members[old.Test] = rule.Test
+				}
+			}
+		}
+		// a server of the same source, server and way under another tag; a rule's selector
+		// and URL test share their owner and are taken above
+		owned := make(map[TagOf]string)
+		shared := make(map[TagOf]bool)
+		for tag, owner := range next.Tags.Outbounds {
+			if owner.Rule != "" && owner.Fallback == 0 {
+				continue
+			}
+			if _, seen := owned[owner]; seen {
+				shared[owner] = true
+			}
+			owned[owner] = tag
+		}
+		for tag, owner := range previous.Tags.Outbounds {
+			if now, found := owned[owner]; found && !shared[owner] && now != tag {
+				members[tag] = now
+			}
+		}
+	}
+	for old, now := range next.Legacy {
+		if _, taken := members[old]; !taken {
+			members[old] = now
+		}
+	}
+	for section, rule := range next.Tags.Rules {
+		if old := section + "-out"; old != rule.Selector {
+			if _, taken := selectors[old]; !taken {
+				selectors[old] = rule.Selector
+			}
+		}
+	}
+	return selectors, members
 }
 
 // Tags tell the user interface what the outbounds of a configuration are, by the section names
@@ -454,7 +542,7 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 		return nil, E.Cause(err, "encode the configuration")
 	}
 	result := &Result{Config: content, Files: make(map[string][]byte), FileOrder: b.fileOrder, Warnings: b.warnings, Links: b.links, Dataplane: b.dataplane(), Facts: b.facts,
-		Swappable: b.swappable, Tags: b.tags}
+		Swappable: b.swappable, Tags: b.tags, Legacy: b.legacyTags()}
 	for _, entry := range b.ruleSets {
 		fields := entry.(*object)
 		tag, _ := fields.get("tag")

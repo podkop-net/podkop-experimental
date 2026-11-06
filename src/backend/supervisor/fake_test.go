@@ -58,6 +58,8 @@ type fakeEngine struct {
 	carried  int
 	carry    map[string]string
 	selected []map[string]string
+	// adopted are the renamed selectors the last instance took choices over from
+	adopted map[string]string
 	// what the block detector reads: the closed flows and how often they were read, the prober of
 	// the instances
 	flows     map[string]detect.FlowSample
@@ -213,6 +215,12 @@ func (i *fakeInstance) Swap(configuration []byte, swap engine.Swap, limit int) (
 	}
 	i.config = configuration
 	return engine.Swapped{Added: len(swap.Put), Removed: len(swap.Remove)}, nil
+}
+
+func (i *fakeInstance) AdoptSelections(selectors map[string]string, members map[string]string) {
+	i.engine.access.Lock()
+	defer i.engine.access.Unlock()
+	i.engine.adopted = selectors
 }
 
 func (i *fakeInstance) CarrySelections(configuration []byte) map[string]string {

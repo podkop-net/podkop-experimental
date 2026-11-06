@@ -74,12 +74,26 @@ func choiceLines(caller *clashCaller, config *model.Config) []string {
 	// a server two rules take is probed once: its traffic counts once
 	probed := make(map[string]choiceProxy)
 	for _, section := range choosing {
-		outbounds := plan.RuleTags{Name: names.Rule(section.Name), Test: ruleTest(plan.RuleTags{Selector: plan.RuleOutbound(config, section.Name)})}
+		name := names.Rule(section.Name)
+		outbounds := plan.RuleTags{Name: name, Test: ruleTest(plan.RuleTags{Selector: plan.RuleOutbound(config, section.Name)})}
 		if tags != nil {
-			outbounds = tags.Rules[section.Name]
+			running, known := tags.Rules[section.Name]
+			if !known {
+				lines = append(lines, "⚠️ "+name+": not running yet: Save & Apply")
+				continue
+			}
+			outbounds = running
 		}
+		if outbounds.Name == "" {
+			outbounds.Name = name
+		}
+		selector := listed.Proxies[outbounds.Selector]
 		group, found := listed.Proxies[outbounds.Test]
-		if outbounds.Test == "" || !found {
+		switch {
+		case selector.Now == blockTag:
+			lines = append(lines, "⛔ "+outbounds.Name+": its sources name no server now")
+			continue
+		case outbounds.Test == "" || !found:
 			lines = append(lines, "ℹ️ "+outbounds.Name+": one server, nothing to choose from")
 			continue
 		}
@@ -89,7 +103,7 @@ func choiceLines(caller *clashCaller, config *model.Config) []string {
 		}
 		switch {
 		case group.Mode == "":
-			lines = append(lines, "⚠️ "+outbounds.Name+": "+want+" is set, the engine chooses the fastest (an engine before urltest modes?)")
+			lines = append(lines, "⚠️ "+outbounds.Name+": "+want+" is set but not applied yet: Save & Apply")
 		case group.Mode != section.Choice:
 			lines = append(lines, "⚠️ "+outbounds.Name+": "+want+" is set, the engine chooses by "+group.Mode)
 		case section.Choice == model.ChoiceBalance:

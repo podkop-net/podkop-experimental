@@ -952,7 +952,7 @@ function createRulesContent(section, singBoxFeatures = []) {
     "server_choice",
     _("Server choice"),
     _(
-      "Fastest: by the delay of the server check. Avoid loss: the delay is weighed by the loss that downloads of 256 KB through the servers count, and a faster server is checked with 1 MB before the switch. Balance: the devices are spread over the best servers by their address, a device keeps its server, servers with loss are left out. Loss checks download about 50 MB a day per rule",
+      "Fastest: by the delay of the server check. Avoid loss: the delay is weighed by the loss that downloads of 256 KB through the servers count, and a faster server is checked with 1 MB before the switch. Balance: the devices are spread over the best servers by their address, a device keeps its server, servers with loss are left out. Loss checks download about 50 MB a day per rule at the interval of 30 minutes",
     ),
   );
   o.modalonly = true;
@@ -967,11 +967,13 @@ function createRulesContent(section, singBoxFeatures = []) {
     form.Value,
     "loss_check_interval",
     _("Loss check interval, minutes"),
-    _("How often the servers the rule may use are checked for loss"),
+    _(
+      "How often the servers the rule may use are checked for loss: four servers, 256 KB each. The traffic grows as the interval shrinks: about 300 MB a day at 5 minutes",
+    ),
   );
   o.modalonly = true;
   o.placeholder = "30";
-  o.datatype = "range(1,1440)";
+  o.datatype = "and(uinteger,range(5,1440))";
   o.rmempty = true;
   o.depends("server_choice", "loss");
   o.depends("server_choice", "balance");

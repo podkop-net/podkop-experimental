@@ -219,7 +219,7 @@ func TestSubscriptionLists(t *testing.T) {
 
 // linkRoute is the way through the proxy link of the settings of the tests: the source main_link
 // (podkop migrate) has no label, and its tag is the name the page gives it.
-const linkRoute = "socks5 203.0.113.15:1080"
+const linkRoute = "socks5 link"
 
 // The provider is asked directly first, then through the servers of the configuration, the
 // fastest first; a list that cannot be downloaded keeps the one there was.
@@ -396,7 +396,7 @@ func TestSubscriptionPreviews(t *testing.T) {
 		"\nconfig member\n\toption section 'third'\n\toption role 'server'\n\toption source 'fresh'\n")...)
 	require.NoError(t, os.WriteFile(options.SettingsPath, settings, 0o644))
 	require.True(t, s.Apply().OK)
-	require.Contains(t, string(s.current.result.Config), `"other.example: NL 1"`)
+	require.Contains(t, string(s.current.result.Config), `"Subscription: NL 1"`)
 	require.Equal(t, asked, len(source.asked))
 	for _, state := range s.subscriptionStates() {
 		if state.Name == "fresh" {

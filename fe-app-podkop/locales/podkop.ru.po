@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-06 06:58+0000\n"
-"PO-Revision-Date: 2026-11-06 06:58+0000\n"
+"POT-Creation-Date: 2026-11-06 10:06+0000\n"
+"PO-Revision-Date: 2026-11-06 10:06+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -19,6 +19,9 @@ msgstr ""
 
 msgid "(data as of %s)"
 msgstr "(данные на %s)"
+
+msgid "%: the loss its checks counted"
+msgstr "%: потери, насчитанные проверками сервера"
 
 msgid "%d of %d"
 msgstr "%d из %d"
@@ -61,6 +64,12 @@ msgstr "%s с"
 
 msgid "%s via %s"
 msgstr "%s через %s"
+
+msgid "⇄N: devices in the balance on the server"
+msgstr "⇄N: устройств на сервере в балансировке"
+
+msgid "~: too few checks yet"
+msgstr "~: проверок пока мало"
 
 msgid "✔ Enabled"
 msgstr "✔ Включено"
@@ -554,8 +563,8 @@ msgstr "Самый быстрый"
 msgid "Fastest, avoiding loss"
 msgstr "Самый быстрый с учётом потерь"
 
-msgid "Fastest: by the delay of the server check. Avoid loss: the delay is weighed by the loss that downloads of 256 KB through the servers count, and a faster server is checked with 1 MB before the switch. Balance: the devices are spread over the best servers by their address, a device keeps its server, servers with loss are left out. Loss checks download about 50 MB a day per rule"
-msgstr "Самый быстрый: по задержке проверки серверов. С учётом потерь: задержка взвешивается потерями, которые насчитывают скачивания по 256 КБ через серверы, а более быстрый сервер перед переключением проверяется скачиванием 1 МБ. Балансировка: устройства распределяются между лучшими серверами по своему адресу, устройство остаётся на своём сервере, серверы с потерями исключаются. Проверки потерь скачивают около 50 МБ в сутки на правило"
+msgid "Fastest: by the delay of the server check. Avoid loss: the delay is weighed by the loss that downloads of 256 KB through the servers count, and a faster server is checked with 1 MB before the switch. Balance: the devices are spread over the best servers by their address, a device keeps its server, servers with loss are left out. Loss checks download about 50 MB a day per rule at the interval of 30 minutes"
+msgstr "Самый быстрый: по задержке проверки серверов. С учётом потерь: задержка взвешивается потерями, которые насчитывают скачивания по 256 КБ через серверы, а более быстрый сервер перед переключением проверяется скачиванием 1 МБ. Балансировка: устройства распределяются между лучшими серверами по своему адресу, устройство остаётся на своём сервере, серверы с потерями исключаются. Проверки потерь скачивают около 50 МБ в сутки на правило при интервале 30 минут"
 
 msgid "Fingerprint %s does not pass or hangs with several connections at once, the fallback one passes. It looks like a DPI block by fingerprint."
 msgstr "Отпечаток %s не проходит или зависает при нескольких подключениях сразу, запасной проходит. Похоже на блокировку ТСПУ по отпечатку."
@@ -590,8 +599,8 @@ msgstr "Глобальная проверка"
 msgid "Hide links"
 msgstr "Скрыть ссылки"
 
-msgid "How often the servers the rule may use are checked for loss"
-msgstr "Как часто проверяются на потери серверы, которые может выбрать правило"
+msgid "How often the servers the rule may use are checked for loss: four servers, 256 KB each. The traffic grows as the interval shrinks: about 300 MB a day at 5 minutes"
+msgstr "Как часто проверяются на потери серверы, которые может выбрать правило: четыре сервера по 256 КБ. Трафик растёт с уменьшением интервала: около 300 МБ в сутки при 5 минутах"
 
 msgid "How the DNS servers are asked"
 msgstr "Как опрашивать DNS-серверы"
@@ -1055,8 +1064,8 @@ msgstr "Запустить диагностику"
 msgid "Russia inside restrictions"
 msgstr "Ограничения Russia inside"
 
-msgid "Save & Apply first: the router updates saved subscriptions only"
-msgstr "Сначала «Сохранить и применить»: роутер обновляет только сохранённые подписки"
+msgid "Save & Apply first: the router downloads the address it runs with"
+msgstr "Сначала «Сохранить и применить»: роутер загружает адрес, с которым работает"
 
 msgid "secure connection…"
 msgstr "защищённое соединение…"

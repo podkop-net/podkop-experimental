@@ -124,6 +124,37 @@ func (i *Instance) Select(choices map[string]string) {
 	}
 }
 
+// AdoptSelections takes over the choices of the dashboard that the cache file keeps under the
+// old tags of renamed selectors (old → new), naming the outbound chosen by its tag of now
+// (members, old → new): a rule renamed, or the tags of v0.8.10 at the first start after the
+// upgrade. A selector that has a choice of its own keeps it.
+func (i *Instance) AdoptSelections(selectors map[string]string, members map[string]string) {
+	if !i.enter() {
+		return
+	}
+	defer i.leave()
+	cacheFile := service.FromContext[adapter.CacheFile](i.ctx)
+	if cacheFile == nil {
+		return
+	}
+	for old, now := range selectors {
+		choice := cacheFile.LoadSelected(old)
+		if choice == "" || cacheFile.LoadSelected(now) != "" {
+			continue
+		}
+		if renamed, found := members[choice]; found {
+			choice = renamed
+		}
+		outbound, found := i.box.Outbound().Outbound(now)
+		if !found {
+			continue
+		}
+		if selector, isSelector := outbound.(interface{ SelectOutbound(tag string) bool }); isSelector {
+			selector.SelectOutbound(choice)
+		}
+	}
+}
+
 // carrySelections is CarrySelections for the dialers of the next configuration; it returns the
 // choices it changed, as they were.
 func (i *Instance) carrySelections(next map[string]dialer) map[string]string {
