@@ -369,21 +369,38 @@ function updateNow(map, name) {
     ]);
     return Promise.resolve();
   }
-  return main.PodkopShellMethods.subscriptionUpdateStart(name).then(
-    (response) => {
+  // what the download is told apart from: the states read right before the start, not those
+  // of the opening of the window (a planned download may have ended since), nor those the start
+  // returns (a fast provider has answered by then)
+  return refreshStates()
+    .catch(() => [])
+    .then(() => {
+      const current = stateOf(name);
+      if (!current) {
+        show(known, [_("The router did not answer")]);
+        return;
+      }
+      const before = current.attempted || "";
+      return main.PodkopShellMethods.subscriptionUpdateStart(name).then(
+        (response) => started(response, before, current),
+      );
+    });
+
+  function started(response, before, current) {
       // the states come back at once; none of the subscription: the backend does not run
       const answered = response.success && Array.isArray(response.data) ? response.data : [];
       const fresh = answered.find((item) => item.name === name);
       if (!fresh) {
-        show(known, [_("The router did not answer")]);
+        show(current, [_("The router did not answer")]);
         return;
       }
-      // what the download is told apart from: the states of now, not those of the opening of
-      // the window (a planned download may have ended since)
-      const before = fresh.attempted || "";
+      if (!fresh.busy && (fresh.attempted || "") !== before) {
+        show(fresh);
+        return;
+      }
       // the click is answered at once, before the first poll
       show(Object.assign({}, fresh, { busy: true }));
-      const started = Date.now();
+      const since = Date.now();
       let silent = 0;
       return new Promise((resolve) => {
         const poll = () => {
@@ -402,7 +419,7 @@ function updateNow(map, name) {
                 return resolve();
               }
               // the backend gives up a download after three minutes
-              if (Date.now() - started > 200000) {
+              if (Date.now() - since > 200000) {
                 show(state, [
                   _(
                     "The download takes long: the state tells what it came to once it ends",
@@ -417,8 +434,7 @@ function updateNow(map, name) {
         };
         poll();
       });
-    },
-  );
+  }
 }
 
 function stateLines(state) {
