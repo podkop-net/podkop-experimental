@@ -1094,18 +1094,41 @@ function tierName(place, tag, rule, sources, members, tags) {
   const source = sources.find((item) => item[".name"] === row?.source);
   return source ? `${name} \xB7 ${sourceLabel(source)}` : name;
 }
+var LOSS_MIN_SEGMENTS = 700;
+function lossOf(loss) {
+  const windows = loss?.windows ?? [];
+  const rate = (lost, segments) => `${(lost * 100 / segments).toFixed(1)}%`;
+  const decided = windows.find((item) => item.segments >= LOSS_MIN_SEGMENTS);
+  const lines = windows.filter((item) => item.segments > 0).map(
+    (item) => `${_("%dh").format(item.hours)}: ${rate(item.lost, item.segments)} (${_("%d probes").format(item.probes)})`
+  );
+  if (loss?.not_counted) lines.push(_("The last probe could not count"));
+  return {
+    text: decided ? rate(decided.lost, decided.segments) : void 0,
+    title: lines.length ? `${_("Loss")}: ${lines.join(", ")}` : void 0
+  };
+}
 function ruleTiles(proxies, rule, sources, members, used, tags) {
   const ruleTags = ruleOutbounds(rule, tags);
   const selector = proxies[ruleTags.selector];
   const offered = selector?.all ?? [];
   const autoTag = ruleTags.test;
   const test = autoTag && offered.includes(autoTag) ? proxies[autoTag] : void 0;
+  const balance = new Map(
+    (test?.balance ?? []).map((item) => [item.name, item.devices])
+  );
   const tile = (tag, tier2) => {
     const item = proxies[tag];
     let displayName2 = outboundName(tag, rule, sources, tags);
     if (tag === DIRECT_TAG) displayName2 = _("Directly");
     else if (tag === BLOCK_TAG && tier2 > 0) displayName2 = _("Block");
+    const loss = lossOf(item?.loss);
+    const balanced = tier2 === 0 ? balance.get(tag) : void 0;
     return {
+      loss: loss.text,
+      lossTitle: loss.title,
+      balanced: balanced !== void 0,
+      devices: balanced,
       code: tag,
       displayName: displayName2,
       latency: item?.history?.[0]?.delay || 0,
@@ -1178,17 +1201,28 @@ function ruleTiles(proxies, rule, sources, members, used, tags) {
   if (!active) return { outbounds, tiers, auto: autoTag };
   active.active = true;
   const { code, displayName, latency, tier = 0 } = active;
-  return {
-    outbounds,
-    tiers,
-    auto: autoTag,
-    route: { mode, tier, code, displayName, latency }
+  const route = {
+    mode,
+    tier,
+    code,
+    displayName,
+    latency
   };
+  if (mode === "auto" && (test.mode === "loss" || test.mode === "balance")) {
+    route.choice = test.mode;
+  }
+  if (mode === "auto" && !tier && balance.size) {
+    route.balance = outbounds.filter((item) => item.balanced).map((item) => item.displayName);
+  }
+  return { outbounds, tiers, auto: autoTag, route };
 }
 function routeLabel(route) {
   if (route.mode === "single") return "";
   if (route.mode === "manual") return _("Manual");
-  return route.tier ? `${_("Fastest")} \u2192 ${_("Fallback %s").format(route.tier)}` : _("Fastest");
+  let first = _("Fastest");
+  if (route.choice === "loss") first = _("Fastest, avoiding loss");
+  if (route.choice === "balance") first = _("Balance");
+  return route.tier ? `${first} \u2192 ${_("Fallback %s").format(route.tier)}` : first;
 }
 
 // src/podkop/methods/custom/getDashboardSections.ts
@@ -2550,7 +2584,11 @@ function renderDefaultState({
       {
         class: classes.join(" "),
         "data-tag": outbound.code,
-        title: outbound.pick ? _("Chosen inside the fallback") : null,
+        title: [
+          outbound.pick ? _("Chosen inside the fallback") : "",
+          outbound.balanced ? _("In the balance: %d devices").format(outbound.devices ?? 0) : "",
+          outbound.lossTitle ?? ""
+        ].filter(Boolean).join("\n") || null,
         click: () => selectable && onChooseOutbound(section.code, outbound.code)
       },
       [
@@ -2560,7 +2598,9 @@ function renderDefaultState({
             outbound.type
           ]),
           E("div", { class: getLatencyClass() }, [
-            outbound.latency ? `${outbound.latency}ms` : "N/A"
+            outbound.latency ? `${outbound.latency}ms` : "N/A",
+            ...outbound.loss ? [` \xB7 ${outbound.loss}`] : [],
+            ...outbound.balanced ? [` \xB7 \u21C4${outbound.devices ?? 0}`] : []
           ])
         ]),
         ...renderCheckRow()
@@ -2635,7 +2675,9 @@ function renderDefaultState({
         {
           class: `pdk_dashboard-page__outbound-section__route${tone ? ` pdk_dashboard-page__outbound-section__route--${tone}` : ""}`
         },
-        [`${routeLabel(route)}: ${route.displayName} \xB7 ${latency}`]
+        [
+          route.balance?.length ? `${routeLabel(route)}: ${route.balance.join(", ")}` : `${routeLabel(route)}: ${route.displayName} \xB7 ${latency}`
+        ]
       ),
       ...route.mode === "manual" && auto ? [
         E(

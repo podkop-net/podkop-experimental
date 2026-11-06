@@ -1,6 +1,7 @@
 package plan
 
 import (
+	"encoding/json"
 	"slices"
 	"strconv"
 	"strings"
@@ -136,7 +137,7 @@ func (b *builder) buildExit(section *model.Section) error {
 		choices = members
 	default:
 		test := b.claim(ruleTag(tags.Name, "urltest"), "rule\x00"+section.Name+"\x00urltest")
-		b.addURLTest(test, members, tiers)
+		b.setChoice(b.addURLTest(test, members, tiers), section)
 		tags.Test = test
 		b.tags.Outbounds[test] = TagOf{Rule: section.Name}
 		choices = append([]string{test}, members...)
@@ -162,7 +163,7 @@ func (b *builder) buildExit(section *model.Section) error {
 }
 
 // addURLTest makes a URL test of the outbounds with the server check of the settings.
-func (b *builder) addURLTest(tag string, members []string, fallbacks []string) {
+func (b *builder) addURLTest(tag string, members []string, fallbacks []string) *object {
 	check := &b.config.Settings.Check
 	tolerance, _ := numberOf(check.Tolerance)
 	group := newObject("type", "urltest", "tag", tag, "outbounds", listOrEmpty(stringsToAny(members)),
@@ -180,6 +181,41 @@ func (b *builder) addURLTest(tag string, members []string, fallbacks []string) {
 	}
 	b.outbounds = append(b.outbounds, group)
 	b.swappable[tag] = true
+	return group
+}
+
+// setChoice gives the URL test of a rule's servers the rule's server choice: fastest goes
+// as before; loss and balance probe the servers for loss through the loss URL. The fallback
+// groups of a rule go by the fastest: they carry its connections only while its servers
+// are down.
+func (b *builder) setChoice(group *object, section *model.Section) {
+	rule := b.names.RuleText(section.Name)
+	switch section.Choice {
+	case "", model.ChoiceFastest:
+		return
+	case model.ChoiceLoss, model.ChoiceBalance:
+	default:
+		b.warnOnce("rule ", rule, ": the server choice ", strconv.Quote(section.Choice), " is not known: the fastest server is used")
+		return
+	}
+	group.set("mode", section.Choice)
+	group.set("loss_url", b.config.Settings.Check.LossURL)
+	if section.LossInterval != "" {
+		minutes, err := strconv.Atoi(section.LossInterval)
+		if err != nil || minutes < 1 || minutes > 1440 {
+			b.warnOnce("rule ", rule, ": the loss check interval ", strconv.Quote(section.LossInterval), " is not a number of minutes from 1 to 1440: 30 minutes are used")
+		} else {
+			group.set("loss_interval", strconv.Itoa(minutes)+"m")
+		}
+	}
+	if section.Choice == model.ChoiceBalance && section.LossThreshold != "" {
+		percent, err := strconv.ParseFloat(section.LossThreshold, 64)
+		if err != nil || percent <= 0 || percent > 50 {
+			b.warnOnce("rule ", rule, ": the loss threshold ", strconv.Quote(section.LossThreshold), " is not a percentage above 0 and up to 50: 1 % is used")
+		} else {
+			group.set("loss_threshold", json.Number(strconv.FormatFloat(percent, 'f', -1, 64)))
+		}
+	}
 }
 
 // rowServers puts in the servers a row takes and returns their tags, in the order of the

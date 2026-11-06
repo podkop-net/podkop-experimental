@@ -63,6 +63,33 @@ function tierName(
   return source ? `${name} · ${sourceLabel(source)}` : name;
 }
 
+// LOSS_MIN_SEGMENTS is what the engine decides by: the shortest window with about a megabyte of
+// probes (urltest lossMinSegments)
+const LOSS_MIN_SEGMENTS = 700;
+
+// lossOf tells the loss the probes of a server counted: the shortest window with enough
+// segments, as the engine weighs it, and every window for the title
+export function lossOf(loss?: ClashAPI.ProxyLoss): {
+  text?: string;
+  title?: string;
+} {
+  const windows = loss?.windows ?? [];
+  const rate = (lost: number, segments: number) =>
+    `${((lost * 100) / segments).toFixed(1)}%`;
+  const decided = windows.find((item) => item.segments >= LOSS_MIN_SEGMENTS);
+  const lines = windows
+    .filter((item) => item.segments > 0)
+    .map(
+      (item) =>
+        `${_('%dh').format(item.hours)}: ${rate(item.lost, item.segments)} (${_('%d probes').format(item.probes)})`,
+    );
+  if (loss?.not_counted) lines.push(_('The last probe could not count'));
+  return {
+    text: decided ? rate(decided.lost, decided.segments) : undefined,
+    title: lines.length ? `${_('Loss')}: ${lines.join(', ')}` : undefined,
+  };
+}
+
 // ruleTiles lays out the tiles of a rule in the order its connections take them (podkop-engine
 // urltest.fallbacks): the servers of its URL test, of which the fastest is taken, then each
 // fallback, taken only while nothing before it answers. A fallback of several servers is a URL
@@ -86,12 +113,21 @@ export function ruleTiles(
   const autoTag = ruleTags.test;
   const test =
     autoTag && offered.includes(autoTag) ? proxies[autoTag] : undefined;
+  const balance = new Map(
+    (test?.balance ?? []).map((item) => [item.name, item.devices]),
+  );
   const tile = (tag: string, tier: number): Podkop.Outbound => {
     const item = proxies[tag];
     let displayName = outboundName(tag, rule, sources, tags);
     if (tag === DIRECT_TAG) displayName = _('Directly');
     else if (tag === BLOCK_TAG && tier > 0) displayName = _('Block');
+    const loss = lossOf(item?.loss);
+    const balanced = tier === 0 ? balance.get(tag) : undefined;
     return {
+      loss: loss.text,
+      lossTitle: loss.title,
+      balanced: balanced !== undefined,
+      devices: balanced,
       code: tag,
       displayName,
       latency: item?.history?.[0]?.delay || 0,
@@ -175,12 +211,22 @@ export function ruleTiles(
   if (!active) return { outbounds, tiers, auto: autoTag };
   active.active = true;
   const { code, displayName, latency, tier = 0 } = active;
-  return {
-    outbounds,
-    tiers,
-    auto: autoTag,
-    route: { mode, tier, code, displayName, latency },
+  const route: Podkop.OutboundRoute = {
+    mode,
+    tier,
+    code,
+    displayName,
+    latency,
   };
+  if (mode === 'auto' && (test.mode === 'loss' || test.mode === 'balance')) {
+    route.choice = test.mode;
+  }
+  if (mode === 'auto' && !tier && balance.size) {
+    route.balance = outbounds
+      .filter((item) => item.balanced)
+      .map((item) => item.displayName);
+  }
+  return { outbounds, tiers, auto: autoTag, route };
 }
 
 // routeLabel names how a rule chose where its connections go: "Fastest", "Fastest → Fallback 2",
@@ -188,7 +234,10 @@ export function ruleTiles(
 export function routeLabel(route: Podkop.OutboundRoute): string {
   if (route.mode === 'single') return '';
   if (route.mode === 'manual') return _('Manual');
+  let first = _('Fastest');
+  if (route.choice === 'loss') first = _('Fastest, avoiding loss');
+  if (route.choice === 'balance') first = _('Balance');
   return route.tier
-    ? `${_('Fastest')} → ${_('Fallback %s').format(route.tier)}`
-    : _('Fastest');
+    ? `${first} → ${_('Fallback %s').format(route.tier)}`
+    : first;
 }

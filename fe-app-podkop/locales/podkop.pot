@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-05 22:17+0000\n"
-"PO-Revision-Date: 2026-11-05 22:17+0000\n"
+"POT-Creation-Date: 2026-11-06 05:40+0000\n"
+"PO-Revision-Date: 2026-11-06 05:40+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -21,16 +21,24 @@ msgid "(data as of %s)"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:231
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:201
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:212
 msgid "%d of %d"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:195
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:206
 msgid "%d of %d, first %d of %d"
+msgstr ""
+
+#: src/podkop/methods/custom/ruleTiles.ts:84
+msgid "%d probes"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:725
 msgid "%d servers, %d can be used"
+msgstr ""
+
+#: src/podkop/methods/custom/ruleTiles.ts:84
+msgid "%dh"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:57
@@ -126,6 +134,10 @@ msgstr ""
 msgid "A row cannot connect through its own source"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:984
+msgid "A server losing more than this, beyond the loss every server shows, gets no devices"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1101
 msgid "A subscription address, links of servers (one per line) or an outbound JSON"
 msgstr ""
@@ -199,7 +211,7 @@ msgstr ""
 msgid "An outbound of sing-box is expected: {\"type\": \"vless\", …}"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:233
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:244
 msgid "Another section is being checked."
 msgstr ""
 
@@ -249,8 +261,16 @@ msgstr ""
 msgid "Available actions"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:268
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:283
 msgid "Back to automatic choice"
+msgstr ""
+
+#: src/podkop/methods/custom/ruleTiles.ts:239
+msgid "Balance"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:961
+msgid "Balance between the best"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:352
@@ -267,7 +287,7 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:52
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:338
-#: src/podkop/methods/custom/ruleTiles.ts:93
+#: src/podkop/methods/custom/ruleTiles.ts:123
 msgid "Block"
 msgstr ""
 
@@ -309,7 +329,7 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:806
 #: src/podkop/tabs/dashboard/initController.ts:249
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:221
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:232
 msgid "Cancel"
 msgstr ""
 
@@ -328,7 +348,7 @@ msgstr ""
 msgid "certificate"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:236
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:247
 msgid "Check problem servers"
 msgstr ""
 
@@ -387,7 +407,7 @@ msgstr ""
 msgid "Choose the devices YACD is opened from"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:162
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:164
 msgid "Chosen inside the fallback"
 msgstr ""
 
@@ -490,7 +510,7 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:49
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:337
-#: src/podkop/methods/custom/ruleTiles.ts:92
+#: src/podkop/methods/custom/ruleTiles.ts:122
 msgid "Directly"
 msgstr ""
 
@@ -746,7 +766,7 @@ msgstr ""
 
 #: src/podkop/methods/custom/ruleTiles.ts:39
 #: src/podkop/methods/custom/ruleTiles.ts:56
-#: src/podkop/methods/custom/ruleTiles.ts:192
+#: src/podkop/methods/custom/ruleTiles.ts:241
 msgid "Fallback %s"
 msgstr ""
 
@@ -754,11 +774,20 @@ msgstr ""
 msgid "Fallback: %s"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:959
 #: src/podkop/methods/custom/ruleTiles.ts:36
-#: src/podkop/methods/custom/ruleTiles.ts:151
-#: src/podkop/methods/custom/ruleTiles.ts:192
-#: src/podkop/methods/custom/ruleTiles.ts:193
+#: src/podkop/methods/custom/ruleTiles.ts:187
+#: src/podkop/methods/custom/ruleTiles.ts:237
 msgid "Fastest"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:960
+#: src/podkop/methods/custom/ruleTiles.ts:238
+msgid "Fastest, avoiding loss"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:954
+msgid "Fastest: by the delay of the server check. Avoid loss: the delay is weighed by the loss that downloads of 256 KB through the servers count, and a faster server is checked with 1 MB before the switch. Balance: the devices are spread over the best servers by their address, a device keeps its server, servers with loss are left out. Loss checks download about 50 MB a day per rule"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:141
@@ -805,6 +834,10 @@ msgstr ""
 msgid "Hide links"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:970
+msgid "How often the servers the rule may use are checked for loss"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:164
 msgid "How the DNS servers are asked"
 msgstr ""
@@ -823,6 +856,10 @@ msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:103
 msgid "If the server does not answer, it is tried through another server of yours, whose operator can see the address of this one."
+msgstr ""
+
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:166
+msgid "In the balance: %d devices"
 msgstr ""
 
 #: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:43
@@ -867,8 +904,8 @@ msgstr ""
 msgid "Invalid IP address"
 msgstr ""
 
-#: src/podkop/sources.ts:323
 #: src/validators/validateOutboundJson.ts:9
+#: src/podkop/sources.ts:323
 msgid "Invalid JSON format"
 msgstr ""
 
@@ -932,6 +969,10 @@ msgstr ""
 msgid "Latest"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:983
+msgid "Leave out servers with loss above, %"
+msgstr ""
+
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:61
 msgid "limit"
 msgstr ""
@@ -969,6 +1010,14 @@ msgstr ""
 msgid "Log Level"
 msgstr ""
 
+#: src/podkop/methods/custom/ruleTiles.ts:89
+msgid "Loss"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:969
+msgid "Loss check interval, minutes"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:526
 msgid "Main"
 msgstr ""
@@ -990,7 +1039,7 @@ msgstr ""
 msgid "Make sure the port is not used by another service"
 msgstr ""
 
-#: src/podkop/methods/custom/ruleTiles.ts:190
+#: src/podkop/methods/custom/ruleTiles.ts:236
 msgid "Manual"
 msgstr ""
 
@@ -1356,7 +1405,7 @@ msgstr ""
 msgid "queued"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:203
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:214
 msgid "Queued: %d"
 msgstr ""
 
@@ -1509,6 +1558,10 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:378
 msgid "Server check URLs"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:953
+msgid "Server choice"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:870
@@ -1704,7 +1757,7 @@ msgstr ""
 msgid "test failed"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:349
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:364
 msgid "Test latency"
 msgstr ""
 
@@ -1848,6 +1901,10 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:896
 msgid "The last check failed"
+msgstr ""
+
+#: src/podkop/methods/custom/ruleTiles.ts:86
+msgid "The last probe could not count"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:333

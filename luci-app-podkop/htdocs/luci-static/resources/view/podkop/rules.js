@@ -942,6 +942,52 @@ function createRulesContent(section, singBoxFeatures = []) {
   o.modalonly = true;
   o.default = "0";
   o.rmempty = false;
+
+  if (!singBoxFeatures.includes("urltest.modes")) return;
+
+  // how the rule chooses among its servers (podkop-engine urltest modes)
+  o = section.taboption(
+    "extra",
+    form.ListValue,
+    "server_choice",
+    _("Server choice"),
+    _(
+      "Fastest: by the delay of the server check. Avoid loss: the delay is weighed by the loss that downloads of 256 KB through the servers count, and a faster server is checked with 1 MB before the switch. Balance: the devices are spread over the best servers by their address, a device keeps its server, servers with loss are left out. Loss checks download about 50 MB a day per rule",
+    ),
+  );
+  o.modalonly = true;
+  o.value("fastest", _("Fastest"));
+  o.value("loss", _("Fastest, avoiding loss"));
+  o.value("balance", _("Balance between the best"));
+  o.default = "fastest";
+  o.rmempty = true;
+
+  o = section.taboption(
+    "extra",
+    form.Value,
+    "loss_check_interval",
+    _("Loss check interval, minutes"),
+    _("How often the servers the rule may use are checked for loss"),
+  );
+  o.modalonly = true;
+  o.placeholder = "30";
+  o.datatype = "range(1,1440)";
+  o.rmempty = true;
+  o.depends("server_choice", "loss");
+  o.depends("server_choice", "balance");
+
+  o = section.taboption(
+    "extra",
+    form.Value,
+    "loss_threshold",
+    _("Leave out servers with loss above, %"),
+    _("A server losing more than this, beyond the loss every server shows, gets no devices"),
+  );
+  o.modalonly = true;
+  o.placeholder = "1";
+  o.datatype = "and(ufloat,range(0.1,50))";
+  o.rmempty = true;
+  o.depends("server_choice", "balance");
 }
 
 const EntryPoint = {

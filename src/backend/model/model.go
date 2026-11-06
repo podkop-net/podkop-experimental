@@ -143,7 +143,20 @@ type Check struct {
 	TestingURLs   []string
 	DownloadCheck string // default, off, custom
 	DownloadURL   string
+	// LossURL is what the loss probes of the rules that choose by loss or balance download
+	// (podkop-engine urltest loss_url): a megabyte, of which a probe reads 256 KB or all.
+	LossURL string
 }
+
+// DefaultLossURL is the loss URL without the option urltest_loss_url.
+const DefaultLossURL = "https://speed.cloudflare.com/__down?bytes=1048576"
+
+// The server choices of a rule (podkop-engine urltest mode).
+const (
+	ChoiceFastest = "fastest"
+	ChoiceLoss    = "loss"
+	ChoiceBalance = "balance"
+)
 
 // DefaultTestingURLs are the URLs of the server check of a new installation, and of an
 // upgrade from a release whose single URL was the default: one of each operator (Google,
@@ -249,6 +262,14 @@ type Section struct {
 	MixedProxyEnabled       bool
 	MixedProxyPort          string
 	ResolveRealIPForRouting bool
+
+	// Choice is how the rule chooses among its servers: fastest, loss (the fastest, weighed
+	// by the loss probes count) or balance (the devices spread over the best servers);
+	// LossInterval is how often, in minutes, the servers it may use are probed, and
+	// LossThreshold the loss, in percent, above which balance leaves a server out.
+	Choice        string
+	LossInterval  string
+	LossThreshold string
 }
 
 // Load takes the settings out of a parsed file.
@@ -297,6 +318,7 @@ func Load(parsed *uci.Package) (*Config, error) {
 			TestingURLs:   testingURLs(settings),
 			DownloadCheck: get(settings, "urltest_download_check", "default"),
 			DownloadURL:   settings.Get("urltest_download_url"),
+			LossURL:       get(settings, "urltest_loss_url", DefaultLossURL),
 		},
 	}}
 
@@ -320,6 +342,9 @@ func Load(parsed *uci.Package) (*Config, error) {
 			MixedProxyEnabled:       section.Bool("mixed_proxy_enabled", false),
 			MixedProxyPort:          section.Get("mixed_proxy_port"),
 			ResolveRealIPForRouting: section.Bool("resolve_real_ip_for_routing", false),
+			Choice:                  get(section, "server_choice", ChoiceFastest),
+			LossInterval:            section.Get("loss_check_interval"),
+			LossThreshold:           section.Get("loss_threshold"),
 		})
 	}
 	for _, section := range parsed.SectionsOfType("source") {

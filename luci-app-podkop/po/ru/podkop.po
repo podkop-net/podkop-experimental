@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-05 22:17+0000\n"
-"PO-Revision-Date: 2026-11-05 22:17+0000\n"
+"POT-Creation-Date: 2026-11-06 05:40+0000\n"
+"PO-Revision-Date: 2026-11-06 05:40+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -26,8 +26,14 @@ msgstr "%d из %d"
 msgid "%d of %d, first %d of %d"
 msgstr "%d из %d, первые %d из %d"
 
+msgid "%d probes"
+msgstr "проб: %d"
+
 msgid "%d servers, %d can be used"
 msgstr "Серверов: %d, годных: %d"
+
+msgid "%dh"
+msgstr "%d ч"
 
 msgid "%s (deleted)"
 msgstr "%s (удалён)"
@@ -94,6 +100,9 @@ msgstr "Нужно число, например 0x10000"
 
 msgid "A row cannot connect through its own source"
 msgstr "Строка не может подключаться через свой же источник"
+
+msgid "A server losing more than this, beyond the loss every server shows, gets no devices"
+msgstr "Сервер, который теряет больше (сверх потерь, общих для всех серверов), не получает устройств"
 
 msgid "A subscription address, links of servers (one per line) or an outbound JSON"
 msgstr "Адрес подписки, ссылки на серверы (по одной в строке) или outbound JSON"
@@ -184,6 +193,12 @@ msgstr "Доступные действия"
 
 msgid "Back to automatic choice"
 msgstr "Вернуть автовыбор"
+
+msgid "Balance"
+msgstr "Балансировка"
+
+msgid "Balance between the best"
+msgstr "Балансировка между лучшими"
 
 msgid "Before a connection with the uTLS fingerprint of a link, that fingerprint without the X25519MLKEM768 key share is tried, then firefox; the first one the server and the network take is kept and checked again once a day. Disabled: the fingerprint of the link is sent as it is"
 msgstr "Перед подключением с отпечатком uTLS из ссылки сначала пробуется этот отпечаток без ключа X25519MLKEM768, затем firefox; первый, который принимают сервер и сеть, запоминается и перепроверяется раз в сутки. Отключено: отпечаток из ссылки отправляется как есть"
@@ -536,6 +551,12 @@ msgstr "Запасные: %s"
 msgid "Fastest"
 msgstr "Самый быстрый"
 
+msgid "Fastest, avoiding loss"
+msgstr "Самый быстрый с учётом потерь"
+
+msgid "Fastest: by the delay of the server check. Avoid loss: the delay is weighed by the loss that downloads of 256 KB through the servers count, and a faster server is checked with 1 MB before the switch. Balance: the devices are spread over the best servers by their address, a device keeps its server, servers with loss are left out. Loss checks download about 50 MB a day per rule"
+msgstr "Самый быстрый: по задержке проверки серверов. С учётом потерь: задержка взвешивается потерями, которые насчитывают скачивания по 256 КБ через серверы, а более быстрый сервер перед переключением проверяется скачиванием 1 МБ. Балансировка: устройства распределяются между лучшими серверами по своему адресу, устройство остаётся на своём сервере, серверы с потерями исключаются. Проверки потерь скачивают около 50 МБ в сутки на правило"
+
 msgid "Fingerprint %s does not pass or hangs with several connections at once, the fallback one passes. It looks like a DPI block by fingerprint."
 msgstr "Отпечаток %s не проходит или зависает при нескольких подключениях сразу, запасной проходит. Похоже на блокировку ТСПУ по отпечатку."
 
@@ -569,6 +590,9 @@ msgstr "Глобальная проверка"
 msgid "Hide links"
 msgstr "Скрыть ссылки"
 
+msgid "How often the servers the rule may use are checked for loss"
+msgstr "Как часто проверяются на потери серверы, которые может выбрать правило"
+
 msgid "How the DNS servers are asked"
 msgstr "Как опрашивать DNS-серверы"
 
@@ -583,6 +607,9 @@ msgstr "Ошибка HTTP"
 
 msgid "If the server does not answer, it is tried through another server of yours, whose operator can see the address of this one."
 msgstr "Если сервер не ответит, он будет проверен через другой ваш сервер — его владелец сможет увидеть адрес этого."
+
+msgid "In the balance: %d devices"
+msgstr "В балансировке, устройств: %d"
 
 msgid "in their order"
 msgstr "по порядку"
@@ -656,6 +683,9 @@ msgstr "Последняя проверка: после запуска podkop е
 msgid "Latest"
 msgstr "Последняя"
 
+msgid "Leave out servers with loss above, %"
+msgstr "Исключать серверы с потерями выше, %"
+
 msgid "limit"
 msgstr "лимит"
 
@@ -682,6 +712,12 @@ msgstr "Загрузить"
 
 msgid "Log Level"
 msgstr "Уровень логов"
+
+msgid "Loss"
+msgstr "Потери"
+
+msgid "Loss check interval, minutes"
+msgstr "Интервал проверки потерь, минут"
 
 msgid "Main"
 msgstr "Основное"
@@ -1064,6 +1100,9 @@ msgstr "Допуск проверки серверов, мс"
 msgid "Server check URLs"
 msgstr "Ссылки проверки серверов"
 
+msgid "Server choice"
+msgstr "Выбор сервера"
+
 msgid "Server link"
 msgstr "Ссылка на сервер"
 
@@ -1306,6 +1345,9 @@ msgstr "Ключ, который спрашивает YACD; ссылки ниж�
 
 msgid "The last check failed"
 msgstr "Последняя проверка не удалась"
+
+msgid "The last probe could not count"
+msgstr "Последняя проба не смогла посчитать потери"
 
 msgid "The links appear here after Save & Apply"
 msgstr "Ссылки появятся здесь после «Сохранить и применить»"

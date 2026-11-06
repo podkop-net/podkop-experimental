@@ -11,14 +11,21 @@
     "key": "%d of %d",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:231",
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:201"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:212"
     ]
   },
   {
     "call": "%d of %d, first %d of %d",
     "key": "%d of %d, first %d of %d",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:195"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:206"
+    ]
+  },
+  {
+    "call": "%d probes",
+    "key": "%d probes",
+    "places": [
+      "src/podkop/methods/custom/ruleTiles.ts:84"
     ]
   },
   {
@@ -26,6 +33,13 @@
     "key": "%d servers, %d can be used",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:725"
+    ]
+  },
+  {
+    "call": "%dh",
+    "key": "%dh",
+    "places": [
+      "src/podkop/methods/custom/ruleTiles.ts:84"
     ]
   },
   {
@@ -188,6 +202,13 @@
     ]
   },
   {
+    "call": "A server losing more than this, beyond the loss every server shows, gets no devices",
+    "key": "A server losing more than this, beyond the loss every server shows, gets no devices",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:984"
+    ]
+  },
+  {
     "call": "A subscription address, links of servers (one per line) or an outbound JSON",
     "key": "A subscription address, links of servers (one per line) or an outbound JSON",
     "places": [
@@ -315,7 +336,7 @@
     "call": "Another section is being checked.",
     "key": "Another section is being checked.",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:233"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:244"
     ]
   },
   {
@@ -401,7 +422,21 @@
     "call": "Back to automatic choice",
     "key": "Back to automatic choice",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:268"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:283"
+    ]
+  },
+  {
+    "call": "Balance",
+    "key": "Balance",
+    "places": [
+      "src/podkop/methods/custom/ruleTiles.ts:239"
+    ]
+  },
+  {
+    "call": "Balance between the best",
+    "key": "Balance between the best",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:961"
     ]
   },
   {
@@ -431,7 +466,7 @@
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:52",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:338",
-      "src/podkop/methods/custom/ruleTiles.ts:93"
+      "src/podkop/methods/custom/ruleTiles.ts:123"
     ]
   },
   {
@@ -503,7 +538,7 @@
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:806",
       "src/podkop/tabs/dashboard/initController.ts:249",
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:221"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:232"
     ]
   },
   {
@@ -534,7 +569,7 @@
     "call": "Check problem servers",
     "key": "Check problem servers",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:236"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:247"
     ]
   },
   {
@@ -632,7 +667,7 @@
     "call": "Chosen inside the fallback",
     "key": "Chosen inside the fallback",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:162"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:164"
     ]
   },
   {
@@ -807,7 +842,7 @@
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:49",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:337",
-      "src/podkop/methods/custom/ruleTiles.ts:92"
+      "src/podkop/methods/custom/ruleTiles.ts:122"
     ]
   },
   {
@@ -1243,7 +1278,7 @@
     "places": [
       "src/podkop/methods/custom/ruleTiles.ts:39",
       "src/podkop/methods/custom/ruleTiles.ts:56",
-      "src/podkop/methods/custom/ruleTiles.ts:192"
+      "src/podkop/methods/custom/ruleTiles.ts:241"
     ]
   },
   {
@@ -1257,10 +1292,25 @@
     "call": "Fastest",
     "key": "Fastest",
     "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:959",
       "src/podkop/methods/custom/ruleTiles.ts:36",
-      "src/podkop/methods/custom/ruleTiles.ts:151",
-      "src/podkop/methods/custom/ruleTiles.ts:192",
-      "src/podkop/methods/custom/ruleTiles.ts:193"
+      "src/podkop/methods/custom/ruleTiles.ts:187",
+      "src/podkop/methods/custom/ruleTiles.ts:237"
+    ]
+  },
+  {
+    "call": "Fastest, avoiding loss",
+    "key": "Fastest, avoiding loss",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:960",
+      "src/podkop/methods/custom/ruleTiles.ts:238"
+    ]
+  },
+  {
+    "call": "Fastest: by the delay of the server check. Avoid loss: the delay is weighed by the loss that downloads of 256 KB through the servers count, and a faster server is checked with 1 MB before the switch. Balance: the devices are spread over the best servers by their address, a device keeps its server, servers with loss are left out. Loss checks download about 50 MB a day per rule",
+    "key": "Fastest: by the delay of the server check. Avoid loss: the delay is weighed by the loss that downloads of 256 KB through the servers count, and a faster server is checked with 1 MB before the switch. Balance: the devices are spread over the best servers by their address, a device keeps its server, servers with loss are left out. Loss checks download about 50 MB a day per rule",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:954"
     ]
   },
   {
@@ -1341,6 +1391,13 @@
     ]
   },
   {
+    "call": "How often the servers the rule may use are checked for loss",
+    "key": "How often the servers the rule may use are checked for loss",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:970"
+    ]
+  },
+  {
     "call": "How the DNS servers are asked",
     "key": "How the DNS servers are asked",
     "places": [
@@ -1373,6 +1430,13 @@
     "key": "If the server does not answer, it is tried through another server of yours, whose operator can see the address of this one.",
     "places": [
       "src/podkop/tabs/dashboard/helpers/verdictText.ts:103"
+    ]
+  },
+  {
+    "call": "In the balance: %d devices",
+    "key": "In the balance: %d devices",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:166"
     ]
   },
   {
@@ -1451,8 +1515,8 @@
     "call": "Invalid JSON format",
     "key": "Invalid JSON format",
     "places": [
-      "src/podkop/sources.ts:323",
-      "src/validators/validateOutboundJson.ts:9"
+      "src/validators/validateOutboundJson.ts:9",
+      "src/podkop/sources.ts:323"
     ]
   },
   {
@@ -1555,6 +1619,13 @@
     ]
   },
   {
+    "call": "Leave out servers with loss above, %",
+    "key": "Leave out servers with loss above, %",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:983"
+    ]
+  },
+  {
     "call": "limit",
     "key": "limit",
     "places": [
@@ -1619,6 +1690,20 @@
     ]
   },
   {
+    "call": "Loss",
+    "key": "Loss",
+    "places": [
+      "src/podkop/methods/custom/ruleTiles.ts:89"
+    ]
+  },
+  {
+    "call": "Loss check interval, minutes",
+    "key": "Loss check interval, minutes",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:969"
+    ]
+  },
+  {
     "call": "Main",
     "key": "Main",
     "places": [
@@ -1658,7 +1743,7 @@
     "call": "Manual",
     "key": "Manual",
     "places": [
-      "src/podkop/methods/custom/ruleTiles.ts:190"
+      "src/podkop/methods/custom/ruleTiles.ts:236"
     ]
   },
   {
@@ -2276,7 +2361,7 @@
     "call": "Queued: %d",
     "key": "Queued: %d",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:203"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:214"
     ]
   },
   {
@@ -2539,6 +2624,13 @@
     "key": "Server check URLs",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:378"
+    ]
+  },
+  {
+    "call": "Server choice",
+    "key": "Server choice",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:953"
     ]
   },
   {
@@ -2873,7 +2965,7 @@
     "call": "Test latency",
     "key": "Test latency",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:349"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:364"
     ]
   },
   {
@@ -3121,6 +3213,13 @@
     "key": "The last check failed",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:896"
+    ]
+  },
+  {
+    "call": "The last probe could not count",
+    "key": "The last probe could not count",
+    "places": [
+      "src/podkop/methods/custom/ruleTiles.ts:86"
     ]
   },
   {

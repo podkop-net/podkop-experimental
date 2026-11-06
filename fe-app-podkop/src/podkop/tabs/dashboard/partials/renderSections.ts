@@ -159,7 +159,16 @@ export function renderDefaultState({
       {
         class: classes.join(' '),
         'data-tag': outbound.code,
-        title: outbound.pick ? _('Chosen inside the fallback') : null,
+        title:
+          [
+            outbound.pick ? _('Chosen inside the fallback') : '',
+            outbound.balanced
+              ? _('In the balance: %d devices').format(outbound.devices ?? 0)
+              : '',
+            outbound.lossTitle ?? '',
+          ]
+            .filter(Boolean)
+            .join('\n') || null,
         click: () =>
           selectable && onChooseOutbound(section.code, outbound.code),
       },
@@ -171,6 +180,8 @@ export function renderDefaultState({
           ]),
           E('div', { class: getLatencyClass() }, [
             outbound.latency ? `${outbound.latency}ms` : 'N/A',
+            ...(outbound.loss ? [` · ${outbound.loss}`] : []),
+            ...(outbound.balanced ? [` · ⇄${outbound.devices ?? 0}`] : []),
           ]),
         ]),
         ...renderCheckRow(),
@@ -255,7 +266,11 @@ export function renderDefaultState({
         {
           class: `pdk_dashboard-page__outbound-section__route${tone ? ` pdk_dashboard-page__outbound-section__route--${tone}` : ''}`,
         },
-        [`${routeLabel(route)}: ${route.displayName} · ${latency}`],
+        [
+          route.balance?.length
+            ? `${routeLabel(route)}: ${route.balance.join(', ')}`
+            : `${routeLabel(route)}: ${route.displayName} · ${latency}`,
+        ],
       ),
       ...(route.mode === 'manual' && auto
         ? [

@@ -14,6 +14,23 @@ export namespace ClashAPI {
     all?: string[];
     // the end of all that a delay test of a URL test leaves out
     fallbacks?: string[];
+    // what the loss probes of a server counted (podkop-engine urltest modes)
+    loss?: ProxyLoss;
+    // the mode of a URL test other than fastest: loss or balance
+    mode?: string;
+    // the servers of a balance and the devices each carries
+    balance?: { name: string; devices: number }[];
+  }
+
+  export interface ProxyLoss {
+    windows?: {
+      hours: number;
+      probes: number;
+      segments: number;
+      lost: number;
+    }[];
+    rtt?: number;
+    not_counted?: string;
   }
 
   export interface Proxies {
@@ -182,6 +199,12 @@ export namespace Podkop {
     tier?: number;
     // false for what the selector does not offer (direct or block as a fallback): no click pins it
     selectable?: boolean;
+    // the loss its probes counted, as shown ("0.4%"), and the windows, for the title
+    loss?: string;
+    lossTitle?: string;
+    // a server of the balance of the rule, and the devices it carries
+    balanced?: boolean;
+    devices?: number;
   }
 
   // Where the connections of a rule go now. auto: by its URL test, from its servers (tier 0) or
@@ -193,6 +216,10 @@ export namespace Podkop {
     code: string;
     displayName: string;
     latency: number;
+    // how the URL test of the rule chooses, when not by the delay alone
+    choice?: 'loss' | 'balance';
+    // the servers of the balance, by name
+    balance?: string[];
   }
 
   // what an outbound is, by the sections of the settings: a group of a rule (of its fallback row

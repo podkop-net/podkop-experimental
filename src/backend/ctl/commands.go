@@ -62,7 +62,7 @@ type LinkCheck struct {
 // so the names are its own, not those of the Features line of "sing-box version", which
 // may change without the page changing.
 // compat: page-features
-var PageFeatures = []string{"urltest.fallbacks", "urltest.download_url", "tls.utls-fallback"}
+var PageFeatures = []string{"urltest.fallbacks", "urltest.download_url", "tls.utls-fallback", "urltest.modes"}
 
 // serviceActionVariable marks the script of the service run by start, stop and restart.
 const serviceActionVariable = "PODKOP_SERVICE_ACTION"

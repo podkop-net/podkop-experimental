@@ -77,6 +77,10 @@ type exitOutbound struct {
 	URLs           []string `json:"urls"`
 	Tolerance      int      `json:"tolerance"`
 	DownloadURL    *string  `json:"download_url"`
+	Mode           string   `json:"mode"`
+	LossURL        string   `json:"loss_url"`
+	LossInterval   string   `json:"loss_interval"`
+	LossThreshold  float64  `json:"loss_threshold"`
 	UDPOverTCP     *struct {
 		Enabled bool `json:"enabled"`
 	} `json:"udp_over_tcp"`
@@ -487,4 +491,60 @@ func mustConfig(t *testing.T, settings string) *model.Config {
 	config, err := model.Load(parsed)
 	require.NoError(t, err)
 	return config
+}
+
+// withOptions puts options in the section of a rule text.
+func withOptions(text string, options ...string) string {
+	head, rest, _ := strings.Cut(text, "\n\tlist user_domains")
+	for _, option := range options {
+		name, value, _ := strings.Cut(option, " ")
+		head += "\n\toption " + name + " '" + value + "'"
+	}
+	return head + "\n\tlist user_domains" + rest
+}
+
+// The server choice of a rule goes to the URL test of its servers, not to the URL test of a
+// fallback of several servers; values that are not valid are warned about and left to the
+// engine's defaults.
+func TestServerChoice(t *testing.T) {
+	t.Parallel()
+	settings := "\toption urltest_loss_url 'https://loss.example/1m'\n" +
+		"\nconfig source 'prov1'\n\toption label 'prov1'\n\toption type 'subscription'\n\toption url 'https://sub.example/x'\n" +
+		withOptions(ruleText("fast", row("server", "prov1")), "server_choice fastest") +
+		withOptions(ruleText("lossy", row("server", "prov1", "include NL"), row("fallback", "prov1", "include DE")), "server_choice loss", "loss_check_interval 10") +
+		withOptions(ruleText("bal", row("server", "prov1")), "server_choice balance", "loss_check_interval 0", "loss_threshold 2.5") +
+		withOptions(ruleText("bad", row("server", "prov1")), "server_choice balance", "loss_threshold 99") +
+		withOptions(ruleText("odd", row("server", "prov1")), "server_choice random")
+	result, err := buildRules(t, settings, map[string][]SubscriptionServer{"prov1": subscriptionList("🇳🇱 NL 1", "🇳🇱 NL 2", "🇩🇪 DE 1", "🇩🇪 DE 2")})
+	require.NoError(t, err)
+	_, outbounds := outboundsOf(t, result)
+	require.Empty(t, outbounds["fast-urltest-out"].Mode)
+	lossy := outbounds["lossy-urltest-out"]
+	require.Equal(t, "loss", lossy.Mode)
+	require.Equal(t, "https://loss.example/1m", lossy.LossURL)
+	require.Equal(t, "10m", lossy.LossInterval)
+	require.Zero(t, lossy.LossThreshold, "the threshold is of balance")
+	require.Empty(t, outbounds["lossy-fallback-1-out"].Mode, "a fallback group goes by the fastest")
+	bal := outbounds["bal-urltest-out"]
+	require.Equal(t, "balance", bal.Mode)
+	require.Empty(t, bal.LossInterval)
+	require.Equal(t, 2.5, bal.LossThreshold)
+	require.Equal(t, "balance", outbounds["bad-urltest-out"].Mode)
+	require.Zero(t, outbounds["bad-urltest-out"].LossThreshold)
+	require.Empty(t, outbounds["odd-urltest-out"].Mode)
+	warnings := strings.Join(result.Warnings, "\n")
+	require.Contains(t, warnings, "the loss check interval \"0\" is not a number of minutes")
+	require.Contains(t, warnings, "the loss threshold \"99\" is not a percentage")
+	require.Contains(t, warnings, "the server choice \"random\" is not known")
+}
+
+// Without the option the loss URL is the default.
+func TestLossURLDefault(t *testing.T) {
+	t.Parallel()
+	settings := "\nconfig source 'prov1'\n\toption label 'prov1'\n\toption type 'subscription'\n\toption url 'https://sub.example/x'\n" +
+		withOptions(ruleText("lossy", row("server", "prov1")), "server_choice loss")
+	result, err := buildRules(t, settings, map[string][]SubscriptionServer{"prov1": subscriptionList("A", "B")})
+	require.NoError(t, err)
+	_, outbounds := outboundsOf(t, result)
+	require.Equal(t, model.DefaultLossURL, outbounds["lossy-urltest-out"].LossURL)
 }
