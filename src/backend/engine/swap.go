@@ -3,6 +3,7 @@ package engine
 import (
 	"bytes"
 	"encoding/json"
+	"slices"
 	"time"
 
 	"github.com/sagernet/sing-box"
@@ -125,9 +126,10 @@ func (i *Instance) Select(choices map[string]string) {
 }
 
 // AdoptSelections takes over the choices of the dashboard that the cache file keeps under the
-// old tags of renamed selectors (old → new), naming the outbound chosen by its tag of now
-// (members, old → new): a rule renamed, or the tags of v0.8.10 at the first start after the
-// upgrade. A selector that has a choice of its own keeps it.
+// old tags of selectors (old → new, or the same tag), naming the outbound chosen by its tag
+// of now (members, old → new): a rule renamed, or the tags of v0.8.10 at the first start after
+// the upgrade. A renamed selector that has a choice of its own keeps it; one of the same tag
+// takes the outbound of now only when its choice names no member of it any more.
 func (i *Instance) AdoptSelections(selectors map[string]string, members map[string]string) {
 	if !i.enter() {
 		return
@@ -139,15 +141,27 @@ func (i *Instance) AdoptSelections(selectors map[string]string, members map[stri
 	}
 	for old, now := range selectors {
 		choice := cacheFile.LoadSelected(old)
-		if choice == "" || cacheFile.LoadSelected(now) != "" {
+		if choice == "" {
 			continue
-		}
-		if renamed, found := members[choice]; found {
-			choice = renamed
 		}
 		outbound, found := i.box.Outbound().Outbound(now)
 		if !found {
 			continue
+		}
+		renamed, translated := members[choice]
+		if old == now {
+			group, isGroup := outbound.(adapter.OutboundGroup)
+			if !translated || !isGroup || slices.Contains(group.All(), choice) {
+				continue
+			}
+			choice = renamed
+		} else {
+			if cacheFile.LoadSelected(now) != "" {
+				continue
+			}
+			if translated {
+				choice = renamed
+			}
 		}
 		if selector, isSelector := outbound.(interface{ SelectOutbound(tag string) bool }); isSelector {
 			selector.SelectOutbound(choice)

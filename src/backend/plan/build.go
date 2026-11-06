@@ -192,15 +192,16 @@ func (b *builder) legacyTags() map[string]string {
 }
 
 // Adoptions are the choices of the dashboard the cache file keeps under tags the outbounds
-// had before next: the selectors renamed, old tag → new (a rule renamed, or the tags of the
-// sections of v0.8.10 at the first start of this release), and the outbounds a choice may
-// name, old tag → new. previous is the configuration that ran before, nil at a start.
+// had before next: the selectors, old tag → new (the same when it did not change; a rule
+// renamed, or the tags of the sections of v0.8.10 at the first start of this release), and the
+// outbounds a choice may name, old tag → new. previous is the configuration that ran before,
+// nil at a start.
 func Adoptions(next *Result, previous *Result) (selectors map[string]string, members map[string]string) {
 	selectors = make(map[string]string)
 	members = make(map[string]string)
 	if previous != nil {
 		for section, rule := range next.Tags.Rules {
-			if old := previous.Tags.Rules[section]; old.Selector != "" && old.Selector != rule.Selector {
+			if old := previous.Tags.Rules[section]; old.Selector != "" {
 				selectors[old.Selector] = rule.Selector
 				if old.Test != "" && rule.Test != "" && old.Test != rule.Test {
 					members[old.Test] = rule.Test
@@ -231,11 +232,11 @@ func Adoptions(next *Result, previous *Result) (selectors map[string]string, mem
 			members[old] = now
 		}
 	}
+	// the selector of a rule under the tag of v0.8.10, which may be its tag of now (a rule
+	// without a label): its choice may name a server by its old tag
 	for section, rule := range next.Tags.Rules {
-		if old := section + "-out"; old != rule.Selector {
-			if _, taken := selectors[old]; !taken {
-				selectors[old] = rule.Selector
-			}
+		if _, taken := selectors[section+"-out"]; !taken {
+			selectors[section+"-out"] = rule.Selector
 		}
 	}
 	return selectors, members

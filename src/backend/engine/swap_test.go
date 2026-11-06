@@ -377,6 +377,32 @@ func TestInstanceSwapRefusedKeepsTheHistory(t *testing.T) {
 	require.True(t, started, "the next start compares with what runs")
 }
 
+// The choices kept under the tags of v0.8.10 are taken over: a selector of the same tag whose
+// choice names a server by its old tag takes the server of now; a renamed one takes the choice
+// of its old tag unless it has one of its own.
+func TestInstanceAdoptsSelections(t *testing.T) {
+	configuration := groupConfiguration(t, [2]string{"NL", "127.0.0.2"}, [2]string{"NL #2", "127.0.0.3"})
+	instance, err := Build(configuration)
+	require.NoError(t, err)
+	require.NoError(t, instance.Start())
+	t.Cleanup(func() { instance.Close(10 * time.Second) })
+	cacheFile := service.FromContext[adapter.CacheFile](instance.ctx)
+	selected := func() string {
+		selector, _ := instance.box.Outbound().Outbound("yt-out")
+		return selector.(adapter.OutboundGroup).Selected("tcp").Tag()
+	}
+	require.NoError(t, cacheFile.StoreSelected("yt-out", "src3: NL #2"))
+	instance.AdoptSelections(map[string]string{"yt-out": "yt-out"}, map[string]string{"src3: NL #2": "prov: NL #2"})
+	require.Equal(t, "prov: NL #2", selected())
+	// a choice that names a member of now stays as it is
+	instance.AdoptSelections(map[string]string{"yt-out": "yt-out"}, map[string]string{"prov: NL #2": "prov: NL"})
+	require.Equal(t, "prov: NL #2", selected())
+	// a renamed selector: the choice of its old tag, unless it has one
+	require.NoError(t, cacheFile.StoreSelected("old-out", "src3: NL"))
+	instance.AdoptSelections(map[string]string{"old-out": "yt-out"}, map[string]string{"src3: NL": "prov: NL"})
+	require.Equal(t, "prov: NL #2", selected(), "it has a choice of its own")
+}
+
 func TestCarriedSelections(t *testing.T) {
 	selector := func(tag string, members ...string) string {
 		content, err := json.Marshal(map[string]any{"type": "selector", "tag": tag, "outbounds": members, "default": members[0]})
