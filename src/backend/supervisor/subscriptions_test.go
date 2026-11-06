@@ -31,6 +31,14 @@ type provider struct {
 	asked     []string
 	headers   []http.Header
 	plans     []subscription.Plan
+	// answer are the headers it answers with
+	answer http.Header
+}
+
+func (p *provider) answerWith(header http.Header) {
+	p.access.Lock()
+	p.answer = header
+	p.access.Unlock()
 }
 
 func (p *provider) serve(body string) {
@@ -60,7 +68,11 @@ func (p *provider) download(ctx context.Context, address string, header http.Hea
 		}
 		if !refused {
 			tries = append(tries, subscription.Try{Route: route.Name, Phase: subscription.PhaseDone, Took: 800 * time.Millisecond, FirstByte: 700 * time.Millisecond, Pause: 10 * time.Millisecond, Bytes: int64(len(p.body))})
-			return &subscription.Answer{Body: []byte(p.body), Header: http.Header{}, Route: route.Name}, tries, nil
+			header := http.Header{}
+			for key, values := range p.answer {
+				header[key] = values
+			}
+			return &subscription.Answer{Body: []byte(p.body), Header: header, Route: route.Name}, tries, nil
 		}
 		tries = append(tries, subscription.Try{Route: route.Name, Phase: subscription.PhaseFailed, Took: 5 * time.Second, Failure: &subscription.Failure{Code: "timeout", Args: []string{"5"}, Text: "no answer in 5 s"}})
 	}
@@ -477,6 +489,50 @@ func TestSubscriptionIntervalChange(t *testing.T) {
 	require.Equal(t, retry, *state.Next, "a retry is not put off")
 	apply("20m")
 	require.False(t, state.Next.After(retry), "a shorter interval may bring it nearer")
+}
+
+// Under auto the next download is as often as the answer just taken asks: the first list of a
+// subscription too (it used to wait a day, the interval of a provider that had told nothing yet),
+// and a provider that changes its interval is followed at once. A failed download keeps what
+// the provider told before.
+func TestSubscriptionAutoIntervalOfAnswer(t *testing.T) {
+	directory := t.TempDir()
+	fake, system := &fakeEngine{refuse: map[string]error{}}, new(recorder)
+	source := &provider{body: "vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\n", answer: http.Header{"Profile-Update-Interval": {"2"}}}
+	options := Options{
+		SettingsPath: filepath.Join(directory, "podkop"), RuleSetDir: filepath.Join(directory, "rulesets"),
+		StagingDir: filepath.Join(directory, "candidate"), StatePath: filepath.Join(directory, "state"),
+		ConfigDir: filepath.Join(directory, "run"), ReadyTimeout: time.Second, System: system, Engine: fake,
+		Download: source.download,
+	}
+	settings := strings.Replace(subscriptionSettings(directory, "block"), "option update_interval '1h'", "option update_interval 'auto'", 1)
+	require.NoError(t, os.WriteFile(options.SettingsPath, []byte(settings), 0o644))
+	s := New(options)
+	require.True(t, s.Boot().OK)
+	next := func(want time.Duration, why string) {
+		t.Helper()
+		state := s.subscriptionStates()[0]
+		require.Equal(t, "prov1", state.Name)
+		require.WithinDuration(t, time.Now().Add(want), *state.Next, time.Minute, why)
+	}
+	downloadNow(t, s)
+	next(2*time.Hour, "the first list: as the provider asks in it")
+	source.answerWith(http.Header{"Profile-Update-Interval": {"5"}})
+	downloadNow(t, s)
+	next(5*time.Hour, "the interval the provider asks now")
+	source.answerWith(nil)
+	downloadNow(t, s)
+	next(24*time.Hour, "a provider that asks nothing: a day")
+
+	source.answerWith(http.Header{"Profile-Update-Interval": {"3"}})
+	downloadNow(t, s)
+	source.access.Lock()
+	source.refuseAll = true
+	source.access.Unlock()
+	downloadNow(t, s)
+	require.NotNil(t, s.subscriptionStates()[0].Provider)
+	require.Equal(t, 3, s.subscriptionStates()[0].Provider.UpdateHours, "a failure keeps what the provider told")
+	s.Stop()
 }
 
 func TestParseInterval(t *testing.T) {

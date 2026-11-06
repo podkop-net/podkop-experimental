@@ -448,6 +448,11 @@ func (s *Supervisor) takeList(result downloaded) {
 	}
 	state.Busy = false
 	now := time.Now()
+	if result.err == nil {
+		// what the provider tells in this answer counts at once: under auto the next download
+		// is as often as it asks now, the first list of a subscription included
+		state.Provider = subscription.ReadInfo(result.list.Info)
+	}
 	next := now.Add(t.interval(result.name))
 	state.Attempted, state.Attempts = &now, attempts(result.tries)
 	if result.err != nil {
@@ -483,7 +488,6 @@ func (s *Supervisor) takeList(result downloaded) {
 	delete(t.failures, result.name)
 	state.Error, state.ErrorCode, state.ErrorArgs = "", "", nil
 	state.Next, state.Checked, state.Route, state.Took = &next, &now, result.list.Route, tookOf(result.tries)
-	state.Provider = subscription.ReadInfo(result.list.Info)
 	way := waysLine(result.tries)
 	old := t.lists[result.name]
 	if old != nil && subscription.SameList(old.Servers, result.list.Servers) {
