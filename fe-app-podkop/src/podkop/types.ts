@@ -202,6 +202,7 @@ export namespace Podkop {
     // the loss its probes counted, as shown ("0.4%"), and the windows, for the title
     loss?: string;
     lossTitle?: string;
+    lossPreliminary?: boolean;
     // a server of the balance of the rule, and the devices it carries
     balanced?: boolean;
     devices?: number;

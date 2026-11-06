@@ -11,21 +11,21 @@
     "key": "%d of %d",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:231",
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:212"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:229"
     ]
   },
   {
     "call": "%d of %d, first %d of %d",
     "key": "%d of %d, first %d of %d",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:206"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:223"
     ]
   },
   {
     "call": "%d probes",
     "key": "%d probes",
     "places": [
-      "src/podkop/methods/custom/ruleTiles.ts:84"
+      "src/podkop/methods/custom/ruleTiles.ts:86"
     ]
   },
   {
@@ -39,7 +39,7 @@
     "call": "%dh",
     "key": "%dh",
     "places": [
-      "src/podkop/methods/custom/ruleTiles.ts:84"
+      "src/podkop/methods/custom/ruleTiles.ts:86"
     ]
   },
   {
@@ -336,7 +336,7 @@
     "call": "Another section is being checked.",
     "key": "Another section is being checked.",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:244"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:261"
     ]
   },
   {
@@ -422,14 +422,14 @@
     "call": "Back to automatic choice",
     "key": "Back to automatic choice",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:283"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:300"
     ]
   },
   {
     "call": "Balance",
     "key": "Balance",
     "places": [
-      "src/podkop/methods/custom/ruleTiles.ts:239"
+      "src/podkop/methods/custom/ruleTiles.ts:252"
     ]
   },
   {
@@ -466,7 +466,7 @@
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:52",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:338",
-      "src/podkop/methods/custom/ruleTiles.ts:123"
+      "src/podkop/methods/custom/ruleTiles.ts:135"
     ]
   },
   {
@@ -538,7 +538,7 @@
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:806",
       "src/podkop/tabs/dashboard/initController.ts:249",
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:232"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:249"
     ]
   },
   {
@@ -569,7 +569,7 @@
     "call": "Check problem servers",
     "key": "Check problem servers",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:247"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:264"
     ]
   },
   {
@@ -842,7 +842,7 @@
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:49",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:337",
-      "src/podkop/methods/custom/ruleTiles.ts:122"
+      "src/podkop/methods/custom/ruleTiles.ts:134"
     ]
   },
   {
@@ -1278,7 +1278,7 @@
     "places": [
       "src/podkop/methods/custom/ruleTiles.ts:39",
       "src/podkop/methods/custom/ruleTiles.ts:56",
-      "src/podkop/methods/custom/ruleTiles.ts:241"
+      "src/podkop/methods/custom/ruleTiles.ts:254"
     ]
   },
   {
@@ -1294,8 +1294,8 @@
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:959",
       "src/podkop/methods/custom/ruleTiles.ts:36",
-      "src/podkop/methods/custom/ruleTiles.ts:187",
-      "src/podkop/methods/custom/ruleTiles.ts:237"
+      "src/podkop/methods/custom/ruleTiles.ts:200",
+      "src/podkop/methods/custom/ruleTiles.ts:250"
     ]
   },
   {
@@ -1303,7 +1303,7 @@
     "key": "Fastest, avoiding loss",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:960",
-      "src/podkop/methods/custom/ruleTiles.ts:238"
+      "src/podkop/methods/custom/ruleTiles.ts:251"
     ]
   },
   {
@@ -1515,8 +1515,8 @@
     "call": "Invalid JSON format",
     "key": "Invalid JSON format",
     "places": [
-      "src/validators/validateOutboundJson.ts:9",
-      "src/podkop/sources.ts:323"
+      "src/podkop/sources.ts:323",
+      "src/validators/validateOutboundJson.ts:9"
     ]
   },
   {
@@ -1693,7 +1693,7 @@
     "call": "Loss",
     "key": "Loss",
     "places": [
-      "src/podkop/methods/custom/ruleTiles.ts:89"
+      "src/podkop/methods/custom/ruleTiles.ts:100"
     ]
   },
   {
@@ -1743,7 +1743,7 @@
     "call": "Manual",
     "key": "Manual",
     "places": [
-      "src/podkop/methods/custom/ruleTiles.ts:236"
+      "src/podkop/methods/custom/ruleTiles.ts:249"
     ]
   },
   {
@@ -2343,6 +2343,13 @@
     ]
   },
   {
+    "call": "preliminary: too few probes yet",
+    "key": "preliminary: too few probes yet",
+    "places": [
+      "src/podkop/methods/custom/ruleTiles.ts:93"
+    ]
+  },
+  {
     "call": "Protocol",
     "key": "Protocol",
     "places": [
@@ -2361,7 +2368,7 @@
     "call": "Queued: %d",
     "key": "Queued: %d",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:214"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:231"
     ]
   },
   {
@@ -2965,7 +2972,7 @@
     "call": "Test latency",
     "key": "Test latency",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:364"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:381"
     ]
   },
   {
@@ -3219,7 +3226,7 @@
     "call": "The last probe could not count",
     "key": "The last probe could not count",
     "places": [
-      "src/podkop/methods/custom/ruleTiles.ts:86"
+      "src/podkop/methods/custom/ruleTiles.ts:88"
     ]
   },
   {

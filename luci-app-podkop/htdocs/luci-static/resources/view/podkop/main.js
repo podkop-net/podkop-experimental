@@ -1103,9 +1103,13 @@ function lossOf(loss) {
     (item) => `${_("%dh").format(item.hours)}: ${rate(item.lost, item.segments)} (${_("%d probes").format(item.probes)})`
   );
   if (loss?.not_counted) lines.push(_("The last probe could not count"));
+  const day = windows[windows.length - 1];
+  const preliminary = !decided && !!day?.segments;
+  if (preliminary) lines.push(_("preliminary: too few probes yet"));
   return {
-    text: decided ? rate(decided.lost, decided.segments) : void 0,
-    title: lines.length ? `${_("Loss")}: ${lines.join(", ")}` : void 0
+    text: decided ? rate(decided.lost, decided.segments) : preliminary ? rate(day.lost, day.segments) : void 0,
+    title: lines.length ? `${_("Loss")}: ${lines.join(", ")}` : void 0,
+    preliminary: preliminary || void 0
   };
 }
 function ruleTiles(proxies, rule, sources, members, used, tags) {
@@ -1127,6 +1131,7 @@ function ruleTiles(proxies, rule, sources, members, used, tags) {
     return {
       loss: loss.text,
       lossTitle: loss.title,
+      lossPreliminary: loss.preliminary,
       balanced: balanced !== void 0,
       devices: balanced,
       code: tag,
@@ -2599,7 +2604,18 @@ function renderDefaultState({
           ]),
           E("div", { class: getLatencyClass() }, [
             outbound.latency ? `${outbound.latency}ms` : "N/A",
-            ...outbound.loss ? [` \xB7 ${outbound.loss}`] : [],
+            ...outbound.loss ? [
+              " \xB7 ",
+              E(
+                "span",
+                {
+                  class: outbound.lossPreliminary ? "pdk_dashboard-page__outbound-grid__item__loss--preliminary" : "pdk_dashboard-page__outbound-grid__item__loss"
+                },
+                [
+                  outbound.lossPreliminary ? `~${outbound.loss}` : outbound.loss
+                ]
+              )
+            ] : [],
             ...outbound.balanced ? [` \xB7 \u21C4${outbound.devices ?? 0}`] : []
           ])
         ]),
@@ -3858,6 +3874,10 @@ button.pdk_dashboard-page__outbound-grid__item__block--neutral {
 }
 
 .pdk_dashboard-page__outbound-grid__item__type {}
+
+.pdk_dashboard-page__outbound-grid__item__loss--preliminary {
+  opacity: 0.55;
+}
 
 .pdk_dashboard-page__outbound-grid__item__latency--empty {
     color: var(--primary-color-low, lightgray);

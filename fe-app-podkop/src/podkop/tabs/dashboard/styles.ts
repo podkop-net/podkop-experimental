@@ -251,6 +251,10 @@ button.pdk_dashboard-page__outbound-grid__item__block--neutral {
 
 .pdk_dashboard-page__outbound-grid__item__type {}
 
+.pdk_dashboard-page__outbound-grid__item__loss--preliminary {
+  opacity: 0.55;
+}
+
 .pdk_dashboard-page__outbound-grid__item__latency--empty {
     color: var(--primary-color-low, lightgray);
 }

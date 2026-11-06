@@ -27,9 +27,21 @@ describe('lossOf', () => {
     expect(loss.title).toContain('6h: 1.0%');
   });
 
-  it('tells nothing before a window has enough segments', () => {
-    expect(lossOf(windows([[1, 180, 0]])).text).toBeUndefined();
-    expect(lossOf(undefined)).toEqual({ text: undefined, title: undefined });
+  it('tells the day so far as preliminary before a window has enough segments', () => {
+    const loss = lossOf(
+      windows([
+        [1, 180, 0],
+        [24, 400, 2],
+      ]),
+    );
+    expect(loss.text).toBe('0.5%');
+    expect(loss.preliminary).toBe(true);
+    expect(loss.title).toContain('preliminary');
+    expect(lossOf(undefined)).toEqual({
+      text: undefined,
+      title: undefined,
+      preliminary: undefined,
+    });
   });
 
   it('says when the last probe could not count', () => {

@@ -72,6 +72,8 @@ const LOSS_MIN_SEGMENTS = 700;
 export function lossOf(loss?: ClashAPI.ProxyLoss): {
   text?: string;
   title?: string;
+  // the text is of fewer segments than the engine decides by
+  preliminary?: boolean;
 } {
   const windows = loss?.windows ?? [];
   const rate = (lost: number, segments: number) =>
@@ -84,9 +86,19 @@ export function lossOf(loss?: ClashAPI.ProxyLoss): {
         `${_('%dh').format(item.hours)}: ${rate(item.lost, item.segments)} (${_('%d probes').format(item.probes)})`,
     );
   if (loss?.not_counted) lines.push(_('The last probe could not count'));
+  // before a window has enough, the day so far, marked: probes come once an interval, and the
+  // first decision may be hours away
+  const day = windows[windows.length - 1];
+  const preliminary = !decided && !!day?.segments;
+  if (preliminary) lines.push(_('preliminary: too few probes yet'));
   return {
-    text: decided ? rate(decided.lost, decided.segments) : undefined,
+    text: decided
+      ? rate(decided.lost, decided.segments)
+      : preliminary
+        ? rate(day.lost, day.segments)
+        : undefined,
     title: lines.length ? `${_('Loss')}: ${lines.join(', ')}` : undefined,
+    preliminary: preliminary || undefined,
   };
 }
 
@@ -126,6 +138,7 @@ export function ruleTiles(
     return {
       loss: loss.text,
       lossTitle: loss.title,
+      lossPreliminary: loss.preliminary,
       balanced: balanced !== undefined,
       devices: balanced,
       code: tag,

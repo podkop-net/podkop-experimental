@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-06 05:40+0000\n"
-"PO-Revision-Date: 2026-11-06 05:40+0000\n"
+"POT-Creation-Date: 2026-11-06 06:58+0000\n"
+"PO-Revision-Date: 2026-11-06 06:58+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -21,15 +21,15 @@ msgid "(data as of %s)"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:231
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:212
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:229
 msgid "%d of %d"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:206
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:223
 msgid "%d of %d, first %d of %d"
 msgstr ""
 
-#: src/podkop/methods/custom/ruleTiles.ts:84
+#: src/podkop/methods/custom/ruleTiles.ts:86
 msgid "%d probes"
 msgstr ""
 
@@ -37,7 +37,7 @@ msgstr ""
 msgid "%d servers, %d can be used"
 msgstr ""
 
-#: src/podkop/methods/custom/ruleTiles.ts:84
+#: src/podkop/methods/custom/ruleTiles.ts:86
 msgid "%dh"
 msgstr ""
 
@@ -211,7 +211,7 @@ msgstr ""
 msgid "An outbound of sing-box is expected: {\"type\": \"vless\", …}"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:244
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:261
 msgid "Another section is being checked."
 msgstr ""
 
@@ -261,11 +261,11 @@ msgstr ""
 msgid "Available actions"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:283
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:300
 msgid "Back to automatic choice"
 msgstr ""
 
-#: src/podkop/methods/custom/ruleTiles.ts:239
+#: src/podkop/methods/custom/ruleTiles.ts:252
 msgid "Balance"
 msgstr ""
 
@@ -287,7 +287,7 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:52
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:338
-#: src/podkop/methods/custom/ruleTiles.ts:123
+#: src/podkop/methods/custom/ruleTiles.ts:135
 msgid "Block"
 msgstr ""
 
@@ -329,7 +329,7 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:806
 #: src/podkop/tabs/dashboard/initController.ts:249
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:232
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:249
 msgid "Cancel"
 msgstr ""
 
@@ -348,7 +348,7 @@ msgstr ""
 msgid "certificate"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:247
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:264
 msgid "Check problem servers"
 msgstr ""
 
@@ -510,7 +510,7 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:49
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:337
-#: src/podkop/methods/custom/ruleTiles.ts:122
+#: src/podkop/methods/custom/ruleTiles.ts:134
 msgid "Directly"
 msgstr ""
 
@@ -766,7 +766,7 @@ msgstr ""
 
 #: src/podkop/methods/custom/ruleTiles.ts:39
 #: src/podkop/methods/custom/ruleTiles.ts:56
-#: src/podkop/methods/custom/ruleTiles.ts:241
+#: src/podkop/methods/custom/ruleTiles.ts:254
 msgid "Fallback %s"
 msgstr ""
 
@@ -776,13 +776,13 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:959
 #: src/podkop/methods/custom/ruleTiles.ts:36
-#: src/podkop/methods/custom/ruleTiles.ts:187
-#: src/podkop/methods/custom/ruleTiles.ts:237
+#: src/podkop/methods/custom/ruleTiles.ts:200
+#: src/podkop/methods/custom/ruleTiles.ts:250
 msgid "Fastest"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:960
-#: src/podkop/methods/custom/ruleTiles.ts:238
+#: src/podkop/methods/custom/ruleTiles.ts:251
 msgid "Fastest, avoiding loss"
 msgstr ""
 
@@ -904,8 +904,8 @@ msgstr ""
 msgid "Invalid IP address"
 msgstr ""
 
-#: src/validators/validateOutboundJson.ts:9
 #: src/podkop/sources.ts:323
+#: src/validators/validateOutboundJson.ts:9
 msgid "Invalid JSON format"
 msgstr ""
 
@@ -1010,7 +1010,7 @@ msgstr ""
 msgid "Log Level"
 msgstr ""
 
-#: src/podkop/methods/custom/ruleTiles.ts:89
+#: src/podkop/methods/custom/ruleTiles.ts:100
 msgid "Loss"
 msgstr ""
 
@@ -1039,7 +1039,7 @@ msgstr ""
 msgid "Make sure the port is not used by another service"
 msgstr ""
 
-#: src/podkop/methods/custom/ruleTiles.ts:236
+#: src/podkop/methods/custom/ruleTiles.ts:249
 msgid "Manual"
 msgstr ""
 
@@ -1396,6 +1396,10 @@ msgstr ""
 msgid "Podkop will not modify your DHCP configuration"
 msgstr ""
 
+#: src/podkop/methods/custom/ruleTiles.ts:93
+msgid "preliminary: too few probes yet"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:738
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:748
 msgid "Protocol"
@@ -1405,7 +1409,7 @@ msgstr ""
 msgid "queued"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:214
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:231
 msgid "Queued: %d"
 msgstr ""
 
@@ -1757,7 +1761,7 @@ msgstr ""
 msgid "test failed"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:364
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:381
 msgid "Test latency"
 msgstr ""
 
@@ -1903,7 +1907,7 @@ msgstr ""
 msgid "The last check failed"
 msgstr ""
 
-#: src/podkop/methods/custom/ruleTiles.ts:86
+#: src/podkop/methods/custom/ruleTiles.ts:88
 msgid "The last probe could not count"
 msgstr ""
 

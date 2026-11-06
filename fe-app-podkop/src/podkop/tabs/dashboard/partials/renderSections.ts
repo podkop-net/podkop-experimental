@@ -180,7 +180,24 @@ export function renderDefaultState({
           ]),
           E('div', { class: getLatencyClass() }, [
             outbound.latency ? `${outbound.latency}ms` : 'N/A',
-            ...(outbound.loss ? [` · ${outbound.loss}`] : []),
+            ...(outbound.loss
+              ? [
+                  ' · ',
+                  E(
+                    'span',
+                    {
+                      class: outbound.lossPreliminary
+                        ? 'pdk_dashboard-page__outbound-grid__item__loss--preliminary'
+                        : 'pdk_dashboard-page__outbound-grid__item__loss',
+                    },
+                    [
+                      outbound.lossPreliminary
+                        ? `~${outbound.loss}`
+                        : outbound.loss,
+                    ],
+                  ),
+                ]
+              : []),
             ...(outbound.balanced ? [` · ⇄${outbound.devices ?? 0}`] : []),
           ]),
         ]),
