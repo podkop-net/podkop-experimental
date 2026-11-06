@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
+	"github.com/podkop-net/podkop-experimental/src/backend/dnsmasq"
 	"github.com/podkop-net/podkop-experimental/src/backend/netcfg"
 	"github.com/podkop-net/podkop-experimental/src/backend/sockets"
 )
@@ -122,7 +123,7 @@ func interfaceAddresses(name string) []netip.Addr {
 // conf-dir lines. It tells the servers every name goes to and whether no-resolv is there;
 // read is false when the file is not found.
 func dnsmasqForwards(pid int) (servers []string, noResolv bool, read bool) {
-	file := dnsmasqFile(pid)
+	file := dnsmasq.ConfFile(procRoot, pid)
 	if file == "" {
 		return nil, false, false
 	}
@@ -132,26 +133,6 @@ func dnsmasqForwards(pid int) (servers []string, noResolv bool, read bool) {
 		forwards, _, read = readForwards(procRoot, file)
 	}
 	return forwards.Servers, forwards.NoResolv, read
-}
-
-// dnsmasqFile is the configuration file of the command line of a dnsmasq process (-C,
-// --conf-file); empty when there is none or the process is gone.
-func dnsmasqFile(pid int) string {
-	commandLine, err := os.ReadFile(filepath.Join(procRoot, "proc", strconv.Itoa(pid), "cmdline"))
-	if err != nil {
-		return ""
-	}
-	arguments := strings.Split(strings.TrimRight(string(commandLine), "\x00"), "\x00")
-	var file string
-	for index, argument := range arguments {
-		switch {
-		case argument == "-C" && index+1 < len(arguments):
-			file = arguments[index+1]
-		case strings.HasPrefix(argument, "--conf-file="):
-			file = strings.TrimPrefix(argument, "--conf-file=")
-		}
-	}
-	return file
 }
 
 // processRoot is the root of the file system as a process sees it.
@@ -235,10 +216,10 @@ func CheckDnsmasq(listeners []sockets.Listener) []DnsmasqLoaded {
 			continue
 		}
 		seen[listener.PID] = true
-		if !ownMountNamespace(listener.PID) {
+		if !dnsmasq.Jailed(procRoot, listener.PID) {
 			continue
 		}
-		file := dnsmasqFile(listener.PID)
+		file := dnsmasq.ConfFile(procRoot, listener.PID)
 		if file == "" {
 			continue
 		}
@@ -254,17 +235,6 @@ func CheckDnsmasq(listeners []sockets.Listener) []DnsmasqLoaded {
 		})
 	}
 	return result
-}
-
-// ownMountNamespace tells whether a process has a file system of its own (a jail), not that
-// of this process.
-func ownMountNamespace(pid int) bool {
-	own, err := os.Readlink(filepath.Join(procRoot, "proc", strconv.Itoa(pid), "ns", "mnt"))
-	if err != nil {
-		return false
-	}
-	this, err := os.Readlink(filepath.Join(procRoot, "proc", "self", "ns", "mnt"))
-	return err == nil && own != this
 }
 
 // MarkedRoute is where the kernel sends a packet marked for the transparent proxy that

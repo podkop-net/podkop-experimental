@@ -31,8 +31,8 @@ type System interface {
 	ReadSettings() ([]byte, error)
 	// Batch runs commands of the uci program, one a line.
 	Batch(script string) error
-	// Restart restarts dnsmasq.
-	Restart() error
+	// Reload has dnsmasq take its settings now.
+	Reload() error
 	// Exists tells whether a file is there.
 	Exists(path string) bool
 }
@@ -52,10 +52,18 @@ func (Router) Batch(script string) error {
 	return nil
 }
 
-func (Router) Restart() error {
-	output, err := exec.Command("/etc/init.d/dnsmasq", "restart").CombinedOutput()
+// Reload runs "reload" of the init script of dnsmasq, not "restart": the script writes the
+// configuration file from the settings and hands it to procd, which starts dnsmasq again
+// when the content changed, with the last configuration it was handed. A "restart" is a
+// stop and a start: its stop deletes the instance in procd, and one that comes while procd
+// starts dnsmasq again for an interface that came up (that trigger runs "reload") leaves
+// the process started with the old file running for good (8 of 30 rounds on the stand,
+// "reload" 0 of 30). A running dnsmasq left that way by another program takes no reload:
+// the watcher (Watch) finds it and restarts it.
+func (Router) Reload() error {
+	output, err := exec.Command("/etc/init.d/dnsmasq", "reload").CombinedOutput()
 	if err != nil {
-		return E.Cause(err, "restart dnsmasq: ", strings.TrimSpace(string(output)))
+		return E.Cause(err, "reload dnsmasq: ", strings.TrimSpace(string(output)))
 	}
 	return nil
 }
@@ -128,8 +136,8 @@ func Ours(system System) (bool, error) {
 }
 
 // TakeOver makes dnsmasq ask the backend: its servers, its "noresolv" and its cache size
-// are kept under other names, and it is restarted. A dnsmasq that asks the backend
-// already is left alone, without a restart: the shell backend restarts it on every start,
+// are kept under other names, and it is reloaded. A dnsmasq that asks the backend
+// already is left alone, without a reload: the shell backend restarts it on every start,
 // which takes the DNS of the LAN away for three seconds each time.
 // A dnsmasq taken over before and changed since (a server added by hand while the backend
 // ran) keeps what was kept the first time: its "noresolv" and its cache size now are the
@@ -182,25 +190,23 @@ func TakeOver(system System) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return true, system.Restart()
+	return true, system.Reload()
 }
 
-// Prepare makes dnsmasq ask the backend as TakeOver does, without the restart: at boot,
+// Prepare makes dnsmasq ask the backend as TakeOver does, without the reload: at boot,
 // before the service of dnsmasq starts, so that it starts that way and the backend that
-// starts later finds it set and leaves it alone. A restart at boot comes while procd
-// restarts dnsmasq for the interfaces that come up, and the two may leave the process
-// started with the old file running: procd does not start it again for the new one.
+// starts later finds it set and leaves it alone: dnsmasq is not started again at boot.
 // It tells whether anything was changed.
 func Prepare(system System) (bool, error) {
-	return TakeOver(notRestarted{system})
+	return TakeOver(notReloaded{system})
 }
 
-// notRestarted is a System whose dnsmasq is not running yet: nothing to restart.
-type notRestarted struct{ System }
+// notReloaded is a System whose dnsmasq is not running yet: nothing to reload.
+type notReloaded struct{ System }
 
-func (notRestarted) Restart() error { return nil }
+func (notReloaded) Reload() error { return nil }
 
-// Restore gives dnsmasq back what was kept when it was taken over, and restarts it. With
+// Restore gives dnsmasq back what was kept when it was taken over, and reloads it. With
 // nothing kept it gets the resolvers netifd collects, as the shell backend does it. Only
 // a dnsmasq a backend took over is given back (see taken): one that was set to ask the
 // backend by hand, with dont_touch_dhcp, is left as it is. The shell backend instead
@@ -262,7 +268,7 @@ func Restore(system System) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return true, system.Restart()
+	return true, system.Reload()
 }
 
 // general tells whether a server of a list is asked for every name: "server=/domain/address"

@@ -15,6 +15,7 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
 	"github.com/podkop-net/podkop-experimental/src/backend/clock"
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
+	"github.com/podkop-net/podkop-experimental/src/backend/dnsmasq"
 	"github.com/podkop-net/podkop-experimental/src/backend/firewall"
 	"github.com/podkop-net/podkop-experimental/src/backend/logbuf"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
@@ -93,6 +94,9 @@ var commandDaemon = &cobra.Command{
 		}
 		keeper.AtStart(ctx)
 		go keeper.Loop(ctx)
+		// dnsmasq running with the configuration written for it (see dnsmasq.Watch)
+		dnsmasqWatch := dnsmasq.NewWatch(say)
+		go dnsmasqWatch.Loop(ctx)
 		backend := supervisor.New(supervisor.Options{
 			SettingsPath: commandDaemonFlagUCI,
 			System:       supervisor.Router{},
@@ -104,6 +108,7 @@ var commandDaemon = &cobra.Command{
 			ConfigDir:      configDir,
 			DownloadURL:    downloadURL,
 			Clock:          keeper,
+			Dnsmasq:        dnsmasqWatch,
 			// the lists of the subscriptions stay over a reboot: a start without the
 			// network has the servers
 			SubscriptionDir: dataplane.DataDir + "/subscriptions",
@@ -148,12 +153,14 @@ var commandRelease = &cobra.Command{
 			os.Exit(1)
 		}
 		defer lock.Close()
+		say := func(level string, message string) {
+			os.Stdout.WriteString("[" + level + "] " + message + "\n")
+		}
 		supervisor.New(supervisor.Options{
 			System:    supervisor.Router{},
 			ConfigDir: configDir,
-			Log: func(level string, message string) {
-				os.Stdout.WriteString("[" + level + "] " + message + "\n")
-			},
+			Dnsmasq:   dnsmasq.NewWatch(say),
+			Log:       say,
 		}).Release()
 	},
 }

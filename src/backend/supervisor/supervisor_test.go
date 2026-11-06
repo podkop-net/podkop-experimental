@@ -126,10 +126,37 @@ func (r *recorder) take() []string {
 	return calls
 }
 
+// watchRecorder is a watch of dnsmasq that records what it was asked.
+type watchRecorder struct {
+	access sync.Mutex
+	asked  []string
+}
+
+func (w *watchRecorder) Kick(after time.Duration) {
+	w.access.Lock()
+	defer w.access.Unlock()
+	w.asked = append(w.asked, "look after "+after.String())
+}
+
+func (w *watchRecorder) Settle(budget time.Duration) {
+	w.access.Lock()
+	defer w.access.Unlock()
+	w.asked = append(w.asked, "settle within "+budget.String())
+}
+
+func (w *watchRecorder) take() []string {
+	w.access.Lock()
+	defer w.access.Unlock()
+	asked := w.asked
+	w.asked = nil
+	return asked
+}
+
 type fixture struct {
 	t          *testing.T
 	directory  string
 	system     *recorder
+	watch      *watchRecorder
 	supervisor *Supervisor
 	// the log is written from the goroutines of the backend as well
 	logAccess sync.Mutex
@@ -140,7 +167,7 @@ func newFixture(t *testing.T) *fixture {
 	if os.Getuid() != 0 {
 		t.Skip("not root")
 	}
-	f := &fixture{t: t, directory: t.TempDir(), system: new(recorder)}
+	f := &fixture{t: t, directory: t.TempDir(), system: new(recorder), watch: new(watchRecorder)}
 	f.supervisor = New(Options{
 		SettingsPath: filepath.Join(f.directory, "podkop"),
 		RuleSetDir:   filepath.Join(f.directory, "rulesets"),
@@ -149,6 +176,7 @@ func newFixture(t *testing.T) *fixture {
 		ConfigDir:    filepath.Join(f.directory, "run"),
 		ReadyTimeout: 10 * time.Second,
 		System:       f.system,
+		Dnsmasq:      f.watch,
 		Log: func(level string, message string) {
 			f.logAccess.Lock()
 			defer f.logAccess.Unlock()
@@ -426,6 +454,25 @@ func TestRestoreRouting(t *testing.T) {
 	require.Contains(t, s.restoreRouting(), "br_netfilter")
 	require.True(t, f.logged("net.bridge.bridge-nf-call-iptables was 1 (br_netfilter): set to 0"), "%v", f.lines())
 	require.Equal(t, []string{"dns"}, f.system.take())
+}
+
+// The watch of dnsmasq looks a while after the backend reloaded dnsmasq and after an interface
+// came up, and the release waits for dnsmasq to run with its file.
+func TestDnsmasqWatchAsked(t *testing.T) {
+	f := newFixture(t)
+	s := f.supervisor
+	f.settings("", oneName)
+	s.Boot()
+	require.True(t, s.Running(), "%v", f.lines())
+	require.Equal(t, []string{"look after 10s"}, f.watch.take())
+	// asking the backend already: no reload, nothing to look at
+	require.True(t, s.Apply().OK, "%v", f.lines())
+	require.Empty(t, f.watch.take())
+	require.Equal(t, "nothing was missing", s.restoreRouting())
+	require.Equal(t, []string{"look after 15s"}, f.watch.take())
+	s.Release()
+	require.Equal(t, []string{"look after 10s", "settle within 12s"}, f.watch.take())
+	s.Stop()
 }
 
 // An interface of the settings that comes up after the backend, or gets another device, is

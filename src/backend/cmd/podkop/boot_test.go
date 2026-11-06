@@ -17,19 +17,19 @@ import (
 type bootRouter struct {
 	settings string
 	scripts  []string
-	restarts int
+	reloads  int
 }
 
 func (r *bootRouter) ReadSettings() ([]byte, error) { return []byte(r.settings), nil }
 func (r *bootRouter) Batch(script string) error     { r.scripts = append(r.scripts, script); return nil }
-func (r *bootRouter) Restart() error                { r.restarts++; return nil }
+func (r *bootRouter) Reload() error                 { r.reloads++; return nil }
 func (r *bootRouter) Exists(string) bool            { return true }
 
 type nothingHeld struct{}
 
 func (nothingHeld) Close() error { return nil }
 
-// Before dnsmasq starts at boot it is set to ask the backend, without a restart; not with
+// Before dnsmasq starts at boot it is set to ask the backend, without a reload; not with
 // dont_touch_dhcp on, not while a backend runs.
 func TestBootDNS(t *testing.T) {
 	directory := t.TempDir()
@@ -44,7 +44,7 @@ func TestBootDNS(t *testing.T) {
 	require.Len(t, router.scripts, 1)
 	require.Contains(t, router.scripts[0], "add_list dhcp.@dnsmasq[0].server='127.0.0.42'")
 	require.Contains(t, router.scripts[0], "add_list dhcp.@dnsmasq[0].podkop_server='8.8.8.8'")
-	require.Zero(t, router.restarts)
+	require.Zero(t, router.reloads)
 	require.Contains(t, output.String(), "dnsmasq starts asking the backend")
 
 	require.NoError(t, os.WriteFile(settings, []byte("config settings 'settings'\n\toption dont_touch_dhcp '1'\n"), 0o644))

@@ -90,6 +90,24 @@ type Clock interface {
 	Kick()
 }
 
+// DnsmasqWatch looks that dnsmasq runs with the configuration written for it
+// (dnsmasq.Watch): asked to look a while after the backend changed dnsmasq and after an
+// interface came up, and to settle it at the stop, after the backend gave it back.
+type DnsmasqWatch interface {
+	Kick(after time.Duration)
+	Settle(budget time.Duration)
+}
+
+const (
+	// dnsmasqAfterChange is when the watch looks after a reload of dnsmasq by the backend,
+	// dnsmasqAfterNetwork after an interface came up: procd reloads dnsmasq for it a moment
+	// later, and a slow router takes seconds to write its file.
+	dnsmasqAfterChange  = 10 * time.Second
+	dnsmasqAfterNetwork = 15 * time.Second
+	// dnsmasqAtStop is how long the stop waits at most for dnsmasq to run with its file
+	dnsmasqAtStop = 12 * time.Second
+)
+
 // Engine is sing-box as the supervisor uses it. The real one is the package engine's
 // (Options.Engine nil); a test has its own and runs the supervisor without sing-box.
 type Engine interface {
@@ -226,6 +244,8 @@ type Options struct {
 	Watcher *probe.Watcher
 	// Clock, when set, is kicked after a start of sing-box and when an interface comes up.
 	Clock Clock
+	// Dnsmasq is the watch of dnsmasq; none in a test or a command.
+	Dnsmasq DnsmasqWatch
 	// SubscriptionDir is where the lists of the subscriptions are kept over a reboot; none:
 	// in memory only.
 	SubscriptionDir string
@@ -636,6 +656,8 @@ func (s *Supervisor) RestoreRouting(ctx context.Context) string {
 }
 
 func (s *Supervisor) restoreRouting() string {
+	// procd reloads dnsmasq for the interface that came up as well
+	s.kickDnsmasq(dnsmasqAfterNetwork)
 	current := s.current
 	if current == nil {
 		if !s.failed {
@@ -934,6 +956,7 @@ func (s *Supervisor) Run(ctx context.Context, reload <-chan struct{}) error {
 		select {
 		case <-ctx.Done():
 			s.Stop()
+			s.settleDnsmasq()
 			return s.stuckError()
 		case <-bridged.C:
 			if s.current != nil {
@@ -1421,6 +1444,20 @@ func (s *Supervisor) Boot() Result {
 	return s.done(true, true, "started in ", time.Since(started).Milliseconds(), " ms")
 }
 
+// kickDnsmasq asks the watch of dnsmasq to look after a while (Options.Dnsmasq).
+func (s *Supervisor) kickDnsmasq(after time.Duration) {
+	if s.options.Dnsmasq != nil {
+		s.options.Dnsmasq.Kick(after)
+	}
+}
+
+// settleDnsmasq waits, at the stop, until dnsmasq runs with its file (Options.Dnsmasq).
+func (s *Supervisor) settleDnsmasq() {
+	if s.options.Dnsmasq != nil {
+		s.options.Dnsmasq.Settle(dnsmasqAtStop)
+	}
+}
+
 // kickClock asks the help of the router's NTP service to look at the clock (Options.Clock).
 func (s *Supervisor) kickClock() {
 	if s.options.Clock != nil {
@@ -1476,6 +1513,7 @@ func (s *Supervisor) surround(previousFirewall *firewall.Plan) error {
 		}
 		if changed {
 			s.log("info", "the DNS of the LAN asks the backend now")
+			s.kickDnsmasq(dnsmasqAfterChange)
 		}
 	} else {
 		// dont_touch_dhcp turned on while the backend had dnsmasq: it is given back now,
@@ -1485,6 +1523,7 @@ func (s *Supervisor) surround(previousFirewall *firewall.Plan) error {
 			s.log("error", "give the DNS of the LAN back: ", err)
 		} else if changed {
 			s.log("info", "the DNS of the LAN is as it was before the backend: dont_touch_dhcp is on")
+			s.kickDnsmasq(dnsmasqAfterChange)
 		}
 	}
 	return nil
@@ -1867,6 +1906,7 @@ func (s *Supervisor) removeFiles() {
 // called. What is not there is no error.
 func (s *Supervisor) Release() {
 	s.release()
+	s.settleDnsmasq()
 	s.removeFiles()
 	s.keepConfig(RejectedConfig, nil)
 }
@@ -1883,6 +1923,7 @@ func (s *Supervisor) release() {
 		s.log("error", "give the DNS of the LAN back: ", err)
 	} else if changed {
 		s.log("info", "the DNS of the LAN is as it was before the backend")
+		s.kickDnsmasq(dnsmasqAfterChange)
 	}
 	err = s.options.System.RemoveFirewall()
 	if err != nil {
