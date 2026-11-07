@@ -10,8 +10,9 @@ import (
 )
 
 // The configuration dnsmasq runs with is the file of its command line and the files of its
-// conf-dir lines, as the process sees them: the servers every name goes to are those
-// without a domain.
+// conf-dir and servers-file lines, as the process sees them: the servers every name goes to
+// are those without a domain and those of the domain "#" or "*"; the lines for the names of
+// a domain are told apart.
 func TestDnsmasqForwards(t *testing.T) {
 	root := t.TempDir()
 	procRoot = root
@@ -22,22 +23,29 @@ func TestDnsmasqForwards(t *testing.T) {
 		require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 	}
 	write("proc/7600/cmdline", "/usr/sbin/dnsmasq\x00-C\x00/var/etc/dnsmasq.conf.cfg01411c\x00-k\x00-x\x00/var/run/dnsmasq/dnsmasq.cfg01411c.pid\x00")
-	write("proc/7600/root/var/etc/dnsmasq.conf.cfg01411c", "domain-needed\nserver=127.0.0.42\nno-resolv\nserver=/lan/\nconf-dir=/tmp/dnsmasq.cfg01411c.d\n")
+	write("proc/7600/root/var/etc/dnsmasq.conf.cfg01411c", "domain-needed\nserver=127.0.0.42\nno-resolv\nlocal=/lan/\nserver=/.ts.net/100.100.100.100\n"+
+		"servers-file=/etc/dnsmasq.servers\nconf-dir=/tmp/dnsmasq.cfg01411c.d\n")
 	write("proc/7600/root/tmp/dnsmasq.cfg01411c.d/other.conf", "server=127.0.0.1#5053\nserver=/example.org/192.0.2.1\n")
+	write("proc/7600/root/etc/dnsmasq.servers", "server=/corp.example/10.8.0.1\nserver=/#/192.0.2.53\nrev-server=10.8.0.0/16,10.8.0.1\n")
 	// the file of the system has been replaced since: the process runs with the one above
 	write("var/etc/dnsmasq.conf.cfg01411c", "domain-needed\nserver=/lan/\n")
-	servers, noResolv, read := dnsmasqForwards(7600)
+	forwards, read := dnsmasqForwards(7600)
 	require.True(t, read)
-	require.True(t, noResolv)
-	require.Equal(t, []string{"127.0.0.42", "127.0.0.1#5053"}, servers)
-	_, _, read = dnsmasqForwards(7601)
+	require.True(t, forwards.NoResolv)
+	require.Equal(t, []string{"127.0.0.42", "127.0.0.1#5053", "/#/192.0.2.53"}, forwards.Servers)
+	require.Equal(t, []string{"/lan/", "/.ts.net/100.100.100.100", "/example.org/192.0.2.1", "/corp.example/10.8.0.1"}, forwards.Domains)
+	_, read = dnsmasqForwards(7601)
 	require.False(t, read)
 	// a root that cannot be read: the file of the system
 	write("proc/7602/cmdline", "/usr/sbin/dnsmasq\x00--conf-file=/var/etc/dnsmasq.conf.cfg01411c\x00")
-	servers, noResolv, read = dnsmasqForwards(7602)
+	forwards, read = dnsmasqForwards(7602)
 	require.True(t, read)
-	require.False(t, noResolv)
-	require.Empty(t, servers)
+	require.False(t, forwards.NoResolv)
+	require.Empty(t, forwards.Servers)
+	require.Equal(t, []string{"/lan/"}, forwards.Domains)
+	// the lines for the names of a domain of every dnsmasq process, each once, wherever it listens
+	listeners := []sockets.Listener{{Program: "AdGuardHome", PID: 900}, {Program: "dnsmasq", PID: 7600}, {Program: "dnsmasq", PID: 7600}, {Program: "dnsmasq", PID: 7602}}
+	require.Equal(t, []string{"/lan/", "/.ts.net/100.100.100.100", "/example.org/192.0.2.1", "/corp.example/10.8.0.1"}, DnsmasqDomains(listeners))
 }
 
 // A dnsmasq in a jail runs with the file of its start: stale when the file of the system

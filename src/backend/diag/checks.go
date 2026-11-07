@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
+	"github.com/podkop-net/podkop-experimental/src/backend/dnsmasq"
 	"github.com/podkop-net/podkop-experimental/src/backend/firewall"
 	"github.com/podkop-net/podkop-experimental/src/backend/plan"
 	checkname "github.com/podkop-net/podkop-experimental/src/backend/probe"
@@ -344,5 +345,5 @@ func DNSOfLAN(dhcp *uci.Package) bool {
 		return false
 	}
 	sections := dhcp.SectionsOfType("dnsmasq")
-	return len(sections) > 0 && sections[0].Get("server") == dataplane.DNSAddress
+	return len(sections) > 0 && dnsmasq.AsksBackend(strings.Fields(sections[0].Get("server")))
 }

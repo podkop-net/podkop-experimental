@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/netip"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -174,6 +175,14 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 	for _, loaded := range diag.CheckDnsmasq(listeners) {
 		add(dnsmasqLoadedLine(loaded))
 	}
+	// the forwardings of dnsmasq for the names of a domain, with dnsmasq on the LAN or behind
+	// another resolver, and those of their domains that podkop's lists have
+	forwarded := diag.Forwarded(diag.DnsmasqDomains(listeners))
+	var listed []diag.ForwardedDomain
+	if running {
+		listed = diag.ListedForwards(ctx, forwarded)
+	}
+	add(forwardingLines(forwarded, listed)...)
 
 	add(rule, "📦 Podkop status")
 	// sing-box is a part of the backend: what is asked is whether the backend runs it and
@@ -345,6 +354,25 @@ func lanDNSLines(lan diag.LANDNS, running bool) []string {
 		}
 		asks := len(lan.Servers) == 1 && lan.Servers[0] == dataplane.DNSAddress && lan.NoResolv
 		result = append(result, mark(asks, "✅ ", mark(running, "❌ ", "⚠️ "))+who+", "+forwardsText(diag.Forwards{Servers: lan.Servers, NoResolv: lan.NoResolv}))
+	}
+	return result
+}
+
+// forwardingLines tells the forwardings of dnsmasq for the names of a domain (diag.Forwarded)
+// and warns of each of their domains that podkop's lists have (listed).
+func forwardingLines(forwarded []diag.ForwardedDomain, listed []diag.ForwardedDomain) []string {
+	var result, forwardings []string
+	for _, domain := range forwarded {
+		if !slices.Contains(forwardings, domain.Line) {
+			forwardings = append(forwardings, domain.Line)
+		}
+	}
+	if len(forwardings) > 0 {
+		result = append(result, "ℹ️ dnsmasq sends the names of these domains to their own servers, not to podkop: "+strings.Join(forwardings, ", "))
+	}
+	for _, domain := range listed {
+		result = append(result, "⚠️ podkop's lists have "+domain.Domain+", but dnsmasq sends its names to their own server ("+domain.Line+
+			"): they get no FakeIP address, and the lists route them by their subnets only")
 	}
 	return result
 }

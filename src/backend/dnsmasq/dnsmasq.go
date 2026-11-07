@@ -1,7 +1,12 @@
 // Package dnsmasq points the DNS of the LAN at the backend and back. dnsmasq stays the
-// resolver the devices ask; its upstream becomes the DNS inbound of sing-box, and what it
-// had before is kept in its own settings under other names, as the shell backend keeps
-// it, so that either backend can undo what the other did.
+// resolver the devices ask; its upstream for every name becomes the DNS inbound of sing-box,
+// and what it had before is kept in its own settings under other names, as the shell backend
+// keeps it, so that either backend can undo what the other did. The servers of dnsmasq for
+// the names of a domain (server=/example.com/192.168.1.5, the forwarding of Tailscale's
+// MagicDNS) stay as they are: those names go where the user sent them, with the backend as
+// without it. The shell backend took them too, and its restore puts back only what it kept:
+// a shell backend that gives back a dnsmasq this backend took (one started after this one
+// with dnsmasq still taken: a lost power, then a downgrade) drops them.
 package dnsmasq
 
 import (
@@ -125,9 +130,61 @@ func (s *state) taken() bool {
 	return s.marked || len(s.keptServers) > 0 || s.keptNoResolv != "" || s.keptCacheSize != ""
 }
 
-// ours tells whether dnsmasq asks the backend and nothing else, with no cache of its own.
+// ours tells whether dnsmasq asks the backend for every name and nobody else, with no cache
+// of its own: its servers for the names of a domain aside.
 func (s *state) ours() bool {
-	return len(s.servers) == 1 && s.servers[0] == address && s.noResolv == "1" && s.cacheSize == "0"
+	return AsksBackend(s.servers) && s.noResolv == "1" && s.cacheSize == "0"
+}
+
+// ForEveryName tells whether dnsmasq may ask the server of a "server=" line (a value of the
+// list server of its settings) for any name. A line without a domain is ("8.8.8.8",
+// "127.0.0.1#5053", "1.1.1.1@wan"), and so is one with the domain "#" or "*": dnsmasq 2.93
+// asks "/#/1.1.1.1" and "/*/1.1.1.1" for every name beside the servers without a domain, and
+// "/#/" answers every name itself with NXDOMAIN. A line for the names of its domains only is
+// not: "/example.com/1.1.1.1" (and its subdomains), "/*.example.com/...", "/*example.com/...",
+// "/a.lan/b.lan/...", "//1.1.1.1" (names without a dot), "/example.com/" (answered by dnsmasq
+// itself), "/example.com/#" (asked of the servers for every name).
+func ForEveryName(server string) bool {
+	if !strings.HasPrefix(server, "/") {
+		return true
+	}
+	end := strings.LastIndexByte(server, '/')
+	if end == 0 {
+		// a single slash names no domain: for every name, as far as it can be told
+		return true
+	}
+	for _, domain := range strings.Split(server[1:end], "/") {
+		if domain == "#" || domain == "*" {
+			return true
+		}
+	}
+	return false
+}
+
+// Split parses a "server=" line for the names of its domains: its domains and the server it
+// names ("" for none: answered by dnsmasq itself, "#": the servers for every name).
+func Split(server string) (domains []string, upstream string) {
+	end := strings.LastIndexByte(server, '/')
+	if !strings.HasPrefix(server, "/") || end == 0 {
+		return nil, server
+	}
+	return strings.Split(server[1:end], "/"), server[end+1:]
+}
+
+// AsksBackend tells whether the servers of dnsmasq (the list server of its settings) send
+// every name to the backend alone; servers for the names of a domain may be there beside it.
+func AsksBackend(servers []string) bool {
+	every := 0
+	for _, server := range servers {
+		if !ForEveryName(server) {
+			continue
+		}
+		if server != address {
+			return false
+		}
+		every++
+	}
+	return every > 0
 }
 
 // Ours tells whether dnsmasq is set up to ask the backend.
@@ -139,57 +196,95 @@ func Ours(system System) (bool, error) {
 	return current.ours(), nil
 }
 
-// TakeOver makes dnsmasq ask the backend: its servers, its "noresolv" and its cache size
-// are kept under other names, and it takes them (Apply). A dnsmasq that asks the backend
-// already is left alone, not started again: the shell backend restarts it on every start,
-// which takes the DNS of the LAN away for three seconds each time.
+// TakeOver makes dnsmasq ask the backend for every name: its servers for every name
+// (ForEveryName), its "noresolv" and its cache size are kept under other names, and it takes
+// them (Apply). Its servers for the names of a domain stay where they are, and so do those
+// another program adds while the backend runs. A dnsmasq that asks the backend already is left
+// alone, not started again: the shell backend restarts it on every start, which takes the DNS
+// of the LAN away for three seconds each time.
 // A dnsmasq taken over before and changed since (a server added by hand while the backend
 // ran) keeps what was kept the first time: its "noresolv" and its cache size now are the
-// backend's own, and the servers added are kept beside the others.
+// backend's own, and the servers added are kept beside the others. The servers for the names
+// of a domain that the shell backend or a release before this one kept go back to work.
 // It tells whether anything was changed.
 func TakeOver(system System) (bool, error) {
 	current, err := read(system)
 	if err != nil {
 		return false, err
 	}
+	kept := current.keptServers
+	// taken over before, and given back by hand, or by the init script, since: what was kept
+	// is stale
+	stale := current.taken() && !contains(current.servers, address)
+	if stale {
+		kept = nil
+	}
+	var script strings.Builder
+	write := func(line string) { script.WriteString(line + "\n") }
+	var back []string
+	for _, server := range kept {
+		if !ForEveryName(server) && !contains(current.servers, server) && !contains(back, server) {
+			back = append(back, server)
+		}
+	}
+	if len(back) > 0 {
+		write("delete " + section + ".podkop_server")
+		for _, server := range kept {
+			if ForEveryName(server) {
+				write("add_list " + section + ".podkop_server=" + Quote(server))
+			}
+		}
+		for _, server := range back {
+			write("add_list " + section + ".server=" + Quote(server))
+		}
+	}
 	if current.ours() {
-		if current.taken() {
+		if !current.taken() {
+			// set to ask the backend with nothing kept and no marker (the shell backend keeps
+			// only the options that were set): marked, or nothing would ever give it back
+			write("set " + section + "." + marker + "='1'")
+		}
+		if script.Len() == 0 {
 			return false, nil
 		}
-		// set to ask the backend with nothing kept and no marker (the shell backend keeps
-		// only the options that were set): marked, or nothing would ever give it back
-		err = system.Batch("set " + section + "." + marker + "='1'\ncommit dhcp\n")
-		return false, err
+		write("commit dhcp")
+		err = system.Batch(script.String())
+		if err != nil || len(back) == 0 {
+			return false, err
+		}
+		return true, system.Apply()
+	}
+	if stale {
+		write("delete " + section + ".podkop_server")
+		write("delete " + section + ".podkop_noresolv")
+		write("delete " + section + ".podkop_cachesize")
+	}
+	var moved []string
+	for _, server := range current.servers {
+		if server == address || !ForEveryName(server) || contains(moved, server) {
+			continue
+		}
+		moved = append(moved, server)
+		if !contains(kept, server) {
+			write("add_list " + section + ".podkop_server=" + Quote(server))
+		}
+		write("del_list " + section + ".server=" + Quote(server))
 	}
 	// taken over before and still asking the backend: what was kept is the original
-	again := current.taken() && contains(current.servers, address)
-	var script strings.Builder
-	if current.taken() && !again {
-		// given back by hand, or by the init script, since: what was kept is stale
-		script.WriteString("delete " + section + ".podkop_server\n")
-		script.WriteString("delete " + section + ".podkop_noresolv\n")
-		script.WriteString("delete " + section + ".podkop_cachesize\n")
-		current.keptServers = nil
-	}
-	for _, server := range current.servers {
-		if server != address && !contains(current.keptServers, server) {
-			script.WriteString("add_list " + section + ".podkop_server=" + Quote(server) + "\n")
-		}
-	}
-	if len(current.servers) > 0 {
-		script.WriteString("delete " + section + ".server\n")
-	}
+	again := current.taken() && !stale
 	if current.noResolv != "" && !again {
-		script.WriteString("set " + section + ".podkop_noresolv=" + Quote(current.noResolv) + "\n")
+		write("set " + section + ".podkop_noresolv=" + Quote(current.noResolv))
 	}
 	if current.cacheSize != "" && !again {
-		script.WriteString("set " + section + ".podkop_cachesize=" + Quote(current.cacheSize) + "\n")
+		write("set " + section + ".podkop_cachesize=" + Quote(current.cacheSize))
 	}
-	script.WriteString("add_list " + section + ".server=" + Quote(address) + "\n")
-	script.WriteString("set " + section + ".noresolv='1'\n")
-	script.WriteString("set " + section + ".cachesize='0'\n")
-	script.WriteString("set " + section + "." + marker + "='1'\n")
-	script.WriteString("commit dhcp\n")
+	if !contains(current.servers, address) {
+		write("add_list " + section + ".server=" + Quote(address))
+	}
+	write("set " + section + ".noresolv='1'")
+	write("set " + section + ".cachesize='0'")
+	write("set " + section + "." + marker + "='1'")
+	write("commit dhcp")
 	err = system.Batch(script.String())
 	if err != nil {
 		return false, err
@@ -249,18 +344,22 @@ func Restore(system System) (bool, error) {
 		script.WriteString("set " + section + ".noresolv=" + Quote(current.keptNoResolv) + "\n")
 		script.WriteString("delete " + section + ".podkop_noresolv\n")
 	}
-	// the servers kept, and those added by hand while the backend ran
-	servers := current.keptServers
+	// the servers kept go back beside those that stayed: the servers for the names of a
+	// domain, and what was added by hand while the backend ran
+	var servers []string
 	for _, server := range current.servers {
-		if server != address && !contains(servers, server) {
+		if server != address {
 			servers = append(servers, server)
 		}
 	}
-	if len(current.servers) > 0 {
-		script.WriteString("delete " + section + ".server\n")
+	if contains(current.servers, address) {
+		script.WriteString("del_list " + section + ".server=" + Quote(address) + "\n")
 	}
-	for _, server := range servers {
-		script.WriteString("add_list " + section + ".server=" + Quote(server) + "\n")
+	for _, server := range current.keptServers {
+		if !contains(servers, server) {
+			servers = append(servers, server)
+			script.WriteString("add_list " + section + ".server=" + Quote(server) + "\n")
+		}
 	}
 	if len(current.keptServers) > 0 {
 		script.WriteString("delete " + section + ".podkop_server\n")
@@ -283,11 +382,10 @@ func Restore(system System) (bool, error) {
 	return true, system.Apply()
 }
 
-// general tells whether a server of a list is asked for every name: "server=/domain/address"
-// is for the names of a domain only.
+// general tells whether a server of a list is asked for every name (ForEveryName).
 func general(servers []string) bool {
 	for _, server := range servers {
-		if !strings.HasPrefix(server, "/") {
+		if ForEveryName(server) {
 			return true
 		}
 	}

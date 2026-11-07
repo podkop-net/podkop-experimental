@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -55,8 +56,8 @@ type LANDNS struct {
 	// Holders are the sockets on UDP port 53 of those addresses, or of every address
 	Holders []sockets.Listener
 	// Dnsmasq tells, when a holder is dnsmasq and its configuration could be read, the
-	// servers it forwards every name to (those of "server=" without a domain) and
-	// whether it reads no resolv file ("no-resolv")
+	// servers it forwards every name to (dnsmasq.ForEveryName) and whether it reads no
+	// resolv file ("no-resolv")
 	Dnsmasq  bool
 	Servers  []string
 	NoResolv bool
@@ -78,7 +79,9 @@ func CheckLANDNS(interfaces []string, listeners []sockets.Listener) []LANDNS {
 				seen[key] = true
 				check.Holders = append(check.Holders, holder)
 				if holder.Program == "dnsmasq" && !check.Dnsmasq {
-					check.Servers, check.NoResolv, check.Dnsmasq = dnsmasqForwards(holder.PID)
+					var forwards Forwards
+					forwards, check.Dnsmasq = dnsmasqForwards(holder.PID)
+					check.Servers, check.NoResolv = forwards.Servers, forwards.NoResolv
 				}
 			}
 		}
@@ -120,19 +123,39 @@ func interfaceAddresses(name string) []netip.Addr {
 
 // dnsmasqForwards reads the configuration a dnsmasq process runs with, as the process sees
 // it (see CheckDnsmasq): the file of its command line (-C, --conf-file) and the files of its
-// conf-dir lines. It tells the servers every name goes to and whether no-resolv is there;
-// read is false when the file is not found.
-func dnsmasqForwards(pid int) (servers []string, noResolv bool, read bool) {
+// conf-dir and servers-file lines. read is false when the file is not found.
+func dnsmasqForwards(pid int) (forwards Forwards, read bool) {
 	file := dnsmasq.ConfFile(procRoot, pid)
 	if file == "" {
-		return nil, false, false
+		return Forwards{}, false
 	}
-	forwards, _, read := readForwards(processRoot(pid), file)
+	forwards, _, read = readForwards(processRoot(pid), file)
 	if !read {
 		// its root cannot be read: the file of the system
 		forwards, _, read = readForwards(procRoot, file)
 	}
-	return forwards.Servers, forwards.NoResolv, read
+	return forwards, read
+}
+
+// DnsmasqDomains are the lines for the names of a domain of the configurations the dnsmasq
+// processes among the listeners run with, wherever they listen: on the LAN, or behind
+// another resolver (AdGuardHome on port 53, dnsmasq on 54).
+func DnsmasqDomains(listeners []sockets.Listener) []string {
+	var result []string
+	seen := make(map[int]bool)
+	for _, listener := range listeners {
+		if listener.Program != "dnsmasq" || seen[listener.PID] {
+			continue
+		}
+		seen[listener.PID] = true
+		forwards, _ := dnsmasqForwards(listener.PID)
+		for _, line := range forwards.Domains {
+			if !slices.Contains(result, line) {
+				result = append(result, line)
+			}
+		}
+	}
+	return result
 }
 
 // processRoot is the root of the file system as a process sees it.
@@ -141,21 +164,23 @@ func processRoot(pid int) string {
 }
 
 // Forwards is where a configuration of dnsmasq sends every name: the servers of its "server="
-// lines without a domain, and whether it reads no resolv file ("no-resolv").
+// lines for every name (dnsmasq.ForEveryName), and whether it reads no resolv file
+// ("no-resolv"); Domains are its lines for the names of a domain.
 type Forwards struct {
 	Servers  []string
 	NoResolv bool
+	Domains  []string
 }
 
-// readForwards reads a configuration file of dnsmasq and the files of its conf-dir lines,
-// each under root. It returns the content of the file itself too; read is false when the
-// file is not found.
+// readForwards reads a configuration file of dnsmasq and the files of its conf-dir and
+// servers-file lines (the servers file of its settings, serversfile), each under root. It
+// returns the content of the file itself too; read is false when the file is not found.
 func readForwards(root string, file string) (forwards Forwards, content []byte, read bool) {
 	content, err := os.ReadFile(filepath.Join(root, file))
 	if err != nil {
 		return Forwards{}, nil, false
 	}
-	var directories []string
+	var directories, serversFiles []string
 	readLines := func(content []byte) {
 		for _, line := range strings.Split(string(content), "\n") {
 			line = strings.TrimSpace(line)
@@ -163,11 +188,15 @@ func readForwards(root string, file string) (forwards Forwards, content []byte, 
 			switch key {
 			case "no-resolv":
 				forwards.NoResolv = true
-			case "server":
+			case "server", "local":
 				// "server=/domain/address" is for the names of a domain only
-				if !strings.HasPrefix(value, "/") {
+				if dnsmasq.ForEveryName(value) {
 					forwards.Servers = append(forwards.Servers, value)
+				} else {
+					forwards.Domains = append(forwards.Domains, value)
 				}
+			case "servers-file":
+				serversFiles = append(serversFiles, value)
 			case "conf-dir":
 				directory, _, _ := strings.Cut(value, ",")
 				directories = append(directories, directory)
@@ -185,6 +214,13 @@ func readForwards(root string, file string) (forwards Forwards, content []byte, 
 			if err == nil {
 				readLines(content)
 			}
+		}
+	}
+	// its lines are those of "server=" (and "rev-server="), read again at every SIGHUP
+	for _, file := range serversFiles {
+		content, err := os.ReadFile(filepath.Join(root, file))
+		if err == nil {
+			readLines(content)
 		}
 	}
 	return forwards, content, true

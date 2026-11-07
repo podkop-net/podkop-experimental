@@ -56,6 +56,20 @@ func TestLANDNSLines(t *testing.T) {
 	require.Equal(t, []string{"❌ DNS on wg0: the interface has no address"}, lanDNSLines(diag.LANDNS{Interface: "wg0"}, true))
 }
 
+// The forwardings of dnsmasq for the names of a domain are told, and warned of when podkop's
+// lists have a domain of theirs; those answered by dnsmasq itself are not told.
+func TestForwardingLines(t *testing.T) {
+	t.Parallel()
+	forwarded := diag.Forwarded([]string{"/lan/", "/.ts.net/100.100.100.100", "/corp.example/youtube.com/192.168.1.5#5353", "/www.example/#"})
+	listed := []diag.ForwardedDomain{{Domain: "youtube.com", Line: "/corp.example/youtube.com/192.168.1.5#5353"}}
+	require.Equal(t, []string{
+		"ℹ️ dnsmasq sends the names of these domains to their own servers, not to podkop: /.ts.net/100.100.100.100, /corp.example/youtube.com/192.168.1.5#5353",
+		"⚠️ podkop's lists have youtube.com, but dnsmasq sends its names to their own server (/corp.example/youtube.com/192.168.1.5#5353): " +
+			"they get no FakeIP address, and the lists route them by their subnets only",
+	}, forwardingLines(forwarded, listed))
+	require.Empty(t, forwardingLines(diag.Forwarded([]string{"/lan/"}), nil))
+}
+
 // What dnsmasq runs with: the line of the report case, a restart procd lost.
 func TestDnsmasqLoadedLine(t *testing.T) {
 	t.Parallel()
