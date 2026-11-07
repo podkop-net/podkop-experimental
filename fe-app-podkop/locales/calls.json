@@ -3349,8 +3349,8 @@
     ]
   },
   {
-    "call": "The provider could not be reached (%s)",
-    "key": "The provider could not be reached (%s)",
+    "call": "The subscription server does not answer",
+    "key": "The subscription server does not answer",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:211"
     ]

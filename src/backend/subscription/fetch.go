@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -357,21 +358,54 @@ func (d *download) snapshot(report func([]Try)) []Try {
 
 // unreachable is the failure of a download no way of which brought the list.
 func unreachable(tries []Try) *Failure {
-	var reasons []string
-	pages := 0
+	pages, failed := 0, 0
 	for _, item := range tries {
-		if item.Failure == nil {
+		if item.Failure == nil || item.Failure.Code == "canceled" {
 			continue
 		}
+		failed++
 		if item.Failure.Code == "page" {
 			pages++
 		}
-		reasons = append(reasons, item.Route+": "+item.Failure.Text)
 	}
 	if pages > 0 && pages == len(tries) {
 		return fail("page", true, "every way got a web page instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP")
 	}
-	return fail("unreachable", false, "the provider could not be reached ("+strings.Join(reasons, "; ")+")")
+	return fail("unreachable", false, "the subscription server does not answer ("+strconv.Itoa(failed)+" "+ways(failed)+": "+Reasons(tries)+")")
+}
+
+// Reasons tells why the tries failed, each reason once with the number of ways it stopped
+// when there are several, the most frequent first: "no connection in 10 s ×7, the connection is
+// reset ×2". The tries another way made needless are left out.
+func Reasons(tries []Try) string {
+	var order []string
+	counts := make(map[string]int)
+	for _, item := range tries {
+		if item.Failure == nil || item.Failure.Code == "canceled" {
+			continue
+		}
+		if counts[item.Failure.Text] == 0 {
+			order = append(order, item.Failure.Text)
+		}
+		counts[item.Failure.Text]++
+	}
+	slices.SortStableFunc(order, func(left string, right string) int { return counts[right] - counts[left] })
+	told := make([]string, 0, len(order))
+	for _, reason := range order {
+		if counts[reason] > 1 {
+			reason += " ×" + strconv.Itoa(counts[reason])
+		}
+		told = append(told, reason)
+	}
+	return strings.Join(told, ", ")
+}
+
+// ways is the word for a number of ways.
+func ways(count int) string {
+	if count == 1 {
+		return "way"
+	}
+	return "ways"
 }
 
 // statusOf is the failure of a download that ended with one status of the provider: its

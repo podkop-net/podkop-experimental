@@ -1403,8 +1403,8 @@ msgstr "Провайдер ответил HTTP %s вместо списка"
 msgid "The provider asks to wait (HTTP 429): the router tries again later"
 msgstr "Провайдер просит подождать (HTTP 429): роутер повторит позже"
 
-msgid "The provider could not be reached (%s)"
-msgstr "Провайдер недоступен (%s)"
+msgid "The subscription server does not answer"
+msgstr "Сервер подписки не отвечает"
 
 msgid "The provider did not accept this device (HWID)"
 msgstr "Провайдер не принял это устройство (HWID)"

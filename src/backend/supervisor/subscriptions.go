@@ -477,18 +477,36 @@ func (s *Supervisor) takeList(result downloaded) {
 			}
 		}
 		state.Next = &next
+		// the same failure again is told at the info level, shortly: the first of a run was
+		// told at the warning level with its reasons
+		repeated := state.Error != ""
+		previousCode := state.ErrorCode
 		state.Error, state.ErrorCode, state.ErrorArgs = failureOf(result.err)
+		repeated = repeated && state.ErrorCode == previousCode
+		failures := t.failures[result.name]
 		t.access.Unlock()
-		s.log("warn", "subscription ", result.name, ": ", state.Error)
+		if repeated {
+			again := "again"
+			if failures > 1 {
+				again = strconv.Itoa(failures) + " times in a row"
+			}
+			s.log("info", "subscription ", result.name, ": not downloaded ", again, " (", state.ErrorCode, "), the next try at ", next.Format(time.TimeOnly))
+		} else {
+			s.log("warn", "subscription ", result.name, ": ", state.Error)
+		}
 		s.downloadDue(time.Now(), "")
 		s.applyTaken()
 		s.answerWaiting(result.name)
 		return
 	}
+	failed := t.failures[result.name]
 	delete(t.failures, result.name)
 	state.Error, state.ErrorCode, state.ErrorArgs = "", "", nil
 	state.Next, state.Checked, state.Route, state.Took = &next, &now, result.list.Route, tookOf(result.tries)
 	way := waysLine(result.tries)
+	if failed > 0 {
+		way += "; downloaded again after " + strconv.Itoa(failed) + " failed " + plural(failed, "try", "tries")
+	}
 	old := t.lists[result.name]
 	if old != nil && subscription.SameList(old.Servers, result.list.Servers) {
 		// the traffic and the end the provider tells change with every list: kept in memory,
@@ -538,11 +556,11 @@ func changesLine(changes *api.ListChanges) string {
 }
 
 // waysLine tells how a list came for the log: the way and the time, and why the ways tried
-// before or beside it did not bring it ("through main-2 in 6.4 s; direct: the transfer stopped
-// at 16 KB").
+// before or beside it did not bring it, each reason once ("through main-2 in 6.4 s; 2 other ways
+// failed: the transfer stopped at 16 KB ×2").
 func waysLine(tries []subscription.Try) string {
 	var won string
-	var others []string
+	failed := 0
 	for _, item := range tries {
 		switch {
 		case item.Phase == subscription.PhaseDone:
@@ -551,10 +569,21 @@ func waysLine(tries []subscription.Try) string {
 				won = "through " + won
 			}
 		case item.Failure != nil && item.Failure.Code != "canceled":
-			others = append(others, item.Route+": "+item.Failure.Text)
+			failed++
 		}
 	}
-	return strings.Join(append([]string{won}, others...), "; ")
+	if failed == 0 {
+		return won
+	}
+	return won + "; " + strconv.Itoa(failed) + " other " + plural(failed, "way", "ways") + " failed: " + subscription.Reasons(tries)
+}
+
+// plural is the word for a number.
+func plural(count int, one string, many string) string {
+	if count == 1 {
+		return one
+	}
+	return many
 }
 
 // applyTaken applies the settings again with the lists taken, once no download is under way.

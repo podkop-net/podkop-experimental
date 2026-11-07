@@ -204,14 +204,9 @@ function failureText(code, args, text, attempts) {
   const said = (base) =>
     args[0] ? base + ". " + _("The provider says: %s").format(args[0]) : base;
   switch (code) {
-    case "unreachable": {
-      const reasons = (attempts || [])
-        .filter((attempt) => attempt.code !== "canceled")
-        .map((attempt) => wayOf(attempt.route) + ": " + tryReason(attempt));
-      return _("The provider could not be reached (%s)").format(
-        reasons.join("; "),
-      );
-    }
+    case "unreachable":
+      // why each way failed is in the log of the router
+      return _("The subscription server does not answer");
     case "status-one": {
       // the status may be that of a CDN to the address of the one way that got it
       const reasons = (attempts || [])

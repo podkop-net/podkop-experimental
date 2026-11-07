@@ -1980,7 +1980,7 @@ msgid "The provider asks to wait (HTTP 429): the router tries again later"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:211
-msgid "The provider could not be reached (%s)"
+msgid "The subscription server does not answer"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:255

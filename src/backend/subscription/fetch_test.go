@@ -333,8 +333,26 @@ func TestDownloadMessagesKeepTheAddress(t *testing.T) {
 	for _, secret := range []string{token, "sub.example.com"} {
 		require.NotContains(t, err.Error(), secret)
 	}
-	require.True(t, strings.Contains(err.Error(), "direct: ") && strings.Contains(err.Error(), "px: "), err.Error())
+	// the reasons, each once: the ways are in the tries
+	require.Contains(t, err.Error(), "the name of the provider is not found")
 	_, _, err = Download(context.Background(), "ftp://example.com/"+token, nil, nil, turnPlan, nil)
 	require.ErrorContains(t, err, "not an address of HTTP")
 	require.NotContains(t, err.Error(), token)
+}
+
+// Why the ways failed is told once a reason, with the number of ways when several, the most
+// frequent first; the tries another way made needless are left out.
+func TestReasons(t *testing.T) {
+	failed := func(route string, text string) Try {
+		return Try{Route: route, Failure: &Failure{Code: "x", Text: text}}
+	}
+	tries := []Try{failed("direct", "no answer in 10 s"), failed("a", "the connection is reset"), failed("b", "no connection in 10 s"),
+		failed("c", "no connection in 10 s"), {Route: "d", Failure: &Failure{Code: "canceled", Text: "another way brought the list first"}},
+		failed("e", "the connection is reset"), failed("f", "no connection in 10 s"), {Route: "g", Phase: PhaseDone}}
+	require.Equal(t, "no connection in 10 s ×3, the connection is reset ×2, no answer in 10 s", Reasons(tries))
+	require.Empty(t, Reasons(nil))
+	failure := unreachable(tries)
+	require.Equal(t, "unreachable", failure.Code)
+	require.Equal(t, "the subscription server does not answer (6 ways: no connection in 10 s ×3, the connection is reset ×2, no answer in 10 s)", failure.Text)
+	require.Equal(t, "the subscription server does not answer (1 way: no answer in 10 s)", unreachable(tries[:1]).Text)
 }

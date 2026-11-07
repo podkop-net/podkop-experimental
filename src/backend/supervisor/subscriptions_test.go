@@ -689,3 +689,59 @@ func TestLabelRenamesWhileRunning(t *testing.T) {
 	require.NotContains(t, string(s.current.result.Config), `"prov1: NL 1"`)
 	require.True(t, told("youtube (Lab with NL"), "the configuration told again by the new name")
 }
+
+// A subscription that keeps failing the same way is told once at the warning level, then in a
+// short line at the info level; the download that brings a list again tells after how many
+// failures.
+func TestSubscriptionFailureLog(t *testing.T) {
+	directory := t.TempDir()
+	fake, system := &fakeEngine{refuse: map[string]error{}}, new(recorder)
+	source := &provider{body: "vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\n", refuseAll: true}
+	var access sync.Mutex
+	var logged []string
+	options := Options{
+		SettingsPath: filepath.Join(directory, "podkop"), RuleSetDir: filepath.Join(directory, "rulesets"),
+		StagingDir: filepath.Join(directory, "candidate"), StatePath: filepath.Join(directory, "state"),
+		ConfigDir: filepath.Join(directory, "run"), ReadyTimeout: time.Second, System: system, Engine: fake,
+		Download: source.download,
+		Log: func(level string, message string) {
+			if strings.HasPrefix(message, "subscription prov1: ") {
+				access.Lock()
+				logged = append(logged, "["+level+"] "+message)
+				access.Unlock()
+			}
+		},
+	}
+	require.NoError(t, os.WriteFile(options.SettingsPath, []byte(subscriptionSettings(directory, "block")), 0o644))
+	s := New(options)
+	require.True(t, s.Boot().OK)
+	for range 3 {
+		downloadNow(t, s)
+	}
+	source.access.Lock()
+	source.refuseAll = false
+	source.access.Unlock()
+	downloadNow(t, s)
+	access.Lock()
+	defer access.Unlock()
+	require.Len(t, logged, 4, "%v", logged)
+	require.Equal(t, "[warn] subscription prov1: the provider could not be reached", logged[0])
+	require.Regexp(t, `^\[info\] subscription prov1: not downloaded 2 times in a row \(unreachable\), the next try at \d\d:\d\d:\d\d$`, logged[1])
+	require.Regexp(t, `^\[info\] subscription prov1: not downloaded 3 times in a row \(unreachable\), the next try at \d\d:\d\d:\d\d$`, logged[2])
+	require.Equal(t, "[info] subscription prov1: 1 servers, 1 can be used (direct in 0.8 s; downloaded again after 3 failed tries)", logged[3])
+	s.Stop()
+}
+
+// The way a list came is told with how many other ways failed, each reason once.
+func TestWaysLine(t *testing.T) {
+	failed := func(route string, text string) subscription.Try {
+		return subscription.Try{Route: route, Failure: &subscription.Failure{Code: "x", Text: text}}
+	}
+	done := subscription.Try{Route: "main-2", Phase: subscription.PhaseDone, Took: 6400 * time.Millisecond}
+	require.Equal(t, "through main-2 in 6.4 s", waysLine([]subscription.Try{done}))
+	require.Equal(t, "through main-2 in 6.4 s; 3 other ways failed: the transfer stopped at 16 KB ×2, no answer in 10 s",
+		waysLine([]subscription.Try{failed("direct", "the transfer stopped at 16 KB"), failed("main-1", "no answer in 10 s"), done, failed("main-3", "the transfer stopped at 16 KB"),
+			{Route: "main-4", Failure: &subscription.Failure{Code: "canceled", Text: "another way brought the list first"}}}))
+	require.Equal(t, "direct in 0.5 s; 1 other way failed: no answer in 10 s",
+		waysLine([]subscription.Try{failed("main-1", "no answer in 10 s"), {Route: "direct", Phase: subscription.PhaseDone, Took: 500 * time.Millisecond}}))
+}
