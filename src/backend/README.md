@@ -71,11 +71,12 @@ first (the Dockerfiles run it).
 
 ## On the router
 
-- `/etc/init.d/podkop` runs `podkop daemon` under procd. `/etc/init.d/podkop-guard`
-  (`/usr/libexec/podkop/guard`) restarts a backend that stopped answering, and gives the
-  router its own DNS back when the backend crashes again and again.
+- `/etc/init.d/podkop` runs `podkop daemon` under procd, which starts a backend that ended
+  without its stop again for good. The backend started tells by `/var/run/podkop/state` that
+  the one before ended so, and after a few such ends in a row gives the router its own DNS
+  back and tries again later (`/var/run/podkop/ends` counts them).
 - The running backend listens on `/var/run/podkop/ctl.sock`; the commands of the page ask
-  it there. Its state for a restart is `/var/run/podkop/state`.
+  it there.
 - The log: `logread -e podkop`, or `podkop check_logs`.
 - `podkop release` gives the router back the DNS of the LAN, the firewall table and the
   routing that a backend which is gone left taken (the init script runs it at the stop).

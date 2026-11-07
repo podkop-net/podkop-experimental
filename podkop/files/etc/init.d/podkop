@@ -7,16 +7,59 @@ START=99
 STOP=10
 USE_PROCD=1
 
+# The DNS of the LAN given back by this script, when /usr/bin/podkop does not run (an upgrade
+# cut short by a full overlay, say): dnsmasq gets back what the backend kept of it, as
+# "podkop release" gives it back, and the firewall table goes. The rules of the marks left
+# behind (priorities 104 and 105) do nothing without the marks of the table.
+give_back_dns() {
+    local S='dhcp.@dnsmasq[0]' servers noresolv cachesize server
+    nft delete table inet PodkopTable 2>/dev/null
+    case " $(uci -q get $S.server) " in
+    *' 127.0.0.42 '*) ;;
+    *) return 0 ;;
+    esac
+    servers=$(uci -q get $S.podkop_server)
+    noresolv=$(uci -q get $S.podkop_noresolv)
+    cachesize=$(uci -q get $S.podkop_cachesize)
+    uci -q delete $S.server
+    if [ -n "$servers" ]; then
+        for server in $servers; do uci add_list $S.server="$server"; done
+        uci -q delete $S.podkop_server
+    elif [ -f /tmp/resolv.conf.d/resolv.conf.auto ]; then
+        uci set $S.resolvfile=/tmp/resolv.conf.d/resolv.conf.auto
+        # no servers to ask and told not to read the resolvers: it would ask nobody
+        noresolv=0
+    fi
+    uci set $S.noresolv="${noresolv:-0}"
+    uci -q delete $S.podkop_noresolv
+    uci set $S.cachesize="${cachesize:-150}"
+    uci -q delete $S.podkop_cachesize
+    # given back: a later release must not take the servers put back here for its own
+    uci -q delete $S.podkop_taken
+    uci commit dhcp
+    # a restart: only a restart replaces a dnsmasq left running with an older file
+    /etc/init.d/dnsmasq restart >/dev/null 2>&1
+    logger -t podkop "/usr/bin/podkop does not run: dnsmasq asks the router's servers again and the firewall table is removed"
+}
+
 start_service() {
+    # A binary that does not run would be started again every 5 s for good (respawn below),
+    # with the DNS of the LAN still asking it: not started, and the DNS given back.
+    if ! /usr/bin/podkop show_version >/dev/null 2>&1; then
+        logger -t podkop "/usr/bin/podkop does not run: podkop is not started"
+        give_back_dns
+        return 1
+    fi
     procd_open_instance main
     procd_set_param command /usr/bin/podkop daemon
     procd_set_param stdout 1
     procd_set_param stderr 1
-    # A backend that crashes is started again after 5 s. After the fifth crash in a row that
-    # came less than 10 minutes after its start, procd gives up and reports instance.fail;
-    # the guard (service podkop-guard) then gives the LAN the router's own DNS back. A
-    # backend started again forever would leave the LAN asking a DNS that is never there.
-    procd_set_param respawn 600 5 5
+    # A backend that ends without its stop (a panic, the OOM-killer) is started again after
+    # 5 s, for good: the one started tells by the state of the one before that it ended,
+    # and after a few such ends in a row gives the LAN the router's own DNS back itself and
+    # tries again later (Supervisor.Begin in src/backend). A procd that gave up would leave
+    # the LAN asking a DNS that is never there, with nothing left to give it back.
+    procd_set_param respawn 600 5 0
     # the backend raises the limit itself as well: an init script kept from another package
     # would not set it
     procd_set_param limits nofile="65536 65536"
@@ -54,9 +97,11 @@ service_triggers() {
 }
 
 # After every stop, also the stop of a backend that was dead already: what it left taken
-# is given back. The command waits for a backend that is still ending.
+# is given back. The command waits for a backend that is still ending. A binary that does
+# not run gives nothing back: this script does.
 service_stopped() {
-    /usr/bin/podkop release
+    /usr/bin/podkop release && return 0
+    /usr/bin/podkop show_version >/dev/null 2>&1 || give_back_dns
 }
 
 # After a Start or a Restart, not after the start at boot (which must not be held): wait

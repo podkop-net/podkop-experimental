@@ -102,6 +102,7 @@ var commandDaemon = &cobra.Command{
 			System:       supervisor.Router{},
 			Watcher:      watcher,
 			StatePath:    statePath,
+			EndsPath:     endsPath,
 			// the dashboard of the package, served from a copy sing-box may write
 			YACDBuiltinDir: yacd.BuiltinDir,
 			YACDServedDir:  yacd.ServedDir,
@@ -166,8 +167,11 @@ var commandRelease = &cobra.Command{
 }
 
 const (
-	// statePath tells the guard of the package what the backend is doing.
+	// statePath tells what the backend is doing: the init script waits by it after a
+	// start, and the next backend tells by it how this one ended.
 	statePath = dataplane.RunDir + "/state"
+	// endsPath counts the ends of the backend without its stop in a row.
+	endsPath = dataplane.RunDir + "/ends"
 	// configDir keeps the configuration that runs and the last one refused, for
 	// show_sing_box_config.
 	configDir = dataplane.RunDir

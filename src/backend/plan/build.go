@@ -789,8 +789,8 @@ func (b *builder) buildDNS() (*object, error) {
 		b.fakeIPRule,
 		// The name the backend checks itself with has a rule apart from the lists: since
 		// sing-box 1.14 a rule set of several rules next to "domain" matches only together
-		// with it. The supervisor and the guard of the package tell by it that sing-box is
-		// up (dataplane.ReadinessName), with check names or without them.
+		// with it. The supervisor tells by it that sing-box is up
+		// (dataplane.ReadinessName), with check names or without them.
 		&rule{fields: newObject("action", "route", "server", tagFakeIPServer, "rewrite_ttl", ttl, "domain", []any{dataplane.ReadinessName})},
 	)
 	if suffix := b.options.CheckNames.Suffix; suffix != "" {

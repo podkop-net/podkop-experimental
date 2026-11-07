@@ -52,7 +52,6 @@ jobs:
             podkop/files/etc/init.d/*
             podkop/files/etc/uci-defaults/*
             podkop/files/etc/hotplug.d/iface/*
-            podkop/files/usr/libexec/podkop/*
             sdk/*.sh
             install.sh
           token: ${{ secrets.GITHUB_TOKEN }}

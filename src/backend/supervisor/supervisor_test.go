@@ -62,7 +62,11 @@ type recorder struct {
 	routingError error
 	// uplinks are the devices RouteUplinks adds a rule for, once
 	uplinks []string
+	// endCause is what EndCause tells of any process
+	endCause string
 }
+
+func (r *recorder) EndCause(int) string { return r.endCause }
 
 func (r *recorder) Devices(names []string) map[string]string { return r.devices }
 func (r *recorder) Listening() []sockets.Listener            { return r.listening }
@@ -236,7 +240,7 @@ func (f *fixture) kept(name string) string {
 	return string(content)
 }
 
-// state is the first word of the state file the guard reads, after checking the process.
+// state is the first word of the state file, after checking the process.
 func (f *fixture) state() string {
 	content, err := os.ReadFile(filepath.Join(f.directory, "state"))
 	if err != nil {
@@ -515,7 +519,7 @@ func TestBootWithUnusableSettings(t *testing.T) {
 	require.False(t, s.Running())
 	require.Equal(t, []string{"no dns", "no firewall", "no routing"}, f.system.take())
 	require.True(t, f.logged("[error]"))
-	require.Equal(t, "released", f.state(), "the guard must not judge a backend that has given the router back")
+	require.Equal(t, "released", f.state(), "a backend that has given the router back says so")
 	f.settings("", oneName)
 	s.Apply()
 	require.True(t, s.Running(), "%v", f.lines())

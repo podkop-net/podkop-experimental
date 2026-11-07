@@ -14,7 +14,7 @@ import "net/netip"
 
 const (
 	// DNSAddress and DNSPort are where the DNS inbound of sing-box listens: dnsmasq of the
-	// LAN forwards to it. The guard of the package (podkop-guard, PROBE_SERVER) asks it.
+	// LAN forwards to it.
 	DNSAddress = "127.0.0.42"
 	DNSPort    = 53
 
@@ -68,10 +68,9 @@ const (
 	// (getClashApiUrl.ts).
 	ClashAPIPort = 9090
 
-	// ReadinessName is the name the supervisor asks the DNS inbound for after a start,
-	// and the guard of the package (PROBE_NAME) while the backend runs: an answer from
-	// the FakeIP range tells that the DNS inbound, the DNS rules and the FakeIP store
-	// work. Every configuration has to answer it from FakeIP (plan keeps a DNS rule for
+	// ReadinessName is the name the supervisor asks the DNS inbound for after a start: an
+	// answer from the FakeIP range tells that the DNS inbound, the DNS rules and the FakeIP
+	// store work. Every configuration has to answer it from FakeIP (plan keeps a DNS rule for
 	// it, and a test of plan holds it to that); without that every start would end in
 	// "does not answer" and the LAN would be given back its own DNS. It is under the
 	// domain of the check names (probe.Suffix), which the backend answers from FakeIP as

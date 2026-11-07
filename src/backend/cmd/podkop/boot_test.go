@@ -65,3 +65,30 @@ func TestBootDNS(t *testing.T) {
 	require.Equal(t, 1, bootDNS(&output, filepath.Join(directory, "missing"), router, free))
 	require.Contains(t, output.String(), "[error]")
 }
+
+// When podkop does not start at boot, a dnsmasq a backend left asking it is given back before
+// it starts, without starting it; one that asks the router's servers is left alone.
+func TestBootGiveBack(t *testing.T) {
+	free := func() (io.Closer, error) { return nothingHeld{}, nil }
+	taken := "config dnsmasq\n\tlist server '127.0.0.42'\n\toption noresolv '1'\n\toption cachesize '0'\n" +
+		"\tlist podkop_server '8.8.8.8'\n\toption podkop_cachesize '1000'\n\toption podkop_taken '1'\n"
+	router := &bootRouter{settings: taken}
+	var output bytes.Buffer
+	require.Equal(t, 0, bootGiveBack(&output, router, free))
+	require.Len(t, router.scripts, 1)
+	require.Contains(t, router.scripts[0], "add_list dhcp.@dnsmasq[0].server='8.8.8.8'")
+	require.Contains(t, router.scripts[0], "delete dhcp.@dnsmasq[0].podkop_taken")
+	require.Zero(t, router.applies)
+	require.Contains(t, output.String(), "it starts with the router's servers")
+
+	router = &bootRouter{settings: "config dnsmasq\n\tlist server '8.8.8.8'\n"}
+	output.Reset()
+	require.Equal(t, 0, bootGiveBack(&output, router, free))
+	require.Empty(t, router.scripts)
+	require.Empty(t, output.String())
+
+	router = &bootRouter{settings: taken}
+	busy := func() (io.Closer, error) { return nil, errors.New("resource temporarily unavailable") }
+	require.Equal(t, 0, bootGiveBack(&output, router, busy))
+	require.Empty(t, router.scripts)
+}

@@ -82,6 +82,9 @@ type System interface {
 	RestoreDNS() (bool, error)
 	// NTPServerNames are the names of the NTP servers of the router (clock.ServerNames).
 	NTPServerNames() []string
+	// EndCause tells what ended the process with this PID, as far as the router knows
+	// (the kernel's OOM-killer), and the memory now; empty when it knows nothing.
+	EndCause(pid int) string
 }
 
 // Clock is the help the router's NTP service gets (clock.Keeper): kicked when sing-box has
@@ -224,9 +227,12 @@ type Options struct {
 	// StagingDir is where a candidate's files are put to be checked before anything of
 	// the running state is touched.
 	StagingDir string
-	// StatePath is the file that tells a guard outside the process what the backend is
-	// doing (see writeState); none when empty.
+	// StatePath is the file that tells what the backend is doing (see writeState): the
+	// init script waits by it after a start, the next backend tells by it how this one
+	// ended (Begin); none when empty.
 	StatePath string
+	// EndsPath keeps the count of the ends without a stop in a row (Begin); none when empty.
+	EndsPath string
 	// ConfigDir is where the configuration that runs and the last one that was refused
 	// are kept for the user interface (RunningConfig, RejectedConfig); in RAM; none when
 	// empty.
@@ -310,9 +316,10 @@ type Supervisor struct {
 	// restores are asks to put back what the network took, from another goroutine
 	restores chan chan string
 	// failed tells that the last start of sing-box failed, or the start of the settings
-	// around it (not settings that cannot be used, nor a stop): the router is given back
-	// and the start is tried again at the next change of the network and when the guard
-	// of the package asks (restoreRouting)
+	// around it (not settings that cannot be used, nor a stop), or that the backends before
+	// this one kept ending without their stop (Begin): the router is given back and the
+	// start is tried again at the next change of the network (restoreRouting) and by the
+	// clock (retryDue)
 	failed bool
 	// failures are the starts that failed in a row, the last at failedAt: after the first
 	// few, a try waits longer each time (retryPause)
@@ -498,11 +505,11 @@ func (s *Supervisor) done(ok bool, replaced bool, message ...any) Result {
 	return result
 }
 
-// What the backend is doing, for a guard outside the process (the liveness probe of the
-// package): it judges the silence of the DNS inbound only of a backend that runs, and of
-// one that has been starting or applying for too long. Released: there is no sing-box, and
-// the DNS of the LAN is the router's own, on purpose. Failed: released after a start that
-// failed, which the guard asks to be tried again (Supervisor.failed).
+// What the backend is doing, for the init script (which waits after a start until the
+// backend has come up or given the router back) and for the next backend (which tells by a
+// state other than stopped that this one ended without its stop, Begin). Released: there
+// is no sing-box, and the DNS of the LAN is the router's own, on purpose. Failed: released
+// after a start that failed, tried again later (Supervisor.failed).
 const (
 	stateBooting  = "booting"
 	stateApplying = "applying"
@@ -671,14 +678,7 @@ func (s *Supervisor) restoreRouting() string {
 		if !s.failed {
 			return "nothing runs"
 		}
-		if wait := retryPause(s.failures) - time.Since(s.failedAt); wait > 0 {
-			return "the start failed " + strconv.Itoa(s.failures) + " times in a row: it is tried again from " + time.Now().Add(wait).Format(time.TimeOnly)
-		}
-		// an address that was not there (the loopback while the network restarted), a
-		// port another program held: what kept sing-box from starting may be gone
-		s.log("info", "the start failed before (", s.failures, " in a row): it is tried again")
-		result := s.Boot()
-		return "the start that had failed was tried again: " + result.Message
+		return s.retryFailed()
 	}
 	// an uplink that came up: sysntpd learns of it only at its next try
 	s.kickClock()
@@ -763,6 +763,19 @@ func (s *Supervisor) restoreRouting() string {
 		return "nothing was missing"
 	}
 	return message
+}
+
+// retryFailed tries a start that failed again when a try is due (retryPause): an address
+// that was not there (the loopback while the network restarted), a port another program
+// held, a backend before this one that kept ending: what kept sing-box from starting may be
+// gone. It tells what it did.
+func (s *Supervisor) retryFailed() string {
+	if wait := retryPause(s.failures) - time.Since(s.failedAt); wait > 0 {
+		return "the start failed " + strconv.Itoa(s.failures) + " times in a row: it is tried again from " + time.Now().Add(wait).Format(time.TimeOnly)
+	}
+	s.log("info", "the start failed before (", s.failures, " in a row): it is tried again")
+	result := s.Boot()
+	return "the start that had failed was tried again: " + result.Message
 }
 
 // routeUplinks keeps the rules for the sockets of sing-box bound to an uplink
@@ -950,7 +963,7 @@ func (s *Supervisor) answerProbe(request probeRequest) {
 // rule set that sing-box reloaded refills the firewall sets. At the end everything is
 // taken back.
 func (s *Supervisor) Run(ctx context.Context, reload <-chan struct{}) error {
-	s.Boot()
+	s.Begin()
 	// a download brings several rule sets one after another: the firewall is refilled
 	// once, deriveMerge after the last of them (deriveMergeLimit after the first at the
 	// latest), and nothing else waits meanwhile
@@ -960,8 +973,23 @@ func (s *Supervisor) Run(ctx context.Context, reload <-chan struct{}) error {
 	defer bridged.Stop()
 	subscriptionTicker := time.NewTicker(subscriptionTick)
 	defer subscriptionTicker.Stop()
+	// a start that failed is tried again by the clock too (retryDue)
+	var retry <-chan time.Time
+	var retryAt time.Time
 	for !s.stuck {
+		if due, ok := s.retryDue(); !ok {
+			retry, retryAt = nil, time.Time{}
+		} else if !due.Equal(retryAt) {
+			retry, retryAt = time.After(max(time.Until(due), 0)), due
+		}
 		select {
+		case <-retry:
+			retry, retryAt = nil, time.Time{}
+			if ctx.Err() != nil {
+				// a start tried again would hold up the stop
+				continue
+			}
+			s.retryFailed()
 		case <-ctx.Done():
 			s.Stop()
 			s.settleDnsmasq()
@@ -1484,8 +1512,8 @@ func (s *Supervisor) startFailed() {
 // retryPause is how long after the last of the starts that failed in a row the next try
 // waits: the first few at once (an address that comes back with the network: a restart
 // of the network brings several events), then a minute, doubled each time up to an hour
-// (a port another program holds for good). The events of the network and the guard ask
-// as they come; a start that is not due is not tried.
+// (a port another program holds for good). The events of the network ask as they come, the
+// clock when one is due (retryDue); a start that is not due is not tried.
 func retryPause(failures int) time.Duration {
 	const atOnce = 3
 	if failures <= atOnce {

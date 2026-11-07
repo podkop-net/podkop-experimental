@@ -75,9 +75,11 @@ endef
 # and a start of a service that runs changes nothing): the backend that runs would stay the
 # one of the package that was replaced, so a service that runs is restarted. opkg has
 # stopped it before the upgrade: it is started (a restart would first stop what procd no
-# longer has, and ubus says "Command failed: Not found"). The guard is new: on an upgrade
-# from podkop 0.7 nothing would enable it (only a fresh install enables services), so it is
-# enabled here unless the settings turn it off.
+# longer has, and ubus says "Command failed: Not found"). The guard of 0.8.0-0.8.11 is gone:
+# procd starts a backend that ended again for good, and the backend gives the DNS back
+# itself when it keeps ending. An upgrade by apk runs no script of the removal, so the guard
+# that runs is deleted from procd here; the link of its init script, which the upgrade
+# removed, goes too, and so do its files.
 define Package/podkop-exp/postinst
 #!/bin/sh
 [ -n "$${IPKG_INSTROOT}" ] && exit 0
@@ -87,10 +89,8 @@ if [ "$${PKG_UPGRADE}" = "1" ]; then
 	# an upgrade enables no init script of the package by itself: one new in this version
 	# would never run
 	/etc/init.d/podkop-early enable
-	case "$$(uci -q get podkop.settings.guard)" in
-	0 | off | false | no | disabled) ;;
-	*) /etc/init.d/podkop-guard enable; again /etc/init.d/podkop-guard ;;
-	esac
+	ubus call service delete '{"name":"podkop-guard"}' >/dev/null 2>&1
+	rm -f /etc/rc.d/S95podkop-guard /var/run/podkop-guard.fifo /var/run/podkop-guard.liveness /usr/share/podkop/guard.last
 	again /etc/init.d/podkop
 fi
 exit 0
@@ -126,10 +126,7 @@ define Package/podkop-exp/install
 	$(INSTALL_CONF) ./files/etc/config/podkop $(1)/etc/config/podkop
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/etc/init.d/podkop $(1)/etc/init.d/podkop
-	$(INSTALL_BIN) ./files/etc/init.d/podkop-guard $(1)/etc/init.d/podkop-guard
 	$(INSTALL_BIN) ./files/etc/init.d/podkop-early $(1)/etc/init.d/podkop-early
-	$(INSTALL_DIR) $(1)/usr/libexec/podkop
-	$(INSTALL_BIN) ./files/usr/libexec/podkop/guard $(1)/usr/libexec/podkop/guard
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) ./files/etc/uci-defaults/99-podkop $(1)/etc/uci-defaults/99-podkop
 	$(INSTALL_DIR) $(1)/etc/hotplug.d/iface

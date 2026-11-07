@@ -165,7 +165,7 @@ func TakeOver(system System) (bool, error) {
 	again := current.taken() && contains(current.servers, address)
 	var script strings.Builder
 	if current.taken() && !again {
-		// given back by hand, or by the guard, since: what was kept is stale
+		// given back by hand, or by the init script, since: what was kept is stale
 		script.WriteString("delete " + section + ".podkop_server\n")
 		script.WriteString("delete " + section + ".podkop_noresolv\n")
 		script.WriteString("delete " + section + ".podkop_cachesize\n")
@@ -203,6 +203,14 @@ func TakeOver(system System) (bool, error) {
 // It tells whether anything was changed.
 func Prepare(system System) (bool, error) {
 	return TakeOver(notApplied{system})
+}
+
+// GiveBackBeforeStart gives dnsmasq back as Restore does, without Apply: at boot, before the
+// service of dnsmasq starts, when the backend does not start at boot and one that ended
+// without its stop (power lost, a panic) left dnsmasq asking it. It tells whether anything
+// was changed.
+func GiveBackBeforeStart(system System) (bool, error) {
+	return Restore(notApplied{system})
 }
 
 // notApplied is a System whose dnsmasq is not running yet: nothing to apply.

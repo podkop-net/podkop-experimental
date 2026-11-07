@@ -14,8 +14,7 @@ import (
 )
 
 // Every configuration answers the readiness name from FakeIP: the
-// supervisor tells by it that a started sing-box is up, the guard of the package that it
-// still is. Whatever the settings, each DNS rule an A question for the name may match
+// supervisor tells by it that a started sing-box is up. Whatever the settings, each DNS rule an A question for the name may match
 // before the first one it surely matches routes it to the FakeIP server, and so does that
 // one; the server answers from dataplane.FakeIPRange.
 func TestReadinessNameIsAnsweredFromFakeIP(t *testing.T) {

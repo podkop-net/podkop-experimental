@@ -9,11 +9,17 @@
 # that kept the settings, starts dnsmasq this way already.
 # Until sing-box answers, a few seconds after podkop starts, neither the LAN nor the router
 # resolves names: the clock check of the backend finds the NTP servers without dnsmasq, and
-# the guard gives dnsmasq back when the backend fails for good.
+# a backend that keeps ending gives dnsmasq back itself.
+# When podkop does not start at boot, a dnsmasq that a backend which ended without its stop
+# (power lost, a panic) left asking it is given back before it starts (podkop boot-dns
+# --give-back): nothing else would.
 # Nothing at other times: the backend sets dnsmasq up itself when it starts.
 START=18
 
 boot() {
-	/etc/init.d/podkop enabled || return 0
-	/usr/bin/podkop boot-dns 2>&1 | logger -t podkop
+	if /etc/init.d/podkop enabled; then
+		/usr/bin/podkop boot-dns 2>&1 | logger -t podkop
+	else
+		/usr/bin/podkop boot-dns --give-back 2>&1 | logger -t podkop
+	fi
 }

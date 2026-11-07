@@ -14,23 +14,51 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var commandBootDNSFlagGiveBack bool
+
 var commandBootDNS = &cobra.Command{
 	Use:   "boot-dns",
 	Short: "At boot, before dnsmasq starts: set it to ask the backend",
 	Long: "For /etc/init.d/podkop-early, which runs it at boot before dnsmasq starts when podkop\n" +
 		"starts at boot: dnsmasq is set to ask the backend as the backend sets it, so that it\n" +
 		"starts that way, unless dont_touch_dhcp is on or a backend runs. The backend then finds\n" +
-		"it set and does not start it again.",
+		"it set and does not start it again.\n\n" +
+		"With --give-back, when podkop does not start at boot: a dnsmasq that a backend which\n" +
+		"ended without its stop left asking it is given back before it starts.",
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		os.Exit(bootDNS(os.Stdout, "/etc/config/podkop", dnsmasq.Router{}, func() (io.Closer, error) {
-			return takeLock(false)
-		}))
+		lock := func() (io.Closer, error) { return takeLock(false) }
+		if commandBootDNSFlagGiveBack {
+			os.Exit(bootGiveBack(os.Stdout, dnsmasq.Router{}, lock))
+		}
+		os.Exit(bootDNS(os.Stdout, "/etc/config/podkop", dnsmasq.Router{}, lock))
 	},
 }
 
 func init() {
+	commandBootDNS.Flags().BoolVar(&commandBootDNSFlagGiveBack, "give-back", false, "Give dnsmasq back instead: podkop does not start at boot")
 	mainCommand.AddCommand(commandBootDNS)
+}
+
+// bootGiveBack gives dnsmasq back before it starts at boot (dnsmasq.GiveBackBeforeStart),
+// unless a backend runs (one started by hand before this ran). The firewall table and the
+// routing of a backend do not outlive a boot.
+func bootGiveBack(output io.Writer, system dnsmasq.System, lock func() (io.Closer, error)) int {
+	held, err := lock()
+	if err != nil {
+		io.WriteString(output, "[info] a backend runs: dnsmasq is left to it\n")
+		return 0
+	}
+	defer held.Close()
+	changed, err := dnsmasq.GiveBackBeforeStart(system)
+	if err != nil {
+		io.WriteString(output, "[error] give dnsmasq back before it starts: "+sharelink.OneLine(err.Error())+"\n")
+		return 1
+	}
+	if changed {
+		io.WriteString(output, "[info] dnsmasq asked a backend that ended without its stop: it starts with the router's servers, podkop does not start at boot\n")
+	}
+	return 0
 }
 
 // bootDNS sets dnsmasq to ask the backend before it starts at boot (see dnsmasq.Prepare). The

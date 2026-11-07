@@ -564,7 +564,7 @@ func TestFakeReadLoadedOnly(t *testing.T) {
 }
 
 // A start that fails says "failed" and is tried again at the next change of the network
-// (and when the guard of the package asks): it runs once what kept it down is gone.
+// (and by the clock, retryDue): it runs once what kept it down is gone.
 // Settings that cannot be used, and a stop, are not tried again.
 func TestFakeRetryFailedStart(t *testing.T) {
 	s, fake, system, settings := fakeFixture(t)

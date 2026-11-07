@@ -8,7 +8,7 @@
 # (not in /etc/init.d, where they would show as services); a script that could not be
 # replaced stays where it was. This runs before default_postinst enables and starts the
 # services of the package.
-for service in podkop podkop-guard; do
+for service in podkop; do
 	[ -f /etc/init.d/$service.apk-new ] || continue
 	mkdir -p /usr/share/podkop
 	old=/usr/share/podkop/$service.init.before-podkop-0.8 kept=""
@@ -30,6 +30,9 @@ done
 # cache file of sing-box moves to the same name in the backend's own directories, so the
 # FakeIP addresses handed out before stay theirs.
 uci -q delete podkop.settings.config_path
+# the switches of the guard of 0.8.0-0.8.11, which is gone
+uci -q delete podkop.settings.guard
+uci -q delete podkop.settings.liveness
 cache=$(uci -q get podkop.settings.cache_path)
 case "$cache" in
 /tmp/sing-box/*) new=/var/run/podkop/${cache#/tmp/sing-box/} ;;
