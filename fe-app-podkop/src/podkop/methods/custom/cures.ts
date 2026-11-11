@@ -12,6 +12,7 @@ let backendSetCure:
       kind: string,
       sni: string,
       hash: string,
+      through: string,
     ) => Promise<Podkop.CureReply | number>)
   | undefined;
 let backendClearCure:
@@ -40,15 +41,16 @@ export async function setCure(
   kind: Podkop.CureKind,
   sni = '',
   hash = '',
+  through = '',
 ): Promise<Podkop.CureReply | undefined> {
   backendSetCure ??= rpc.declare<Podkop.CureReply | number>({
     object: 'podkop',
     method: Podkop.CureMethods.SET_CURE,
-    params: ['tag', 'kind', 'sni', 'hash'],
+    params: ['tag', 'kind', 'sni', 'hash', 'through'],
     nobatch: true,
   });
   try {
-    const reply = await backendSetCure(tag, kind, sni, hash);
+    const reply = await backendSetCure(tag, kind, sni, hash, through);
     if (typeof reply === 'object' && reply !== null) return reply;
     logger.error('[DASHBOARD]', 'set_cure failed: status', reply);
   } catch (err) {

@@ -87,6 +87,46 @@ func TestExitCure(t *testing.T) {
 	require.Nil(t, tlsOf(t, result, "Own")["spoof"])
 }
 
+// TestExitCureDetour connects a server through the servers of another source when its detour cure
+// says so: its tag and identity stay; a detour back from the relay is left off (no loop), and so is
+// one through the server's own source.
+func TestExitCureDetour(t *testing.T) {
+	t.Parallel()
+	base := "\nconfig source 'own'\n\toption type 'links'\n\tlist link 'vless://u@own.example:443?security=reality#Own'\n" +
+		"\nconfig source 'relay'\n\toption type 'links'\n\tlist link 'vless://u@relay.example:443?security=reality#Relay'\n" +
+		ruleText("link", row("server", "own"))
+	result, err := buildRules(t, base, nil)
+	require.NoError(t, err)
+	own := result.Tags.Outbounds["Own"].StableHash
+	require.Len(t, own, 24)
+	before := outTag(result, "Own")
+	detour := func(hash, through string) string {
+		return "\nconfig cure\n\toption hash '" + hash + "'\n\toption kind 'detour'\n\toption through '" + through + "'\n"
+	}
+
+	result, err = buildRules(t, base+detour(own, "relay"), nil)
+	require.NoError(t, err)
+	_, outbounds := outboundsOf(t, result)
+	require.Equal(t, "Relay", outbounds["Own"].Detour, "the server goes through the relay source")
+	require.Empty(t, outbounds["Relay"].Detour)
+	require.Equal(t, before, outTag(result, "Own"), "its tag and identity stay")
+	require.Equal(t, own, result.Tags.Outbounds["Own"].StableHash)
+
+	// the relay treated to go back through own: left off inside the detour, no loop
+	relayHash := result.Tags.Outbounds["Relay"].StableHash
+	result, err = buildRules(t, base+detour(own, "relay")+detour(relayHash, "own"), nil)
+	require.NoError(t, err)
+	_, outbounds = outboundsOf(t, result)
+	require.Equal(t, "Relay", outbounds["Own"].Detour)
+	require.Empty(t, outbounds["Relay"].Detour, "no loop")
+
+	// through its own source: left off
+	result, err = buildRules(t, base+detour(own, "own"), nil)
+	require.NoError(t, err)
+	_, outbounds = outboundsOf(t, result)
+	require.Empty(t, outbounds["Own"].Detour)
+}
+
 // TestExitCureThroughDetourRejected fails the build when a spoof cure lands on a server
 // reached through a proxy: it needs the server's own socket, which a detour does not give.
 func TestExitCureThroughDetourRejected(t *testing.T) {

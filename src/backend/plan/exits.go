@@ -342,7 +342,11 @@ func (b *builder) addServer(section *model.Section, server sourceServer, via str
 		// the way of the tag, also over a detour of an outbound JSON (rowServers)
 		outbound.set("detour", via)
 	}
-	if cure != nil {
+	if cure != nil && cure.Kind == model.CureDetour {
+		if err := b.applyDetour(section, tag, server, outbound, cure); err != nil {
+			return "", err
+		}
+	} else if cure != nil {
 		if err := b.applyCure(tag, outbound, cure, through); err != nil {
 			return "", err
 		}
@@ -525,6 +529,31 @@ func (b *builder) applyCure(tag string, outbound *object, cure *model.Cure, thro
 	case model.CureRecordFragment:
 		tls.set("record_fragment", true)
 	}
+	return nil
+}
+
+// applyDetour connects a server through the servers of another source (a detour cure, for a server
+// whose path from here is cut and which answers through another one): the outbound of that source
+// as a row with "via" takes it, the server's tag and identity unchanged. The cure is keyed by the
+// direct use, so a detoured use never takes it. Applied inside another detour cure (the source it
+// goes through has a server with a detour cure of its own) it could close a loop, so it is left
+// off there with a warning; so is a detour through the server's own source (viaTag).
+func (b *builder) applyDetour(section *model.Section, tag string, server sourceServer, outbound *object, cure *model.Cure) error {
+	if b.detouring {
+		b.warnOnce("server ", tag, ": its treatment connects it through another source, but it is itself the way of a treated server: left off here, so no loop is made")
+		return nil
+	}
+	b.detouring = true
+	through, err := b.viaTag(section.Name, cure.Through, server.source)
+	b.detouring = false
+	if err != nil {
+		return err
+	}
+	if through == "" {
+		// viaTag told why
+		return nil
+	}
+	outbound.set("detour", through)
 	return nil
 }
 

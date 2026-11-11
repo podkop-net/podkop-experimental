@@ -355,6 +355,7 @@ func TestClassifyStages(t *testing.T) {
 		kb     int64
 		n      int
 		fp     string
+		via    string
 	}{
 		// the dictionary, row by row
 		{name: "none: a single and a burst in full", stages: stagesOf(KindFingerprint, func(s *Stages) { s.Single, s.Burst = &full, burst(8, 0, 0) }), block: BlockNone},
@@ -503,8 +504,8 @@ func TestClassifyStages(t *testing.T) {
 		}), block: BlockHelloDrop},
 		{name: "hellodrop without uTLS: no fingerprint to compare", stages: stagesOf(KindTLS, func(s *Stages) { s.Single, s.Relay = &zero, &RelayResult{} }), block: BlockHelloDrop},
 		{name: "pathblock: no TCP, proven through a relay", stages: stagesOf(KindFingerprint, func(s *Stages) {
-			s.TCP, s.Uplink, s.Relay = &noTCP, &yes, &RelayResult{Tested: 1, Proven: true}
-		}), block: BlockPathBlock},
+			s.TCP, s.Uplink, s.Relay = &noTCP, &yes, &RelayResult{Tested: 1, Proven: true, Via: "relay: px1"}
+		}), block: BlockPathBlock, via: "relay: px1"},
 		{name: "pathblock: a hello drop, proven through a relay", stages: stagesOf(KindFingerprint, func(s *Stages) {
 			s.Single, s.AlternateSingle, s.Relay = &zero, &zero, &RelayResult{Tested: 2, Proven: true}
 		}), block: BlockPathBlock},
@@ -719,6 +720,7 @@ func TestClassifyStages(t *testing.T) {
 			require.Equal(t, testCase.kb, verdict.KB)
 			require.Equal(t, testCase.n, verdict.N)
 			require.Equal(t, testCase.fp, verdict.Fingerprint)
+			require.Equal(t, testCase.via, verdict.Via)
 		})
 	}
 }

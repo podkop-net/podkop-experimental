@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-11 19:49+0000\n"
-"PO-Revision-Date: 2026-11-11 19:49+0000\n"
+"POT-Creation-Date: 2026-11-11 20:52+0000\n"
+"PO-Revision-Date: 2026-11-11 20:52+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/podkop/tabs/dashboard/initController.ts:617
+#: src/podkop/tabs/dashboard/initController.ts:634
 msgid "“%s” is not a host name, such as packagist.org."
 msgstr ""
 
@@ -98,19 +98,19 @@ msgstr ""
 msgid "~: too few checks yet"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:945
+#: src/podkop/tabs/dashboard/initController.ts:965
 msgid "✔ Enabled"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:934
+#: src/podkop/tabs/dashboard/initController.ts:954
 msgid "✔ Running"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:946
+#: src/podkop/tabs/dashboard/initController.ts:966
 msgid "✘ Disabled"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:935
+#: src/podkop/tabs/dashboard/initController.ts:955
 msgid "✘ Stopped"
 msgstr ""
 
@@ -146,7 +146,7 @@ msgstr ""
 msgid "A number is expected, as 0x10000"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:518
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:542
 msgid "A probe of this server ran recently; try again in %d s."
 msgstr ""
 
@@ -154,7 +154,7 @@ msgstr ""
 msgid "A row cannot connect through its own source"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:526
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:550
 msgid "A search for another server is running; try again when it ends."
 msgstr ""
 
@@ -182,7 +182,7 @@ msgstr ""
 msgid "A whole configuration of sing-box"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:895
+#: src/podkop/tabs/dashboard/initController.ts:915
 msgid "Active Connections"
 msgstr ""
 
@@ -247,8 +247,8 @@ msgstr ""
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:355
-#: src/podkop/tabs/dashboard/initController.ts:668
+#: src/podkop/tabs/dashboard/initController.ts:369
+#: src/podkop/tabs/dashboard/initController.ts:688
 msgid "Apply"
 msgstr ""
 
@@ -282,7 +282,7 @@ msgstr ""
 msgid "Automatically: as the provider advises, otherwise once a day"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:943
+#: src/podkop/tabs/dashboard/initController.ts:963
 msgid "Autostart"
 msgstr ""
 
@@ -348,7 +348,7 @@ msgstr ""
 msgid "Browser is using FakeIP correctly"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:474
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:493
 msgid "bypass: record fragment"
 msgstr ""
 
@@ -386,7 +386,7 @@ msgid "Check problem servers"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/initController.ts:274
-#: src/podkop/tabs/dashboard/initController.ts:684
+#: src/podkop/tabs/dashboard/initController.ts:704
 #: src/podkop/tabs/dashboard/partials/renderSections.ts:134
 msgid "Check server"
 msgstr ""
@@ -404,7 +404,7 @@ msgid "Checked just now"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:449
-#: src/podkop/tabs/dashboard/initController.ts:634
+#: src/podkop/tabs/dashboard/initController.ts:654
 msgid "Checking now…"
 msgstr ""
 
@@ -450,7 +450,7 @@ msgstr ""
 
 #: src/podkop/linkCheck.ts:195
 #: src/partials/modal/renderModal.ts:26
-#: src/podkop/tabs/dashboard/initController.ts:657
+#: src/podkop/tabs/dashboard/initController.ts:677
 msgid "Close"
 msgstr ""
 
@@ -460,6 +460,10 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:214
 msgid "Configuration for Podkop service"
+msgstr ""
+
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:469
+msgid "Connect through %s"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:300
@@ -472,6 +476,10 @@ msgstr ""
 
 #: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:50
 msgid "connections are refused"
+msgstr ""
+
+#: src/podkop/tabs/dashboard/initController.ts:320
+msgid "Connections to this server will go through %s, whose operator will see the address of this server."
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:707
@@ -628,8 +636,8 @@ msgstr ""
 msgid "Dont Touch My DHCP!"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:829
-#: src/podkop/tabs/dashboard/initController.ts:863
+#: src/podkop/tabs/dashboard/initController.ts:849
+#: src/podkop/tabs/dashboard/initController.ts:883
 msgid "Downlink"
 msgstr ""
 
@@ -694,7 +702,7 @@ msgstr ""
 msgid "Enabled"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:609
+#: src/podkop/tabs/dashboard/initController.ts:626
 msgid "Enter a whitelisted name, or press “Find a mask”."
 msgstr ""
 
@@ -786,10 +794,10 @@ msgstr ""
 msgid "Failed to copy!"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:342
-#: src/podkop/tabs/dashboard/initController.ts:367
-#: src/podkop/tabs/dashboard/initController.ts:402
+#: src/podkop/tabs/dashboard/initController.ts:349
+#: src/podkop/tabs/dashboard/initController.ts:382
 #: src/podkop/tabs/dashboard/initController.ts:417
+#: src/podkop/tabs/dashboard/initController.ts:432
 #: src/podkop/tabs/diagnostic/initController.ts:239
 #: src/podkop/tabs/diagnostic/initController.ts:243
 #: src/podkop/tabs/diagnostic/initController.ts:274
@@ -797,8 +805,8 @@ msgstr ""
 #: src/podkop/tabs/diagnostic/initController.ts:315
 #: src/podkop/tabs/diagnostic/initController.ts:319
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:372
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:502
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:532
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:526
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:558
 msgid "Failed to execute!"
 msgstr ""
 
@@ -833,7 +841,7 @@ msgstr ""
 msgid "Fastest: by the delay of the server check. Avoid loss: the delay is weighed by the loss that downloads of 256 KB through the servers count, and a faster server is checked with 1 MB before the switch. Balance: the devices are spread over the best servers by their address, a device keeps its server, servers with loss are left out. Loss checks download about 50 MB a day per rule at the interval of 30 minutes"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:579
+#: src/podkop/tabs/dashboard/initController.ts:596
 msgid "Find a mask"
 msgstr ""
 
@@ -849,7 +857,7 @@ msgstr ""
 msgid "Fingerprint %s does not pass or hangs with several connections at once, the fallback one passes. It looks like a DPI block by fingerprint. Turn on the uTLS fallback in the settings."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:399
+#: src/podkop/tabs/dashboard/initController.ts:414
 msgid "Found a mask: %s"
 msgstr ""
 
@@ -1004,7 +1012,7 @@ msgstr ""
 msgid "just now"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:454
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:473
 msgid "Keep the fingerprint, split the TLS record"
 msgstr ""
 
@@ -1102,11 +1110,11 @@ msgstr ""
 msgid "mark %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:452
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:471
 msgid "Mask as a whitelisted site"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:472
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:491
 msgid "mask: %s"
 msgstr ""
 
@@ -1114,7 +1122,7 @@ msgstr ""
 msgid "Matched"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:899
+#: src/podkop/tabs/dashboard/initController.ts:919
 msgid "Memory Usage"
 msgstr ""
 
@@ -1277,11 +1285,11 @@ msgstr ""
 msgid "no TLS"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:552
+#: src/podkop/tabs/dashboard/initController.ts:567
 msgid "No treatment"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:514
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:538
 msgid "No whitelisted name lifted the limit on this server. The network may limit by address too, where masking does not help."
 msgstr ""
 
@@ -1361,7 +1369,7 @@ msgstr ""
 msgid "One link per field"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:457
+#: src/podkop/tabs/dashboard/initController.ts:472
 msgid "One of these servers is in use. New connections through it may hang for a couple of minutes after its check starts."
 msgstr ""
 
@@ -1439,7 +1447,7 @@ msgstr ""
 msgid "Pending"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:932
+#: src/podkop/tabs/dashboard/initController.ts:952
 msgid "Podkop"
 msgstr ""
 
@@ -1448,8 +1456,8 @@ msgid "podkop is not running: start it to load the list"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:368
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:498
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:528
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:522
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:554
 msgid "Podkop is not running."
 msgstr ""
 
@@ -1495,7 +1503,7 @@ msgstr ""
 msgid "Recognized: %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:463
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:482
 msgid "recommended"
 msgstr ""
 
@@ -1511,11 +1519,11 @@ msgstr ""
 msgid "Regional options cannot be used together"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:432
+#: src/podkop/tabs/dashboard/initController.ts:447
 msgid "Remove them"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:507
+#: src/podkop/tabs/dashboard/initController.ts:522
 msgid "Remove treatment"
 msgstr ""
 
@@ -1588,11 +1596,11 @@ msgstr ""
 msgid "Save & Apply first: the router downloads the address it runs with"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:426
+#: src/podkop/tabs/dashboard/initController.ts:441
 msgid "Saved treatments for servers not in use now: %d. A server changed, was removed, or its subscription is not loaded yet."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:387
+#: src/podkop/tabs/dashboard/initController.ts:402
 msgid "Searching…"
 msgstr ""
 
@@ -1708,7 +1716,7 @@ msgstr ""
 msgid "Servers: %d, usable: %d"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:928
+#: src/podkop/tabs/dashboard/initController.ts:948
 msgid "Services info"
 msgstr ""
 
@@ -1746,7 +1754,7 @@ msgstr ""
 msgid "Show sing-box config"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:464
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:483
 msgid "simplest"
 msgstr ""
 
@@ -1830,7 +1838,7 @@ msgstr ""
 msgid "Supported"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:892
+#: src/podkop/tabs/dashboard/initController.ts:912
 msgid "System info"
 msgstr ""
 
@@ -2170,11 +2178,11 @@ msgstr ""
 msgid "The row connects through its own source"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:524
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:548
 msgid "The search is still running; its result did not come in time."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:522
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:546
 msgid "The search was stopped."
 msgstr ""
 
@@ -2275,8 +2283,12 @@ msgstr ""
 msgid "the transfer stopped at %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:494
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:517
 msgid "The treatment does not fit this server: a mask must be a host name other than the server’s own."
+msgstr ""
+
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:520
+msgid "The treatment does not fit this server."
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:498
@@ -2307,7 +2319,7 @@ msgstr ""
 msgid "These are not links of servers: %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:490
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:512
 msgid "This server has changed since the page was drawn; reopen it and try again."
 msgstr ""
 
@@ -2315,15 +2327,15 @@ msgstr ""
 msgid "This server is no longer in the running configuration."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:486
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:508
 msgid "This server is reached through another one; masking needs its own connection, which a relay does not give."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:320
+#: src/podkop/tabs/dashboard/initController.ts:324
 msgid "This server will be masked as a whitelisted site on the wire."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:322
+#: src/podkop/tabs/dashboard/initController.ts:326
 msgid "This server's TLS hello will be split into two records."
 msgstr ""
 
@@ -2335,11 +2347,15 @@ msgstr ""
 msgid "through %s"
 msgstr ""
 
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:495
+msgid "through: %s"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:201
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:826
+#: src/podkop/tabs/dashboard/initController.ts:846
 msgid "Traffic"
 msgstr ""
 
@@ -2347,7 +2363,7 @@ msgstr ""
 msgid "Traffic resets %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:856
+#: src/podkop/tabs/dashboard/initController.ts:876
 msgid "Traffic Total"
 msgstr ""
 
@@ -2363,21 +2379,21 @@ msgstr ""
 msgid "Traffic: %s, no limit"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:339
+#: src/podkop/tabs/dashboard/initController.ts:345
 msgid "Treatment applied."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:502
-#: src/podkop/tabs/dashboard/initController.ts:587
+#: src/podkop/tabs/dashboard/initController.ts:517
+#: src/podkop/tabs/dashboard/initController.ts:604
 #: src/podkop/tabs/dashboard/partials/renderSections.ts:156
 msgid "Treatment for this server"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:364
+#: src/podkop/tabs/dashboard/initController.ts:379
 msgid "Treatment removed."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:414
+#: src/podkop/tabs/dashboard/initController.ts:429
 msgid "Treatments removed."
 msgstr ""
 
@@ -2393,11 +2409,11 @@ msgstr ""
 msgid "TTL value cannot be empty"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:456
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:475
 msgid "Turn on the uTLS fallback (switch the fingerprint)"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:442
+#: src/podkop/tabs/dashboard/initController.ts:457
 msgid "Turn on the uTLS fallback in Settings; it switches the fingerprint for every server, not just this one."
 msgstr ""
 
@@ -2420,7 +2436,7 @@ msgstr ""
 msgid "UDP over TCP"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:462
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:481
 msgid "unavailable through a relay"
 msgstr ""
 
@@ -2456,8 +2472,8 @@ msgstr ""
 msgid "Update now"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:828
-#: src/podkop/tabs/dashboard/initController.ts:859
+#: src/podkop/tabs/dashboard/initController.ts:848
+#: src/podkop/tabs/dashboard/initController.ts:879
 msgid "Uplink"
 msgstr ""
 
@@ -2532,7 +2548,7 @@ msgstr ""
 msgid "Waiting for a link"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:636
+#: src/podkop/tabs/dashboard/initController.ts:656
 msgid "Waiting for its turn."
 msgstr ""
 
@@ -2576,7 +2592,7 @@ msgstr ""
 msgid "YACD Secret Key"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:500
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:524
 msgid "Your account may view this page but may not change a server."
 msgstr ""
 
@@ -2584,6 +2600,6 @@ msgstr ""
 msgid "Your account may view this page but may not start a check."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:530
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:556
 msgid "Your account may view this page but may not start a search."
 msgstr ""

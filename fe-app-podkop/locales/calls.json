@@ -3,7 +3,7 @@
     "call": "“%s” is not a host name, such as packagist.org.",
     "key": "“%s” is not a host name, such as packagist.org.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:617"
+      "src/podkop/tabs/dashboard/initController.ts:634"
     ]
   },
   {
@@ -142,28 +142,28 @@
     "call": "✔ Enabled",
     "key": "✔ Enabled",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:945"
+      "src/podkop/tabs/dashboard/initController.ts:965"
     ]
   },
   {
     "call": "✔ Running",
     "key": "✔ Running",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:934"
+      "src/podkop/tabs/dashboard/initController.ts:954"
     ]
   },
   {
     "call": "✘ Disabled",
     "key": "✘ Disabled",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:946"
+      "src/podkop/tabs/dashboard/initController.ts:966"
     ]
   },
   {
     "call": "✘ Stopped",
     "key": "✘ Stopped",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:935"
+      "src/podkop/tabs/dashboard/initController.ts:955"
     ]
   },
   {
@@ -226,7 +226,7 @@
     "call": "A probe of this server ran recently; try again in %d s.",
     "key": "A probe of this server ran recently; try again in %d s.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:518"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:542"
     ]
   },
   {
@@ -240,7 +240,7 @@
     "call": "A search for another server is running; try again when it ends.",
     "key": "A search for another server is running; try again when it ends.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:526"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:550"
     ]
   },
   {
@@ -289,7 +289,7 @@
     "call": "Active Connections",
     "key": "Active Connections",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:895"
+      "src/podkop/tabs/dashboard/initController.ts:915"
     ]
   },
   {
@@ -399,8 +399,8 @@
     "call": "Apply",
     "key": "Apply",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:355",
-      "src/podkop/tabs/dashboard/initController.ts:668"
+      "src/podkop/tabs/dashboard/initController.ts:369",
+      "src/podkop/tabs/dashboard/initController.ts:688"
     ]
   },
   {
@@ -458,7 +458,7 @@
     "call": "Autostart",
     "key": "Autostart",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:943"
+      "src/podkop/tabs/dashboard/initController.ts:963"
     ]
   },
   {
@@ -572,7 +572,7 @@
     "call": "bypass: record fragment",
     "key": "bypass: record fragment",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:474"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:493"
     ]
   },
   {
@@ -634,7 +634,7 @@
     "key": "Check server",
     "places": [
       "src/podkop/tabs/dashboard/initController.ts:274",
-      "src/podkop/tabs/dashboard/initController.ts:684",
+      "src/podkop/tabs/dashboard/initController.ts:704",
       "src/podkop/tabs/dashboard/partials/renderSections.ts:134"
     ]
   },
@@ -664,7 +664,7 @@
     "key": "Checking now…",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:449",
-      "src/podkop/tabs/dashboard/initController.ts:634"
+      "src/podkop/tabs/dashboard/initController.ts:654"
     ]
   },
   {
@@ -740,7 +740,7 @@
     "places": [
       "src/podkop/linkCheck.ts:195",
       "src/partials/modal/renderModal.ts:26",
-      "src/podkop/tabs/dashboard/initController.ts:657"
+      "src/podkop/tabs/dashboard/initController.ts:677"
     ]
   },
   {
@@ -755,6 +755,13 @@
     "key": "Configuration for Podkop service",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:214"
+    ]
+  },
+  {
+    "call": "Connect through %s",
+    "key": "Connect through %s",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:469"
     ]
   },
   {
@@ -776,6 +783,13 @@
     "key": "connections are refused",
     "places": [
       "src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:50"
+    ]
+  },
+  {
+    "call": "Connections to this server will go through %s, whose operator will see the address of this server.",
+    "key": "Connections to this server will go through %s, whose operator will see the address of this server.",
+    "places": [
+      "src/podkop/tabs/dashboard/initController.ts:320"
     ]
   },
   {
@@ -1044,8 +1058,8 @@
     "call": "Downlink",
     "key": "Downlink",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:829",
-      "src/podkop/tabs/dashboard/initController.ts:863"
+      "src/podkop/tabs/dashboard/initController.ts:849",
+      "src/podkop/tabs/dashboard/initController.ts:883"
     ]
   },
   {
@@ -1158,7 +1172,7 @@
     "call": "Enter a whitelisted name, or press “Find a mask”.",
     "key": "Enter a whitelisted name, or press “Find a mask”.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:609"
+      "src/podkop/tabs/dashboard/initController.ts:626"
     ]
   },
   {
@@ -1319,10 +1333,10 @@
     "call": "Failed to execute!",
     "key": "Failed to execute!",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:342",
-      "src/podkop/tabs/dashboard/initController.ts:367",
-      "src/podkop/tabs/dashboard/initController.ts:402",
+      "src/podkop/tabs/dashboard/initController.ts:349",
+      "src/podkop/tabs/dashboard/initController.ts:382",
       "src/podkop/tabs/dashboard/initController.ts:417",
+      "src/podkop/tabs/dashboard/initController.ts:432",
       "src/podkop/tabs/diagnostic/initController.ts:239",
       "src/podkop/tabs/diagnostic/initController.ts:243",
       "src/podkop/tabs/diagnostic/initController.ts:274",
@@ -1330,8 +1344,8 @@
       "src/podkop/tabs/diagnostic/initController.ts:315",
       "src/podkop/tabs/diagnostic/initController.ts:319",
       "src/podkop/tabs/dashboard/helpers/verdictText.ts:372",
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:502",
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:532"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:526",
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:558"
     ]
   },
   {
@@ -1387,7 +1401,7 @@
     "call": "Find a mask",
     "key": "Find a mask",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:579"
+      "src/podkop/tabs/dashboard/initController.ts:596"
     ]
   },
   {
@@ -1415,7 +1429,7 @@
     "call": "Found a mask: %s",
     "key": "Found a mask: %s",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:399"
+      "src/podkop/tabs/dashboard/initController.ts:414"
     ]
   },
   {
@@ -1678,7 +1692,7 @@
     "call": "Keep the fingerprint, split the TLS record",
     "key": "Keep the fingerprint, split the TLS record",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:454"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:473"
     ]
   },
   {
@@ -1848,14 +1862,14 @@
     "call": "Mask as a whitelisted site",
     "key": "Mask as a whitelisted site",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:452"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:471"
     ]
   },
   {
     "call": "mask: %s",
     "key": "mask: %s",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:472"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:491"
     ]
   },
   {
@@ -1869,7 +1883,7 @@
     "call": "Memory Usage",
     "key": "Memory Usage",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:899"
+      "src/podkop/tabs/dashboard/initController.ts:919"
     ]
   },
   {
@@ -2146,14 +2160,14 @@
     "call": "No treatment",
     "key": "No treatment",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:552"
+      "src/podkop/tabs/dashboard/initController.ts:567"
     ]
   },
   {
     "call": "No whitelisted name lifted the limit on this server. The network may limit by address too, where masking does not help.",
     "key": "No whitelisted name lifted the limit on this server. The network may limit by address too, where masking does not help.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:514"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:538"
     ]
   },
   {
@@ -2284,7 +2298,7 @@
     "call": "One of these servers is in use. New connections through it may hang for a couple of minutes after its check starts.",
     "key": "One of these servers is in use. New connections through it may hang for a couple of minutes after its check starts.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:457"
+      "src/podkop/tabs/dashboard/initController.ts:472"
     ]
   },
   {
@@ -2416,7 +2430,7 @@
     "call": "Podkop",
     "key": "Podkop",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:932"
+      "src/podkop/tabs/dashboard/initController.ts:952"
     ]
   },
   {
@@ -2431,8 +2445,8 @@
     "key": "Podkop is not running.",
     "places": [
       "src/podkop/tabs/dashboard/helpers/verdictText.ts:368",
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:498",
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:528"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:522",
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:554"
     ]
   },
   {
@@ -2511,7 +2525,7 @@
     "call": "recommended",
     "key": "recommended",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:463"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:482"
     ]
   },
   {
@@ -2539,14 +2553,14 @@
     "call": "Remove them",
     "key": "Remove them",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:432"
+      "src/podkop/tabs/dashboard/initController.ts:447"
     ]
   },
   {
     "call": "Remove treatment",
     "key": "Remove treatment",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:507"
+      "src/podkop/tabs/dashboard/initController.ts:522"
     ]
   },
   {
@@ -2673,14 +2687,14 @@
     "call": "Saved treatments for servers not in use now: %d. A server changed, was removed, or its subscription is not loaded yet.",
     "key": "Saved treatments for servers not in use now: %d. A server changed, was removed, or its subscription is not loaded yet.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:426"
+      "src/podkop/tabs/dashboard/initController.ts:441"
     ]
   },
   {
     "call": "Searching…",
     "key": "Searching…",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:387"
+      "src/podkop/tabs/dashboard/initController.ts:402"
     ]
   },
   {
@@ -2877,7 +2891,7 @@
     "call": "Services info",
     "key": "Services info",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:928"
+      "src/podkop/tabs/dashboard/initController.ts:948"
     ]
   },
   {
@@ -2942,7 +2956,7 @@
     "call": "simplest",
     "key": "simplest",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:464"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:483"
     ]
   },
   {
@@ -3086,7 +3100,7 @@
     "call": "System info",
     "key": "System info",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:892"
+      "src/podkop/tabs/dashboard/initController.ts:912"
     ]
   },
   {
@@ -3675,14 +3689,14 @@
     "call": "The search is still running; its result did not come in time.",
     "key": "The search is still running; its result did not come in time.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:524"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:548"
     ]
   },
   {
     "call": "The search was stopped.",
     "key": "The search was stopped.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:522"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:546"
     ]
   },
   {
@@ -3858,7 +3872,14 @@
     "call": "The treatment does not fit this server: a mask must be a host name other than the server’s own.",
     "key": "The treatment does not fit this server: a mask must be a host name other than the server’s own.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:494"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:517"
+    ]
+  },
+  {
+    "call": "The treatment does not fit this server.",
+    "key": "The treatment does not fit this server.",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:520"
     ]
   },
   {
@@ -3914,7 +3935,7 @@
     "call": "This server has changed since the page was drawn; reopen it and try again.",
     "key": "This server has changed since the page was drawn; reopen it and try again.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:490"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:512"
     ]
   },
   {
@@ -3928,21 +3949,21 @@
     "call": "This server is reached through another one; masking needs its own connection, which a relay does not give.",
     "key": "This server is reached through another one; masking needs its own connection, which a relay does not give.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:486"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:508"
     ]
   },
   {
     "call": "This server will be masked as a whitelisted site on the wire.",
     "key": "This server will be masked as a whitelisted site on the wire.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:320"
+      "src/podkop/tabs/dashboard/initController.ts:324"
     ]
   },
   {
     "call": "This server's TLS hello will be split into two records.",
     "key": "This server's TLS hello will be split into two records.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:322"
+      "src/podkop/tabs/dashboard/initController.ts:326"
     ]
   },
   {
@@ -3960,6 +3981,13 @@
     ]
   },
   {
+    "call": "through: %s",
+    "key": "through: %s",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:495"
+    ]
+  },
+  {
     "call": "Time in seconds for DNS record caching (default: 60)",
     "key": "Time in seconds for DNS record caching (default: 60)",
     "places": [
@@ -3970,7 +3998,7 @@
     "call": "Traffic",
     "key": "Traffic",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:826"
+      "src/podkop/tabs/dashboard/initController.ts:846"
     ]
   },
   {
@@ -3984,7 +4012,7 @@
     "call": "Traffic Total",
     "key": "Traffic Total",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:856"
+      "src/podkop/tabs/dashboard/initController.ts:876"
     ]
   },
   {
@@ -4012,15 +4040,15 @@
     "call": "Treatment applied.",
     "key": "Treatment applied.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:339"
+      "src/podkop/tabs/dashboard/initController.ts:345"
     ]
   },
   {
     "call": "Treatment for this server",
     "key": "Treatment for this server",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:502",
-      "src/podkop/tabs/dashboard/initController.ts:587",
+      "src/podkop/tabs/dashboard/initController.ts:517",
+      "src/podkop/tabs/dashboard/initController.ts:604",
       "src/podkop/tabs/dashboard/partials/renderSections.ts:156"
     ]
   },
@@ -4028,14 +4056,14 @@
     "call": "Treatment removed.",
     "key": "Treatment removed.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:364"
+      "src/podkop/tabs/dashboard/initController.ts:379"
     ]
   },
   {
     "call": "Treatments removed.",
     "key": "Treatments removed.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:414"
+      "src/podkop/tabs/dashboard/initController.ts:429"
     ]
   },
   {
@@ -4063,14 +4091,14 @@
     "call": "Turn on the uTLS fallback (switch the fingerprint)",
     "key": "Turn on the uTLS fallback (switch the fingerprint)",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:456"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:475"
     ]
   },
   {
     "call": "Turn on the uTLS fallback in Settings; it switches the fingerprint for every server, not just this one.",
     "key": "Turn on the uTLS fallback in Settings; it switches the fingerprint for every server, not just this one.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:442"
+      "src/podkop/tabs/dashboard/initController.ts:457"
     ]
   },
   {
@@ -4108,7 +4136,7 @@
     "call": "unavailable through a relay",
     "key": "unavailable through a relay",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:462"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:481"
     ]
   },
   {
@@ -4165,8 +4193,8 @@
     "call": "Uplink",
     "key": "Uplink",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:828",
-      "src/podkop/tabs/dashboard/initController.ts:859"
+      "src/podkop/tabs/dashboard/initController.ts:848",
+      "src/podkop/tabs/dashboard/initController.ts:879"
     ]
   },
   {
@@ -4289,7 +4317,7 @@
     "call": "Waiting for its turn.",
     "key": "Waiting for its turn.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:636"
+      "src/podkop/tabs/dashboard/initController.ts:656"
     ]
   },
   {
@@ -4366,7 +4394,7 @@
     "call": "Your account may view this page but may not change a server.",
     "key": "Your account may view this page but may not change a server.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:500"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:524"
     ]
   },
   {
@@ -4380,7 +4408,7 @@
     "call": "Your account may view this page but may not start a search.",
     "key": "Your account may view this page but may not start a search.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:530"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:556"
     ]
   }
 ]

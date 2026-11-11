@@ -75,11 +75,14 @@ type suggestScan struct {
 
 // SetCure stores a treatment for the server a tag names and applies it. It refuses with a state
 // when the tag is not a live server (unknown), the kind or sni is wrong (invalid: a mask must be a
-// host name other than the server's own), or a mask is asked of a server reached through a proxy
-// (via_detour: it needs the server's own socket; an interface gives one). wantHash, when the page
-// sends it, must still name the same server (unknown on a mismatch — the config changed under the
-// page).
-func (s *Supervisor) SetCure(ctx context.Context, tag, kind, sni, wantHash string) CureResult {
+// host name other than the server's own; a detour goes through a live server of another source,
+// which itself connects directly), or a mask or a detour is asked of a server reached through a
+// proxy (via_detour: a mask needs the server's own socket, an interface gives one; a detoured
+// server already goes another way). through is the tag of the server a detour connects through
+// (the one a pathblock answered through); the source of that server is stored. wantHash, when the
+// page sends it, must still name the same server (unknown on a mismatch — the config changed under
+// the page).
+func (s *Supervisor) SetCure(ctx context.Context, tag, kind, sni, wantHash, through string) CureResult {
 	snapshot := s.detectSnapshot()
 	if snapshot.instance == nil {
 		return CureResult{State: CureNotRunning}
@@ -95,7 +98,20 @@ func (s *Supervisor) SetCure(ctx context.Context, tag, kind, sni, wantHash strin
 		return CureResult{State: CureInvalid}
 	}
 	sni = strings.ToLower(strings.TrimSpace(sni))
-	if kind == model.CureSpoof {
+	cure := model.Cure{Hash: identity.Hash, Via: identity.Via, Kind: kind, SNI: sni}
+	if kind != model.CureDetour && through != "" {
+		return CureResult{State: CureInvalid}
+	}
+	if kind == model.CureDetour {
+		way, found := snapshot.stable[through]
+		switch {
+		case sni != "" || !found || way.Source == "" || way.Source == identity.Source || way.Via != "":
+			return CureResult{State: CureInvalid}
+		case identity.Via != "":
+			return CureResult{State: CureViaDetour}
+		}
+		cure.Through = way.Source
+	} else if kind == model.CureSpoof {
 		if !model.ValidMaskName(sni) {
 			return CureResult{State: CureInvalid}
 		}
@@ -109,7 +125,7 @@ func (s *Supervisor) SetCure(ctx context.Context, tag, kind, sni, wantHash strin
 	} else if sni != "" {
 		return CureResult{State: CureInvalid}
 	}
-	if err := s.writeCure(model.Cure{Hash: identity.Hash, Via: identity.Via, Kind: kind, SNI: sni}); err != nil {
+	if err := s.writeCure(cure); err != nil {
 		s.log("warn", "set the treatment of ", tag, ": ", err)
 		return CureResult{State: CureInvalid}
 	}
@@ -157,7 +173,9 @@ func (s *Supervisor) DropStaleCures(ctx context.Context) CureResult {
 	removed, err := s.editCures(func(sections []*uci.Section) []*uci.Section {
 		kept := make([]*uci.Section, 0, len(sections))
 		for _, section := range sections {
-			if section.Type == "cure" && (!live[cureKey{section.Get("hash"), section.Get("via")}] || !model.ValidCureKind(section.Get("kind"))) {
+			kind := section.Get("kind")
+			if section.Type == "cure" && (!live[cureKey{section.Get("hash"), section.Get("via")}] || !model.ValidCureKind(kind) ||
+				(kind == model.CureDetour && section.Get("through") == "")) {
 				continue
 			}
 			kept = append(kept, section)
@@ -301,8 +319,11 @@ func (s *Supervisor) writeCure(cure model.Cure) error {
 			section.Set("via", cure.Via)
 		}
 		section.Set("kind", cure.Kind)
-		if cure.Kind == model.CureSpoof {
+		switch cure.Kind {
+		case model.CureSpoof:
 			section.Set("sni", cure.SNI)
+		case model.CureDetour:
+			section.Set("through", cure.Through)
 		}
 		return append(kept, section)
 	})

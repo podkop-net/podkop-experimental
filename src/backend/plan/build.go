@@ -429,6 +429,9 @@ type builder struct {
 	config  *model.Config
 	facts   Facts
 	options Options
+	// detouring: a detour cure is being applied (exits.go applyDetour), so a server it reaches
+	// does not take one of its own, which could close a loop
+	detouring bool
 
 	inbounds   []any
 	outbounds  []any

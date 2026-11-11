@@ -198,7 +198,7 @@ func relay(ctx context.Context, prober Prober, server Server, fingerprint string
 		attempt := fetchWithin(ctx, prober, server, request, singleTimeout)
 		// a verification that failed is an answer of the server as well
 		if attempt.Bytes > 0 || (attempt.Handshake && request.URL == "") || attempt.Class == ClassVerify || attempt.Class == ClassClock {
-			result.Proven = true
+			result.Proven, result.Via = true, candidate.Tag
 			return result
 		}
 		// only what reached out and got no answer says that A is silent: a copy that could not be

@@ -150,6 +150,8 @@ export namespace Podkop {
     fp?: string;
     kb?: number;
     n?: number;
+    // pathblock: the tag of the working server the server answered through
+    via?: string;
   }
 
   // a verdict as the method detect answers it
@@ -160,14 +162,17 @@ export namespace Podkop {
   }
 
   // the treatment set on a server (detect.Cure / model.Cure). spoof = tls.spoof for the limit;
-  // record_fragment is the freeze cure that keeps the fingerprint. spoof needs the server's own
+  // record_fragment is the freeze cure that keeps the fingerprint; detour connects a server whose
+  // path from here is cut through the source of a working server. spoof needs the server's own
   // socket, so the backend refuses it through a proxy (an interface gives one).
-  export type CureKind = 'spoof' | 'record_fragment';
+  export type CureKind = 'spoof' | 'record_fragment' | 'detour';
 
   export interface Cure {
     kind: CureKind;
     // only for spoof: the whitelisted name put on the wire
     sni?: string;
+    // only for detour: the source the server connects through
+    through?: string;
   }
 
   // a server's stable identity, the path it is reached through, and its stored cure, as the detect
@@ -179,6 +184,8 @@ export namespace Podkop {
     via: string;
     // the source of via is an interface: the server has its own socket, a mask works
     via_interface?: boolean;
+    // the source the server comes from
+    source?: string;
     cure?: Cure;
   }
 

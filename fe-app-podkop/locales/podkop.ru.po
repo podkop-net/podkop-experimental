@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-11 19:49+0000\n"
-"PO-Revision-Date: 2026-11-11 19:49+0000\n"
+"POT-Creation-Date: 2026-11-11 20:52+0000\n"
+"PO-Revision-Date: 2026-11-11 20:52+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -329,6 +329,9 @@ msgstr "Списки сообщества"
 msgid "Configuration for Podkop service"
 msgstr "Настройки сервиса Podkop"
 
+msgid "Connect through %s"
+msgstr "Подключаться через %s"
+
 msgid "connecting…"
 msgstr "соединение…"
 
@@ -337,6 +340,9 @@ msgstr "Соединения обрываются около %d КБ — это 
 
 msgid "connections are refused"
 msgstr "соединения отклоняются"
+
+msgid "Connections to this server will go through %s, whose operator will see the address of this server."
+msgstr "Подключения к этому серверу пойдут через %s, и его владелец увидит адрес этого сервера."
 
 msgid "Copied"
 msgstr "Скопировано"
@@ -1616,6 +1622,9 @@ msgstr "передача остановилась на %s"
 msgid "The treatment does not fit this server: a mask must be a host name other than the server’s own."
 msgstr "Обход не подходит этому серверу: маска должна быть именем хоста, отличным от имени самого сервера."
 
+msgid "The treatment does not fit this server."
+msgstr "Обход не подходит этому серверу."
+
 msgid "The URL must serve at least 64 KiB or announce a shorter length"
 msgstr "Ссылка должна отдавать не меньше 64 КиБ или сообщать меньшую длину"
 
@@ -1657,6 +1666,9 @@ msgstr "Через"
 
 msgid "through %s"
 msgstr "через %s"
+
+msgid "through: %s"
+msgstr "через: %s"
 
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"

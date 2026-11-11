@@ -39,7 +39,7 @@ type trafficSource interface {
 	// SetCure stores a treatment for a server and applies it; ClearCure removes it;
 	// DropStaleCures removes the treatments of servers no longer in use; SuggestMask probes for a
 	// whitelisted SNI that lifts a limit. Each answers with a state.
-	SetCure(ctx context.Context, tag, kind, sni, hash string) supervisor.CureResult
+	SetCure(ctx context.Context, tag, kind, sni, hash, through string) supervisor.CureResult
 	ClearCure(ctx context.Context, tag string) supervisor.CureResult
 	DropStaleCures(ctx context.Context) supervisor.CureResult
 	SuggestMask(ctx context.Context, tag string) supervisor.SuggestResult
@@ -84,7 +84,7 @@ func busObject(env ctl.Environment, source trafficSource) ubus.Object {
 		},
 	}
 	object.Methods["set_cure"] = ubus.Method{
-		Arguments: map[string]int{"tag": ubus.TypeString, "kind": ubus.TypeString, "sni": ubus.TypeString, "hash": ubus.TypeString},
+		Arguments: map[string]int{"tag": ubus.TypeString, "kind": ubus.TypeString, "sni": ubus.TypeString, "hash": ubus.TypeString, "through": ubus.TypeString},
 		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
 			tag, _ := arguments["tag"].(string)
 			if tag == "" {
@@ -93,7 +93,8 @@ func busObject(env ctl.Environment, source trafficSource) ubus.Object {
 			kind, _ := arguments["kind"].(string)
 			sni, _ := arguments["sni"].(string)
 			hash, _ := arguments["hash"].(string)
-			return source.SetCure(ctx, tag, kind, sni, hash), ubus.StatusOK
+			through, _ := arguments["through"].(string)
+			return source.SetCure(ctx, tag, kind, sni, hash, through), ubus.StatusOK
 		},
 	}
 	object.Methods["clear_cure"] = ubus.Method{

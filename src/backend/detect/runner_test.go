@@ -411,6 +411,7 @@ func TestRunRelay(t *testing.T) {
 		verdict := runAll(prober, testA, true, relayOne, relayTwo)
 		require.Equal(t, BlockPathBlock, verdict.Block)
 		require.Equal(t, []string{relayOne.Tag}, prober.controls, "the first that proves it is enough")
+		require.Equal(t, relayOne.Tag, verdict.Via, "the verdict names the server it answered through")
 		require.Equal(t, 1, prober.count("chrome", relayOne.Tag, ""))
 		require.Equal(t, 1, prober.uplinks)
 	})

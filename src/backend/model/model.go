@@ -412,8 +412,15 @@ func Load(parsed *uci.Package) (*Config, error) {
 			continue
 		}
 		cure := Cure{Hash: hash, Via: section.Get("via"), Kind: kind}
-		if kind == CureSpoof {
+		switch kind {
+		case CureSpoof:
 			cure.SNI = section.Get("sni")
+		case CureDetour:
+			cure.Through = section.Get("through")
+			if cure.Through == "" {
+				config.UnreadCures++
+				continue
+			}
 		}
 		config.Cures = append(config.Cures, cure)
 	}

@@ -9,7 +9,7 @@ import {
   problemServers,
   tileChip,
 } from '../helpers/detectWidget';
-import { cureBadge } from '../helpers/verdictText';
+import { cureBadge, throughName } from '../helpers/verdictText';
 
 // what the detector adds to the tiles of a section
 export interface ISectionChecks {
@@ -161,7 +161,12 @@ export function renderDefaultState({
                 }
               : {}),
           },
-          [cureBadge(outbound.cure)],
+          [
+            cureBadge(
+              outbound.cure,
+              throughName(outbound.cure.through, checks?.detect.servers ?? {}),
+            ),
+          ],
         ),
       ];
     }

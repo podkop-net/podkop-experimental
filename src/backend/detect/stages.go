@@ -42,6 +42,8 @@ type RelayResult struct {
 	Tested int
 	// Proven: through one of them the server answered.
 	Proven bool
+	// Via is the tag of the server it answered through (with Proven).
+	Via string
 }
 
 // Stages are the stages of a probe of a server as far as they went; a stage not run yet is nil.
@@ -352,7 +354,9 @@ func (s *Stages) noWay(base Block, why string) (Verdict, Step) {
 	}
 	switch {
 	case s.Relay.Proven:
-		return finished(BlockPathBlock, "no way from here, through another server it answers"), StepDone
+		verdict := finished(BlockPathBlock, "no way from here, through another server it answers")
+		verdict.Via = s.Relay.Via
+		return verdict, StepDone
 	case s.Relay.Tested >= deadRelays && base == BlockUnreachable:
 		verdict := finished(BlockDead, "no answer from here, nor through "+workingServers(s.Relay.Tested))
 		verdict.N = s.Relay.Tested

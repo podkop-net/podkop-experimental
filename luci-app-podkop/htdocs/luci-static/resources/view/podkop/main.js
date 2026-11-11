@@ -1470,15 +1470,15 @@ function errorText2(err) {
 function denied(err) {
   return /failed with error -32002\b/.test(errorText2(err));
 }
-async function setCure(tag, kind, sni = "", hash = "") {
+async function setCure(tag, kind, sni = "", hash = "", through = "") {
   backendSetCure ?? (backendSetCure = rpc.declare({
     object: "podkop",
     method: Podkop.CureMethods.SET_CURE,
-    params: ["tag", "kind", "sni", "hash"],
+    params: ["tag", "kind", "sni", "hash", "through"],
     nobatch: true
   }));
   try {
-    const reply = await backendSetCure(tag, kind, sni, hash);
+    const reply = await backendSetCure(tag, kind, sni, hash, through);
     if (typeof reply === "object" && reply !== null) return reply;
     logger.error("[DASHBOARD]", "set_cure failed: status", reply);
   } catch (err) {
@@ -2507,10 +2507,25 @@ function cureChoice(verdict, via, viaInterface = false) {
     }
     return { show: true, options, default: "record_fragment", mask: false };
   }
+  if (verdict.block === "pathblock") {
+    if (!verdict.via) return none;
+    return via === "" ? {
+      show: true,
+      options: [{ kind: "detour", enabled: true, recommended: true }],
+      default: "detour",
+      mask: false
+    } : {
+      show: true,
+      options: [{ kind: "detour", enabled: false }],
+      mask: false
+    };
+  }
   return none;
 }
-function cureLabel(kind) {
+function cureLabel(kind, through = "") {
   switch (kind) {
+    case "detour":
+      return _("Connect through %s").format(through);
     case "spoof":
       return _("Mask as a whitelisted site");
     case "record_fragment":
@@ -2525,15 +2540,21 @@ function cureHint(opt) {
   if (opt.kind === "fallback") return _("simplest");
   return void 0;
 }
-function cureBadge(cure) {
+function throughName(through, servers) {
+  const found = Object.entries(servers).filter(([, server]) => server.source === through && !server.via).map(([tag]) => tag).sort();
+  return found[0] ?? through ?? "";
+}
+function cureBadge(cure, name) {
   switch (cure.kind) {
     case "spoof":
       return _("mask: %s").format(cure.sni ?? "");
     case "record_fragment":
       return _("bypass: record fragment");
+    case "detour":
+      return _("through: %s").format(name ?? cure.through ?? "");
   }
 }
-function setCureProblem(reply) {
+function setCureProblem(reply, kind) {
   switch (reply?.state) {
     case "ok":
       return void 0;
@@ -2546,9 +2567,9 @@ function setCureProblem(reply) {
         "This server has changed since the page was drawn; reopen it and try again."
       );
     case "invalid":
-      return _(
+      return kind === "spoof" ? _(
         "The treatment does not fit this server: a mask must be a host name other than the server\u2019s own."
-      );
+      ) : _("The treatment does not fit this server.");
     case "not_running":
       return _("Podkop is not running.");
     case "denied":
@@ -2809,7 +2830,12 @@ function renderDefaultState({
               }
             } : {}
           },
-          [cureBadge(outbound.cure)]
+          [
+            cureBadge(
+              outbound.cure,
+              throughName(outbound.cure.through, checks?.detect.servers ?? {})
+            )
+          ]
         )
       ];
     }
@@ -3526,35 +3552,48 @@ function handleCheckServer(outbound) {
     () => sendChecks([outbound.code])
   );
 }
-function cureWarning(kind) {
+function cureWarning(kind, through = "") {
   switch (kind) {
+    case "detour":
+      return _(
+        "Connections to this server will go through %s, whose operator will see the address of this server."
+      ).format(through);
     case "spoof":
       return _("This server will be masked as a whitelisted site on the wire.");
     case "record_fragment":
       return _("This server's TLS hello will be split into two records.");
   }
 }
-async function doApplyCure(outbound, kind, sni) {
+async function doApplyCure(outbound, kind, sni, through) {
   const reply = await CustomPodkopMethods.setCure(
     outbound.code,
     kind,
     sni,
-    outbound.hash ?? ""
+    outbound.hash ?? "",
+    through
   );
   if (!mounted) return;
   if (reply?.state === "ok") {
     showToast(_("Treatment applied."), "success");
     fetchDetect();
   } else {
-    showToast(setCureProblem(reply) ?? _("Failed to execute!"), "error", 5e3);
+    showToast(
+      setCureProblem(reply, kind) ?? _("Failed to execute!"),
+      "error",
+      5e3
+    );
   }
 }
-function handleApplyCure(outbound, kind, sni) {
+function handleApplyCure(outbound, kind, sni, through = "") {
   ui.hideModal();
-  askToCheck(cureWarning(kind), () => doApplyCure(outbound, kind, sni), {
-    note: null,
-    confirm: _("Apply")
-  });
+  askToCheck(
+    cureWarning(kind, through),
+    () => doApplyCure(outbound, kind, sni, through),
+    {
+      note: null,
+      confirm: _("Apply")
+    }
+  );
 }
 async function handleClearCure(outbound) {
   ui.hideModal();
@@ -3667,7 +3706,12 @@ function renderTreatment(outbound, verdict) {
       body: [
         E("fieldset", { class: "pdk-cure" }, [
           E("b", {}, [_("Treatment for this server")]),
-          E("p", {}, [cureBadge(info.cure)]),
+          E("p", {}, [
+            cureBadge(
+              info.cure,
+              throughName(info.cure.through, store.get().detectWidget.servers)
+            )
+          ]),
           E(
             "button",
             { class: "cbi-button", click: () => handleClearCure(outbound) },
@@ -3707,7 +3751,9 @@ function renderTreatment(outbound, verdict) {
   };
   const rows = [
     option("none", _("No treatment"), true),
-    ...choice.options.map((o) => option(o.kind, cureLabel(o.kind), o.enabled))
+    ...choice.options.map(
+      (o) => option(o.kind, cureLabel(o.kind, verdict?.via), o.enabled)
+    )
   ];
   if (choice.mask) {
     const sniInput = E("input", {
@@ -3767,6 +3813,9 @@ function renderTreatment(outbound, verdict) {
         5e3
       );
       return;
+    }
+    if (picked === "detour") {
+      return handleApplyCure(outbound, picked, "", verdict?.via ?? "");
     }
     return handleApplyCure(outbound, picked, picked === "spoof" ? sni : "");
   };

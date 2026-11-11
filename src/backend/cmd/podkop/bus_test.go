@@ -46,7 +46,7 @@ func (f fixedTraffic) ForceDetect(tag string, cancel bool) detect.ForceAnswer {
 	return detect.ForceAnswer{State: detect.ForceThrottled, RetryAfter: 170}
 }
 
-func (f fixedTraffic) SetCure(context.Context, string, string, string, string) supervisor.CureResult {
+func (f fixedTraffic) SetCure(context.Context, string, string, string, string, string) supervisor.CureResult {
 	return supervisor.CureResult{State: supervisor.CureOK}
 }
 

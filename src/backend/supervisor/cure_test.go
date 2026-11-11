@@ -111,7 +111,7 @@ func TestSetCureRefusals(t *testing.T) {
 
 	// nothing runs
 	down := &Supervisor{}
-	require.Equal(t, CureNotRunning, down.SetCure(ctx, "srv", "spoof", "x", "").State)
+	require.Equal(t, CureNotRunning, down.SetCure(ctx, "srv", "spoof", "x", "", "").State)
 
 	s := &Supervisor{}
 	s.live = &fakeInstance{}
@@ -120,15 +120,15 @@ func TestSetCureRefusals(t *testing.T) {
 		"srvVia": {Hash: "h2", Via: "relay"},
 	}
 
-	require.Equal(t, CureUnknown, s.SetCure(ctx, "nope", "spoof", "x", "").State, "a tag that is no live server")
-	require.Equal(t, CureUnknown, s.SetCure(ctx, "srv", "spoof", "x", "other").State, "the server changed under the page")
-	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "bogus", "", "").State, "an unknown kind")
-	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "spoof", "", "").State, "spoof without an sni")
-	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "record_fragment", "x", "").State, "a non-spoof with an sni")
-	require.Equal(t, CureViaDetour, s.SetCure(ctx, "srvVia", "spoof", "packagist.org", "").State, "a mask through a detour")
-	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "oob", "", "").State, "oob is not a kind of this build")
-	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "spoof", "not a name", "").State, "a mask that is no host name")
-	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "spoof", "192.0.2.1", "").State, "a mask that is an address")
+	require.Equal(t, CureUnknown, s.SetCure(ctx, "nope", "spoof", "x", "", "").State, "a tag that is no live server")
+	require.Equal(t, CureUnknown, s.SetCure(ctx, "srv", "spoof", "x", "other", "").State, "the server changed under the page")
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "bogus", "", "", "").State, "an unknown kind")
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "spoof", "", "", "").State, "spoof without an sni")
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "record_fragment", "x", "", "").State, "a non-spoof with an sni")
+	require.Equal(t, CureViaDetour, s.SetCure(ctx, "srvVia", "spoof", "packagist.org", "", "").State, "a mask through a detour")
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "oob", "", "", "").State, "oob is not a kind of this build")
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "spoof", "not a name", "", "").State, "a mask that is no host name")
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "spoof", "192.0.2.1", "", "").State, "a mask that is an address")
 
 	require.Equal(t, CureNotRunning, down.ClearCure(ctx, "srv").State)
 	require.Equal(t, CureUnknown, s.ClearCure(ctx, "nope").State)
@@ -156,11 +156,32 @@ func liveSupervisor(t *testing.T, instance *fakeInstance) (*Supervisor, string) 
 		{Tag: "srvIf", Kind: detect.KindTLS, Destination: "b.example:443"},
 	}
 	s.liveStable = map[string]detect.Identity{
-		"srv":    {Hash: "h1"},
-		"srvVia": {Hash: "h2", Via: "relay"},
-		"srvIf":  {Hash: "h3", Via: "wan2", ViaInterface: true},
+		"srv":    {Hash: "h1", Source: "own"},
+		"srvVia": {Hash: "h2", Via: "relay", Source: "own2"},
+		"srvIf":  {Hash: "h3", Via: "wan2", ViaInterface: true, Source: "own3"},
+		"px1":    {Hash: "h4", Source: "relay"},
+		"own2":   {Hash: "h5", Source: "own"},
 	}
 	return s, path
+}
+
+// A detour goes through the source of a live server of another source that connects directly;
+// the source is stored, not the tag.
+func TestSetCureDetour(t *testing.T) {
+	s, path := liveSupervisor(t, &fakeInstance{})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "detour", "", "", "").State, "no way named")
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "detour", "", "", "nope").State, "no such server")
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "detour", "", "", "own2").State, "a server of its own source")
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "detour", "", "", "srvVia").State, "a way that is detoured itself")
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "record_fragment", "", "", "px1").State, "a way is only for a detour")
+	require.Equal(t, CureViaDetour, s.SetCure(ctx, "srvVia", "detour", "", "", "px1").State, "a server that goes another way already")
+	require.Equal(t, CureOK, s.SetCure(ctx, "srv", "detour", "", "", "px1").State)
+	stored := cureByHash(parseFile(t, path), "h1", "")
+	require.NotNil(t, stored)
+	require.Equal(t, "detour", stored.Get("kind"))
+	require.Equal(t, "relay", stored.Get("through"), "the source of px1")
 }
 
 // A mask is refused when it is the server's own name, and allowed through an interface, which
@@ -169,8 +190,8 @@ func TestSetCureMaskRules(t *testing.T) {
 	s, path := liveSupervisor(t, &fakeInstance{})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // the rebuild a stored cure asks for is not waited for here
-	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "spoof", "Cover.Example", "").State, "the server's own name")
-	require.Equal(t, CureOK, s.SetCure(ctx, "srvIf", "spoof", " Packagist.org ", "").State, "through an interface")
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "spoof", "Cover.Example", "", "").State, "the server's own name")
+	require.Equal(t, CureOK, s.SetCure(ctx, "srvIf", "spoof", " Packagist.org ", "", "").State, "through an interface")
 	stored := cureByHash(parseFile(t, path), "h3", "wan2")
 	require.NotNil(t, stored)
 	require.Equal(t, "packagist.org", stored.Get("sni"), "the name is stored trimmed and in lower case")

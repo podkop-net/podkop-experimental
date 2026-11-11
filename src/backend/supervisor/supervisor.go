@@ -498,13 +498,13 @@ func (s *Supervisor) done(ok bool, replaced bool, message ...any) Result {
 		for index := range servers {
 			tagOf := s.current.result.Tags.Outbounds[servers[index].Tag]
 			servers[index].StableHash = tagOf.StableHash
-			identity := detect.Identity{Hash: tagOf.StableHash, Via: tagOf.Via}
+			identity := detect.Identity{Hash: tagOf.StableHash, Via: tagOf.Via, Source: tagOf.Source}
 			if source := s.current.settings.Source(tagOf.Via); source != nil && source.Type == "interface" {
 				// an interface gives the server its own socket: a mask works through it
 				identity.ViaInterface = true
 			}
 			if cure := s.current.settings.Cure(tagOf.StableHash, tagOf.Via); cure != nil {
-				identity.Cure = &detect.Cure{Kind: cure.Kind, SNI: cure.SNI}
+				identity.Cure = &detect.Cure{Kind: cure.Kind, SNI: cure.SNI, Through: cure.Through}
 			}
 			stable[servers[index].Tag] = identity
 		}

@@ -104,6 +104,9 @@ type Verdict struct {
 	// N is how many working servers were asked in vain (dead, relay_silent): 1 for an unreachable
 	// port, more makes it dead.
 	N int `json:"n,omitempty"`
+	// Via is the tag of the working server a pathblock answered through: the page offers to
+	// connect through its source.
+	Via string `json:"via,omitempty"`
 	// Age is how many seconds ago an active verdict was reached.
 	Age int64 `json:"age,omitempty"`
 	// Why is the reason in English, for the log and the command line: no secrets, counts and
@@ -141,6 +144,8 @@ const (
 type Cure struct {
 	Kind string `json:"kind"`
 	SNI  string `json:"sni,omitempty"`
+	// Through is the source a detour cure connects the server through.
+	Through string `json:"through,omitempty"`
 }
 
 // Identity is what the detect report tells the page about a live server besides its verdict: its
@@ -150,6 +155,8 @@ type Cure struct {
 type Identity struct {
 	Hash string `json:"hash"`
 	Via  string `json:"via,omitempty"`
+	// Source is the source the server comes from (a detour cure goes through another one).
+	Source string `json:"source,omitempty"`
 	// ViaInterface: the source of Via is an interface, which gives the server its own socket
 	// (a mask works through it, unlike through a proxy)
 	ViaInterface bool  `json:"via_interface,omitempty"`

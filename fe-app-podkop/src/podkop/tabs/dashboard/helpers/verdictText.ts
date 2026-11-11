@@ -441,13 +441,32 @@ export function cureChoice(
     }
     return { show: true, options, default: 'record_fragment', mask: false };
   }
-  // every other block (none/unreachable/hellodrop/pathblock/dead/rejected/wrongparams/unknown)
+  if (verdict.block === 'pathblock') {
+    // the server answered through a working one: connect through its source. A server that goes
+    // another way already (a row with "via") cannot take it.
+    if (!verdict.via) return none;
+    return via === ''
+      ? {
+          show: true,
+          options: [{ kind: 'detour', enabled: true, recommended: true }],
+          default: 'detour',
+          mask: false,
+        }
+      : {
+          show: true,
+          options: [{ kind: 'detour', enabled: false }],
+          mask: false,
+        };
+  }
+  // every other block (none/unreachable/hellodrop/dead/rejected/wrongparams/unknown)
   return none;
 }
 
 // cureLabel is the label of a treatment option in the window
-export function cureLabel(kind: CureOptionKind): string {
+export function cureLabel(kind: CureOptionKind, through = ''): string {
   switch (kind) {
+    case 'detour':
+      return _('Connect through %s').format(through);
     case 'spoof':
       return _('Mask as a whitelisted site');
     case 'record_fragment':
@@ -465,19 +484,36 @@ export function cureHint(opt: CureOption): string | undefined {
   return undefined;
 }
 
-// cureBadge is the read-only line on a tile that carries a cure
-export function cureBadge(cure: Podkop.Cure): string {
+// throughName is what the page shows for the source a detour goes through: the name of a live
+// server of that source (the one the verdict named, as a rule), the source itself when none is live
+export function throughName(
+  through: string | undefined,
+  servers: Record<string, Podkop.ServerCure>,
+): string {
+  const found = Object.entries(servers)
+    .filter(([, server]) => server.source === through && !server.via)
+    .map(([tag]) => tag)
+    .sort();
+  return found[0] ?? through ?? '';
+}
+
+// cureBadge is the read-only line on a tile that carries a cure; name is how a detour's source is
+// shown (throughName)
+export function cureBadge(cure: Podkop.Cure, name?: string): string {
   switch (cure.kind) {
     case 'spoof':
       return _('mask: %s').format(cure.sni ?? '');
     case 'record_fragment':
       return _('bypass: record fragment');
+    case 'detour':
+      return _('through: %s').format(name ?? cure.through ?? '');
   }
 }
 
 // setCureProblem tells what to show of a set_cure/clear_cure answer that did not apply the cure
 export function setCureProblem(
   reply: Podkop.CureReply | undefined,
+  kind?: Podkop.CureKind,
 ): string | undefined {
   switch (reply?.state) {
     case 'ok':
@@ -491,9 +527,11 @@ export function setCureProblem(
         'This server has changed since the page was drawn; reopen it and try again.',
       );
     case 'invalid':
-      return _(
-        'The treatment does not fit this server: a mask must be a host name other than the server’s own.',
-      );
+      return kind === 'spoof'
+        ? _(
+            'The treatment does not fit this server: a mask must be a host name other than the server’s own.',
+          )
+        : _('The treatment does not fit this server.');
     case 'not_running':
       return _('Podkop is not running.');
     case 'denied':

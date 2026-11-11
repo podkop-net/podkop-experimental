@@ -3,11 +3,13 @@ import {
   checkedAgo,
   cureBadge,
   cureChoice,
+  cureLabel,
   forceDetectProblem,
   isWeakVerdict,
   setCureProblem,
   stopsChecks,
   suggestMaskProblem,
+  throughName,
   validMaskName,
   verdictChip,
   verdictLines,
@@ -583,6 +585,23 @@ describe('cureChoice', () => {
     expect(c.mask).toBe(true);
   });
 
+  it('pathblock with the server it answered through: connect through it, direct only', () => {
+    const c = cureChoice(verdict('pathblock', 'active', { via: 'Relay' }), '');
+    expect(c.options).toEqual([
+      { kind: 'detour', enabled: true, recommended: true },
+    ]);
+    expect(c.default).toBe('detour');
+    expect(c.mask).toBe(false);
+    const viaRow = cureChoice(
+      verdict('pathblock', 'active', { via: 'Relay' }),
+      'relay-nl',
+    );
+    expect(viaRow.options).toEqual([{ kind: 'detour', enabled: false }]);
+    expect(viaRow.default).toBeUndefined();
+    expect(cureChoice(verdict('pathblock', 'active'), '').show).toBe(false);
+    expect(cureLabel('detour', 'Relay')).toContain('Relay');
+  });
+
   it('no cure UI for undefined, passive, or weak-active verdicts', () => {
     expect(cureChoice(undefined, '').show).toBe(false);
     expect(cureChoice(verdict('limit', 'passive'), '').show).toBe(false);
@@ -628,6 +647,20 @@ describe('cureBadge', () => {
   it('record_fragment', () => {
     expect(cureBadge({ kind: 'record_fragment' })).toContain('record fragment');
   });
+  it('detour names its source', () => {
+    expect(cureBadge({ kind: 'detour', through: 'relay' })).toContain('relay');
+  });
+  it('detour is shown by a server of its source', () => {
+    const servers = {
+      Netherlands: { hash: 'h1', via: '', source: 'nl' },
+      'Latvia via Netherlands': { hash: 'h2', via: 'nl', source: 'lv' },
+    };
+    expect(throughName('nl', servers)).toBe('Netherlands');
+    expect(throughName('gone', servers)).toBe('gone');
+    expect(
+      cureBadge({ kind: 'detour', through: 'nl' }, throughName('nl', servers)),
+    ).toContain('Netherlands');
+  });
 });
 
 describe('setCureProblem', () => {
@@ -643,6 +676,12 @@ describe('setCureProblem', () => {
     const texts = states.map((state) => setCureProblem({ state }));
     expect(texts.every(Boolean)).toBe(true);
     expect(new Set(texts).size).toBe(5);
+  });
+  it('invalid tells of the mask only for a mask', () => {
+    expect(setCureProblem({ state: 'invalid' }, 'spoof')).toContain('host');
+    expect(setCureProblem({ state: 'invalid' }, 'detour')).not.toContain(
+      'host',
+    );
   });
 });
 

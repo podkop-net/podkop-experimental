@@ -14,25 +14,29 @@ import (
 //	config cure
 //	    option hash 'f1e2d3c4b5a6...'   # serverid.Canonical of the server outbound, 24 hex
 //	    option via  'relay'             # the through-source name; absent/'' = direct
-//	    option kind 'spoof'             # spoof | record_fragment
+//	    option kind 'spoof'             # spoof | record_fragment | detour
 //	    option sni  'packagist.org'     # only for kind=spoof
+//	    option through 'relay'          # only for kind=detour: the source to connect through
 type Cure struct {
-	Hash string
-	Via  string
-	Kind string
-	SNI  string
+	Hash    string
+	Via     string
+	Kind    string
+	SNI     string
+	Through string
 }
 
 // The kinds of a cure. spoof masks the limit with a whitelisted SNI; record_fragment beats the
-// freeze while keeping the fingerprint.
+// freeze while keeping the fingerprint; detour connects a server whose path from here is blocked
+// through the servers of another source (a pathblock: through another server it answers).
 const (
 	CureSpoof          = "spoof"
 	CureRecordFragment = "record_fragment"
+	CureDetour         = "detour"
 )
 
 // ValidCureKind tells a kind the store may hold.
 func ValidCureKind(kind string) bool {
-	return kind == CureSpoof || kind == CureRecordFragment
+	return kind == CureSpoof || kind == CureRecordFragment || kind == CureDetour
 }
 
 // Cure returns the cure stored for a server reached a given way, or nil. Via "" is the direct

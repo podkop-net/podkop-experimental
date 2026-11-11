@@ -21,6 +21,7 @@ import {
   checkedAgo,
   cureBadge,
   cureChoice,
+  throughName,
   cureHint,
   cureLabel,
   forceDetectProblem,
@@ -314,8 +315,12 @@ function handleCheckServer(outbound: Podkop.Outbound) {
 }
 
 // the warning shown before a cure is applied: what it changes on the wire
-function cureWarning(kind: Podkop.CureKind): string {
+function cureWarning(kind: Podkop.CureKind, through = ''): string {
   switch (kind) {
+    case 'detour':
+      return _(
+        'Connections to this server will go through %s, whose operator will see the address of this server.',
+      ).format(through);
     case 'spoof':
       return _('This server will be masked as a whitelisted site on the wire.');
     case 'record_fragment':
@@ -327,19 +332,25 @@ async function doApplyCure(
   outbound: Podkop.Outbound,
   kind: Podkop.CureKind,
   sni: string,
+  through: string,
 ) {
   const reply = await CustomPodkopMethods.setCure(
     outbound.code,
     kind,
     sni,
     outbound.hash ?? '',
+    through,
   );
   if (!mounted) return;
   if (reply?.state === 'ok') {
     showToast(_('Treatment applied.'), 'success');
     fetchDetect();
   } else {
-    showToast(setCureProblem(reply) ?? _('Failed to execute!'), 'error', 5000);
+    showToast(
+      setCureProblem(reply, kind) ?? _('Failed to execute!'),
+      'error',
+      5000,
+    );
   }
 }
 
@@ -348,12 +359,17 @@ function handleApplyCure(
   outbound: Podkop.Outbound,
   kind: Podkop.CureKind,
   sni: string,
+  through = '',
 ) {
   ui.hideModal();
-  askToCheck(cureWarning(kind), () => doApplyCure(outbound, kind, sni), {
-    note: null,
-    confirm: _('Apply'),
-  });
+  askToCheck(
+    cureWarning(kind, through),
+    () => doApplyCure(outbound, kind, sni, through),
+    {
+      note: null,
+      confirm: _('Apply'),
+    },
+  );
 }
 
 async function handleClearCure(outbound: Podkop.Outbound) {
@@ -500,7 +516,12 @@ function renderTreatment(
       body: [
         E('fieldset', { class: 'pdk-cure' }, [
           E('b', {}, [_('Treatment for this server')]),
-          E('p', {}, [cureBadge(info.cure)]),
+          E('p', {}, [
+            cureBadge(
+              info.cure,
+              throughName(info.cure.through, store.get().detectWidget.servers),
+            ),
+          ]),
           E(
             'button',
             { class: 'cbi-button', click: () => handleClearCure(outbound) },
@@ -550,7 +571,9 @@ function renderTreatment(
 
   const rows: unknown[] = [
     option('none', _('No treatment'), true),
-    ...choice.options.map((o) => option(o.kind, cureLabel(o.kind), o.enabled)),
+    ...choice.options.map((o) =>
+      option(o.kind, cureLabel(o.kind, verdict?.via), o.enabled),
+    ),
   ];
 
   if (choice.mask) {
@@ -619,6 +642,9 @@ function renderTreatment(
         5000,
       );
       return;
+    }
+    if (picked === 'detour') {
+      return handleApplyCure(outbound, picked, '', verdict?.via ?? '');
     }
     return handleApplyCure(outbound, picked, picked === 'spoof' ? sni : '');
   };
