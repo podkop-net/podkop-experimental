@@ -165,6 +165,9 @@ type Instance interface {
 	StartedAt() time.Time
 	// Prober is the instance as the probes of the block detector use it.
 	Prober() detect.Prober
+	// SuggestMask probes whitelisted SNIs for one that lifts the limit on a server, for the cure
+	// of a limit. candidates nil = the engine's built-in list.
+	SuggestMask(ctx context.Context, content []byte, candidates []string) (string, int, error)
 	Dial(ctx context.Context, tag string, address string) (net.Conn, error)
 	// Swap replaces outbounds while the instance runs (hot.go).
 	Swap(configuration []byte, swap engine.Swap, limit int) (engine.Swapped, error)
@@ -360,8 +363,19 @@ type Supervisor struct {
 	liveServers  []detect.Server
 	liveFallback bool
 	liveEpoch    uint64
+	// liveStable is the stable identity, the way (via) and the applied cure of every live server,
+	// by tag: what the detect report tells the page so it shows a treatment badge and joins a tag
+	// to its stable id. Built in done() under statusAccess with liveServers.
+	liveStable map[string]detect.Identity
 	// diag is the state of the block detector's probes (diagnose.go)
 	diag diagnosis
+	// liveStaleCures counts the stored treatments that name no live server (detect report)
+	liveStaleCures int
+	// cureMu serializes writes of the cure store to the settings file; suggestAccess guards the
+	// one on-demand white-SNI scan (cure.go)
+	cureMu        sync.Mutex
+	suggestAccess sync.Mutex
+	suggest       *suggestScan
 
 	// subscriptions are the lists of the subscriptions and what is known of them;
 	// downloads bring what a download in the background came to, subscriptionRequests
@@ -474,8 +488,27 @@ func (s *Supervisor) done(ok bool, replaced bool, message ...any) Result {
 	result := Result{OK: ok, Message: oneLine(E.New(message...).Error())}
 	var servers []detect.Server
 	var fallback bool
+	var stable map[string]detect.Identity
+	var stale int
 	if s.current != nil {
 		servers, fallback = engine.ServersOf(s.current.result.Config)
+		// the stable identity, the way and the cure of each server, from the plan's tags and the
+		// cure store; set on the servers too, so a probe carries it
+		stable = make(map[string]detect.Identity, len(servers))
+		for index := range servers {
+			tagOf := s.current.result.Tags.Outbounds[servers[index].Tag]
+			servers[index].StableHash = tagOf.StableHash
+			identity := detect.Identity{Hash: tagOf.StableHash, Via: tagOf.Via}
+			if source := s.current.settings.Source(tagOf.Via); source != nil && source.Type == "interface" {
+				// an interface gives the server its own socket: a mask works through it
+				identity.ViaInterface = true
+			}
+			if cure := s.current.settings.Cure(tagOf.StableHash, tagOf.Via); cure != nil {
+				identity.Cure = &detect.Cure{Kind: cure.Kind, SNI: cure.SNI}
+			}
+			stable[servers[index].Tag] = identity
+		}
+		stale = staleCures(s.current.settings, stable)
 	}
 	s.statusAccess.Lock()
 	defer s.statusAccess.Unlock()
@@ -492,6 +525,11 @@ func (s *Supervisor) done(ok bool, replaced bool, message ...any) Result {
 		s.live, s.liveLinks = s.current.instance, s.current.result.Links
 	}
 	s.liveServers, s.liveFallback = servers, fallback
+	s.liveStable = stable
+	if stale > 0 && stale != s.liveStaleCures {
+		s.log("warn", stale, " stored treatment(s) name no server in use (it changed, went away, or its subscription is not downloaded yet); they apply again if it comes back, and the dashboard can remove them")
+	}
+	s.liveStaleCures = stale
 	s.liveEpoch++
 	switch {
 	case s.current != nil:

@@ -136,13 +136,38 @@ const (
 	KindNone Kind = "none"
 )
 
+// Cure is the treatment applied to a server, as the page shows it on the tile. Kind is one of the
+// model.Cure* strings; SNI is set only for a spoof.
+type Cure struct {
+	Kind string `json:"kind"`
+	SNI  string `json:"sni,omitempty"`
+}
+
+// Identity is what the detect report tells the page about a live server besides its verdict: its
+// stable id (to join a verdict and to tell a rename from a new server), the source it connects
+// through (via, "" = direct), and the cure applied to it, if any. It carries a cure even for a
+// server with no block, so the tile badge shows without a verdict.
+type Identity struct {
+	Hash string `json:"hash"`
+	Via  string `json:"via,omitempty"`
+	// ViaInterface: the source of Via is an interface, which gives the server its own socket
+	// (a mask works through it, unlike through a proxy)
+	ViaInterface bool  `json:"via_interface,omitempty"`
+	Cure         *Cure `json:"cure,omitempty"`
+}
+
 // Server is one proxy of a configuration as the detector sees it. Fingerprint, ServerName and
 // Destination make the key the engine records its handshakes by; Fingerprint is empty when the
 // connection has no uTLS.
 type Server struct {
 	Tag string
-	// Hash tells the outbound: a tag may name another server after a change of the settings.
-	Hash        string
+	// Hash tells the outbound: a tag may name another server after a change of the settings. It
+	// changes when a cure is applied, so it is the liveness key that gates an active verdict.
+	Hash string
+	// StableHash is the tag/detour/cure-independent identity (serverid.Canonical of the uncured
+	// outbound), filled by the supervisor from the plan. It keys the cure store and joins a
+	// verdict to a server on the page; unlike Hash it does not change when a cure is applied.
+	StableHash  string
 	Kind        Kind
 	Fingerprint string
 	ServerName  string

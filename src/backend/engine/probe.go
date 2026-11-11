@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -49,6 +50,9 @@ type ProbeOptions struct {
 	Fingerprint string
 	// Detour is the outbound of the instance the copy dials through.
 	Detour string
+	// Spoof sets tls.spoof on the copy: a forged ClientHello of this whitelisted name goes before
+	// the real one, to probe whether it lifts a 16-20KB limit (SuggestMask).
+	Spoof string
 }
 
 // ProbeOutbound is a throw-away copy of an outbound; Close lets it go.
@@ -93,6 +97,13 @@ func (i *Instance) decodeProbeOutbound(content []byte, options ProbeOptions) (op
 		if wrapper, has := outbound.Options.(option.OutboundTLSOptionsWrapper); has {
 			if tls := wrapper.TakeOutboundTLSOptions(); tls != nil && tls.UTLS != nil {
 				tls.UTLS.Fingerprint = options.Fingerprint
+			}
+		}
+	}
+	if options.Spoof != "" {
+		if wrapper, has := outbound.Options.(option.OutboundTLSOptionsWrapper); has {
+			if tls := wrapper.TakeOutboundTLSOptions(); tls != nil {
+				tls.Spoof = options.Spoof
 			}
 		}
 	}
@@ -377,6 +388,95 @@ func targetAddress(address string) (string, error) {
 		return parsed.Host, nil
 	}
 	return net.JoinHostPort(parsed.Hostname(), "80"), nil
+}
+
+// how many masks SuggestMask tries at once, and how long one probe may take.
+const (
+	probeMaskParallel = 6
+	probeMaskPer      = 12 * time.Second
+)
+
+// SuggestMask looks for a whitelisted SNI that lifts a 16-20KB limit on the server of content: each
+// candidate is a throw-away copy with tls.spoof set to it that pulls the 64KB probe target, and the
+// first that carries it in full (the limit lifted) wins. Up to probeMaskParallel run at once, each
+// within probeMaskPer, the whole within ctx (the caller sets the budget). Candidates default to
+// WhiteSNICandidates. It returns the winning name and how many were tried; "" with no error when
+// none worked, an error only on a setup failure. tls.spoof needs the engine's own socket
+// (CAP_NET_ADMIN), so this must run in the running instance, not a sandbox.
+func (i *Instance) SuggestMask(ctx context.Context, content []byte, candidates []string) (string, int, error) {
+	if len(candidates) == 0 {
+		candidates = WhiteSNICandidates
+	}
+	target, err := targetAddress(detect.ProbeTarget)
+	if err != nil {
+		return "", 0, err
+	}
+	full := detect.DefaultPolicy.Target * detect.DefaultPolicy.FullPercent / 100
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	type result struct {
+		sni string
+		ok  bool
+	}
+	jobs := make(chan string)
+	results := make(chan result)
+	var wg sync.WaitGroup
+	for worker := 0; worker < probeMaskParallel; worker++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for cand := range jobs {
+				ok := i.maskLifts(ctx, content, cand, target, full)
+				select {
+				case results <- result{cand, ok}:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+	go func() {
+		defer close(jobs)
+		for _, cand := range candidates {
+			select {
+			case jobs <- cand:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+	scanned := 0
+	for r := range results {
+		scanned++
+		if r.ok {
+			cancel() // the rest stop; the workers drain their sends against ctx.Done
+			return r.sni, scanned, nil
+		}
+	}
+	return "", scanned, nil
+}
+
+// maskLifts tells whether a tls.spoof of name carries the probe target in full, i.e. the limit is
+// lifted. A short or stalled pull (a flow still cut) is not full.
+func (i *Instance) maskLifts(ctx context.Context, content []byte, name, target string, full int64) bool {
+	probeCtx, cancel := context.WithTimeout(ctx, probeMaskPer)
+	defer cancel()
+	outbound, err := i.NewProbeOutbound(content, ProbeOptions{Spoof: name})
+	if err != nil {
+		return false
+	}
+	defer outbound.Close()
+	conn, err := outbound.Dial(probeCtx, target)
+	if err != nil {
+		return false
+	}
+	defer conn.Close()
+	attempt := exchange(probeCtx, conn, detect.ProbeTarget)
+	return attempt.Bytes >= full && !attempt.Receiving
 }
 
 // Prober is the instance as the runner of the block detector uses it (detect.Run).

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
+	"github.com/podkop-net/podkop-experimental/src/backend/serverid"
 	E "github.com/sagernet/sing/common/exceptions"
 )
 
@@ -290,13 +291,21 @@ func (b *builder) rowServers(section *model.Section, row model.Member) ([]string
 			continue
 		}
 		if via == "" {
-			tags = append(tags, b.addServer(section, server, "", ""))
+			tag, err := b.addServer(section, server, "", "")
+			if err != nil {
+				return nil, err
+			}
+			tags = append(tags, tag)
 			continue
 		}
 		if kind, _ := server.outbound.get("type"); kind == "selector" || kind == "urltest" {
 			return nil, E.New("the outbound JSON of the source ", b.names.SourceText(source.Name), " is a ", kind, ", which connects through nothing: set detour in the outbounds it chooses from")
 		}
-		tags = append(tags, b.addServer(section, server, via, throughName))
+		tag, err := b.addServer(section, server, via, throughName)
+		if err != nil {
+			return nil, err
+		}
+		tags = append(tags, tag)
 	}
 	return tags, nil
 }
@@ -304,7 +313,7 @@ func (b *builder) rowServers(section *model.Section, row model.Member) ([]string
 // addServer puts the outbound of a server in once and returns its tag: "<tag of the server>",
 // or "<tag of the server> via <name of the source>" connecting through the outbound via of the
 // source through.
-func (b *builder) addServer(section *model.Section, server sourceServer, via string, through string) string {
+func (b *builder) addServer(section *model.Section, server sourceServer, via string, through string) (string, error) {
 	owner := "server\x00" + server.source + "\x00" + strconv.Itoa(server.index)
 	tag := server.tag
 	if via != "" {
@@ -313,20 +322,35 @@ func (b *builder) addServer(section *model.Section, server sourceServer, via str
 	}
 	tag = b.claim(tag, owner)
 	if b.servers[tag] {
-		return tag
+		return tag, nil
 	}
 	b.servers[tag] = true
 	b.swappable[tag] = true
-	b.tags.Outbounds[tag] = TagOf{Source: server.source, Server: server.shown, Via: through}
+	// the stable identity of the server: its key in the cure store and the id the page joins the
+	// tag to. Taken from the outbound before the tag and the detour are set on it, so it is the
+	// same across a rebuild and whatever way the server is reached.
+	raw, _ := json.Marshal(server.outbound)
+	stableHash := serverid.Canonical(raw)
+	b.tags.Outbounds[tag] = TagOf{Source: server.source, Server: server.shown, Via: through, StableHash: stableHash}
+	cure := b.config.Cure(stableHash, through)
 	outbound := server.outbound
-	if via != "" || tag != server.tag {
+	if via != "" || tag != server.tag || cure != nil {
 		outbound = cloneObject(server.outbound)
 	}
 	outbound.set("tag", tag)
 	if via != "" {
 		// the way of the tag, also over a detour of an outbound JSON (rowServers)
 		outbound.set("detour", via)
-		b.warnSpoofThrough(tag, outbound, through)
+	}
+	if cure != nil {
+		if err := b.applyCure(tag, outbound, cure, through); err != nil {
+			return "", err
+		}
+	}
+	// a server whose link or JSON already carries spoof, or a cure that slipped through, must not
+	// reach a proxy detour: the engine fails every connection of it (it needs its own socket)
+	if err := b.rejectSpoofThrough(tag, outbound, through); err != nil {
+		return "", err
 	}
 	b.outbounds = append(b.outbounds, outbound)
 	if server.link != "" {
@@ -335,7 +359,7 @@ func (b *builder) addServer(section *model.Section, server sourceServer, via str
 	if source := b.config.Source(server.source); source != nil && source.Type == "json" {
 		b.jsonOutbounds = append(b.jsonOutbounds, outbound)
 	}
-	return tag
+	return tag, nil
 }
 
 // oldServerOwner is the owner of a server by the tag it had while tags were made of sections:
@@ -459,7 +483,11 @@ func (b *builder) viaTag(rule string, name string, rowSource string) (string, er
 	}
 	var tags []string
 	for _, server := range servers {
-		tags = append(tags, b.addServer(&model.Section{Name: name}, server, "", ""))
+		tag, err := b.addServer(&model.Section{Name: name}, server, "", "")
+		if err != nil {
+			return "", err
+		}
+		tags = append(tags, tag)
 	}
 	if len(tags) == 1 {
 		return tags[0], nil
@@ -473,22 +501,56 @@ func (b *builder) viaTag(rule string, name string, rowSource string) (string, er
 	return tag, nil
 }
 
-// warnSpoofThrough says once that tls.spoof fails through a proxy: it needs the socket of its
-// own connection (common/tls of the engine), which an interface gives and a proxy does not.
-// through is the source the outbound connects through.
-func (b *builder) warnSpoofThrough(tag string, outbound *object, through string) {
+// applyCure sets the treatment of a cure on the server's TLS; rejectSpoofThrough (called next)
+// fails the build if a spoof cure landed on a proxy detour. A server with no TLS gets a warning
+// and no change — a cure needs a TLS handshake to act on.
+func (b *builder) applyCure(tag string, outbound *object, cure *model.Cure, through string) error {
 	value, _ := outbound.get("tls")
 	tls, isObject := value.(*object)
 	if !isObject {
-		return
+		b.warnOnce("server ", tag, ": a treatment needs TLS, which this server has none of; it is left off")
+		return nil
 	}
-	if spoof, _ := tls.get("spoof"); spoof == nil || spoof == "" {
-		return
+	switch cure.Kind {
+	case model.CureSpoof:
+		// a row written by hand may hold a name the engine refuses (not a host name, or the
+		// server's own name): the build must not fail for it
+		value, _ := tls.get("server_name")
+		serverName, _ := value.(string)
+		if !model.ValidMaskName(cure.SNI) || strings.EqualFold(cure.SNI, serverName) {
+			b.warnOnce("server ", tag, ": the mask ", strconv.Quote(cure.SNI), " is not a host name other than the server's; the treatment is left off")
+			return nil
+		}
+		tls.set("spoof", cure.SNI)
+	case model.CureRecordFragment:
+		tls.set("record_fragment", true)
+	}
+	return nil
+}
+
+// rejectSpoofThrough fails the build when a server reached through a proxy carries tls.spoof: it
+// forges the first ClientHello on the server's own socket (common/tls of the engine), which a
+// proxy detour does not give, so every connection of the outbound would fail. An
+// interface gives a real socket and is allowed; a direct server (through == "") is allowed;
+// record_fragment is carried through a detour and is not checked. The hard error (not a warning)
+// is what lets the dashboard rely on spoof being impossible through a detour — set_cure refuses
+// to store such a cure, so this fires only on a link or outbound JSON that carries it by hand.
+func (b *builder) rejectSpoofThrough(tag string, outbound *object, through string) error {
+	if through == "" {
+		return nil
 	}
 	if source := b.config.Source(through); source != nil && source.Type == "interface" {
-		return
+		return nil
 	}
-	b.warnOnce("server ", tag, ": tls.spoof does not work through a proxy: its connections will fail; it works through an interface")
+	value, _ := outbound.get("tls")
+	tls, isObject := value.(*object)
+	if !isObject {
+		return nil
+	}
+	if spoof, _ := tls.get("spoof"); spoof != nil && spoof != "" {
+		return E.New("server ", tag, ": tls.spoof does not work through a proxy, only directly or through an interface (it needs the server's own connection)")
+	}
+	return nil
 }
 
 // sourceServers are the servers of a source in its order, decoded once.

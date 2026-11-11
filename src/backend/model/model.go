@@ -26,6 +26,12 @@ type Config struct {
 	Sections []Section
 	// Sources in the order of the file.
 	Sources []Source
+	// Cures are the per-server treatments ("cure" sections), keyed by the stable server
+	// identity and the source it connects through.
+	Cures []Cure
+	// UnreadCures counts the "cure" sections left out: half-written, or of a kind this build
+	// does not know (oob of the hand-over builds)
+	UnreadCures int
 }
 
 // Source is a "config source" block: where servers come from.
@@ -396,6 +402,20 @@ func Load(parsed *uci.Package) (*Config, error) {
 		} else {
 			rule.Servers = append(rule.Servers, row)
 		}
+	}
+	for _, section := range parsed.SectionsOfType("cure") {
+		hash := section.Get("hash")
+		kind := section.Get("kind")
+		if hash == "" || !ValidCureKind(kind) {
+			// a row left half-written, or a kind this build does not know: skip it
+			config.UnreadCures++
+			continue
+		}
+		cure := Cure{Hash: hash, Via: section.Get("via"), Kind: kind}
+		if kind == CureSpoof {
+			cure.SNI = section.Get("sni")
+		}
+		config.Cures = append(config.Cures, cure)
 	}
 	return config, nil
 }

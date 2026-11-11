@@ -9,6 +9,7 @@ import {
   problemServers,
   tileChip,
 } from '../helpers/detectWidget';
+import { cureBadge } from '../helpers/verdictText';
 
 // what the detector adds to the tiles of a section
 export interface ISectionChecks {
@@ -139,6 +140,32 @@ export function renderDefaultState({
       ];
     }
 
+    // the line of the cure set on the server: it opens the window of the server, where the cure
+    // can be removed also when no verdict calls for a treatment any more (a tile with a working
+    // cure has no chip); the click does not choose the server
+    function renderCureBadge() {
+      if (!outbound.cure) return [];
+      const onShowVerdict = checks?.onShowVerdict;
+      return [
+        E(
+          onShowVerdict ? 'button' : 'div',
+          {
+            class: 'pdk_dashboard-page__outbound-grid__item__cure',
+            ...(onShowVerdict
+              ? {
+                  title: _('Treatment for this server'),
+                  click: (event: Event) => {
+                    event.stopPropagation();
+                    onShowVerdict(outbound);
+                  },
+                }
+              : {}),
+          },
+          [cureBadge(outbound.cure)],
+        ),
+      ];
+    }
+
     // a click pins the server on the selector of the rule; direct and block as a fallback are not
     // among its choices
     const selectable = section.withTagSelect && outbound.selectable !== false;
@@ -208,6 +235,7 @@ export function renderDefaultState({
           ]),
         ]),
         ...renderCheckRow(),
+        ...renderCureBadge(),
       ],
     );
   }

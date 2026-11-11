@@ -13,6 +13,7 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/ctl"
 	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/podkop-net/podkop-experimental/src/backend/engine"
+	"github.com/podkop-net/podkop-experimental/src/backend/supervisor"
 	"github.com/podkop-net/podkop-experimental/src/backend/ubus"
 	"github.com/stretchr/testify/require"
 )
@@ -43,6 +44,22 @@ func (f fixedTraffic) ForceDetect(tag string, cancel bool) detect.ForceAnswer {
 		return detect.ForceAnswer{State: detect.ForceCanceled}
 	}
 	return detect.ForceAnswer{State: detect.ForceThrottled, RetryAfter: 170}
+}
+
+func (f fixedTraffic) SetCure(context.Context, string, string, string, string) supervisor.CureResult {
+	return supervisor.CureResult{State: supervisor.CureOK}
+}
+
+func (f fixedTraffic) ClearCure(context.Context, string) supervisor.CureResult {
+	return supervisor.CureResult{State: supervisor.CureOK}
+}
+
+func (f fixedTraffic) DropStaleCures(context.Context) supervisor.CureResult {
+	return supervisor.CureResult{State: supervisor.CureOK}
+}
+
+func (f fixedTraffic) SuggestMask(context.Context, string) supervisor.SuggestResult {
+	return supervisor.SuggestResult{State: supervisor.SuggestNone}
 }
 
 func TestBusStats(t *testing.T) {

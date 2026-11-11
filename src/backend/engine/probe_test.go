@@ -233,6 +233,11 @@ func TestDecodeProbeOutbound(t *testing.T) {
 	require.Equal(t, "chrome", plain.Options.(*option.VLESSOutboundOptions).TLS.UTLS.Fingerprint)
 	require.Empty(t, plain.Options.(*option.VLESSOutboundOptions).Detour)
 
+	// Spoof sets tls.spoof on the copy, for SuggestMask to probe a whitelisted name
+	spoofed, err := instance.decodeProbeOutbound(content, ProbeOptions{Spoof: "packagist.org"})
+	require.NoError(t, err)
+	require.Equal(t, "packagist.org", spoofed.Options.(*option.VLESSOutboundOptions).TLS.Spoof)
+
 	_, err = instance.decodeProbeOutbound([]byte(`{"type": "no-such-type", "tag": "a"}`), ProbeOptions{})
 	require.Error(t, err)
 }

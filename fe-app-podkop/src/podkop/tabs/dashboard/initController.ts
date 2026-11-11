@@ -19,10 +19,18 @@ import {
 import { keepFocus } from './helpers/keepFocus';
 import {
   checkedAgo,
+  cureBadge,
+  cureChoice,
+  cureHint,
+  cureLabel,
   forceDetectProblem,
+  setCureProblem,
   stopsChecks,
+  suggestMaskProblem,
   relayNotice,
+  validMaskName,
   verdictLines,
+  type CureOptionKind,
 } from './helpers/verdictText';
 import { showToast } from '../../../helpers/showToast';
 import type { Podkop } from '../../types';
@@ -235,10 +243,15 @@ async function sendChecks(tags: string[], section?: string, found?: number) {
 
 // askToCheck warns before a check of what the connections go through: its burst may freeze the
 // destination for the real ones too.
-function askToCheck(warning: string, check: () => void) {
+function askToCheck(
+  warning: string,
+  check: () => void,
+  opts: { note?: string | null; confirm?: string } = {},
+) {
+  const note = opts.note === undefined ? relayNotice() : opts.note;
   ui.showModal(_('Server check'), [
     E('p', {}, [warning]),
-    E('p', {}, [relayNotice()]),
+    ...(note ? [E('p', {}, [note])] : []),
     E('div', { class: 'right' }, [
       E(
         'button',
@@ -258,7 +271,7 @@ function askToCheck(warning: string, check: () => void) {
             check();
           },
         },
-        [_('Check server')],
+        [opts.confirm ?? _('Check server')],
       ),
     ]),
   ]);
@@ -300,6 +313,140 @@ function handleCheckServer(outbound: Podkop.Outbound) {
   );
 }
 
+// the warning shown before a cure is applied: what it changes on the wire
+function cureWarning(kind: Podkop.CureKind): string {
+  switch (kind) {
+    case 'spoof':
+      return _('This server will be masked as a whitelisted site on the wire.');
+    case 'record_fragment':
+      return _("This server's TLS hello will be split into two records.");
+  }
+}
+
+async function doApplyCure(
+  outbound: Podkop.Outbound,
+  kind: Podkop.CureKind,
+  sni: string,
+) {
+  const reply = await CustomPodkopMethods.setCure(
+    outbound.code,
+    kind,
+    sni,
+    outbound.hash ?? '',
+  );
+  if (!mounted) return;
+  if (reply?.state === 'ok') {
+    showToast(_('Treatment applied.'), 'success');
+    fetchDetect();
+  } else {
+    showToast(setCureProblem(reply) ?? _('Failed to execute!'), 'error', 5000);
+  }
+}
+
+// handleApplyCure confirms (the on-wire change) then writes the cure and refreshes
+function handleApplyCure(
+  outbound: Podkop.Outbound,
+  kind: Podkop.CureKind,
+  sni: string,
+) {
+  ui.hideModal();
+  askToCheck(cureWarning(kind), () => doApplyCure(outbound, kind, sni), {
+    note: null,
+    confirm: _('Apply'),
+  });
+}
+
+async function handleClearCure(outbound: Podkop.Outbound) {
+  ui.hideModal();
+  const reply = await CustomPodkopMethods.clearCure(outbound.code);
+  if (!mounted) return;
+  if (reply?.state === 'ok') {
+    showToast(_('Treatment removed.'), 'success');
+    fetchDetect();
+  } else {
+    showToast(setCureProblem(reply) ?? _('Failed to execute!'), 'error', 5000);
+  }
+}
+
+// handleSuggestMask runs the in-engine white-SNI search from inside the open verdict window (so the
+// found name can fill the SNI field that is still there). The button click is the consent for the
+// search; it is disabled with a pending label while it runs. Each call answers within 15 s
+// (running while the search goes on), so the page asks again until the backend's budget (35 s) is
+// surely over.
+const SUGGEST_POLL_MS = 2000;
+const SUGGEST_GIVE_UP_MS = 60000;
+
+async function handleSuggestMask(
+  outbound: Podkop.Outbound,
+  button: HTMLButtonElement,
+  setSni: (sni: string) => void,
+) {
+  if (button.disabled) return;
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = _('Searching…');
+  const giveUp = Date.now() + SUGGEST_GIVE_UP_MS;
+  let reply = await CustomPodkopMethods.suggestMask(outbound.code);
+  while (mounted && reply?.state === 'running' && Date.now() < giveUp) {
+    await new Promise((resolve) => setTimeout(resolve, SUGGEST_POLL_MS));
+    reply = await CustomPodkopMethods.suggestMask(outbound.code);
+  }
+  if (!mounted) return;
+  button.disabled = false;
+  button.textContent = label;
+  if (reply?.state === 'found' && reply.sni) {
+    setSni(reply.sni);
+    showToast(_('Found a mask: %s').format(reply.sni), 'success');
+  } else {
+    showToast(
+      suggestMaskProblem(reply) ?? _('Failed to execute!'),
+      'error',
+      5000,
+    );
+  }
+}
+
+// handleDropStaleCures removes the stored treatments of servers no longer in use
+async function handleDropStaleCures() {
+  const reply = await CustomPodkopMethods.dropStaleCures();
+  if (!mounted) return;
+  if (reply?.state === 'ok') {
+    showToast(_('Treatments removed.'), 'success');
+    fetchDetect();
+  } else {
+    showToast(setCureProblem(reply) ?? _('Failed to execute!'), 'error', 5000);
+  }
+}
+
+// renderStaleCures is the line above the sections when treatments are stored for servers that are
+// not in use now: they apply again if the server comes back, so they are removed only on request
+function renderStaleCures(count: number) {
+  return E('div', { class: 'pdk-cure-stale' }, [
+    E('span', {}, [
+      _(
+        'Saved treatments for servers not in use now: %d. A server changed, was removed, or its subscription is not loaded yet.',
+      ).format(count),
+    ]),
+    ' ',
+    E('button', { class: 'cbi-button', click: () => handleDropStaleCures() }, [
+      _('Remove them'),
+    ]),
+  ]);
+}
+
+// the uTLS fallback is a global setting (all servers), not a per-server cure; the dashboard cannot
+// write the config, so point the user to Settings rather than silently flip a global switch
+function handleTurnOnFallback() {
+  ui.hideModal();
+  showToast(
+    _(
+      'Turn on the uTLS fallback in Settings; it switches the fingerprint for every server, not just this one.',
+    ),
+    'success',
+    6000,
+  );
+}
+
 function handleCheckProblems(section: Podkop.OutboundGroup) {
   const detect = store.get().detectWidget;
   const servers = problemServers(section, detect);
@@ -330,6 +477,154 @@ async function handleCancelChecks() {
   if (mounted) fetchDetect();
 }
 
+// renderTreatment builds the "Treatment for this server" fieldset of the verdict window from the
+// gate (cureChoice). Reading is at Apply time from the DOM (no framework), as the rest of the modal.
+function renderTreatment(
+  outbound: Podkop.Outbound,
+  verdict: Podkop.Verdict | undefined,
+) {
+  const info: Podkop.ServerCure = store.get().detectWidget.servers[
+    outbound.code
+  ] ?? {
+    hash: outbound.hash ?? '',
+    via: outbound.via ?? '',
+    via_interface: outbound.via_interface,
+    cure: outbound.cure,
+  };
+  const choice = cureChoice(verdict, info.via, info.via_interface ?? false);
+  if (!choice.show) {
+    // no treatment fits the verdict now (a working cure leaves none to fix): a stored one is shown
+    // with its removal, so a cure never stays out of reach of the page
+    if (!info.cure) return { body: [] as unknown[], apply: undefined };
+    return {
+      body: [
+        E('fieldset', { class: 'pdk-cure' }, [
+          E('b', {}, [_('Treatment for this server')]),
+          E('p', {}, [cureBadge(info.cure)]),
+          E(
+            'button',
+            { class: 'cbi-button', click: () => handleClearCure(outbound) },
+            [_('Remove treatment')],
+          ),
+        ]),
+      ] as unknown[],
+      apply: undefined,
+    };
+  }
+
+  const enabledKinds = choice.options
+    .filter((o) => o.enabled)
+    .map((o) => o.kind);
+  const current = info.cure?.kind as CureOptionKind | undefined;
+  const preset: CureOptionKind =
+    current && enabledKinds.includes(current)
+      ? current
+      : (choice.default ?? 'none');
+
+  const option = (kind: CureOptionKind, label: string, enabled: boolean) => {
+    const hint = (() => {
+      const opt = choice.options.find((o) => o.kind === kind);
+      return opt ? cureHint(opt) : undefined;
+    })();
+    return E(
+      'label',
+      {
+        class: `pdk-cure__option${enabled ? '' : ' pdk-cure__option--disabled'}`,
+      },
+      [
+        E('input', {
+          type: 'radio',
+          name: 'pdk-cure',
+          value: kind,
+          disabled: enabled ? null : 'disabled',
+          checked: kind === preset ? 'checked' : null,
+        }),
+        ' ',
+        label,
+        ...(hint
+          ? [' ', E('span', { class: 'pdk-cure__hint' }, [`(${hint})`])]
+          : []),
+      ],
+    );
+  };
+
+  const rows: unknown[] = [
+    option('none', _('No treatment'), true),
+    ...choice.options.map((o) => option(o.kind, cureLabel(o.kind), o.enabled)),
+  ];
+
+  if (choice.mask) {
+    const sniInput = E('input', {
+      id: 'pdk-cure-sni',
+      type: 'text',
+      value: info.cure?.sni ?? '',
+      placeholder: 'packagist.org',
+    }) as HTMLInputElement;
+    rows.push(
+      E('div', { class: 'pdk-cure__sni' }, [
+        sniInput,
+        E(
+          'button',
+          {
+            class: 'cbi-button',
+            click: (event: Event) =>
+              handleSuggestMask(
+                outbound,
+                event.currentTarget as HTMLButtonElement,
+                (sni) => {
+                  sniInput.value = sni;
+                },
+              ),
+          },
+          [_('Find a mask')],
+        ),
+      ]),
+    );
+  }
+
+  const body = [
+    E('fieldset', { class: 'pdk-cure' }, [
+      E('b', {}, [_('Treatment for this server')]),
+      ...rows,
+    ]),
+  ];
+
+  const apply = () => {
+    const picked = document.querySelector<HTMLInputElement>(
+      'input[name="pdk-cure"]:checked',
+    )?.value as CureOptionKind | undefined;
+    const sni = (
+      document.querySelector<HTMLInputElement>('#pdk-cure-sni')?.value ?? ''
+    )
+      .trim()
+      .toLowerCase();
+    if (!picked || picked === 'none') {
+      // nothing stored, nothing to clear: no call and no rebuild
+      if (!info.cure) return ui.hideModal();
+      return handleClearCure(outbound);
+    }
+    if (picked === 'fallback') return handleTurnOnFallback();
+    if (picked === 'spoof' && !sni) {
+      showToast(
+        _('Enter a whitelisted name, or press “Find a mask”.'),
+        'error',
+        5000,
+      );
+      return;
+    }
+    if (picked === 'spoof' && !validMaskName(sni)) {
+      showToast(
+        _('“%s” is not a host name, such as packagist.org.').format(sni),
+        'error',
+        5000,
+      );
+      return;
+    }
+    return handleApplyCure(outbound, picked, picked === 'spoof' ? sni : '');
+  };
+  return { body, apply };
+}
+
 function handleShowVerdict(outbound: Podkop.Outbound) {
   const detect = store.get().detectWidget;
   const verdict = detect.verdicts[outbound.code];
@@ -345,11 +640,13 @@ function handleShowVerdict(outbound: Podkop.Outbound) {
       ? [checkedAgo(known.age + (Date.now() - known.at) / 1000)]
       : []),
   ];
+  const treatment = renderTreatment(outbound, verdict);
   // a title that is not in an array goes in as HTML, and the name may come from a subscription
   ui.showModal(
     [outbound.displayName],
     [
       ...lines.map((line) => E('p', {}, [line])),
+      ...treatment.body,
       E('div', { class: 'right' }, [
         E(
           'button',
@@ -359,6 +656,19 @@ function handleShowVerdict(outbound: Podkop.Outbound) {
           },
           [_('Close')],
         ),
+        ...(treatment.apply
+          ? [
+              ' ',
+              E(
+                'button',
+                {
+                  class: 'cbi-button cbi-button-action pdk-cure__apply',
+                  click: () => treatment.apply!(),
+                },
+                [_('Apply')],
+              ),
+            ]
+          : []),
         ...(!checking && canCheck(outbound, detect.noprobe)
           ? [
               ' ',
@@ -450,11 +760,19 @@ async function renderSectionsWidget() {
     });
   }
 
+  // the cures (and the via/hash) come from the detect report; merge them onto each tile so the
+  // badge renders and the click-captured outbound carries its identity. A shallow spread keeps the
+  // tile's own identity for keepFocus.
+  const servers = store.get().detectWidget.servers ?? {};
+  const withCures = (section: Podkop.OutboundGroup): Podkop.OutboundGroup => ({
+    ...section,
+    outbounds: section.outbounds.map((o) => ({ ...o, ...servers[o.code] })),
+  });
   const renderedWidgets = sectionsWidget.data.map((section) =>
     renderSections({
       loading: sectionsWidget.loading,
       failed: sectionsWidget.failed,
-      section,
+      section: withCures(section),
       latencyFetching: sectionsWidget.latencyFetching,
       checks: {
         detect: store.get().detectWidget,
@@ -476,8 +794,12 @@ async function renderSectionsWidget() {
     }),
   );
 
+  const stale = store.get().detectWidget.staleCures;
+  const staleNotice = stale > 0 ? [renderStaleCures(stale)] : [];
   return preserveScrollForPage(() => {
-    keepFocus(container!, () => container!.replaceChildren(...renderedWidgets));
+    keepFocus(container!, () =>
+      container!.replaceChildren(...staleNotice, ...renderedWidgets),
+    );
   });
 }
 

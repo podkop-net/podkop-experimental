@@ -379,3 +379,170 @@ export function stopsChecks(
 ): boolean {
   return !reply || reply.state === 'not_running' || reply.state === 'denied';
 }
+
+// ── the per-server cure (treatment) UI ──────────────────────────────────────────────────────────
+// A cure is chosen in the verdict window and keyed off the verdict's block ALONE: a freeze cure is
+// never offered on a limit, spoof never on a freeze, so the measured freeze↔limit trap (hiding the
+// white SNI drops a working limit flow from 64 KB to ~13 KB) is impossible by construction. No cure
+// UI appears for a passive, missing or weak-active verdict. spoof needs the server's own socket, so
+// it is disabled on a server reached through a proxy; an interface gives one, and record_fragment is
+// carried through either.
+
+export type CureOptionKind = Podkop.CureKind | 'fallback';
+
+export interface CureOption {
+  kind: CureOptionKind;
+  enabled: boolean;
+  recommended?: boolean;
+}
+
+export interface CureChoice {
+  show: boolean;
+  options: CureOption[];
+  default?: CureOptionKind;
+  // a free text field for the whitelisted name (only the limit cure)
+  mask: boolean;
+}
+
+// cureChoice is the gate: what treatments the window may offer for this verdict and path.
+export function cureChoice(
+  verdict: Podkop.Verdict | undefined,
+  via: string,
+  viaInterface = false,
+): CureChoice {
+  const none: CureChoice = { show: false, options: [], mask: false };
+  if (!verdict || verdict.source !== 'active' || isWeakVerdict(verdict)) {
+    return none;
+  }
+  const detour = via !== '' && !viaInterface;
+  if (verdict.block === 'limit') {
+    return detour
+      ? {
+          show: true,
+          options: [{ kind: 'spoof', enabled: false }],
+          mask: false,
+        }
+      : {
+          show: true,
+          options: [{ kind: 'spoof', enabled: true, recommended: true }],
+          default: 'spoof',
+          mask: true,
+        };
+  }
+  if (verdict.block === 'freeze') {
+    const notes = verdict.notes ?? [];
+    // the uTLS fallback already gets around a cured freeze: nothing to set
+    if (notes.includes('cured')) return none;
+    const options: CureOption[] = [
+      { kind: 'record_fragment', enabled: true, recommended: true },
+    ];
+    if (notes.includes('fallback_off')) {
+      options.push({ kind: 'fallback', enabled: true });
+    }
+    return { show: true, options, default: 'record_fragment', mask: false };
+  }
+  // every other block (none/unreachable/hellodrop/pathblock/dead/rejected/wrongparams/unknown)
+  return none;
+}
+
+// cureLabel is the label of a treatment option in the window
+export function cureLabel(kind: CureOptionKind): string {
+  switch (kind) {
+    case 'spoof':
+      return _('Mask as a whitelisted site');
+    case 'record_fragment':
+      return _('Keep the fingerprint, split the TLS record');
+    case 'fallback':
+      return _('Turn on the uTLS fallback (switch the fingerprint)');
+  }
+}
+
+// cureHint is the small note beside an option; nothing when it has none
+export function cureHint(opt: CureOption): string | undefined {
+  if (!opt.enabled) return _('unavailable through a relay');
+  if (opt.recommended) return _('recommended');
+  if (opt.kind === 'fallback') return _('simplest');
+  return undefined;
+}
+
+// cureBadge is the read-only line on a tile that carries a cure
+export function cureBadge(cure: Podkop.Cure): string {
+  switch (cure.kind) {
+    case 'spoof':
+      return _('mask: %s').format(cure.sni ?? '');
+    case 'record_fragment':
+      return _('bypass: record fragment');
+  }
+}
+
+// setCureProblem tells what to show of a set_cure/clear_cure answer that did not apply the cure
+export function setCureProblem(
+  reply: Podkop.CureReply | undefined,
+): string | undefined {
+  switch (reply?.state) {
+    case 'ok':
+      return undefined;
+    case 'via_detour':
+      return _(
+        'This server is reached through another one; masking needs its own connection, which a relay does not give.',
+      );
+    case 'unknown':
+      return _(
+        'This server has changed since the page was drawn; reopen it and try again.',
+      );
+    case 'invalid':
+      return _(
+        'The treatment does not fit this server: a mask must be a host name other than the server’s own.',
+      );
+    case 'not_running':
+      return _('Podkop is not running.');
+    case 'denied':
+      return _('Your account may view this page but may not change a server.');
+    default:
+      return _('Failed to execute!');
+  }
+}
+
+// suggestMaskProblem tells what to show of a suggest_mask answer that found no name
+export function suggestMaskProblem(
+  reply: Podkop.SuggestMaskReply | undefined,
+): string | undefined {
+  switch (reply?.state) {
+    case 'found':
+      return undefined;
+    case 'none':
+      return _(
+        'No whitelisted name lifted the limit on this server. The network may limit by address too, where masking does not help.',
+      );
+    case 'throttled':
+      return _(
+        'A probe of this server ran recently; try again in %d s.',
+      ).format(reply.retry_after ?? 180);
+    case 'canceled':
+      return _('The search was stopped.');
+    case 'running':
+      return _('The search is still running; its result did not come in time.');
+    case 'busy':
+      return _(
+        'A search for another server is running; try again when it ends.',
+      );
+    case 'not_running':
+      return _('Podkop is not running.');
+    case 'denied':
+      return _('Your account may view this page but may not start a search.');
+    default:
+      return _('Failed to execute!');
+  }
+}
+
+// validMaskName mirrors model.ValidMaskName of the backend: a lower-case host name of two labels or
+// more, letters, digits and inner hyphens, not an address. The page lowers and trims before.
+export function validMaskName(name: string): boolean {
+  if (!name || name.length > 253 || name.endsWith('.')) return false;
+  if (/^[0-9.]+$/.test(name) || name.includes(':')) return false;
+  const labels = name.split('.');
+  if (labels.length < 2) return false;
+  return labels.every((label) =>
+    /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(label),
+  );
+}

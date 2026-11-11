@@ -8,15 +8,15 @@
 package subscription
 
 import (
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"net"
 	"net/url"
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/podkop-net/podkop-experimental/src/backend/serverid"
 )
 
 // Server is a server a subscription lists.
@@ -160,8 +160,9 @@ func parseLink(link string, number int, decode Decoder) Server {
 		server.Reason = "the outbound of the link cannot be encoded"
 		return server
 	}
-	sum := sha256.Sum256(canonical)
-	server.ID = hex.EncodeToString(sum[:12])
+	// the stable identity of the outbound: the same value as before (a sharelink outbound has
+	// no detour), now from the one definition shared with the plan and the cure store
+	server.ID = serverid.Canonical(content)
 	server.Name = cleanName(name, number)
 	server.Notes = warnings
 	server.outbound = canonical

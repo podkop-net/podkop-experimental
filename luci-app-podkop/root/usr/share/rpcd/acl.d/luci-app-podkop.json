@@ -32,7 +32,11 @@
     "write": {
       "ubus": {
         "podkop": [
-          "force_detect"
+          "force_detect",
+          "set_cure",
+          "clear_cure",
+          "drop_stale_cures",
+          "suggest_mask"
         ]
       },
       "uci": [

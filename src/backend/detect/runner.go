@@ -278,6 +278,13 @@ func AlternateFingerprint(fingerprint string) string {
 // active ones over them while those hold; a server with nothing to say has no entry.
 type Report struct {
 	Verdicts map[string]Verdict `json:"verdicts"`
+	// Servers is the stable id, the way (via) and the applied cure of every live server, by tag
+	// and parallel to Verdicts: a server with a stored cure has an entry even with no verdict, so
+	// the dashboard shows its treatment badge, and the page joins a tag to its stable id here.
+	Servers map[string]Identity `json:"servers,omitempty"`
+	// StaleCures counts the stored treatments that name no live server, and the rows this build
+	// cannot read; the dashboard offers to remove them (drop_stale_cures)
+	StaleCures int `json:"stale_cures,omitempty"`
 	// Probing is the server a probe runs on now, Queued those waiting.
 	Probing string   `json:"probing"`
 	Queued  []string `json:"queued"`

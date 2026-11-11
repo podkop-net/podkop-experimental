@@ -272,6 +272,10 @@ func (i *fakeInstance) Prober() detect.Prober {
 	return i.engine.prober
 }
 
+func (i *fakeInstance) SuggestMask(context.Context, []byte, []string) (string, int, error) {
+	return "", 0, nil
+}
+
 // fakeFixture is a supervisor of a fake engine and a recorder: no root is needed.
 func fakeFixture(t *testing.T) (*Supervisor, *fakeEngine, *recorder, func(name string, ttl string)) {
 	directory := t.TempDir()

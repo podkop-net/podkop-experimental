@@ -10,6 +10,7 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/ctl"
 	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/podkop-net/podkop-experimental/src/backend/engine"
+	"github.com/podkop-net/podkop-experimental/src/backend/supervisor"
 	"github.com/podkop-net/podkop-experimental/src/backend/ubus"
 )
 
@@ -35,6 +36,13 @@ type trafficSource interface {
 	// ForceDetect asks for a probe of a server by its tag, or to empty the queue of them; the
 	// answer comes at once, the verdict in a later Detect.
 	ForceDetect(tag string, cancel bool) detect.ForceAnswer
+	// SetCure stores a treatment for a server and applies it; ClearCure removes it;
+	// DropStaleCures removes the treatments of servers no longer in use; SuggestMask probes for a
+	// whitelisted SNI that lifts a limit. Each answers with a state.
+	SetCure(ctx context.Context, tag, kind, sni, hash string) supervisor.CureResult
+	ClearCure(ctx context.Context, tag string) supervisor.CureResult
+	DropStaleCures(ctx context.Context) supervisor.CureResult
+	SuggestMask(ctx context.Context, tag string) supervisor.SuggestResult
 }
 
 var processStart = time.Now()
@@ -73,6 +81,45 @@ func busObject(env ctl.Environment, source trafficSource) ubus.Object {
 				return nil, ubus.StatusInvalidArgument
 			}
 			return source.ForceDetect(tag, cancel), ubus.StatusOK
+		},
+	}
+	object.Methods["set_cure"] = ubus.Method{
+		Arguments: map[string]int{"tag": ubus.TypeString, "kind": ubus.TypeString, "sni": ubus.TypeString, "hash": ubus.TypeString},
+		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
+			tag, _ := arguments["tag"].(string)
+			if tag == "" {
+				return nil, ubus.StatusInvalidArgument
+			}
+			kind, _ := arguments["kind"].(string)
+			sni, _ := arguments["sni"].(string)
+			hash, _ := arguments["hash"].(string)
+			return source.SetCure(ctx, tag, kind, sni, hash), ubus.StatusOK
+		},
+	}
+	object.Methods["clear_cure"] = ubus.Method{
+		Arguments: map[string]int{"tag": ubus.TypeString},
+		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
+			tag, _ := arguments["tag"].(string)
+			if tag == "" {
+				return nil, ubus.StatusInvalidArgument
+			}
+			return source.ClearCure(ctx, tag), ubus.StatusOK
+		},
+	}
+	object.Methods["drop_stale_cures"] = ubus.Method{
+		Arguments: map[string]int{},
+		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
+			return source.DropStaleCures(ctx), ubus.StatusOK
+		},
+	}
+	object.Methods["suggest_mask"] = ubus.Method{
+		Arguments: map[string]int{"tag": ubus.TypeString},
+		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
+			tag, _ := arguments["tag"].(string)
+			if tag == "" {
+				return nil, ubus.StatusInvalidArgument
+			}
+			return source.SuggestMask(ctx, tag), ubus.StatusOK
 		},
 	}
 	return object

@@ -290,4 +290,73 @@ button.pdk_dashboard-page__outbound-grid__item__block--neutral {
     color: var(--error-color-medium, red);
 }
 
+/* the cure line: small and muted, wraps between words, a too-wide word shrinks and is cut, so it
+   never widens the tile (the same rule as the chip above). As a button (it opens the window of the
+   server) it keeps the look of the line. */
+.pdk_dashboard-page__outbound-grid__item__cure {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    margin-top: 4px;
+    max-width: 100%;
+    font-size: 11px;
+    font-size: clamp(9px, calc((100cqi - 12px) / 9), 11px);
+    opacity: 0.7;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+    overflow: hidden;
+}
+
+/* the treatment fieldset in the verdict window */
+.pdk-cure {
+    margin: 10px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color-medium, rgba(128, 128, 128, 0.3));
+    border-radius: 4px;
+}
+
+.pdk-cure__option {
+    display: block;
+    margin: 4px 0;
+}
+
+.pdk-cure__option--disabled {
+    opacity: 0.5;
+}
+
+.pdk-cure__hint {
+    opacity: 0.6;
+    font-size: 0.9em;
+}
+
+.pdk-cure__sni {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0 2px 22px;
+}
+
+.pdk-cure__sni input {
+    flex: 1 1 10em;
+    min-width: 8em;
+}
+
+/* the line above the sections about treatments stored for servers not in use */
+.pdk-cure-stale {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 10px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color-medium, rgba(128, 128, 128, 0.3));
+    border-radius: 4px;
+}
+
 `;

@@ -104,12 +104,16 @@ type detectSnapshot struct {
 	servers  []detect.Server
 	fallback bool
 	epoch    uint64
+	// stable is the identity, way and cure of each server by tag, for the report
+	stable map[string]detect.Identity
+	// staleCures counts the stored treatments that name no live server
+	staleCures int
 }
 
 func (s *Supervisor) detectSnapshot() detectSnapshot {
 	s.statusAccess.Lock()
 	defer s.statusAccess.Unlock()
-	return detectSnapshot{instance: s.live, servers: s.liveServers, fallback: s.liveFallback, epoch: s.liveEpoch}
+	return detectSnapshot{instance: s.live, servers: s.liveServers, fallback: s.liveFallback, epoch: s.liveEpoch, stable: s.liveStable, staleCures: s.liveStaleCures}
 }
 
 func findServer(servers []detect.Server, tag string) (detect.Server, bool) {
@@ -124,11 +128,17 @@ func findServer(servers []detect.Server, tag string) (detect.Server, bool) {
 // traffic shows, a recent probe over it, read in process. It may be called from any goroutine. A
 // server with nothing to say has no entry.
 func (s *Supervisor) Detect() detect.Report {
-	report := detect.Report{Verdicts: map[string]detect.Verdict{}, Queued: []string{}, NoProbe: []string{}}
+	report := detect.Report{Verdicts: map[string]detect.Verdict{}, Servers: map[string]detect.Identity{}, Queued: []string{}, NoProbe: []string{}}
 	snapshot := s.detectSnapshot()
 	if snapshot.instance == nil {
 		return report
 	}
+	// every live server's stable id, way and cure: the page joins a tag to its id here and shows a
+	// treatment badge even for a server with no verdict
+	for tag, identity := range snapshot.stable {
+		report.Servers[tag] = identity
+	}
+	report.StaleCures = snapshot.staleCures
 	report.Fallback = snapshot.fallback
 	passive := s.passiveVerdicts(snapshot)
 	now := time.Now()

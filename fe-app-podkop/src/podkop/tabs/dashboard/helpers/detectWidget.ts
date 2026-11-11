@@ -168,6 +168,8 @@ export function widgetOfReport(
   const next: IDetectWidget = {
     ...previous,
     verdicts,
+    servers: report.servers ?? {},
+    staleCures: report.stale_cures ?? 0,
     requested: settleRequested(previous.requested, report, now),
     probing: report.probing,
     queued: report.queued,

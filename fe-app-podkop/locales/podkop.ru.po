@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-06 11:28+0000\n"
-"PO-Revision-Date: 2026-11-06 11:28+0000\n"
+"POT-Creation-Date: 2026-11-11 19:49+0000\n"
+"PO-Revision-Date: 2026-11-11 19:49+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -16,6 +16,9 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+msgid "“%s” is not a host name, such as packagist.org."
+msgstr "«%s» — не имя хоста вроде packagist.org."
 
 msgid "(data as of %s)"
 msgstr "(данные на %s)"
@@ -107,8 +110,14 @@ msgstr "Список outbound"
 msgid "A number is expected, as 0x10000"
 msgstr "Нужно число, например 0x10000"
 
+msgid "A probe of this server ran recently; try again in %d s."
+msgstr "Этот сервер недавно проверялся; повторите через %d с."
+
 msgid "A row cannot connect through its own source"
 msgstr "Строка не может подключаться через свой же источник"
+
+msgid "A search for another server is running; try again when it ends."
+msgstr "Идёт поиск для другого сервера; повторите, когда он закончится."
 
 msgid "A server losing more than this, beyond the loss every server shows, gets no devices"
 msgstr "Сервер, который теряет больше (сверх потерь, общих для всех серверов), не получает устройств"
@@ -172,6 +181,9 @@ msgstr "другой путь принёс список раньше"
 
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr "Применимо для SOCKS и Shadowsocks прокси"
+
+msgid "Apply"
+msgstr "Применить"
 
 msgid "Asked in the order of the list or the fastest first, as chosen below. Drag a row by its handle to move it."
 msgstr "Опрашиваются по порядку списка или сначала самый быстрый — как выбрано ниже. Строку можно перетащить за ручку."
@@ -241,6 +253,9 @@ msgstr "Браузер не использует FakeIP"
 
 msgid "Browser is using FakeIP correctly"
 msgstr "Браузер использует FakeIP"
+
+msgid "bypass: record fragment"
+msgstr "обход: дробление записи"
 
 msgid "Cache File Path"
 msgstr "Путь к файлу кэша"
@@ -479,6 +494,9 @@ msgstr "Включить YACD"
 msgid "Enabled"
 msgstr "Включено"
 
+msgid "Enter a whitelisted name, or press “Find a mask”."
+msgstr "Введите имя из белого списка или нажмите «Подобрать маску»."
+
 msgid "Enter complete outbound configuration in JSON format"
 msgstr "Введите полную конфигурацию исходящего соединения в формате JSON"
 
@@ -566,6 +584,9 @@ msgstr "Самый быстрый с учётом потерь"
 msgid "Fastest: by the delay of the server check. Avoid loss: the delay is weighed by the loss that downloads of 256 KB through the servers count, and a faster server is checked with 1 MB before the switch. Balance: the devices are spread over the best servers by their address, a device keeps its server, servers with loss are left out. Loss checks download about 50 MB a day per rule at the interval of 30 minutes"
 msgstr "Самый быстрый: по задержке проверки серверов. С учётом потерь: задержка взвешивается потерями, которые насчитывают скачивания по 256 КБ через серверы, а более быстрый сервер перед переключением проверяется скачиванием 1 МБ. Балансировка: устройства распределяются между лучшими серверами по своему адресу, устройство остаётся на своём сервере, серверы с потерями исключаются. Проверки потерь скачивают около 50 МБ в сутки на правило при интервале 30 минут"
 
+msgid "Find a mask"
+msgstr "Подобрать маску"
+
 msgid "Fingerprint %s does not pass or hangs with several connections at once, the fallback one passes. It looks like a DPI block by fingerprint."
 msgstr "Отпечаток %s не проходит или зависает при нескольких подключениях сразу, запасной проходит. Похоже на блокировку ТСПУ по отпечатку."
 
@@ -574,6 +595,9 @@ msgstr "Отпечаток %s не проходит или зависает пр
 
 msgid "Fingerprint %s does not pass or hangs with several connections at once, the fallback one passes. It looks like a DPI block by fingerprint. Turn on the uTLS fallback in the settings."
 msgstr "Отпечаток %s не проходит или зависает при нескольких подключениях сразу, запасной проходит. Похоже на блокировку ТСПУ по отпечатку. Включите uTLS-fallback в настройках."
+
+msgid "Found a mask: %s"
+msgstr "Найдена маска: %s"
 
 msgid "freeze"
 msgstr "заморозка"
@@ -680,6 +704,9 @@ msgstr "Отсюда не подключается, а через другой �
 msgid "just now"
 msgstr "только что"
 
+msgid "Keep the fingerprint, split the TLS record"
+msgstr "Сохранить отпечаток, раздробить запись TLS"
+
 msgid "Last check: %s, %s"
 msgstr "Последняя проверка: %s, %s"
 
@@ -748,6 +775,12 @@ msgstr "Вручную"
 
 msgid "mark %s"
 msgstr "метка %s"
+
+msgid "Mask as a whitelisted site"
+msgstr "Маскировка под сайт из белого списка"
+
+msgid "mask: %s"
+msgstr "маска: %s"
 
 msgid "Matched"
 msgstr "Совпало"
@@ -865,6 +898,12 @@ msgstr "Нет серверов: правило не действует"
 
 msgid "no TLS"
 msgstr "нет TLS"
+
+msgid "No treatment"
+msgstr "Без обхода"
+
+msgid "No whitelisted name lifted the limit on this server. The network may limit by address too, where masking does not help."
+msgstr "Ни одно имя из белого списка не сняло лимит на этом сервере. Сеть может резать и по адресу — тогда маскировка не поможет."
 
 msgid "Not copied: show the links and copy them by hand"
 msgstr "Не скопировано: покажите ссылки и скопируйте их вручную"
@@ -1007,6 +1046,9 @@ msgstr "Готов"
 msgid "Recognized: %s"
 msgstr "Распознано: %s"
 
+msgid "recommended"
+msgstr "рекомендуется"
+
 msgid "refused"
 msgstr "отказ"
 
@@ -1015,6 +1057,12 @@ msgstr "Отклоняется: у правила сейчас нет серве
 
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
+
+msgid "Remove them"
+msgstr "Удалить"
+
+msgid "Remove treatment"
+msgstr "Убрать обход"
 
 msgid "replies %s"
 msgstr "отвечает %s"
@@ -1066,6 +1114,12 @@ msgstr "Ограничения Russia inside"
 
 msgid "Save & Apply first: the router downloads the address it runs with"
 msgstr "Сначала «Сохранить и применить»: роутер загружает адрес, с которым работает"
+
+msgid "Saved treatments for servers not in use now: %d. A server changed, was removed, or its subscription is not loaded yet."
+msgstr "Сохранённых обходов для серверов, которых сейчас нет в работе: %d. Сервер изменился, удалён или его подписка ещё не загружена."
+
+msgid "Searching…"
+msgstr "Поиск…"
 
 msgid "secure connection…"
 msgstr "защищённое соединение…"
@@ -1171,6 +1225,9 @@ msgstr "Показать ссылки"
 
 msgid "Show sing-box config"
 msgstr "Показать sing-box конфигурацию"
+
+msgid "simplest"
+msgstr "проще всего"
 
 msgid "Some of the test connections were lost, the rest passed."
 msgstr "Часть проверочных подключений потерялась, остальные прошли."
@@ -1403,9 +1460,6 @@ msgstr "Провайдер ответил HTTP %s вместо списка"
 msgid "The provider asks to wait (HTTP 429): the router tries again later"
 msgstr "Провайдер просит подождать (HTTP 429): роутер повторит позже"
 
-msgid "The subscription server does not answer"
-msgstr "Сервер подписки не отвечает"
-
 msgid "The provider did not accept this device (HWID)"
 msgstr "Провайдер не принял это устройство (HWID)"
 
@@ -1481,6 +1535,12 @@ msgstr "Похоже, у роутера нет связи с интернето�
 msgid "The row connects through its own source"
 msgstr "Строка подключается через свой же источник"
 
+msgid "The search is still running; its result did not come in time."
+msgstr "Поиск ещё идёт; результат не пришёл вовремя."
+
+msgid "The search was stopped."
+msgstr "Поиск остановлен."
+
 msgid "the secure connection failed"
 msgstr "защищённое соединение не установлено"
 
@@ -1541,6 +1601,9 @@ msgstr "Источник %s, через который идёт подключе
 msgid "The source %s to connect through is not filled"
 msgstr "Источник %s, через который идёт подключение, не заполнен"
 
+msgid "The subscription server does not answer"
+msgstr "Сервер подписки не отвечает"
+
 msgid "The test download went through in full."
 msgstr "Проверочная загрузка прошла полностью."
 
@@ -1549,6 +1612,9 @@ msgstr "Текст раскодирован из base64"
 
 msgid "the transfer stopped at %s"
 msgstr "передача остановилась на %s"
+
+msgid "The treatment does not fit this server: a mask must be a host name other than the server’s own."
+msgstr "Обход не подходит этому серверу: маска должна быть именем хоста, отличным от имени самого сервера."
 
 msgid "The URL must serve at least 64 KiB or announce a shorter length"
 msgstr "Ссылка должна отдавать не меньше 64 КиБ или сообщать меньшую длину"
@@ -1571,8 +1637,20 @@ msgstr "Нет ни одного пути к провайдеру"
 msgid "These are not links of servers: %s"
 msgstr "Это не ссылки на серверы: %s"
 
+msgid "This server has changed since the page was drawn; reopen it and try again."
+msgstr "Сервер изменился с момента открытия страницы; откройте его заново и повторите."
+
 msgid "This server is no longer in the running configuration."
 msgstr "Этого сервера уже нет в работающей конфигурации."
+
+msgid "This server is reached through another one; masking needs its own connection, which a relay does not give."
+msgstr "Этот сервер доступен через другой; маскировке нужно собственное соединение, а промежуточный сервер его не даёт."
+
+msgid "This server will be masked as a whitelisted site on the wire."
+msgstr "В сети этот сервер будет выглядеть как сайт из белого списка."
+
+msgid "This server's TLS hello will be split into two records."
+msgstr "TLS-приветствие этого сервера будет разбито на две записи."
 
 msgid "Through"
 msgstr "Через"
@@ -1601,6 +1679,18 @@ msgstr "Трафик: %s из %s, исчерпан"
 msgid "Traffic: %s, no limit"
 msgstr "Трафик: %s, без ограничений"
 
+msgid "Treatment applied."
+msgstr "Обход включён."
+
+msgid "Treatment for this server"
+msgstr "Обход блокировки для этого сервера"
+
+msgid "Treatment removed."
+msgstr "Обход убран."
+
+msgid "Treatments removed."
+msgstr "Обходы удалены."
+
 msgid "Troubleshooting"
 msgstr "Устранение неполадок"
 
@@ -1609,6 +1699,12 @@ msgstr "TTL должно быть положительным числом"
 
 msgid "TTL value cannot be empty"
 msgstr "Значение TTL не может быть пустым"
+
+msgid "Turn on the uTLS fallback (switch the fingerprint)"
+msgstr "Включить uTLS-fallback (сменить отпечаток)"
+
+msgid "Turn on the uTLS fallback in Settings; it switches the fingerprint for every server, not just this one."
+msgstr "Включите uTLS-fallback в настройках; он меняет отпечаток для всех серверов, а не только для этого."
 
 msgid "Two lists are being downloaded for the page: wait for them"
 msgstr "Для страницы уже загружаются два списка: дождитесь их"
@@ -1621,6 +1717,9 @@ msgstr "UDP (Незащищённый DNS)"
 
 msgid "UDP over TCP"
 msgstr "UDP через TCP"
+
+msgid "unavailable through a relay"
+msgstr "недоступно через промежуточный сервер"
 
 msgid "unknown"
 msgstr "неизвестно"
@@ -1721,5 +1820,11 @@ msgstr "Сетевые интерфейсы YACD"
 msgid "YACD Secret Key"
 msgstr "Секретный ключ YACD"
 
+msgid "Your account may view this page but may not change a server."
+msgstr "Вашей учётной записи можно смотреть эту страницу, но нельзя менять сервер."
+
 msgid "Your account may view this page but may not start a check."
 msgstr "Вашей учётной записи можно смотреть эту страницу, но нельзя запускать проверку."
+
+msgid "Your account may view this page but may not start a search."
+msgstr "Вашей учётной записи можно смотреть эту страницу, но нельзя запускать поиск."

@@ -17,6 +17,8 @@ import type { Podkop } from '../../../types';
 
 const widget = (change: Partial<IDetectWidget> = {}): IDetectWidget => ({
   verdicts: {},
+  servers: {},
+  staleCures: 0,
   requested: {},
   probing: '',
   queued: [],

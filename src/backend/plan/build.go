@@ -210,19 +210,26 @@ func Adoptions(next *Result, previous *Result) (selectors map[string]string, mem
 		}
 		// a server of the same source, server and way under another tag; a rule's selector
 		// and URL test share their owner and are taken above
+		// the key leaves out StableHash: it identifies the same server, server and way across a
+		// rebuild as before the field was added, so a pin carries over even when a cure (which
+		// changes the outbound but not the identity) was added or removed meanwhile
 		owned := make(map[TagOf]string)
 		shared := make(map[TagOf]bool)
 		for tag, owner := range next.Tags.Outbounds {
 			if owner.Rule != "" && owner.Fallback == 0 {
 				continue
 			}
-			if _, seen := owned[owner]; seen {
-				shared[owner] = true
+			key := owner
+			key.StableHash = ""
+			if _, seen := owned[key]; seen {
+				shared[key] = true
 			}
-			owned[owner] = tag
+			owned[key] = tag
 		}
 		for tag, owner := range previous.Tags.Outbounds {
-			if now, found := owned[owner]; found && !shared[owner] && now != tag {
+			key := owner
+			key.StableHash = ""
+			if now, found := owned[key]; found && !shared[key] && now != tag {
 				members[tag] = now
 			}
 		}
@@ -276,6 +283,12 @@ type TagOf struct {
 	Server string `json:"server,omitempty"`
 	// Via is the source the server connects through.
 	Via string `json:"via,omitempty"`
+	// StableHash is the tag/detour/cure-independent identity of the server (serverid.Canonical):
+	// the key of a cure, read in memory by the supervisor. It is not serialized — the page learns
+	// a server's identity from the detect report's servers map, not from the tags — and it is
+	// stripped in Adoptions so adding it does not change which outbounds carry a pin across a
+	// rebuild.
+	StableHash string `json:"-"`
 }
 
 // Dataplane is what the router needs around a configuration, made of the settings: the

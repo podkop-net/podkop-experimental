@@ -52,6 +52,8 @@ function render(
   const checks: ISectionChecks = {
     detect: {
       verdicts: {},
+      servers: {},
+      staleCures: 0,
       requested: {},
       probing: '',
       queued: [],
@@ -399,5 +401,63 @@ describe('the tiers of a rule', () => {
     };
     const { root } = render([outbound('a', { active: true })], {}, { route });
     expect(byClass(root, ROUTE)).toHaveLength(0);
+  });
+});
+
+describe('the cure badge of a tile', () => {
+  const CURE = 'pdk_dashboard-page__outbound-grid__item__cure';
+  beforeAll(() => {
+    vi.stubGlobal(
+      'E',
+      (
+        tag: string,
+        attr: Record<string, unknown> | null,
+        children?: (Node | string)[] | Node | string,
+      ): Node => ({
+        tag,
+        attr: attr ?? {},
+        children:
+          children === undefined
+            ? []
+            : Array.isArray(children)
+              ? children
+              : [children],
+        bare: typeof children === 'string',
+      }),
+    );
+  });
+  const text = (node: Node) =>
+    node.children.filter((c): c is string => typeof c === 'string').join('');
+
+  it('renders a mask badge with the sni that opens the window, not choosing the server', () => {
+    const server = outbound('a', {
+      cure: { kind: 'spoof', sni: 'packagist.com' },
+    });
+    const { root, checks, onChooseOutbound } = render([server]);
+    const nodes = byClass(root, CURE);
+    expect(nodes).toHaveLength(1);
+    expect(text(nodes[0])).toContain('packagist.com');
+    const event = click(nodes[0]);
+    expect(event.stopPropagation).toHaveBeenCalled();
+    expect(checks.onShowVerdict).toHaveBeenCalledWith(server);
+    expect(onChooseOutbound).not.toHaveBeenCalled();
+  });
+
+  it('renders a record_fragment badge', () => {
+    const { root } = render([
+      outbound('a', { cure: { kind: 'record_fragment' } }),
+    ]);
+    const nodes = byClass(root, CURE);
+    expect(nodes).toHaveLength(1);
+    expect(text(nodes[0])).toContain('record fragment');
+  });
+
+  it('renders no badge without a cure, and keeps the chip/button rows', () => {
+    const { root } = render([outbound('a')], {
+      verdicts: { a: { block: 'limit', source: 'active', kb: 18 } },
+    });
+    expect(byClass(root, CURE)).toHaveLength(0);
+    expect(byClass(root, CHIP)).toHaveLength(1);
+    expect(byClass(root, BUTTON)).toHaveLength(1);
   });
 });

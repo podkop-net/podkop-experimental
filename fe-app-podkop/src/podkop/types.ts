@@ -159,6 +159,29 @@ export namespace Podkop {
     why?: string;
   }
 
+  // the treatment set on a server (detect.Cure / model.Cure). spoof = tls.spoof for the limit;
+  // record_fragment is the freeze cure that keeps the fingerprint. spoof needs the server's own
+  // socket, so the backend refuses it through a proxy (an interface gives one).
+  export type CureKind = 'spoof' | 'record_fragment';
+
+  export interface Cure {
+    kind: CureKind;
+    // only for spoof: the whitelisted name put on the wire
+    sni?: string;
+  }
+
+  // a server's stable identity, the path it is reached through, and its stored cure, as the detect
+  // report carries them beside the verdicts (keyed by the same tag the page uses as outbound.code)
+  export interface ServerCure {
+    // the tag-stripped stable identity (detect.Server.Hash); the cure key and a render-time guard
+    hash: string;
+    // the through-source name; '' means the server is reached directly, matches plan TagOf.Via
+    via: string;
+    // the source of via is an interface: the server has its own socket, a mask works
+    via_interface?: boolean;
+    cure?: Cure;
+  }
+
   // the answer of the method detect of the object podkop on ubus
   export interface DetectReport {
     verdicts: Record<string, VerdictReply>;
@@ -166,6 +189,47 @@ export namespace Podkop {
     queued: string[];
     noprobe: string[];
     fallback: boolean;
+    // every probe-eligible server, and any server that merely has a cure stored (so the badge
+    // renders without a verdict); parallel to verdicts, keyed by tag
+    servers?: Record<string, ServerCure>;
+    // the stored treatments of no server in use, and rows this build cannot read
+    stale_cures?: number;
+  }
+
+  // the answer of set_cure / clear_cure; denied is not of the backend: rpc.js refused the call
+  // (the ACL of the session), as with ForceDetectReply
+  export interface CureReply {
+    state:
+      | 'ok'
+      | 'via_detour'
+      | 'unknown'
+      | 'invalid'
+      | 'not_running'
+      | 'denied';
+  }
+
+  // the answer of suggest_mask: the in-engine white-SNI probe, found with the name it found
+  export interface SuggestMaskReply {
+    state:
+      | 'found'
+      | 'none'
+      | 'not_running'
+      | 'canceled'
+      | 'throttled'
+      | 'running'
+      | 'busy'
+      | 'denied';
+    sni?: string;
+    tried?: number;
+    retry_after?: number;
+  }
+
+  // the new write methods of the object podkop on ubus (write.ubus.podkop)
+  export enum CureMethods {
+    SET_CURE = 'set_cure',
+    CLEAR_CURE = 'clear_cure',
+    DROP_STALE_CURES = 'drop_stale_cures',
+    SUGGEST_MASK = 'suggest_mask',
   }
 
   // the answer of the method force_detect; the verdict comes in a later detect
@@ -207,6 +271,11 @@ export namespace Podkop {
     // a server of the balance of the rule, and the devices it carries
     balanced?: boolean;
     devices?: number;
+    // merged from the detect report at render; the authoritative source is the report, not the tile
+    hash?: string;
+    via?: string;
+    via_interface?: boolean;
+    cure?: Cure;
   }
 
   // Where the connections of a rule go now. auto: by its URL test, from its servers (tier 0) or

@@ -4,6 +4,7 @@ import { getDashboardSections, getUsedTags } from './getDashboardSections';
 import { getClashApiSecret } from './getClashApiSecret';
 import { getSingBoxFeatures } from './getSingBoxFeatures';
 import { forceDetect, getVerdicts } from './getVerdicts';
+import { clearCure, dropStaleCures, setCure, suggestMask } from './cures';
 
 export const CustomPodkopMethods = {
   getConfigSections,
@@ -14,4 +15,8 @@ export const CustomPodkopMethods = {
   getSingBoxFeatures,
   getVerdicts,
   forceDetect,
+  setCure,
+  clearCure,
+  dropStaleCures,
+  suggestMask,
 };

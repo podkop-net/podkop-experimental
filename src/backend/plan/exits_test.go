@@ -15,6 +15,106 @@ import (
 
 const exitHead = "config settings 'settings'\n\toption config_version '2'\n\toption dns_type 'udp'\n\toption dns_server '8.8.8.8'\n"
 
+// outTag is the TagOf of a tag with its content hash cleared: the label tests compare the routing
+// identity (rule, source, server, via) and not the per-server StableHash, which has its own check.
+func outTag(result *Result, tag string) TagOf {
+	t := result.Tags.Outbounds[tag]
+	t.StableHash = ""
+	return t
+}
+
+// tlsOf finds the tls object of the outbound a tag names in a built configuration.
+func tlsOf(t *testing.T, result *Result, tag string) map[string]any {
+	t.Helper()
+	var config struct {
+		Outbounds []map[string]any `json:"outbounds"`
+	}
+	require.NoError(t, json.Unmarshal(result.Config, &config))
+	for _, outbound := range config.Outbounds {
+		if outbound["tag"] == tag {
+			tls, _ := outbound["tls"].(map[string]any)
+			return tls
+		}
+	}
+	t.Fatalf("no outbound tagged %q", tag)
+	return nil
+}
+
+// TestExitCure applies a cure to the server its stable hash names: spoof and record_fragment
+// each land on the server's tls; a kind this build does not know is left out; a cure of
+// no server is a no-op.
+func TestExitCure(t *testing.T) {
+	t.Parallel()
+	base := "\nconfig source 'own'\n\toption type 'links'\n\tlist link 'vless://u@own.example:443?security=reality#Own'\n" +
+		ruleText("link", row("server", "own"))
+	// the first build tells the stable hash of the server, which keys its cure
+	result, err := buildRules(t, base, nil)
+	require.NoError(t, err)
+	hash := result.Tags.Outbounds["Own"].StableHash
+	require.Len(t, hash, 24)
+	cure := func(kind, sni string) string {
+		text := "\nconfig cure\n\toption hash '" + hash + "'\n\toption kind '" + kind + "'\n"
+		if sni != "" {
+			text += "\toption sni '" + sni + "'\n"
+		}
+		return text
+	}
+
+	result, err = buildRules(t, base+cure("spoof", "packagist.org"), nil)
+	require.NoError(t, err)
+	require.Equal(t, "packagist.org", tlsOf(t, result, "Own")["spoof"])
+
+	result, err = buildRules(t, base+cure("record_fragment", ""), nil)
+	require.NoError(t, err)
+	require.Equal(t, true, tlsOf(t, result, "Own")["record_fragment"])
+
+	// a mask the engine would refuse (the server's own name, or no host name) is left off: the
+	// build does not fail for a row written by hand
+	for _, bad := range []string{"a.example", "not a name"} {
+		result, err = buildRules(t, base+cure("spoof", bad), nil)
+		require.NoError(t, err, bad)
+		require.Nil(t, tlsOf(t, result, "Own")["spoof"], bad)
+	}
+
+	// a kind this build does not know (oob of the hand-over builds) is skipped, not an error
+	result, err = buildRules(t, base+cure("oob", ""), nil)
+	require.NoError(t, err)
+	require.Nil(t, tlsOf(t, result, "Own")["oob"])
+
+	// a cure whose hash names no server does nothing, and is not an error
+	result, err = buildRules(t, base+"\nconfig cure\n\toption hash '000000000000000000000000'\n\toption kind 'spoof'\n\toption sni 'x.example'\n", nil)
+	require.NoError(t, err)
+	require.Nil(t, tlsOf(t, result, "Own")["spoof"])
+}
+
+// TestExitCureThroughDetourRejected fails the build when a spoof cure lands on a server
+// reached through a proxy: it needs the server's own socket, which a detour does not give.
+func TestExitCureThroughDetourRejected(t *testing.T) {
+	t.Parallel()
+	base := "\nconfig source 'own'\n\toption type 'links'\n\tlist link 'vless://u@own.example:443?security=reality#Own'\n" +
+		"\nconfig source 'relay'\n\toption type 'links'\n\tlist link 'vless://u@relay.example:443?security=reality#Relay'\n" +
+		ruleText("link", row("server", "own", "via relay"))
+	result, err := buildRules(t, base, nil)
+	require.NoError(t, err)
+	var tag string
+	var via TagOf
+	for candidate, info := range result.Tags.Outbounds {
+		if info.Source == "own" && info.Via == "relay" {
+			tag, via = candidate, info
+		}
+	}
+	require.NotEmpty(t, tag, "the server own routed through relay")
+	require.Len(t, via.StableHash, 24)
+	spoofCure := "\nconfig cure\n\toption hash '" + via.StableHash + "'\n\toption via 'relay'\n\toption kind 'spoof'\n\toption sni 'packagist.org'\n"
+	_, err = buildRules(t, base+spoofCure, nil)
+	require.Error(t, err)
+	// record_fragment is carried through a detour and is allowed
+	rfCure := "\nconfig cure\n\toption hash '" + via.StableHash + "'\n\toption via 'relay'\n\toption kind 'record_fragment'\n"
+	result, err = buildRules(t, base+rfCure, nil)
+	require.NoError(t, err)
+	require.Equal(t, true, tlsOf(t, result, tag)["record_fragment"])
+}
+
 // decodeTestLink decodes a link of a test: the host is the server, the name after # the tag,
 // socks5 and ss give their types, a host "bad.example" is refused.
 func decodeTestLink(link string) ([]byte, []string, error) {
@@ -26,7 +126,16 @@ func decodeTestLink(link string) ([]byte, []string, error) {
 	if kind == "" {
 		kind = "vless"
 	}
-	content, _ := json.Marshal(map[string]any{"type": kind, "server": parsed.Hostname(), "server_port": 443, "tag": parsed.Fragment})
+	outbound := map[string]any{"type": kind, "server": parsed.Hostname(), "server_port": 443, "tag": parsed.Fragment}
+	// a link with a security parameter carries a TLS object, so a cure has something to set on
+	if security := parsed.Query().Get("security"); security == "tls" || security == "reality" {
+		tls := map[string]any{"enabled": true, "server_name": "a.example"}
+		if security == "reality" {
+			tls["reality"] = map[string]any{"enabled": true}
+		}
+		outbound["tls"] = tls
+	}
+	content, _ := json.Marshal(outbound)
 	return content, nil, nil
 }
 
@@ -323,8 +432,8 @@ func TestExitViaSourceOfSeveralServers(t *testing.T) {
 	require.Equal(t, []string{"My servers: A", "My servers: B"}, outbounds["My servers-best"].Outbounds)
 	require.True(t, result.Swappable["My servers-best"])
 	require.Equal(t, TagOf{Source: "pair"}, result.Tags.Outbounds["My servers-best"])
-	require.Equal(t, TagOf{Source: "far", Via: "pair"}, result.Tags.Outbounds["Far via My servers"])
-	require.Equal(t, TagOf{Source: "pair", Server: "B"}, result.Tags.Outbounds["My servers: B"])
+	require.Equal(t, TagOf{Source: "far", Via: "pair"}, outTag(result, "Far via My servers"))
+	require.Equal(t, TagOf{Source: "pair", Server: "B"}, outTag(result, "My servers: B"))
 }
 
 // A row through a subscription not downloaded yet takes no server for now: the rule goes by its
@@ -385,7 +494,10 @@ func TestExitTagsOfNames(t *testing.T) {
 	require.NoError(t, err)
 	_, outbounds := outboundsOf(t, result)
 	require.Equal(t, []string{"Subscription: NL", "Subscription: NL #2", "Subscription: server 3"}, outbounds["block-urltest-out"].Outbounds)
-	require.Equal(t, TagOf{Source: "prov1", Server: "NL #2"}, result.Tags.Outbounds["Subscription: NL #2"])
+	require.Equal(t, TagOf{Source: "prov1", Server: "NL #2"}, outTag(result, "Subscription: NL #2"))
+	// a server carries a stable content identity (24 hex); a group does not
+	require.Len(t, result.Tags.Outbounds["Subscription: NL #2"].StableHash, 24)
+	require.Empty(t, result.Tags.Outbounds["block-urltest-out"].StableHash)
 	require.Equal(t, "block", outbounds["block"].Type, "a rule named block keeps the block outbound apart")
 	require.Equal(t, "selector", outbounds["block-out"].Type)
 }
@@ -443,8 +555,8 @@ func TestExitTagsFollowLabels(t *testing.T) {
 		require.Equal(t, []string{chain}, outbounds["Cats-urltest-out"].Outbounds, cat)
 		require.Equal(t, []string{"Cats-out"}, ruleRoutes(config), cat)
 		require.Equal(t, RuleTags{Name: "Cats", Selector: "Cats-out", Test: "Cats-urltest-out"}, result.Tags.Rules["rule1"], cat)
-		require.Equal(t, TagOf{Source: "src1", Via: "src2"}, result.Tags.Outbounds[chain], cat)
-		require.Equal(t, TagOf{Source: "src2"}, result.Tags.Outbounds[cat], cat)
+		require.Equal(t, TagOf{Source: "src1", Via: "src2"}, outTag(result, chain), cat)
+		require.Equal(t, TagOf{Source: "src2"}, outTag(result, cat), cat)
 		require.Equal(t, TagOf{Rule: "rule1"}, result.Tags.Outbounds["Cats-urltest-out"], cat)
 	}
 }
@@ -464,7 +576,7 @@ func TestExitTagsOfNamesAlike(t *testing.T) {
 	require.Equal(t, []string{"Germany", "Germany (b)", "x-out #2", "direct-out #2"}, outbounds["x-urltest-out"].Outbounds)
 	require.Equal(t, "selector", outbounds["x-out"].Type)
 	require.Equal(t, "direct", outbounds["direct-out"].Type)
-	require.Equal(t, TagOf{Source: "c"}, result.Tags.Outbounds["x-out #2"])
+	require.Equal(t, TagOf{Source: "c"}, outTag(result, "x-out #2"))
 }
 
 // An outbound JSON that names outbounds of podkop by the tags they had while tags were made of

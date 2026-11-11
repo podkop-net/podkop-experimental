@@ -142,6 +142,10 @@ export interface IDiagnosticsChecksStoreItem {
 // rebuilds the grid of the servers, and those two change with every answer.
 export interface IDetectWidget {
   verdicts: Record<string, Podkop.Verdict>;
+  // the stable identity, via and stored cure of each live server, from the detect report
+  servers: Record<string, Podkop.ServerCure>;
+  // the stored treatments of no server in use (detect report stale_cures)
+  staleCures: number;
   // the servers a check was asked of and the backend does not yet tell (their time, in ms)
   requested: Record<string, number>;
   probing: string;
@@ -242,6 +246,8 @@ const initialStore: StoreType = {
   },
   detectWidget: {
     verdicts: {},
+    servers: {},
+    staleCures: 0,
     requested: {},
     probing: '',
     queued: [],

@@ -538,6 +538,13 @@ var Podkop;
     AvailableClashAPIMethods2["GET_GROUP_LATENCY"] = "get_group_latency";
     AvailableClashAPIMethods2["SET_GROUP_PROXY"] = "set_group_proxy";
   })(AvailableClashAPIMethods = Podkop2.AvailableClashAPIMethods || (Podkop2.AvailableClashAPIMethods = {}));
+  let CureMethods;
+  ((CureMethods2) => {
+    CureMethods2["SET_CURE"] = "set_cure";
+    CureMethods2["CLEAR_CURE"] = "clear_cure";
+    CureMethods2["DROP_STALE_CURES"] = "drop_stale_cures";
+    CureMethods2["SUGGEST_MASK"] = "suggest_mask";
+  })(CureMethods = Podkop2.CureMethods || (Podkop2.CureMethods = {}));
 })(Podkop || (Podkop = {}));
 
 // src/podkop/methods/shell/index.ts
@@ -1452,6 +1459,86 @@ async function forceDetect(tag, cancel = false) {
   return void 0;
 }
 
+// src/podkop/methods/custom/cures.ts
+var backendSetCure;
+var backendClearCure;
+var backendDropStaleCures;
+var backendSuggestMask;
+function errorText2(err) {
+  return err?.message ?? String(err);
+}
+function denied(err) {
+  return /failed with error -32002\b/.test(errorText2(err));
+}
+async function setCure(tag, kind, sni = "", hash = "") {
+  backendSetCure ?? (backendSetCure = rpc.declare({
+    object: "podkop",
+    method: Podkop.CureMethods.SET_CURE,
+    params: ["tag", "kind", "sni", "hash"],
+    nobatch: true
+  }));
+  try {
+    const reply = await backendSetCure(tag, kind, sni, hash);
+    if (typeof reply === "object" && reply !== null) return reply;
+    logger.error("[DASHBOARD]", "set_cure failed: status", reply);
+  } catch (err) {
+    logger.error("[DASHBOARD]", "set_cure failed:", errorText2(err));
+    if (denied(err)) return { state: "denied" };
+  }
+  return void 0;
+}
+async function clearCure(tag) {
+  backendClearCure ?? (backendClearCure = rpc.declare({
+    object: "podkop",
+    method: Podkop.CureMethods.CLEAR_CURE,
+    params: ["tag"],
+    nobatch: true
+  }));
+  try {
+    const reply = await backendClearCure(tag);
+    if (typeof reply === "object" && reply !== null) return reply;
+    logger.error("[DASHBOARD]", "clear_cure failed: status", reply);
+  } catch (err) {
+    logger.error("[DASHBOARD]", "clear_cure failed:", errorText2(err));
+    if (denied(err)) return { state: "denied" };
+  }
+  return void 0;
+}
+async function dropStaleCures() {
+  backendDropStaleCures ?? (backendDropStaleCures = rpc.declare({
+    object: "podkop",
+    method: Podkop.CureMethods.DROP_STALE_CURES,
+    params: [],
+    nobatch: true
+  }));
+  try {
+    const reply = await backendDropStaleCures();
+    if (typeof reply === "object" && reply !== null) return reply;
+    logger.error("[DASHBOARD]", "drop_stale_cures failed: status", reply);
+  } catch (err) {
+    logger.error("[DASHBOARD]", "drop_stale_cures failed:", errorText2(err));
+    if (denied(err)) return { state: "denied" };
+  }
+  return void 0;
+}
+async function suggestMask(tag) {
+  backendSuggestMask ?? (backendSuggestMask = rpc.declare({
+    object: "podkop",
+    method: Podkop.CureMethods.SUGGEST_MASK,
+    params: ["tag"],
+    nobatch: true
+  }));
+  try {
+    const reply = await backendSuggestMask(tag);
+    if (typeof reply === "object" && reply !== null) return reply;
+    logger.error("[DASHBOARD]", "suggest_mask failed: status", reply);
+  } catch (err) {
+    logger.error("[DASHBOARD]", "suggest_mask failed:", errorText2(err));
+    if (denied(err)) return { state: "denied" };
+  }
+  return void 0;
+}
+
 // src/podkop/methods/custom/index.ts
 var CustomPodkopMethods = {
   getConfigSections,
@@ -1461,7 +1548,11 @@ var CustomPodkopMethods = {
   getClashApiSecret,
   getSingBoxFeatures,
   getVerdicts,
-  forceDetect
+  forceDetect,
+  setCure,
+  clearCure,
+  dropStaleCures,
+  suggestMask
 };
 
 // src/constants.ts
@@ -1979,6 +2070,8 @@ var initialStore = {
   },
   detectWidget: {
     verdicts: {},
+    servers: {},
+    staleCures: 0,
     requested: {},
     probing: "",
     queued: [],
@@ -2385,6 +2478,122 @@ function forceDetectProblem(reply) {
 function stopsChecks(reply) {
   return !reply || reply.state === "not_running" || reply.state === "denied";
 }
+function cureChoice(verdict, via, viaInterface = false) {
+  const none = { show: false, options: [], mask: false };
+  if (!verdict || verdict.source !== "active" || isWeakVerdict(verdict)) {
+    return none;
+  }
+  const detour = via !== "" && !viaInterface;
+  if (verdict.block === "limit") {
+    return detour ? {
+      show: true,
+      options: [{ kind: "spoof", enabled: false }],
+      mask: false
+    } : {
+      show: true,
+      options: [{ kind: "spoof", enabled: true, recommended: true }],
+      default: "spoof",
+      mask: true
+    };
+  }
+  if (verdict.block === "freeze") {
+    const notes = verdict.notes ?? [];
+    if (notes.includes("cured")) return none;
+    const options = [
+      { kind: "record_fragment", enabled: true, recommended: true }
+    ];
+    if (notes.includes("fallback_off")) {
+      options.push({ kind: "fallback", enabled: true });
+    }
+    return { show: true, options, default: "record_fragment", mask: false };
+  }
+  return none;
+}
+function cureLabel(kind) {
+  switch (kind) {
+    case "spoof":
+      return _("Mask as a whitelisted site");
+    case "record_fragment":
+      return _("Keep the fingerprint, split the TLS record");
+    case "fallback":
+      return _("Turn on the uTLS fallback (switch the fingerprint)");
+  }
+}
+function cureHint(opt) {
+  if (!opt.enabled) return _("unavailable through a relay");
+  if (opt.recommended) return _("recommended");
+  if (opt.kind === "fallback") return _("simplest");
+  return void 0;
+}
+function cureBadge(cure) {
+  switch (cure.kind) {
+    case "spoof":
+      return _("mask: %s").format(cure.sni ?? "");
+    case "record_fragment":
+      return _("bypass: record fragment");
+  }
+}
+function setCureProblem(reply) {
+  switch (reply?.state) {
+    case "ok":
+      return void 0;
+    case "via_detour":
+      return _(
+        "This server is reached through another one; masking needs its own connection, which a relay does not give."
+      );
+    case "unknown":
+      return _(
+        "This server has changed since the page was drawn; reopen it and try again."
+      );
+    case "invalid":
+      return _(
+        "The treatment does not fit this server: a mask must be a host name other than the server\u2019s own."
+      );
+    case "not_running":
+      return _("Podkop is not running.");
+    case "denied":
+      return _("Your account may view this page but may not change a server.");
+    default:
+      return _("Failed to execute!");
+  }
+}
+function suggestMaskProblem(reply) {
+  switch (reply?.state) {
+    case "found":
+      return void 0;
+    case "none":
+      return _(
+        "No whitelisted name lifted the limit on this server. The network may limit by address too, where masking does not help."
+      );
+    case "throttled":
+      return _(
+        "A probe of this server ran recently; try again in %d s."
+      ).format(reply.retry_after ?? 180);
+    case "canceled":
+      return _("The search was stopped.");
+    case "running":
+      return _("The search is still running; its result did not come in time.");
+    case "busy":
+      return _(
+        "A search for another server is running; try again when it ends."
+      );
+    case "not_running":
+      return _("Podkop is not running.");
+    case "denied":
+      return _("Your account may view this page but may not start a search.");
+    default:
+      return _("Failed to execute!");
+  }
+}
+function validMaskName(name) {
+  if (!name || name.length > 253 || name.endsWith(".")) return false;
+  if (/^[0-9.]+$/.test(name) || name.includes(":")) return false;
+  const labels = name.split(".");
+  if (labels.length < 2) return false;
+  return labels.every(
+    (label) => /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(label)
+  );
+}
 
 // src/podkop/tabs/dashboard/helpers/detectWidget.ts
 var REQUESTED_TIMEOUT_MS = 3e4;
@@ -2475,6 +2684,8 @@ function widgetOfReport(previous, report, now) {
   const next = {
     ...previous,
     verdicts,
+    servers: report.servers ?? {},
+    staleCures: report.stale_cures ?? 0,
     requested: settleRequested(previous.requested, report, now),
     probing: report.probing,
     queued: report.queued,
@@ -2582,6 +2793,26 @@ function renderDefaultState({
         )
       ];
     }
+    function renderCureBadge() {
+      if (!outbound.cure) return [];
+      const onShowVerdict = checks?.onShowVerdict;
+      return [
+        E(
+          onShowVerdict ? "button" : "div",
+          {
+            class: "pdk_dashboard-page__outbound-grid__item__cure",
+            ...onShowVerdict ? {
+              title: _("Treatment for this server"),
+              click: (event) => {
+                event.stopPropagation();
+                onShowVerdict(outbound);
+              }
+            } : {}
+          },
+          [cureBadge(outbound.cure)]
+        )
+      ];
+    }
     const selectable = section.withTagSelect && outbound.selectable !== false;
     const classes = [
       "pdk_dashboard-page__outbound-grid__item",
@@ -2630,7 +2861,8 @@ function renderDefaultState({
             ...outbound.balanced ? [` \xB7 \u21C4${outbound.devices ?? 0}`] : []
           ])
         ]),
-        ...renderCheckRow()
+        ...renderCheckRow(),
+        ...renderCureBadge()
       ]
     );
   }
@@ -3241,10 +3473,11 @@ async function sendChecks(tags, section, found) {
   }
   fetchDetect();
 }
-function askToCheck(warning, check) {
+function askToCheck(warning, check, opts = {}) {
+  const note = opts.note === void 0 ? relayNotice() : opts.note;
   ui.showModal(_("Server check"), [
     E("p", {}, [warning]),
-    E("p", {}, [relayNotice()]),
+    ...note ? [E("p", {}, [note])] : [],
     E("div", { class: "right" }, [
       E(
         "button",
@@ -3264,7 +3497,7 @@ function askToCheck(warning, check) {
             check();
           }
         },
-        [_("Check server")]
+        [opts.confirm ?? _("Check server")]
       )
     ])
   ]);
@@ -3293,6 +3526,107 @@ function handleCheckServer(outbound) {
     () => sendChecks([outbound.code])
   );
 }
+function cureWarning(kind) {
+  switch (kind) {
+    case "spoof":
+      return _("This server will be masked as a whitelisted site on the wire.");
+    case "record_fragment":
+      return _("This server's TLS hello will be split into two records.");
+  }
+}
+async function doApplyCure(outbound, kind, sni) {
+  const reply = await CustomPodkopMethods.setCure(
+    outbound.code,
+    kind,
+    sni,
+    outbound.hash ?? ""
+  );
+  if (!mounted) return;
+  if (reply?.state === "ok") {
+    showToast(_("Treatment applied."), "success");
+    fetchDetect();
+  } else {
+    showToast(setCureProblem(reply) ?? _("Failed to execute!"), "error", 5e3);
+  }
+}
+function handleApplyCure(outbound, kind, sni) {
+  ui.hideModal();
+  askToCheck(cureWarning(kind), () => doApplyCure(outbound, kind, sni), {
+    note: null,
+    confirm: _("Apply")
+  });
+}
+async function handleClearCure(outbound) {
+  ui.hideModal();
+  const reply = await CustomPodkopMethods.clearCure(outbound.code);
+  if (!mounted) return;
+  if (reply?.state === "ok") {
+    showToast(_("Treatment removed."), "success");
+    fetchDetect();
+  } else {
+    showToast(setCureProblem(reply) ?? _("Failed to execute!"), "error", 5e3);
+  }
+}
+var SUGGEST_POLL_MS = 2e3;
+var SUGGEST_GIVE_UP_MS = 6e4;
+async function handleSuggestMask(outbound, button, setSni) {
+  if (button.disabled) return;
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = _("Searching\u2026");
+  const giveUp = Date.now() + SUGGEST_GIVE_UP_MS;
+  let reply = await CustomPodkopMethods.suggestMask(outbound.code);
+  while (mounted && reply?.state === "running" && Date.now() < giveUp) {
+    await new Promise((resolve) => setTimeout(resolve, SUGGEST_POLL_MS));
+    reply = await CustomPodkopMethods.suggestMask(outbound.code);
+  }
+  if (!mounted) return;
+  button.disabled = false;
+  button.textContent = label;
+  if (reply?.state === "found" && reply.sni) {
+    setSni(reply.sni);
+    showToast(_("Found a mask: %s").format(reply.sni), "success");
+  } else {
+    showToast(
+      suggestMaskProblem(reply) ?? _("Failed to execute!"),
+      "error",
+      5e3
+    );
+  }
+}
+async function handleDropStaleCures() {
+  const reply = await CustomPodkopMethods.dropStaleCures();
+  if (!mounted) return;
+  if (reply?.state === "ok") {
+    showToast(_("Treatments removed."), "success");
+    fetchDetect();
+  } else {
+    showToast(setCureProblem(reply) ?? _("Failed to execute!"), "error", 5e3);
+  }
+}
+function renderStaleCures(count) {
+  return E("div", { class: "pdk-cure-stale" }, [
+    E("span", {}, [
+      _(
+        "Saved treatments for servers not in use now: %d. A server changed, was removed, or its subscription is not loaded yet."
+      ).format(count)
+    ]),
+    " ",
+    E("button", { class: "cbi-button", click: () => handleDropStaleCures() }, [
+      _("Remove them")
+    ])
+  ]);
+}
+function handleTurnOnFallback() {
+  ui.hideModal();
+  showToast(
+    _(
+      "Turn on the uTLS fallback in Settings; it switches the fingerprint for every server, not just this one."
+    ),
+    "success",
+    6e3
+  );
+}
 function handleCheckProblems(section) {
   const detect = store.get().detectWidget;
   const servers = problemServers(section, detect);
@@ -3319,6 +3653,125 @@ async function handleCancelChecks() {
   if (problem) showToast(problem, "error");
   if (mounted) fetchDetect();
 }
+function renderTreatment(outbound, verdict) {
+  const info = store.get().detectWidget.servers[outbound.code] ?? {
+    hash: outbound.hash ?? "",
+    via: outbound.via ?? "",
+    via_interface: outbound.via_interface,
+    cure: outbound.cure
+  };
+  const choice = cureChoice(verdict, info.via, info.via_interface ?? false);
+  if (!choice.show) {
+    if (!info.cure) return { body: [], apply: void 0 };
+    return {
+      body: [
+        E("fieldset", { class: "pdk-cure" }, [
+          E("b", {}, [_("Treatment for this server")]),
+          E("p", {}, [cureBadge(info.cure)]),
+          E(
+            "button",
+            { class: "cbi-button", click: () => handleClearCure(outbound) },
+            [_("Remove treatment")]
+          )
+        ])
+      ],
+      apply: void 0
+    };
+  }
+  const enabledKinds = choice.options.filter((o) => o.enabled).map((o) => o.kind);
+  const current = info.cure?.kind;
+  const preset = current && enabledKinds.includes(current) ? current : choice.default ?? "none";
+  const option = (kind, label, enabled) => {
+    const hint = (() => {
+      const opt = choice.options.find((o) => o.kind === kind);
+      return opt ? cureHint(opt) : void 0;
+    })();
+    return E(
+      "label",
+      {
+        class: `pdk-cure__option${enabled ? "" : " pdk-cure__option--disabled"}`
+      },
+      [
+        E("input", {
+          type: "radio",
+          name: "pdk-cure",
+          value: kind,
+          disabled: enabled ? null : "disabled",
+          checked: kind === preset ? "checked" : null
+        }),
+        " ",
+        label,
+        ...hint ? [" ", E("span", { class: "pdk-cure__hint" }, [`(${hint})`])] : []
+      ]
+    );
+  };
+  const rows = [
+    option("none", _("No treatment"), true),
+    ...choice.options.map((o) => option(o.kind, cureLabel(o.kind), o.enabled))
+  ];
+  if (choice.mask) {
+    const sniInput = E("input", {
+      id: "pdk-cure-sni",
+      type: "text",
+      value: info.cure?.sni ?? "",
+      placeholder: "packagist.org"
+    });
+    rows.push(
+      E("div", { class: "pdk-cure__sni" }, [
+        sniInput,
+        E(
+          "button",
+          {
+            class: "cbi-button",
+            click: (event) => handleSuggestMask(
+              outbound,
+              event.currentTarget,
+              (sni) => {
+                sniInput.value = sni;
+              }
+            )
+          },
+          [_("Find a mask")]
+        )
+      ])
+    );
+  }
+  const body = [
+    E("fieldset", { class: "pdk-cure" }, [
+      E("b", {}, [_("Treatment for this server")]),
+      ...rows
+    ])
+  ];
+  const apply = () => {
+    const picked = document.querySelector(
+      'input[name="pdk-cure"]:checked'
+    )?.value;
+    const sni = (document.querySelector("#pdk-cure-sni")?.value ?? "").trim().toLowerCase();
+    if (!picked || picked === "none") {
+      if (!info.cure) return ui.hideModal();
+      return handleClearCure(outbound);
+    }
+    if (picked === "fallback") return handleTurnOnFallback();
+    if (picked === "spoof" && !sni) {
+      showToast(
+        _("Enter a whitelisted name, or press \u201CFind a mask\u201D."),
+        "error",
+        5e3
+      );
+      return;
+    }
+    if (picked === "spoof" && !validMaskName(sni)) {
+      showToast(
+        _("\u201C%s\u201D is not a host name, such as packagist.org.").format(sni),
+        "error",
+        5e3
+      );
+      return;
+    }
+    return handleApplyCure(outbound, picked, picked === "spoof" ? sni : "");
+  };
+  return { body, apply };
+}
 function handleShowVerdict(outbound) {
   const detect = store.get().detectWidget;
   const verdict = detect.verdicts[outbound.code];
@@ -3330,10 +3783,12 @@ function handleShowVerdict(outbound) {
     ...verdict ? verdictLines(verdict) : [],
     ...verdict?.source === "active" && known ? [checkedAgo(known.age + (Date.now() - known.at) / 1e3)] : []
   ];
+  const treatment = renderTreatment(outbound, verdict);
   ui.showModal(
     [outbound.displayName],
     [
       ...lines.map((line) => E("p", {}, [line])),
+      ...treatment.body,
       E("div", { class: "right" }, [
         E(
           "button",
@@ -3343,6 +3798,17 @@ function handleShowVerdict(outbound) {
           },
           [_("Close")]
         ),
+        ...treatment.apply ? [
+          " ",
+          E(
+            "button",
+            {
+              class: "cbi-button cbi-button-action pdk-cure__apply",
+              click: () => treatment.apply()
+            },
+            [_("Apply")]
+          )
+        ] : [],
         ...!checking && canCheck(outbound, detect.noprobe) ? [
           " ",
           E(
@@ -3421,11 +3887,16 @@ async function renderSectionsWidget() {
       container.replaceChildren(renderedWidget);
     });
   }
+  const servers = store.get().detectWidget.servers ?? {};
+  const withCures = (section) => ({
+    ...section,
+    outbounds: section.outbounds.map((o) => ({ ...o, ...servers[o.code] }))
+  });
   const renderedWidgets = sectionsWidget.data.map(
     (section) => renderSections({
       loading: sectionsWidget.loading,
       failed: sectionsWidget.failed,
-      section,
+      section: withCures(section),
       latencyFetching: sectionsWidget.latencyFetching,
       checks: {
         detect: store.get().detectWidget,
@@ -3445,8 +3916,13 @@ async function renderSectionsWidget() {
       }
     })
   );
+  const stale = store.get().detectWidget.staleCures;
+  const staleNotice = stale > 0 ? [renderStaleCures(stale)] : [];
   return preserveScrollForPage(() => {
-    keepFocus(container, () => container.replaceChildren(...renderedWidgets));
+    keepFocus(
+      container,
+      () => container.replaceChildren(...staleNotice, ...renderedWidgets)
+    );
   });
 }
 async function renderBandwidthWidget() {
@@ -3941,6 +4417,75 @@ button.pdk_dashboard-page__outbound-grid__item__block--neutral {
 
 .pdk_dashboard-page__outbound-grid__item__latency--red {
     color: var(--error-color-medium, red);
+}
+
+/* the cure line: small and muted, wraps between words, a too-wide word shrinks and is cut, so it
+   never widens the tile (the same rule as the chip above). As a button (it opens the window of the
+   server) it keeps the look of the line. */
+.pdk_dashboard-page__outbound-grid__item__cure {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    margin-top: 4px;
+    max-width: 100%;
+    font-size: 11px;
+    font-size: clamp(9px, calc((100cqi - 12px) / 9), 11px);
+    opacity: 0.7;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+    overflow: hidden;
+}
+
+/* the treatment fieldset in the verdict window */
+.pdk-cure {
+    margin: 10px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color-medium, rgba(128, 128, 128, 0.3));
+    border-radius: 4px;
+}
+
+.pdk-cure__option {
+    display: block;
+    margin: 4px 0;
+}
+
+.pdk-cure__option--disabled {
+    opacity: 0.5;
+}
+
+.pdk-cure__hint {
+    opacity: 0.6;
+    font-size: 0.9em;
+}
+
+.pdk-cure__sni {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0 2px 22px;
+}
+
+.pdk-cure__sni input {
+    flex: 1 1 10em;
+    min-width: 8em;
+}
+
+/* the line above the sections about treatments stored for servers not in use */
+.pdk-cure-stale {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 10px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color-medium, rgba(128, 128, 128, 0.3));
+    border-radius: 4px;
 }
 
 `;

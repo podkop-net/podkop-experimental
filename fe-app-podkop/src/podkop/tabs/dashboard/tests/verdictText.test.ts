@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   checkedAgo,
+  cureBadge,
+  cureChoice,
   forceDetectProblem,
   isWeakVerdict,
+  setCureProblem,
   stopsChecks,
+  suggestMaskProblem,
+  validMaskName,
   verdictChip,
   verdictLines,
 } from '../helpers/verdictText';
@@ -475,6 +480,211 @@ describe('stopsChecks', () => {
   it('goes on past what is of one server', () => {
     for (const state of ['throttled', 'unknown', 'started'] as const) {
       expect(stopsChecks({ state })).toBe(false);
+    }
+  });
+});
+
+describe('cureChoice', () => {
+  const kinds = (
+    via: string,
+    block: Podkop.Block,
+    notes: Podkop.VerdictNote[],
+  ) =>
+    cureChoice(verdict(block, 'active', { notes }), via).options.map(
+      (o) => o.kind,
+    );
+  const enabled = (
+    via: string,
+    block: Podkop.Block,
+    notes: Podkop.VerdictNote[],
+  ) =>
+    cureChoice(verdict(block, 'active', { notes }), via).options.map(
+      (o) => o.enabled,
+    );
+
+  it.each<
+    [Podkop.Block, 'passive' | 'active', Podkop.VerdictNote[], string, boolean]
+  >([
+    ['limit', 'active', [], '', true],
+    ['limit', 'active', [], 'relay-nl', true],
+    ['limit', 'passive', [], '', false],
+    ['freeze', 'active', ['cured'], '', false],
+    ['freeze', 'active', ['fallback_off'], '', true],
+    ['freeze', 'active', ['stand_in'], '', true],
+    ['freeze', 'active', [], '', true],
+    ['none', 'active', [], '', false],
+    ['unreachable', 'active', [], '', false],
+    ['hellodrop', 'active', [], '', false],
+    ['pathblock', 'active', [], '', false],
+    ['wrongparams', 'active', [], '', false],
+    ['unknown', 'active', ['inconclusive'], '', false],
+  ])(
+    '%s from %s with %j via "%s" shows %s',
+    (block, source, notes, via, show) => {
+      expect(cureChoice(verdict(block, source, { notes }), via).show).toBe(
+        show,
+      );
+    },
+  );
+
+  it('limit direct: spoof default, mask on', () => {
+    const c = cureChoice(verdict('limit', 'active'), '');
+    expect(c.options).toEqual([
+      { kind: 'spoof', enabled: true, recommended: true },
+    ]);
+    expect(c.default).toBe('spoof');
+    expect(c.mask).toBe(true);
+  });
+
+  it('limit detour: spoof greyed, no default, no mask field', () => {
+    const c = cureChoice(verdict('limit', 'active'), 'relay-nl');
+    expect(c.options).toEqual([{ kind: 'spoof', enabled: false }]);
+    expect(c.default).toBeUndefined();
+    expect(c.mask).toBe(false);
+  });
+
+  it('freeze + fallback_off direct: record_fragment*, fallback, both enabled', () => {
+    expect(kinds('', 'freeze', ['fallback_off'])).toEqual([
+      'record_fragment',
+      'fallback',
+    ]);
+    expect(enabled('', 'freeze', ['fallback_off'])).toEqual([true, true]);
+    const c = cureChoice(
+      verdict('freeze', 'active', { notes: ['fallback_off'] }),
+      '',
+    );
+    expect(c.default).toBe('record_fragment');
+    expect(c.options[0].recommended).toBe(true);
+    expect(c.mask).toBe(false);
+  });
+
+  it('freeze + fallback_off detour: record_fragment/fallback enabled (carried by a relay)', () => {
+    expect(kinds('relay-nl', 'freeze', ['fallback_off'])).toEqual([
+      'record_fragment',
+      'fallback',
+    ]);
+    expect(enabled('relay-nl', 'freeze', ['fallback_off'])).toEqual([
+      true,
+      true,
+    ]);
+  });
+
+  it('freeze bare / stand_in: record_fragment only, no fallback option', () => {
+    expect(kinds('', 'freeze', [])).toEqual(['record_fragment']);
+    expect(kinds('', 'freeze', ['stand_in'])).toEqual(['record_fragment']);
+    expect(enabled('relay-nl', 'freeze', ['stand_in'])).toEqual([true]);
+  });
+
+  it('limit through an interface: spoof enabled with the mask field', () => {
+    const c = cureChoice(verdict('limit', 'active'), 'wan2', true);
+    expect(c.options).toEqual([
+      { kind: 'spoof', enabled: true, recommended: true },
+    ]);
+    expect(c.mask).toBe(true);
+  });
+
+  it('no cure UI for undefined, passive, or weak-active verdicts', () => {
+    expect(cureChoice(undefined, '').show).toBe(false);
+    expect(cureChoice(verdict('limit', 'passive'), '').show).toBe(false);
+    expect(
+      cureChoice(verdict('unknown', 'active', { notes: ['inconclusive'] }), '')
+        .show,
+    ).toBe(false);
+  });
+
+  it("the cross-trap is impossible: 'none' never an option, no freeze cure on limit, no spoof on freeze", () => {
+    const blocks: Podkop.Block[] = ['limit', 'freeze'];
+    const noteSets: Podkop.VerdictNote[][] = [
+      [],
+      ['fallback_off'],
+      ['stand_in'],
+      ['cured'],
+    ];
+    for (const block of blocks) {
+      for (const notes of noteSets) {
+        for (const via of ['', 'relay-nl']) {
+          const opts = cureChoice(
+            verdict(block, 'active', { notes }),
+            via,
+          ).options;
+          const ks = opts.map((o) => o.kind);
+          expect(ks).not.toContain('none');
+          if (block === 'limit') {
+            expect(ks).not.toContain('record_fragment');
+          }
+          if (block === 'freeze') expect(ks).not.toContain('spoof');
+        }
+      }
+    }
+  });
+});
+
+describe('cureBadge', () => {
+  it('spoof interpolates the sni with no leftover %s', () => {
+    const text = cureBadge({ kind: 'spoof', sni: 'packagist.com' });
+    expect(text).toContain('packagist.com');
+    expect(text).not.toContain('%s');
+  });
+  it('record_fragment', () => {
+    expect(cureBadge({ kind: 'record_fragment' })).toContain('record fragment');
+  });
+});
+
+describe('setCureProblem', () => {
+  it('ok is undefined; the five non-ok states are truthy and distinct', () => {
+    expect(setCureProblem({ state: 'ok' })).toBeUndefined();
+    const states = [
+      'via_detour',
+      'unknown',
+      'invalid',
+      'not_running',
+      'denied',
+    ] as const;
+    const texts = states.map((state) => setCureProblem({ state }));
+    expect(texts.every(Boolean)).toBe(true);
+    expect(new Set(texts).size).toBe(5);
+  });
+});
+
+describe('suggestMaskProblem', () => {
+  it('found is undefined; the other states truthy and distinct', () => {
+    expect(suggestMaskProblem({ state: 'found' })).toBeUndefined();
+    const states = [
+      'none',
+      'canceled',
+      'not_running',
+      'denied',
+      'running',
+      'busy',
+    ] as const;
+    const texts = states.map((state) => suggestMaskProblem({ state }));
+    expect(texts.every(Boolean)).toBe(true);
+    expect(new Set(texts).size).toBe(6);
+  });
+});
+
+describe('validMaskName', () => {
+  it('takes host names of two labels or more', () => {
+    for (const name of ['packagist.org', 'a.b.example', 'x-1.example.com']) {
+      expect(validMaskName(name)).toBe(true);
+    }
+  });
+  it('refuses what the backend refuses', () => {
+    for (const name of [
+      '',
+      'org',
+      'Packagist.org',
+      '-a.org',
+      'a-.org',
+      'a..org',
+      'a.org.',
+      '192.0.2.1',
+      '::1',
+      'a b.org',
+      "a'.org",
+      'a'.repeat(64) + '.org',
+    ]) {
+      expect(validMaskName(name)).toBe(false);
     }
   });
 });
