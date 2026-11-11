@@ -32,6 +32,10 @@ jobs:
           # package manager wants it (sdk/build.sh, Dockerfile-ipk)
           VERSION=${VERSION#v}
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      # a release is built only on a published podkop-engine state (tag or pre-release tag)
+      - name: podkop-engine of go.mod is released
+        if: github.event_name == 'push'
+        run: sh sdk/check-engine.sh
 
   matrix:
     name: Architectures of podkop

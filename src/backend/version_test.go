@@ -28,9 +28,9 @@ func TestEngineReleaseOfGoMod(t *testing.T) {
 		t.Skip("no Makefile of the package next to the backend")
 	}
 	require.NoError(t, err)
-	named := regexp.MustCompile(`(?m)^// podkop-net/sing-box \(podkop-engine (r[0-9]+),`).FindSubmatch(goMod)
+	named := regexp.MustCompile(`(?m)^// podkop-net/sing-box \(podkop-engine (r[0-9]+(?:-rc[0-9]+)?),`).FindSubmatch(goMod)
 	require.NotNil(t, named, "go.mod names no release of podkop-engine above its replace")
-	written := regexp.MustCompile(`(?m)^ENGINE_RELEASE:=(r[0-9]+)$`).FindSubmatch(makefile)
+	written := regexp.MustCompile(`(?m)^ENGINE_RELEASE:=(r[0-9]+(?:-rc[0-9]+)?)$`).FindSubmatch(makefile)
 	require.NotNil(t, written, "the Makefile sets no ENGINE_RELEASE")
 	require.Equal(t, string(named[1]), string(written[1]))
 }
