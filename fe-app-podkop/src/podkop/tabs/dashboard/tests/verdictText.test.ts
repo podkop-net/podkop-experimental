@@ -577,6 +577,21 @@ describe('cureChoice', () => {
     expect(enabled('relay-nl', 'freeze', ['stand_in'])).toEqual([true]);
   });
 
+  it('a server the report gives no via is direct (omitempty): its cures are enabled', () => {
+    const limit = cureChoice(verdict('limit', 'active'), undefined);
+    expect(limit.options).toEqual([
+      { kind: 'spoof', enabled: true, recommended: true },
+    ]);
+    expect(limit.mask).toBe(true);
+    const path = cureChoice(
+      verdict('pathblock', 'active', { via: 'Relay' }),
+      undefined,
+    );
+    expect(path.options).toEqual([
+      { kind: 'detour', enabled: true, recommended: true },
+    ]);
+  });
+
   it('limit through an interface: spoof enabled with the mask field', () => {
     const c = cureChoice(verdict('limit', 'active'), 'wan2', true);
     expect(c.options).toEqual([

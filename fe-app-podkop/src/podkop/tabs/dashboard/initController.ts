@@ -507,7 +507,11 @@ function renderTreatment(
     via_interface: outbound.via_interface,
     cure: outbound.cure,
   };
-  const choice = cureChoice(verdict, info.via, info.via_interface ?? false);
+  const choice = cureChoice(
+    verdict,
+    info.via ?? '',
+    info.via_interface ?? false,
+  );
   if (!choice.show) {
     // no treatment fits the verdict now (a working cure leaves none to fix): a stored one is shown
     // with its removal, so a cure never stays out of reach of the page

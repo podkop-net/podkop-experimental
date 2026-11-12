@@ -2479,11 +2479,12 @@ function stopsChecks(reply) {
   return !reply || reply.state === "not_running" || reply.state === "denied";
 }
 function cureChoice(verdict, via, viaInterface = false) {
+  const direct = !via;
   const none = { show: false, options: [], mask: false };
   if (!verdict || verdict.source !== "active" || isWeakVerdict(verdict)) {
     return none;
   }
-  const detour = via !== "" && !viaInterface;
+  const detour = !direct && !viaInterface;
   if (verdict.block === "limit") {
     return detour ? {
       show: true,
@@ -2509,7 +2510,7 @@ function cureChoice(verdict, via, viaInterface = false) {
   }
   if (verdict.block === "pathblock") {
     if (!verdict.via) return none;
-    return via === "" ? {
+    return direct ? {
       show: true,
       options: [{ kind: "detour", enabled: true, recommended: true }],
       default: "detour",
@@ -3699,7 +3700,11 @@ function renderTreatment(outbound, verdict) {
     via_interface: outbound.via_interface,
     cure: outbound.cure
   };
-  const choice = cureChoice(verdict, info.via, info.via_interface ?? false);
+  const choice = cureChoice(
+    verdict,
+    info.via ?? "",
+    info.via_interface ?? false
+  );
   if (!choice.show) {
     if (!info.cure) return { body: [], apply: void 0 };
     return {

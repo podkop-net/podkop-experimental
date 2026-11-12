@@ -407,14 +407,16 @@ export interface CureChoice {
 // cureChoice is the gate: what treatments the window may offer for this verdict and path.
 export function cureChoice(
   verdict: Podkop.Verdict | undefined,
-  via: string,
+  via: string | undefined,
   viaInterface = false,
 ): CureChoice {
+  // the report leaves via out for a server reached directly (omitempty): no via is direct
+  const direct = !via;
   const none: CureChoice = { show: false, options: [], mask: false };
   if (!verdict || verdict.source !== 'active' || isWeakVerdict(verdict)) {
     return none;
   }
-  const detour = via !== '' && !viaInterface;
+  const detour = !direct && !viaInterface;
   if (verdict.block === 'limit') {
     return detour
       ? {
@@ -445,7 +447,7 @@ export function cureChoice(
     // the server answered through a working one: connect through its source. A server that goes
     // another way already (a row with "via") cannot take it.
     if (!verdict.via) return none;
-    return via === ''
+    return direct
       ? {
           show: true,
           options: [{ kind: 'detour', enabled: true, recommended: true }],
