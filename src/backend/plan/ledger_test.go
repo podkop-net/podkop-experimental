@@ -14,8 +14,9 @@ import (
 func TestFromShell(t *testing.T) {
 	noFiles := Options{ReadFile: func(string) ([]byte, error) { return nil, os.ErrNotExist }}
 
-	// the shell backend's download_detour becomes the detour of the one HTTP client of
-	// the lists, named the default; independent_cache goes; the key of the settings goes
+	// the shell backend's download_detour goes: the HTTP client of the lists, named the
+	// default, goes directly (no rule has servers here to fall back through, see
+	// TestListsClients); independent_cache goes; the key of the settings goes
 	// to the Clash API, which listens on this host (YACD is off); the uTLS fallback is
 	// told as the settings have it
 	settings := &model.Config{Settings: model.Settings{UpdateInterval: "1d", YACDSecretKey: "k3y", UTLSFallback: true}, Sections: []model.Section{{Name: "main",
@@ -33,8 +34,7 @@ func TestFromShell(t *testing.T) {
   "certificate": {},
   "http_clients": [
     {
-      "tag": "lists",
-      "detour": "main-out"
+      "tag": "lists"
     }
   ],
   "endpoints": [],
@@ -164,4 +164,44 @@ func TestFromShell(t *testing.T) {
   }
 }
 `, string(converted.Config))
+}
+
+// The lists go directly, and fall back through the first three rules that have servers now,
+// in the order of the settings: a rule that is off, goes direct or blocks, has no servers or
+// is refused (usable) is passed by.
+func TestListsClients(t *testing.T) {
+	servers := func(source string) []model.Member { return []model.Member{{Source: source}} }
+	config := &model.Config{
+		Sources: []model.Source{{Name: "nl", Type: "links", Links: []string{"vless://x@nl.example:443"}}, {Name: "empty", Type: "links"}},
+		Sections: []model.Section{
+			{Name: "off", Servers: servers("nl")},
+			{Name: "direct", Enabled: true, Servers: servers(model.SourceDirect)},
+			{Name: "none", Enabled: true, Servers: servers("empty")},
+			{Name: "first", Enabled: true, Servers: servers("nl")},
+			{Name: "refused", Enabled: true, Servers: servers("nl")},
+			{Name: "second", Enabled: true, Servers: append(servers("nl"), model.Member{Source: model.SourceDirect})},
+			{Name: "third", Enabled: true, Servers: servers("nl")},
+			{Name: "fourth", Enabled: true, Servers: servers("nl")},
+		},
+	}
+	usable := func(section *model.Section) bool { return config.HasOutbound(section) && section.Name != "refused" }
+	clients := listsClients(config, usable)
+	var want []any
+	var fallback []any
+	for _, name := range []string{"first", "second", "third"} {
+		tag := "lists-" + RuleOutbound(config, name)
+		fallback = append(fallback, tag)
+		want = append(want, newObject("tag", tag, "detour", RuleOutbound(config, name)))
+	}
+	want = append([]any{newObject("tag", "lists", "fallback", fallback)}, want...)
+	got, err := indented(clients)
+	require.NoError(t, err)
+	expected, err := indented(want)
+	require.NoError(t, err)
+	require.Equal(t, string(expected), string(got))
+
+	// no rule has servers: the client of the lists alone, without fallbacks
+	got, err = indented(listsClients(&model.Config{}, usable))
+	require.NoError(t, err)
+	require.Equal(t, "[\n  {\n    \"tag\": \"lists\"\n  }\n]\n", string(got))
 }

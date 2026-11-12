@@ -17,11 +17,13 @@ import (
 // FromShell brings a configuration of the shell backend to what the generator writes
 // instead, so that every case still checks the rest byte for byte:
 //
-//  1. Remote rule sets download with one named HTTP client, "lists", with a detour to the
-//     outbound of the section the settings name for the lists, or without one, and
-//     route.default_http_client names it. The shell backend gives each rule set
-//     download_detour, or nothing (the implicit default client): sing-box 1.14 notes
-//     both as deprecated, and 1.16 removes them.
+//  1. Remote rule sets download with the named HTTP client "lists", which
+//     route.default_http_client names: it goes directly, and its fallbacks go through the
+//     outbounds of the first rules with servers (listsClients), so a list the provider does
+//     not let through comes through a server. The shell backend gives each rule set
+//     download_detour to the section the settings name for the lists, or nothing (the
+//     implicit default client): sing-box 1.14 notes both as deprecated, and 1.16 removes
+//     them; download_lists_via_proxy is read no more.
 //  2. A list given by URL that is no rule set file is a remote rule set of the format
 //     text, a URL each, downloaded by sing-box (common/ruletext); those of a section and
 //     kind come together, where the first of them is. The shell backend downloads such
@@ -149,13 +151,9 @@ func FromShell(content []byte, shell Shell) (*Converted, error) {
 	if routeObject != nil && shell.Settings != nil {
 		ruleSets, _ := routeObject.get("rule_set")
 		list, _ := ruleSets.([]any)
-		var detour any
 		for _, entry := range list {
 			if ruleSet, isObject := entry.(*object); isObject {
-				if value, found := ruleSet.get("download_detour"); found {
-					detour = value
-					ruleSet.remove("download_detour")
-				}
+				ruleSet.remove("download_detour")
 			}
 		}
 		for index := range shell.Settings.Sections {
@@ -220,16 +218,7 @@ func FromShell(content []byte, shell Shell) (*Converted, error) {
 			}
 		}
 		if remote {
-			if detour == nil && shell.Settings.Settings.DownloadListsViaProxy {
-				// a configuration whose only downloaded lists were plain ones had no
-				// download_detour to take the section from
-				detour = RuleOutbound(shell.Settings, shell.Settings.Settings.DownloadListsViaProxySection)
-			}
-			client := newObject("tag", tagListsHTTPClient)
-			if detour != nil {
-				client.set("detour", detour)
-			}
-			document.insertAfter("certificate", "http_clients", []any{client})
+			document.insertAfter("certificate", "http_clients", listsClients(shell.Settings, shell.Settings.HasOutbound))
 			routeObject.set("default_http_client", tagListsHTTPClient)
 		}
 	}

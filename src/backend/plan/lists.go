@@ -92,20 +92,8 @@ func isSubnet(text string) bool {
 	return model.IsIPv4(text) || model.IsIPv4CIDR(text)
 }
 
-func (b *builder) downloadDetour() string {
-	if !b.config.Settings.DownloadListsViaProxy {
-		return ""
-	}
-	name := b.config.Settings.DownloadListsViaProxySection
-	if section := b.config.Section(name); section != nil && (!b.config.HasOutbound(section) || b.isRefused(section)) {
-		b.warnOnce("the lists are downloaded directly: rule ", b.names.RuleText(name), " has no servers now")
-		return ""
-	}
-	return b.ruleOutbound(name)
-}
-
 // addRemoteRuleSet names a rule set sing-box downloads. It downloads with the HTTP
-// client of the lists (see listsHTTPClient), not with download_detour, which sing-box
+// client of the lists (see listsClients), not with download_detour, which sing-box
 // 1.14 deprecates and 1.16 removes, and not with the implicit default client either.
 func (b *builder) addRemoteRuleSet(tag string, format string, url string) {
 	ruleSet := newObject("type", "remote", "tag", tag, "format", format, "url", url)
@@ -114,14 +102,44 @@ func (b *builder) addRemoteRuleSet(tag string, format string, url string) {
 	b.remoteRuleSets = true
 }
 
-// listsHTTPClient is the HTTP client the remote rule sets download with: through the
-// outbound of the section the settings name for the lists, or directly.
-func (b *builder) listsHTTPClient() *object {
-	client := newObject("tag", tagListsHTTPClient)
-	if detour := b.downloadDetour(); detour != "" {
-		client.set("detour", detour)
+// listsFallbacks is how many rules with servers a list that does not come directly may come
+// through: as many as the servers a subscription is downloaded through (supervisor
+// previewProxies).
+const listsFallbacks = 3
+
+// listsHTTPClients are the HTTP clients the remote rule sets download with (listsClients), the
+// rules whose servers are refused now left out.
+func (b *builder) listsHTTPClients() []any {
+	return listsClients(b.config, func(section *model.Section) bool {
+		return b.config.HasOutbound(section) && !b.isRefused(section)
+	})
+}
+
+// listsClients are the HTTP clients of the remote rule sets: "lists", which goes directly, and,
+// as its fallbacks (http_client.fallback of sing-box), a client through the outbound of each of
+// the first listsFallbacks rules usable takes, in the order of the settings. A list that does not
+// come directly comes through the server a rule chose, then through that of the next rule.
+func listsClients(config *model.Config, usable func(*model.Section) bool) []any {
+	direct := newObject("tag", tagListsHTTPClient)
+	clients := []any{direct}
+	var fallback []any
+	for index := range config.Sections {
+		section := &config.Sections[index]
+		if len(fallback) == listsFallbacks {
+			break
+		}
+		if !usable(section) {
+			continue
+		}
+		outbound := RuleOutbound(config, section.Name)
+		tag := tagListsHTTPClient + "-" + outbound
+		fallback = append(fallback, tag)
+		clients = append(clients, newObject("tag", tag, "detour", outbound))
 	}
-	return client
+	if len(fallback) > 0 {
+		direct.set("fallback", fallback)
+	}
+	return clients
 }
 
 // addSourceRuleSet makes a rule-set file the backend fills itself, names it in the

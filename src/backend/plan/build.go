@@ -543,7 +543,7 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 		"certificate", new(object),
 	)
 	if b.remoteRuleSets {
-		document.set("http_clients", []any{b.listsHTTPClient()})
+		document.set("http_clients", b.listsHTTPClients())
 		route.set("default_http_client", tagListsHTTPClient)
 	}
 	document.append(

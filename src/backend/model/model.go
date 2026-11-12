@@ -235,10 +235,8 @@ type Settings struct {
 	// (maskLists); none when the settings turn them off
 	MaskLists []string
 
-	UpdateInterval               string
-	DownloadListsViaProxy        bool
-	DownloadListsViaProxySection string
-	DontTouchDHCP                bool
+	UpdateInterval string
+	DontTouchDHCP  bool
 
 	CachePath            string
 	LogLevel             string
@@ -304,28 +302,26 @@ func Load(parsed *uci.Package) (*Config, error) {
 		return defaultValue
 	}
 	config := &Config{Settings: Settings{
-		DNSType:                      get(settings, "dns_type", "doh"),
-		DNSServer:                    get(settings, "dns_server", "1.1.1.1"),
-		DNSMode:                      get(settings, "dns_mode", DNSModeOrder),
-		BootstrapDNSServer:           get(settings, "bootstrap_dns_server", "77.88.8.8"),
-		DNSRewriteTTL:                get(settings, "dns_rewrite_ttl", "60"),
-		SourceNetworkInterfaces:      list(settings, "source_network_interfaces"),
-		OutputNetworkInterface:       settings.Get("output_network_interface"),
-		ExcludeNTP:                   settings.Bool("exclude_ntp", false),
-		RoutingExcludedIPs:           list(settings, "routing_excluded_ips"),
-		EnableYACD:                   settings.Bool("enable_yacd", false),
-		YACDInterfaces:               list(settings, "yacd_interfaces"),
-		YACDSecretKey:                settings.Get("yacd_secret_key"),
-		UTLSFallback:                 settings.Bool("utls_fallback", true),
-		DisableQUIC:                  settings.Bool("disable_quic", false),
-		MaskLists:                    maskLists(settings),
-		UpdateInterval:               get(settings, "update_interval", "1d"),
-		DownloadListsViaProxy:        settings.Bool("download_lists_via_proxy", false),
-		DownloadListsViaProxySection: settings.Get("download_lists_via_proxy_section"),
-		DontTouchDHCP:                settings.Bool("dont_touch_dhcp", false),
-		CachePath:                    CachePath(get(settings, "cache_path", DefaultCachePath)),
-		LogLevel:                     get(settings, "log_level", "warn"),
-		ServiceListenAddress:         settings.Get("service_listen_address"),
+		DNSType:                 get(settings, "dns_type", "doh"),
+		DNSServer:               get(settings, "dns_server", "1.1.1.1"),
+		DNSMode:                 get(settings, "dns_mode", DNSModeOrder),
+		BootstrapDNSServer:      get(settings, "bootstrap_dns_server", "77.88.8.8"),
+		DNSRewriteTTL:           get(settings, "dns_rewrite_ttl", "60"),
+		SourceNetworkInterfaces: list(settings, "source_network_interfaces"),
+		OutputNetworkInterface:  settings.Get("output_network_interface"),
+		ExcludeNTP:              settings.Bool("exclude_ntp", false),
+		RoutingExcludedIPs:      list(settings, "routing_excluded_ips"),
+		EnableYACD:              settings.Bool("enable_yacd", false),
+		YACDInterfaces:          list(settings, "yacd_interfaces"),
+		YACDSecretKey:           settings.Get("yacd_secret_key"),
+		UTLSFallback:            settings.Bool("utls_fallback", true),
+		DisableQUIC:             settings.Bool("disable_quic", false),
+		MaskLists:               maskLists(settings),
+		UpdateInterval:          get(settings, "update_interval", "1d"),
+		DontTouchDHCP:           settings.Bool("dont_touch_dhcp", false),
+		CachePath:               CachePath(get(settings, "cache_path", DefaultCachePath)),
+		LogLevel:                get(settings, "log_level", "warn"),
+		ServiceListenAddress:    settings.Get("service_listen_address"),
 		Check: Check{
 			Interval:      get(settings, "urltest_check_interval", DefaultCheckInterval),
 			Tolerance:     get(settings, "urltest_tolerance", "50"),
