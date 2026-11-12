@@ -260,7 +260,7 @@ func (s *Supervisor) SuggestMask(ctx context.Context, tag string) SuggestResult 
 		d.access.Unlock()
 		scan = &suggestScan{tag: tag, running: true, done: make(chan struct{})}
 		s.suggest = scan
-		go s.runSuggest(scan, snapshot.instance, server.Content, snapshot.maskList)
+		go s.runSuggest(scan, snapshot.instance, server.Content, snapshot.maskLists)
 	}
 	s.suggestAccess.Unlock()
 
@@ -282,12 +282,12 @@ func (s *Supervisor) SuggestMask(ctx context.Context, tag string) SuggestResult 
 }
 
 // runSuggest runs one scan to its end and keeps its result for the page. The built-in names go
-// first, the names of the public list at maskList ("" none) after them (feedMasks).
-func (s *Supervisor) runSuggest(scan *suggestScan, instance Instance, content []byte, maskList string) {
+// first, the names of the public lists at maskLists in turn with them once they come (feedMasks).
+func (s *Supervisor) runSuggest(scan *suggestScan, instance Instance, content []byte, maskLists []string) {
 	ctx, cancel := context.WithTimeout(context.Background(), suggestBudget)
 	defer cancel()
 	names := make(chan string)
-	go s.feedMasks(ctx, names, maskList)
+	go s.feedMasks(ctx, names, maskLists)
 	sni, tried, err := instance.SuggestMask(ctx, content, names)
 	result := SuggestResult{State: SuggestNone, Tried: tried}
 	switch {

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
-	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,16 +15,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// maskSource answers the download of the list of masks: body after the release, or err.
+// maskSource answers the download of a list of masks: body (or the one of bodies for the
+// address) after the release, or err.
 type maskSource struct {
 	release chan struct{}
 	body    string
+	bodies  map[string]string
 	err     error
+	access  sync.Mutex
 	header  http.Header
 }
 
-func (m *maskSource) download(ctx context.Context, _ string, header http.Header, _ []subscription.Route, _ subscription.Plan, _ func([]subscription.Try)) (*subscription.Answer, []subscription.Try, error) {
+func (m *maskSource) download(ctx context.Context, address string, header http.Header, _ []subscription.Route, _ subscription.Plan, _ func([]subscription.Try)) (*subscription.Answer, []subscription.Try, error) {
+	m.access.Lock()
 	m.header = header
+	m.access.Unlock()
 	if m.release != nil {
 		select {
 		case <-m.release:
@@ -34,6 +39,9 @@ func (m *maskSource) download(ctx context.Context, _ string, header http.Header,
 	}
 	if m.err != nil {
 		return nil, nil, m.err
+	}
+	if body, found := m.bodies[address]; found {
+		return &subscription.Answer{Body: []byte(body)}, nil, nil
 	}
 	return &subscription.Answer{Body: []byte(m.body)}, nil, nil
 }
@@ -68,7 +76,7 @@ func TestFeedMasks(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	names := make(chan string)
-	go s.feedMasks(ctx, names, "https://lists.example/white.txt")
+	go s.feedMasks(ctx, names, []string{"https://lists.example/white.txt"})
 	builtin := engine.WhiteSNICandidates
 	require.Equal(t, builtin[:2], collect(t, names, 2))
 	close(source.release)
@@ -83,8 +91,10 @@ func TestFeedMasks(t *testing.T) {
 		}
 	}
 	require.Equal(t, []string{"img.avito.st", "mail.ru"}, listed)
+	source.access.Lock()
 	require.Empty(t, source.header)
-	kept, err := os.ReadFile(filepath.Join(s.options.ConfigDir, maskListFile))
+	source.access.Unlock()
+	kept, err := os.ReadFile(maskListFile(s.options.ConfigDir, "https://lists.example/white.txt"))
 	require.NoError(t, err)
 	require.Equal(t, source.body, string(kept))
 
@@ -93,27 +103,54 @@ func TestFeedMasks(t *testing.T) {
 	require.Equal(t, []string{"img.avito.st", "mail.ru"}, s.maskList(ctx, "https://lists.example/white.txt"))
 }
 
-// Once the list is in, its names alternate with the built-in ones.
-func TestFeedMasksInTurn(t *testing.T) {
-	source := &maskSource{body: "img.avito.st\nmail.ru\nvk.com\n"}
+// Once the lists are in, their names come in turn with the built-in ones, a name of each source
+// after the other, and a site a list before named is not tried again; a list that comes late
+// joins the turns where they are.
+func TestMaskTurns(t *testing.T) {
+	builtin := engine.WhiteSNICandidates
+	turns := newMaskTurns(2)
+	take := func() string {
+		from, name := turns.next()
+		require.GreaterOrEqual(t, from, 0)
+		turns.took(from, name)
+		return name
+	}
+	require.Equal(t, builtin[0], take())
+	turns.sources[2] = []string{"ozon.ru", "wb.ru", "www.mail.ru", "ok.ru"}
+	require.Equal(t, []string{"ozon.ru", builtin[1]}, []string{take(), take()})
+	turns.sources[1] = []string{"img.avito.st", "mail.ru", "vk.com"}
+	require.Equal(t, []string{"img.avito.st", "wb.ru", builtin[2], "mail.ru", "ok.ru", builtin[3], "vk.com", builtin[4]},
+		[]string{take(), take(), take(), take(), take(), take(), take(), take()})
+	rest := 0
+	for from, _ := turns.next(); from >= 0; from, _ = turns.next() {
+		require.Zero(t, from)
+		take()
+		rest++
+	}
+	require.Equal(t, len(builtin)-5, rest)
+}
+
+// Two lists downloaded at once: every name of both comes once, a site of both once.
+func TestFeedMasksLists(t *testing.T) {
+	first, second := "https://lists.example/white.txt", "https://other.example/domains.csv"
+	source := &maskSource{bodies: map[string]string{
+		first:  "img.avito.st\nmail.ru\nvk.com\n",
+		second: "ozon.ru\nwww.mail.ru\nwb.ru\nok.ru\n",
+	}}
 	s := maskSupervisor(t, source)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	listed := s.maskList(ctx, "https://lists.example/white.txt")
-	require.Equal(t, []string{"img.avito.st", "mail.ru", "vk.com"}, listed)
 	names := make(chan string)
-	go s.feedMasks(ctx, names, "https://lists.example/white.txt")
-	got := collect(t, names, len(engine.WhiteSNICandidates)+len(listed)+1)
-	require.Len(t, got, len(engine.WhiteSNICandidates)+len(listed))
-	// each listed name comes within two places of the one before it
-	last := -1
+	go s.feedMasks(context.Background(), names, []string{first, second})
+	listed := []string{"img.avito.st", "vk.com", "ozon.ru", "wb.ru", "ok.ru"}
+	// mail.ru or www.mail.ru, whichever list has its turn first
+	got := collect(t, names, len(engine.WhiteSNICandidates)+len(listed)+2)
+	require.Len(t, got, len(engine.WhiteSNICandidates)+len(listed)+1)
+	require.True(t, (indexOf(got, "mail.ru") < 0) != (indexOf(got, "www.mail.ru") < 0), got)
 	for _, name := range listed {
-		index := indexOf(got, name)
-		require.GreaterOrEqual(t, index, 0, name)
-		if last >= 0 {
-			require.LessOrEqual(t, index-last, 2, "%s at %d after %d: %v", name, index, last, got)
-		}
-		last = index
+		require.GreaterOrEqual(t, indexOf(got, name), 0, name)
+	}
+	for _, address := range []string{first, second} {
+		_, err := os.Stat(maskListFile(s.options.ConfigDir, address))
+		require.NoError(t, err, address)
 	}
 }
 
@@ -121,7 +158,7 @@ func TestFeedMasksInTurn(t *testing.T) {
 func TestFeedMasksNoList(t *testing.T) {
 	s := maskSupervisor(t, &maskSource{})
 	names := make(chan string)
-	go s.feedMasks(context.Background(), names, "")
+	go s.feedMasks(context.Background(), names, nil)
 	got := collect(t, names, len(engine.WhiteSNICandidates)+1)
 	require.Equal(t, engine.WhiteSNICandidates, got)
 }

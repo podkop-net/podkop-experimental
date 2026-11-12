@@ -363,8 +363,8 @@ type Supervisor struct {
 	liveServers  []detect.Server
 	liveFallback bool
 	liveEpoch    uint64
-	// liveMaskList is the public list of names a mask search downloads, "" when off
-	liveMaskList string
+	// liveMaskLists are the public lists of names a mask search downloads, none when off
+	liveMaskLists []string
 	// liveStable is the stable identity, the way (via) and the applied cure of every live server,
 	// by tag: what the detect report tells the page so it shows a treatment badge and joins a tag
 	// to its stable id. Built in done() under statusAccess with liveServers.
@@ -527,9 +527,9 @@ func (s *Supervisor) done(ok bool, replaced bool, message ...any) Result {
 		s.live, s.liveLinks = s.current.instance, s.current.result.Links
 	}
 	s.liveServers, s.liveFallback = servers, fallback
-	s.liveMaskList = ""
+	s.liveMaskLists = nil
 	if s.current != nil {
-		s.liveMaskList = s.current.settings.Settings.MaskListURL
+		s.liveMaskLists = s.current.settings.Settings.MaskLists
 	}
 	s.liveStable = stable
 	if stale > 0 && stale != s.liveStaleCures {

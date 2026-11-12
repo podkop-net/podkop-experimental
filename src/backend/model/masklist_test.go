@@ -32,22 +32,24 @@ func TestMaskNames(t *testing.T) {
 	require.Empty(t, MaskNames([]byte("<html><body>blocked</body></html>\n"), nil))
 }
 
-// The list is the default one unless the settings name another or turn it off.
-func TestMaskListURL(t *testing.T) {
+// The lists are the default ones unless the settings name others or turn them off.
+func TestMaskLists(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		options string
-		want    string
+		want    []string
 	}{
-		{"", DefaultMaskListURL},
-		{"\toption mask_list_url 'https://lists.example/white.txt'\n", "https://lists.example/white.txt"},
-		{"\toption mask_list '0'\n\toption mask_list_url 'https://lists.example/white.txt'\n", ""},
-		{"\toption mask_list '1'\n\toption mask_list_url ' '\n", DefaultMaskListURL},
+		{"", DefaultMaskLists},
+		{"\tlist mask_list_url 'https://lists.example/white.txt'\n\tlist mask_list_url ' https://lists.example/more.txt'\n" +
+			"\tlist mask_list_url 'https://lists.example/white.txt'\n", []string{"https://lists.example/white.txt", "https://lists.example/more.txt"}},
+		{"\toption mask_list_url 'https://lists.example/white.txt'\n", []string{"https://lists.example/white.txt"}},
+		{"\toption mask_list '0'\n\tlist mask_list_url 'https://lists.example/white.txt'\n", nil},
+		{"\toption mask_list '1'\n\tlist mask_list_url ' '\n", DefaultMaskLists},
 	} {
 		parsed, err := uci.Parse([]byte("config settings 'settings'\n\toption config_version '2'\n" + test.options))
 		require.NoError(t, err)
 		config, err := Load(parsed)
 		require.NoError(t, err)
-		require.Equal(t, test.want, config.Settings.MaskListURL, test.options)
+		require.Equal(t, test.want, config.Settings.MaskLists, test.options)
 	}
 }

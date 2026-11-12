@@ -231,9 +231,9 @@ type Settings struct {
 	// ("utls_fallback" 'disabled'); the page writes nothing for the default
 	UTLSFallback bool
 	DisableQUIC  bool
-	// MaskListURL is the public list of names "Find a mask" tries after the built-in ones
-	// (maskListURL); "" when the settings turn it off
-	MaskListURL string
+	// MaskLists are the public lists of names "Find a mask" tries beside the built-in ones
+	// (maskLists); none when the settings turn them off
+	MaskLists []string
 
 	UpdateInterval               string
 	DownloadListsViaProxy        bool
@@ -318,7 +318,7 @@ func Load(parsed *uci.Package) (*Config, error) {
 		YACDSecretKey:                settings.Get("yacd_secret_key"),
 		UTLSFallback:                 settings.Bool("utls_fallback", true),
 		DisableQUIC:                  settings.Bool("disable_quic", false),
-		MaskListURL:                  maskListURL(settings),
+		MaskLists:                    maskLists(settings),
 		UpdateInterval:               get(settings, "update_interval", "1d"),
 		DownloadListsViaProxy:        settings.Bool("download_lists_via_proxy", false),
 		DownloadListsViaProxySection: settings.Get("download_lists_via_proxy_section"),
