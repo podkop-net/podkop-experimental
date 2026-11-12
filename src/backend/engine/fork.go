@@ -53,7 +53,7 @@ type (
 )
 
 var (
-	_ peeker         = (*fakeip.Store)(nil)
+	_ peeker         = (*fakeip.TableStore)(nil)
 	_ ruleSetUpdater = (*route.Router)(nil)
 	_ detectOutcomes = adapter.CacheFile(nil)
 	_ detectFlows    = (*trafficcontrol.Manager)(nil)
