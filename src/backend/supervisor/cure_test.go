@@ -247,7 +247,7 @@ type suggestInstance struct {
 	scans   atomic.Int32
 }
 
-func (i *suggestInstance) SuggestMask(ctx context.Context, _ []byte, _ []string) (string, int, error) {
+func (i *suggestInstance) SuggestMask(ctx context.Context, _ []byte, _ <-chan string) (string, int, error) {
 	i.scans.Add(1)
 	select {
 	case <-i.release:

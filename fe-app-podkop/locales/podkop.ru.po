@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-11 20:52+0000\n"
-"PO-Revision-Date: 2026-11-11 20:52+0000\n"
+"POT-Creation-Date: 2026-11-12 10:29+0000\n"
+"PO-Revision-Date: 2026-11-12 10:29+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -19,6 +19,9 @@ msgstr ""
 
 msgid "“%s” is not a host name, such as packagist.org."
 msgstr "«%s» — не имя хоста вроде packagist.org."
+
+msgid "“Find a mask” on the dashboard also tries the names of a public whitelist, downloaded for each search directly or through your servers. Off: only the built-in names"
+msgstr "«Подобрать маску» на дашборде пробует и имена из открытого белого списка: он скачивается при каждом подборе, напрямую или через ваши серверы. Выключено: только встроенные имена"
 
 msgid "(data as of %s)"
 msgstr "(данные на %s)"
@@ -145,6 +148,9 @@ msgstr "Найдены дополнительные правила маркир�
 
 msgid "Address"
 msgstr "Адрес"
+
+msgid "Address of the list of masks"
+msgstr "Адрес списка масок"
 
 msgid "all"
 msgstr "все"
@@ -956,6 +962,9 @@ msgstr "Одна проверка для серверов всех правил.
 msgid "One DNS server is needed at least: change this one, or add another first."
 msgstr "Нужен хотя бы один DNS-сервер: измените этот или сначала добавьте другой."
 
+msgid "One host name per line. Empty: the list of hxehex/russia-mobile-internet-whitelist"
+msgstr "Одно имя хоста в строке. Пусто: список hxehex/russia-mobile-internet-whitelist"
+
 msgid "One link per field"
 msgstr "Одна ссылка на поле"
 
@@ -1039,6 +1048,9 @@ msgstr "предварительно: проб пока мало"
 
 msgid "Protocol"
 msgstr "Протокол"
+
+msgid "Public list of masks"
+msgstr "Открытый список масок"
 
 msgid "queued"
 msgstr "в очереди"

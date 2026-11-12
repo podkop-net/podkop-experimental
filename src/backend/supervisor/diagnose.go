@@ -108,12 +108,14 @@ type detectSnapshot struct {
 	stable map[string]detect.Identity
 	// staleCures counts the stored treatments that name no live server
 	staleCures int
+	// maskList is the public list of names a mask search downloads, "" when off
+	maskList string
 }
 
 func (s *Supervisor) detectSnapshot() detectSnapshot {
 	s.statusAccess.Lock()
 	defer s.statusAccess.Unlock()
-	return detectSnapshot{instance: s.live, servers: s.liveServers, fallback: s.liveFallback, epoch: s.liveEpoch, stable: s.liveStable, staleCures: s.liveStaleCures}
+	return detectSnapshot{instance: s.live, servers: s.liveServers, fallback: s.liveFallback, epoch: s.liveEpoch, stable: s.liveStable, staleCures: s.liveStaleCures, maskList: s.liveMaskList}
 }
 
 func findServer(servers []detect.Server, tag string) (detect.Server, bool) {

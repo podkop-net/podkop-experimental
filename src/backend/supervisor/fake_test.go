@@ -272,7 +272,7 @@ func (i *fakeInstance) Prober() detect.Prober {
 	return i.engine.prober
 }
 
-func (i *fakeInstance) SuggestMask(context.Context, []byte, []string) (string, int, error) {
+func (i *fakeInstance) SuggestMask(context.Context, []byte, <-chan string) (string, int, error) {
 	return "", 0, nil
 }
 

@@ -38,7 +38,8 @@ const (
 
 // suggestBudget is how long a whole white-SNI scan may take (the hand-over's value: the first hit
 // came in about 1 s on the measured operator, 47 names at 6 at once stay within it when most
-// fail fast).
+// fail fast). The names of the public list go in turn with the built-in ones (feedMasks), so a
+// hit of either set comes in the first rounds, as it did there.
 const suggestBudget = 35 * time.Second
 
 // suggestWait is how long one suggest_mask call waits for the scan before it answers "running"
@@ -259,7 +260,7 @@ func (s *Supervisor) SuggestMask(ctx context.Context, tag string) SuggestResult 
 		d.access.Unlock()
 		scan = &suggestScan{tag: tag, running: true, done: make(chan struct{})}
 		s.suggest = scan
-		go s.runSuggest(scan, snapshot.instance, server.Content)
+		go s.runSuggest(scan, snapshot.instance, server.Content, snapshot.maskList)
 	}
 	s.suggestAccess.Unlock()
 
@@ -280,11 +281,14 @@ func (s *Supervisor) SuggestMask(ctx context.Context, tag string) SuggestResult 
 	return scan.result
 }
 
-// runSuggest runs one scan to its end and keeps its result for the page.
-func (s *Supervisor) runSuggest(scan *suggestScan, instance Instance, content []byte) {
+// runSuggest runs one scan to its end and keeps its result for the page. The built-in names go
+// first, the names of the public list at maskList ("" none) after them (feedMasks).
+func (s *Supervisor) runSuggest(scan *suggestScan, instance Instance, content []byte, maskList string) {
 	ctx, cancel := context.WithTimeout(context.Background(), suggestBudget)
 	defer cancel()
-	sni, tried, err := instance.SuggestMask(ctx, content, nil)
+	names := make(chan string)
+	go s.feedMasks(ctx, names, maskList)
+	sni, tried, err := instance.SuggestMask(ctx, content, names)
 	result := SuggestResult{State: SuggestNone, Tried: tried}
 	switch {
 	case err != nil:

@@ -370,6 +370,45 @@ function createSettingsContent(section, singBoxFeatures = []) {
   o.default = "0";
   o.rmempty = false;
 
+  // "Find a mask" on the dashboard tries its built-in names and, in turn with them, the names of a
+  // public whitelist; the backend downloads it for each search and keeps the last copy in RAM
+  o = section.option(
+    form.Flag,
+    "mask_list",
+    _("Public list of masks"),
+    _(
+      "“Find a mask” on the dashboard also tries the names of a public whitelist, downloaded for each search directly or through your servers. Off: only the built-in names",
+    ),
+  );
+  o.default = "1";
+  o.rmempty = false;
+
+  o = section.option(
+    form.Value,
+    "mask_list_url",
+    _("Address of the list of masks"),
+    _(
+      "One host name per line. Empty: the list of hxehex/russia-mobile-internet-whitelist",
+    ),
+  );
+  o.placeholder =
+    "https://raw.githubusercontent.com/hxehex/russia-mobile-internet-whitelist/main/whitelist.txt";
+  o.rmempty = true;
+  o.depends("mask_list", "1");
+  o.validate = function (section_id, value) {
+    if (!value || value.length === 0) {
+      return true;
+    }
+
+    const validation = main.validateUrl(value);
+
+    if (validation.valid) {
+      return true;
+    }
+
+    return validation.message;
+  };
+
   // The check of the servers: one for the servers of every rule (urltest of sing-box). The
   // rounds take the URLs in turn; the delay of a server is the median of a cycle of them.
   o = section.option(

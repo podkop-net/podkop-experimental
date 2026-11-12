@@ -55,3 +55,13 @@ var WhiteSNICandidates = []string{
 	"windy.com",
 	"xiaomi.com",
 }
+
+// NamesOf gives names one by one on a closed channel, for SuggestMask.
+func NamesOf(names []string) <-chan string {
+	out := make(chan string, len(names))
+	for _, name := range names {
+		out <- name
+	}
+	close(out)
+	return out
+}

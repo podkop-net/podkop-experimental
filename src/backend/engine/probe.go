@@ -399,13 +399,14 @@ const (
 // SuggestMask looks for a whitelisted SNI that lifts a 16-20KB limit on the server of content: each
 // candidate is a throw-away copy with tls.spoof set to it that pulls the 64KB probe target, and the
 // first that carries it in full (the limit lifted) wins. Up to probeMaskParallel run at once, each
-// within probeMaskPer, the whole within ctx (the caller sets the budget). Candidates default to
-// WhiteSNICandidates. It returns the winning name and how many were tried; "" with no error when
-// none worked, an error only on a setup failure. tls.spoof needs the engine's own socket
-// (CAP_NET_ADMIN), so this must run in the running instance, not a sandbox.
-func (i *Instance) SuggestMask(ctx context.Context, content []byte, candidates []string) (string, int, error) {
-	if len(candidates) == 0 {
-		candidates = WhiteSNICandidates
+// within probeMaskPer, the whole within ctx (the caller sets the budget). The candidates come from
+// names in their order until it is closed, so the caller can add names it gets while the first
+// are probed; nil means WhiteSNICandidates. It returns the winning name and how many were tried;
+// "" with no error when none worked, an error only on a setup failure. tls.spoof needs the
+// engine's own socket (CAP_NET_ADMIN), so this must run in the running instance, not a sandbox.
+func (i *Instance) SuggestMask(ctx context.Context, content []byte, names <-chan string) (string, int, error) {
+	if names == nil {
+		names = NamesOf(WhiteSNICandidates)
 	}
 	target, err := targetAddress(detect.ProbeTarget)
 	if err != nil {
@@ -437,7 +438,17 @@ func (i *Instance) SuggestMask(ctx context.Context, content []byte, candidates [
 	}
 	go func() {
 		defer close(jobs)
-		for _, cand := range candidates {
+		for {
+			var cand string
+			var open bool
+			select {
+			case cand, open = <-names:
+				if !open {
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
 			select {
 			case jobs <- cand:
 			case <-ctx.Done():

@@ -167,7 +167,7 @@ type Instance interface {
 	Prober() detect.Prober
 	// SuggestMask probes whitelisted SNIs for one that lifts the limit on a server, for the cure
 	// of a limit. candidates nil = the engine's built-in list.
-	SuggestMask(ctx context.Context, content []byte, candidates []string) (string, int, error)
+	SuggestMask(ctx context.Context, content []byte, names <-chan string) (string, int, error)
 	Dial(ctx context.Context, tag string, address string) (net.Conn, error)
 	// Swap replaces outbounds while the instance runs (hot.go).
 	Swap(configuration []byte, swap engine.Swap, limit int) (engine.Swapped, error)
@@ -363,6 +363,8 @@ type Supervisor struct {
 	liveServers  []detect.Server
 	liveFallback bool
 	liveEpoch    uint64
+	// liveMaskList is the public list of names a mask search downloads, "" when off
+	liveMaskList string
 	// liveStable is the stable identity, the way (via) and the applied cure of every live server,
 	// by tag: what the detect report tells the page so it shows a treatment badge and joins a tag
 	// to its stable id. Built in done() under statusAccess with liveServers.
@@ -525,6 +527,10 @@ func (s *Supervisor) done(ok bool, replaced bool, message ...any) Result {
 		s.live, s.liveLinks = s.current.instance, s.current.result.Links
 	}
 	s.liveServers, s.liveFallback = servers, fallback
+	s.liveMaskList = ""
+	if s.current != nil {
+		s.liveMaskList = s.current.settings.Settings.MaskListURL
+	}
 	s.liveStable = stable
 	if stale > 0 && stale != s.liveStaleCures {
 		s.log("warn", stale, " stored treatment(s) name no server in use (it changed, went away, or its subscription is not downloaded yet); they apply again if it comes back, and the dashboard can remove them")

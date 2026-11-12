@@ -3,7 +3,14 @@
     "call": "“%s” is not a host name, such as packagist.org.",
     "key": "“%s” is not a host name, such as packagist.org.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:634"
+      "src/podkop/tabs/dashboard/initController.ts:644"
+    ]
+  },
+  {
+    "call": "“Find a mask” on the dashboard also tries the names of a public whitelist, downloaded for each search directly or through your servers. Off: only the built-in names",
+    "key": "“Find a mask” on the dashboard also tries the names of a public whitelist, downloaded for each search directly or through your servers. Off: only the built-in names",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:379"
     ]
   },
   {
@@ -17,7 +24,7 @@
     "call": "%: the loss its checks counted",
     "key": "%: the loss its checks counted",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:312"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:317"
     ]
   },
   {
@@ -25,14 +32,14 @@
     "key": "%d of %d",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:231",
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:263"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:268"
     ]
   },
   {
     "call": "%d of %d, first %d of %d",
     "key": "%d of %d, first %d of %d",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:257"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:262"
     ]
   },
   {
@@ -64,7 +71,7 @@
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:82",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:341",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:406",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:570"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:609"
     ]
   },
   {
@@ -128,42 +135,42 @@
     "call": "⇄N: devices in the balance on the server",
     "key": "⇄N: devices in the balance on the server",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:314"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:319"
     ]
   },
   {
     "call": "~: too few checks yet",
     "key": "~: too few checks yet",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:313"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:318"
     ]
   },
   {
     "call": "✔ Enabled",
     "key": "✔ Enabled",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:965"
+      "src/podkop/tabs/dashboard/initController.ts:975"
     ]
   },
   {
     "call": "✔ Running",
     "key": "✔ Running",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:954"
+      "src/podkop/tabs/dashboard/initController.ts:964"
     ]
   },
   {
     "call": "✘ Disabled",
     "key": "✘ Disabled",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:966"
+      "src/podkop/tabs/dashboard/initController.ts:976"
     ]
   },
   {
     "call": "✘ Stopped",
     "key": "✘ Stopped",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:955"
+      "src/podkop/tabs/dashboard/initController.ts:965"
     ]
   },
   {
@@ -226,7 +233,7 @@
     "call": "A probe of this server ran recently; try again in %d s.",
     "key": "A probe of this server ran recently; try again in %d s.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:542"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:558"
     ]
   },
   {
@@ -240,7 +247,7 @@
     "call": "A search for another server is running; try again when it ends.",
     "key": "A search for another server is running; try again when it ends.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:550"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:566"
     ]
   },
   {
@@ -289,7 +296,7 @@
     "call": "Active Connections",
     "key": "Active Connections",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:915"
+      "src/podkop/tabs/dashboard/initController.ts:925"
     ]
   },
   {
@@ -306,6 +313,13 @@
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:139",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:776",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:788"
+    ]
+  },
+  {
+    "call": "Address of the list of masks",
+    "key": "Address of the list of masks",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:389"
     ]
   },
   {
@@ -378,7 +392,7 @@
     "call": "Another section is being checked.",
     "key": "Another section is being checked.",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:295"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:300"
     ]
   },
   {
@@ -399,8 +413,8 @@
     "call": "Apply",
     "key": "Apply",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:369",
-      "src/podkop/tabs/dashboard/initController.ts:688"
+      "src/podkop/tabs/dashboard/initController.ts:370",
+      "src/podkop/tabs/dashboard/initController.ts:698"
     ]
   },
   {
@@ -458,7 +472,7 @@
     "call": "Autostart",
     "key": "Autostart",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:963"
+      "src/podkop/tabs/dashboard/initController.ts:973"
     ]
   },
   {
@@ -472,7 +486,7 @@
     "call": "Back to automatic choice",
     "key": "Back to automatic choice",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:353"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:358"
     ]
   },
   {
@@ -500,7 +514,7 @@
     "call": "Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped",
     "key": "Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:485"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:524"
     ]
   },
   {
@@ -572,21 +586,21 @@
     "call": "bypass: record fragment",
     "key": "bypass: record fragment",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:493"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:509"
     ]
   },
   {
     "call": "Cache File Path",
     "key": "Cache File Path",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:602"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:641"
     ]
   },
   {
     "call": "Cache file path cannot be empty",
     "key": "Cache file path cannot be empty",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:613"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:652"
     ]
   },
   {
@@ -594,8 +608,8 @@
     "key": "Cancel",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:843",
-      "src/podkop/tabs/dashboard/initController.ts:262",
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:283"
+      "src/podkop/tabs/dashboard/initController.ts:263",
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:288"
     ]
   },
   {
@@ -626,15 +640,15 @@
     "call": "Check problem servers",
     "key": "Check problem servers",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:298"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:303"
     ]
   },
   {
     "call": "Check server",
     "key": "Check server",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:274",
-      "src/podkop/tabs/dashboard/initController.ts:704",
+      "src/podkop/tabs/dashboard/initController.ts:275",
+      "src/podkop/tabs/dashboard/initController.ts:714",
       "src/podkop/tabs/dashboard/partials/renderSections.ts:134"
     ]
   },
@@ -664,7 +678,7 @@
     "key": "Checking now…",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:449",
-      "src/podkop/tabs/dashboard/initController.ts:654"
+      "src/podkop/tabs/dashboard/initController.ts:664"
     ]
   },
   {
@@ -710,7 +724,7 @@
     "call": "Choose a rule",
     "key": "Choose a rule",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:581"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:620"
     ]
   },
   {
@@ -724,7 +738,7 @@
     "call": "Chosen inside the fallback",
     "key": "Chosen inside the fallback",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:191"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:196"
     ]
   },
   {
@@ -740,7 +754,7 @@
     "places": [
       "src/podkop/linkCheck.ts:195",
       "src/partials/modal/renderModal.ts:26",
-      "src/podkop/tabs/dashboard/initController.ts:677"
+      "src/podkop/tabs/dashboard/initController.ts:687"
     ]
   },
   {
@@ -761,7 +775,7 @@
     "call": "Connect through %s",
     "key": "Connect through %s",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:469"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:471"
     ]
   },
   {
@@ -789,7 +803,7 @@
     "call": "Connections to this server will go through %s, whose operator will see the address of this server.",
     "key": "Connections to this server will go through %s, whose operator will see the address of this server.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:320"
+      "src/podkop/tabs/dashboard/initController.ts:321"
     ]
   },
   {
@@ -825,7 +839,7 @@
     "call": "Custom URL",
     "key": "Custom URL",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:491"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:530"
     ]
   },
   {
@@ -846,7 +860,7 @@
     "call": "Default",
     "key": "Default",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:489"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:528"
     ]
   },
   {
@@ -944,7 +958,7 @@
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:712",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:793",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:358",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:490"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:529"
     ]
   },
   {
@@ -1051,15 +1065,15 @@
     "call": "Dont Touch My DHCP!",
     "key": "Dont Touch My DHCP!",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:593"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:632"
     ]
   },
   {
     "call": "Downlink",
     "key": "Downlink",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:849",
-      "src/podkop/tabs/dashboard/initController.ts:883"
+      "src/podkop/tabs/dashboard/initController.ts:859",
+      "src/podkop/tabs/dashboard/initController.ts:893"
     ]
   },
   {
@@ -1073,28 +1087,28 @@
     "call": "Download Check",
     "key": "Download Check",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:484"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:523"
     ]
   },
   {
     "call": "Download Check URL",
     "key": "Download Check URL",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:497"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:536"
     ]
   },
   {
     "call": "Download Lists via Proxy/VPN",
     "key": "Download Lists via Proxy/VPN",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:539"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:578"
     ]
   },
   {
     "call": "Download Lists via specific proxy section",
     "key": "Download Lists via specific proxy section",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:549"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:588"
     ]
   },
   {
@@ -1108,7 +1122,7 @@
     "call": "Downloading all lists via specific Proxy/VPN",
     "key": "Downloading all lists via specific Proxy/VPN",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:540"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:579"
     ]
   },
   {
@@ -1172,7 +1186,7 @@
     "call": "Enter a whitelisted name, or press “Find a mask”.",
     "key": "Enter a whitelisted name, or press “Find a mask”.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:626"
+      "src/podkop/tabs/dashboard/initController.ts:636"
     ]
   },
   {
@@ -1214,7 +1228,7 @@
     "call": "Every 1 minute",
     "key": "Every 1 minute",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:435"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:474"
     ]
   },
   {
@@ -1242,21 +1256,21 @@
     "call": "Every 3 minutes",
     "key": "Every 3 minutes",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:436"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:475"
     ]
   },
   {
     "call": "Every 30 seconds",
     "key": "Every 30 seconds",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:434"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:473"
     ]
   },
   {
     "call": "Every 5 minutes",
     "key": "Every 5 minutes",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:437"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:476"
     ]
   },
   {
@@ -1298,14 +1312,14 @@
     "call": "Exclude NTP",
     "key": "Exclude NTP",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:651"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:690"
     ]
   },
   {
     "call": "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN",
     "key": "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:652"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:691"
     ]
   },
   {
@@ -1333,10 +1347,10 @@
     "call": "Failed to execute!",
     "key": "Failed to execute!",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:349",
-      "src/podkop/tabs/dashboard/initController.ts:382",
-      "src/podkop/tabs/dashboard/initController.ts:417",
-      "src/podkop/tabs/dashboard/initController.ts:432",
+      "src/podkop/tabs/dashboard/initController.ts:350",
+      "src/podkop/tabs/dashboard/initController.ts:383",
+      "src/podkop/tabs/dashboard/initController.ts:418",
+      "src/podkop/tabs/dashboard/initController.ts:433",
       "src/podkop/tabs/diagnostic/initController.ts:239",
       "src/podkop/tabs/diagnostic/initController.ts:243",
       "src/podkop/tabs/diagnostic/initController.ts:274",
@@ -1344,8 +1358,8 @@
       "src/podkop/tabs/diagnostic/initController.ts:315",
       "src/podkop/tabs/diagnostic/initController.ts:319",
       "src/podkop/tabs/dashboard/helpers/verdictText.ts:372",
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:526",
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:558"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:542",
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:574"
     ]
   },
   {
@@ -1401,7 +1415,7 @@
     "call": "Find a mask",
     "key": "Find a mask",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:596"
+      "src/podkop/tabs/dashboard/initController.ts:606"
     ]
   },
   {
@@ -1429,7 +1443,7 @@
     "call": "Found a mask: %s",
     "key": "Found a mask: %s",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:414"
+      "src/podkop/tabs/dashboard/initController.ts:415"
     ]
   },
   {
@@ -1534,7 +1548,7 @@
     "call": "In the balance: %d devices",
     "key": "In the balance: %d devices",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:193"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:198"
     ]
   },
   {
@@ -1692,7 +1706,7 @@
     "call": "Keep the fingerprint, split the TLS record",
     "key": "Keep the fingerprint, split the TLS record",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:473"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:475"
     ]
   },
   {
@@ -1763,7 +1777,7 @@
     "call": "List Update Frequency",
     "key": "List Update Frequency",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:527"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:566"
     ]
   },
   {
@@ -1791,7 +1805,7 @@
     "call": "Log Level",
     "key": "Log Level",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:635"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:674"
     ]
   },
   {
@@ -1862,14 +1876,14 @@
     "call": "Mask as a whitelisted site",
     "key": "Mask as a whitelisted site",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:471"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:473"
     ]
   },
   {
     "call": "mask: %s",
     "key": "mask: %s",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:491"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:507"
     ]
   },
   {
@@ -1883,7 +1897,7 @@
     "call": "Memory Usage",
     "key": "Memory Usage",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:919"
+      "src/podkop/tabs/dashboard/initController.ts:929"
     ]
   },
   {
@@ -1936,7 +1950,7 @@
     "call": "Must be a number in the range of 50 - 1000",
     "key": "Must be a number in the range of 50 - 1000",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:477"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:516"
     ]
   },
   {
@@ -2009,7 +2023,7 @@
     "call": "New connections through this server may hang for a couple of minutes after the check starts.",
     "key": "New connections through this server may hang for a couple of minutes after the check starts.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:309"
+      "src/podkop/tabs/dashboard/initController.ts:310"
     ]
   },
   {
@@ -2124,7 +2138,7 @@
     "call": "No rule yet",
     "key": "No rule yet",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:566"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:605"
     ]
   },
   {
@@ -2160,14 +2174,14 @@
     "call": "No treatment",
     "key": "No treatment",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:567"
+      "src/podkop/tabs/dashboard/initController.ts:577"
     ]
   },
   {
     "call": "No whitelisted name lifted the limit on this server. The network may limit by address too, where masking does not help.",
     "key": "No whitelisted name lifted the limit on this server. The network may limit by address too, where masking does not help.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:538"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:554"
     ]
   },
   {
@@ -2212,7 +2226,7 @@
     "call": "Not queued: %d of %d. Their addresses were checked recently or are already in the queue, or they are gone.",
     "key": "Not queued: %d of %d. Their addresses were checked recently or are already in the queue, or they are gone.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:234"
+      "src/podkop/tabs/dashboard/initController.ts:235"
     ]
   },
   {
@@ -2277,7 +2291,7 @@
     "call": "One check for the servers of every rule. Each round tests every server with the next URL of the list; the delay of a server is the median of a full cycle, so one slow URL or one stray test does not change the server in use. A server is unavailable when two URLs do not answer through it. URLs of different companies are best",
     "key": "One check for the servers of every rule. Each round tests every server with the next URL of the list; the delay of a server is the median of a full cycle, so one slow URL or one stray test does not change the server in use. A server is unavailable when two URLs do not answer through it. URLs of different companies are best",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:379"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:418"
     ]
   },
   {
@@ -2285,6 +2299,13 @@
     "key": "One DNS server is needed at least: change this one, or add another first.",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:117"
+    ]
+  },
+  {
+    "call": "One host name per line. Empty: the list of hxehex/russia-mobile-internet-whitelist",
+    "key": "One host name per line. Empty: the list of hxehex/russia-mobile-internet-whitelist",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:390"
     ]
   },
   {
@@ -2298,7 +2319,7 @@
     "call": "One of these servers is in use. New connections through it may hang for a couple of minutes after its check starts.",
     "key": "One of these servers is in use. New connections through it may hang for a couple of minutes after its check starts.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:472"
+      "src/podkop/tabs/dashboard/initController.ts:473"
     ]
   },
   {
@@ -2398,21 +2419,21 @@
     "call": "Path must be absolute (start with /)",
     "key": "Path must be absolute (start with /)",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:617"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:656"
     ]
   },
   {
     "call": "Path must contain at least one directory (like /tmp/cache.db)",
     "key": "Path must contain at least one directory (like /tmp/cache.db)",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:626"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:665"
     ]
   },
   {
     "call": "Path must end with cache.db",
     "key": "Path must end with cache.db",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:621"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:660"
     ]
   },
   {
@@ -2430,7 +2451,7 @@
     "call": "Podkop",
     "key": "Podkop",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:952"
+      "src/podkop/tabs/dashboard/initController.ts:962"
     ]
   },
   {
@@ -2445,8 +2466,8 @@
     "key": "Podkop is not running.",
     "places": [
       "src/podkop/tabs/dashboard/helpers/verdictText.ts:368",
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:522",
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:554"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:538",
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:570"
     ]
   },
   {
@@ -2474,7 +2495,7 @@
     "call": "Podkop will not modify your DHCP configuration",
     "key": "Podkop will not modify your DHCP configuration",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:594"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:633"
     ]
   },
   {
@@ -2493,6 +2514,13 @@
     ]
   },
   {
+    "call": "Public list of masks",
+    "key": "Public list of masks",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:378"
+    ]
+  },
+  {
     "call": "queued",
     "key": "queued",
     "places": [
@@ -2503,7 +2531,7 @@
     "call": "Queued: %d",
     "key": "Queued: %d",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:265"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:270"
     ]
   },
   {
@@ -2525,7 +2553,7 @@
     "call": "recommended",
     "key": "recommended",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:482"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:484"
     ]
   },
   {
@@ -2553,14 +2581,14 @@
     "call": "Remove them",
     "key": "Remove them",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:447"
+      "src/podkop/tabs/dashboard/initController.ts:448"
     ]
   },
   {
     "call": "Remove treatment",
     "key": "Remove treatment",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:522"
+      "src/podkop/tabs/dashboard/initController.ts:532"
     ]
   },
   {
@@ -2602,7 +2630,7 @@
     "call": "Routing Excluded IPs",
     "key": "Routing Excluded IPs",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:662"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:701"
     ]
   },
   {
@@ -2687,14 +2715,14 @@
     "call": "Saved treatments for servers not in use now: %d. A server changed, was removed, or its subscription is not loaded yet.",
     "key": "Saved treatments for servers not in use now: %d. A server changed, was removed, or its subscription is not loaded yet.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:441"
+      "src/podkop/tabs/dashboard/initController.ts:442"
     ]
   },
   {
     "call": "Searching…",
     "key": "Searching…",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:402"
+      "src/podkop/tabs/dashboard/initController.ts:403"
     ]
   },
   {
@@ -2715,7 +2743,7 @@
     "call": "Select how often the domain or subnet lists are updated automatically",
     "key": "Select how often the domain or subnet lists are updated automatically",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:528"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:567"
     ]
   },
   {
@@ -2729,7 +2757,7 @@
     "call": "Select or enter path for the cache file: FakeIP addresses and downloaded lists. Change this ONLY if you know what you are doing",
     "key": "Select or enter path for the cache file: FakeIP addresses and downloaded lists. Change this ONLY if you know what you are doing",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:603"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:642"
     ]
   },
   {
@@ -2757,7 +2785,7 @@
     "call": "Select the log level for sing-box",
     "key": "Select the log level for sing-box",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:636"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:675"
     ]
   },
   {
@@ -2779,28 +2807,28 @@
     "call": "Server check",
     "key": "Server check",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:252"
+      "src/podkop/tabs/dashboard/initController.ts:253"
     ]
   },
   {
     "call": "Server check interval",
     "key": "Server check interval",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:428"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:467"
     ]
   },
   {
     "call": "Server check tolerance, ms",
     "key": "Server check tolerance, ms",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:455"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:494"
     ]
   },
   {
     "call": "Server check URLs",
     "key": "Server check URLs",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:378"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:417"
     ]
   },
   {
@@ -2891,7 +2919,7 @@
     "call": "Services info",
     "key": "Services info",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:948"
+      "src/podkop/tabs/dashboard/initController.ts:958"
     ]
   },
   {
@@ -2956,7 +2984,7 @@
     "call": "simplest",
     "key": "simplest",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:483"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:485"
     ]
   },
   {
@@ -3005,7 +3033,7 @@
     "call": "Specify a local IP address to be excluded from routing",
     "key": "Specify a local IP address to be excluded from routing",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:663"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:702"
     ]
   },
   {
@@ -3100,7 +3128,7 @@
     "call": "System info",
     "key": "System info",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:912"
+      "src/podkop/tabs/dashboard/initController.ts:922"
     ]
   },
   {
@@ -3149,7 +3177,7 @@
     "call": "Test latency",
     "key": "Test latency",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:434"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:439"
     ]
   },
   {
@@ -3375,7 +3403,7 @@
     "call": "The interval between connectivity tests",
     "key": "The interval between connectivity tests",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:429"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:468"
     ]
   },
   {
@@ -3445,7 +3473,7 @@
     "call": "The lists are downloaded through the servers of this rule",
     "key": "The lists are downloaded through the servers of this rule",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:550"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:589"
     ]
   },
   {
@@ -3689,14 +3717,14 @@
     "call": "The search is still running; its result did not come in time.",
     "key": "The search is still running; its result did not come in time.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:548"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:564"
     ]
   },
   {
     "call": "The search was stopped.",
     "key": "The search was stopped.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:546"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:562"
     ]
   },
   {
@@ -3766,7 +3794,7 @@
     "call": "The server in use changes only for one faster by this much",
     "key": "The server in use changes only for one faster by this much",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:456"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:495"
     ]
   },
   {
@@ -3872,21 +3900,21 @@
     "call": "The treatment does not fit this server: a mask must be a host name other than the server’s own.",
     "key": "The treatment does not fit this server: a mask must be a host name other than the server’s own.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:517"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:533"
     ]
   },
   {
     "call": "The treatment does not fit this server.",
     "key": "The treatment does not fit this server.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:520"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:536"
     ]
   },
   {
     "call": "The URL must serve at least 64 KiB or announce a shorter length",
     "key": "The URL must serve at least 64 KiB or announce a shorter length",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:498"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:537"
     ]
   },
   {
@@ -3914,7 +3942,7 @@
     "call": "There is no rule %s: choose another one",
     "key": "There is no rule %s: choose another one",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:585"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:624"
     ]
   },
   {
@@ -3935,7 +3963,7 @@
     "call": "This server has changed since the page was drawn; reopen it and try again.",
     "key": "This server has changed since the page was drawn; reopen it and try again.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:512"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:528"
     ]
   },
   {
@@ -3949,21 +3977,21 @@
     "call": "This server is reached through another one; masking needs its own connection, which a relay does not give.",
     "key": "This server is reached through another one; masking needs its own connection, which a relay does not give.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:508"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:524"
     ]
   },
   {
     "call": "This server will be masked as a whitelisted site on the wire.",
     "key": "This server will be masked as a whitelisted site on the wire.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:324"
+      "src/podkop/tabs/dashboard/initController.ts:325"
     ]
   },
   {
     "call": "This server's TLS hello will be split into two records.",
     "key": "This server's TLS hello will be split into two records.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:326"
+      "src/podkop/tabs/dashboard/initController.ts:327"
     ]
   },
   {
@@ -3984,7 +4012,7 @@
     "call": "through: %s",
     "key": "through: %s",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:495"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:511"
     ]
   },
   {
@@ -3998,7 +4026,7 @@
     "call": "Traffic",
     "key": "Traffic",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:846"
+      "src/podkop/tabs/dashboard/initController.ts:856"
     ]
   },
   {
@@ -4012,7 +4040,7 @@
     "call": "Traffic Total",
     "key": "Traffic Total",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:876"
+      "src/podkop/tabs/dashboard/initController.ts:886"
     ]
   },
   {
@@ -4040,15 +4068,15 @@
     "call": "Treatment applied.",
     "key": "Treatment applied.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:345"
+      "src/podkop/tabs/dashboard/initController.ts:346"
     ]
   },
   {
     "call": "Treatment for this server",
     "key": "Treatment for this server",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:517",
-      "src/podkop/tabs/dashboard/initController.ts:604",
+      "src/podkop/tabs/dashboard/initController.ts:522",
+      "src/podkop/tabs/dashboard/initController.ts:614",
       "src/podkop/tabs/dashboard/partials/renderSections.ts:156"
     ]
   },
@@ -4056,14 +4084,14 @@
     "call": "Treatment removed.",
     "key": "Treatment removed.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:379"
+      "src/podkop/tabs/dashboard/initController.ts:380"
     ]
   },
   {
     "call": "Treatments removed.",
     "key": "Treatments removed.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:429"
+      "src/podkop/tabs/dashboard/initController.ts:430"
     ]
   },
   {
@@ -4091,14 +4119,14 @@
     "call": "Turn on the uTLS fallback (switch the fingerprint)",
     "key": "Turn on the uTLS fallback (switch the fingerprint)",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:475"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:477"
     ]
   },
   {
     "call": "Turn on the uTLS fallback in Settings; it switches the fingerprint for every server, not just this one.",
     "key": "Turn on the uTLS fallback in Settings; it switches the fingerprint for every server, not just this one.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:457"
+      "src/podkop/tabs/dashboard/initController.ts:458"
     ]
   },
   {
@@ -4136,7 +4164,7 @@
     "call": "unavailable through a relay",
     "key": "unavailable through a relay",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:481"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:483"
     ]
   },
   {
@@ -4193,8 +4221,8 @@
     "call": "Uplink",
     "key": "Uplink",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:848",
-      "src/podkop/tabs/dashboard/initController.ts:879"
+      "src/podkop/tabs/dashboard/initController.ts:858",
+      "src/podkop/tabs/dashboard/initController.ts:889"
     ]
   },
   {
@@ -4317,7 +4345,7 @@
     "call": "Waiting for its turn.",
     "key": "Waiting for its turn.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:656"
+      "src/podkop/tabs/dashboard/initController.ts:666"
     ]
   },
   {
@@ -4394,7 +4422,7 @@
     "call": "Your account may view this page but may not change a server.",
     "key": "Your account may view this page but may not change a server.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:524"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:540"
     ]
   },
   {
@@ -4408,7 +4436,7 @@
     "call": "Your account may view this page but may not start a search.",
     "key": "Your account may view this page but may not start a search.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:556"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:572"
     ]
   }
 ]
