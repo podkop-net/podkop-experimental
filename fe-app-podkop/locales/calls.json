@@ -183,7 +183,7 @@
     "call": "A check is not possible now: this address was checked recently or is waiting in the queue, or the queue is full. Try again in %d s.",
     "key": "A check is not possible now: this address was checked recently or is waiting in the queue, or the queue is full. Try again in %d s.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:362"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:370"
     ]
   },
   {
@@ -232,7 +232,7 @@
     "call": "A probe of this server ran recently; try again in %d s.",
     "key": "A probe of this server ran recently; try again in %d s.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:558"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:574"
     ]
   },
   {
@@ -246,7 +246,7 @@
     "call": "A search for another server is running; try again when it ends.",
     "key": "A search for another server is running; try again when it ends.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:566"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:582"
     ]
   },
   {
@@ -339,7 +339,7 @@
     "call": "Also check the clock of the router.",
     "key": "Also check the clock of the router.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:279"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:287"
     ]
   },
   {
@@ -585,7 +585,7 @@
     "call": "bypass: record fragment",
     "key": "bypass: record fragment",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:509"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:521"
     ]
   },
   {
@@ -662,14 +662,14 @@
     "call": "Checked %d min ago",
     "key": "Checked %d min ago",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:348"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:356"
     ]
   },
   {
     "call": "Checked just now",
     "key": "Checked just now",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:347"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:355"
     ]
   },
   {
@@ -767,7 +767,7 @@
     "call": "Connect through %s",
     "key": "Connect through %s",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:471"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:483"
     ]
   },
   {
@@ -778,10 +778,17 @@
     ]
   },
   {
+    "call": "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. A disguise as a whitelisted site cannot act on this server: its protocol has no TLS handshake over TCP. Another server, one with TLS (VLESS, Trojan), may help.",
+    "key": "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. A disguise as a whitelisted site cannot act on this server: its protocol has no TLS handshake over TCP. Another server, one with TLS (VLESS, Trojan), may help.",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:187"
+    ]
+  },
+  {
     "call": "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. Another server or a disguise as a whitelisted site may help; where the network also limits by address, the disguise will not.",
     "key": "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. Another server or a disguise as a whitelisted site may help; where the network also limits by address, the disguise will not.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:187"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:195"
     ]
   },
   {
@@ -1328,9 +1335,9 @@
       "src/podkop/tabs/diagnostic/initController.ts:278",
       "src/podkop/tabs/diagnostic/initController.ts:315",
       "src/podkop/tabs/diagnostic/initController.ts:319",
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:372",
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:542",
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:574"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:380",
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:558",
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:590"
     ]
   },
   {
@@ -1663,7 +1670,7 @@
     "call": "It does not connect from here, but the handshake passes through another server of yours. The server is on; the provider cuts the path or the server does not accept your network.",
     "key": "It does not connect from here, but the handshake passes through another server of yours. The server is on; the provider cuts the path or the server does not accept your network.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:221"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:229"
     ]
   },
   {
@@ -1677,7 +1684,7 @@
     "call": "Keep the fingerprint, split the TLS record",
     "key": "Keep the fingerprint, split the TLS record",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:475"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:487"
     ]
   },
   {
@@ -1847,14 +1854,14 @@
     "call": "Mask as a whitelisted site",
     "key": "Mask as a whitelisted site",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:473"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:485"
     ]
   },
   {
     "call": "mask: %s",
     "key": "mask: %s",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:507"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:519"
     ]
   },
   {
@@ -2145,7 +2152,7 @@
     "call": "No whitelisted name lifted the limit on this server. The network may limit by address too, where masking does not help.",
     "key": "No whitelisted name lifted the limit on this server. The network may limit by address too, where masking does not help.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:554"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:570"
     ]
   },
   {
@@ -2298,7 +2305,7 @@
     "call": "One request passes, the requests after it do not. It looks like a limit of the server or the line.",
     "key": "One request passes, the requests after it do not. It looks like a limit of the server or the line.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:309"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:317"
     ]
   },
   {
@@ -2429,9 +2436,9 @@
     "call": "Podkop is not running.",
     "key": "Podkop is not running.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:368",
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:538",
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:570"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:376",
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:554",
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:586"
     ]
   },
   {
@@ -2517,7 +2524,7 @@
     "call": "recommended",
     "key": "recommended",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:484"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:496"
     ]
   },
   {
@@ -2948,14 +2955,14 @@
     "call": "simplest",
     "key": "simplest",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:485"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:497"
     ]
   },
   {
     "call": "Some of the test connections were lost, the rest passed.",
     "key": "Some of the test connections were lost, the rest passed.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:323"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:331"
     ]
   },
   {
@@ -3171,14 +3178,14 @@
     "call": "The address of the check did not answer, the server is not at fault.",
     "key": "The address of the check did not answer, the server is not at fault.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:319"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:327"
     ]
   },
   {
     "call": "The address of the server could not be resolved by its name.",
     "key": "The address of the server could not be resolved by its name.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:285"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:293"
     ]
   },
   {
@@ -3227,21 +3234,21 @@
     "call": "The check does not apply to a server behind a tunnel.",
     "key": "The check does not apply to a server behind a tunnel.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:329"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:337"
     ]
   },
   {
     "call": "The check gave no clear answer, repeat it later.",
     "key": "The check gave no clear answer, repeat it later.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:313"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:321"
     ]
   },
   {
     "call": "The check's hello was refused, but the running connection through this server works. Nothing needs changing.",
     "key": "The check's hello was refused, but the running connection through this server works. Nothing needs changing.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:331"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:339"
     ]
   },
   {
@@ -3353,14 +3360,14 @@
     "call": "The fingerprint of the link was not tested: this one stood in for it, so real connections may not be affected.",
     "key": "The fingerprint of the link was not tested: this one stood in for it, so real connections may not be affected.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:335"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:343"
     ]
   },
   {
     "call": "The handshake with the server completes, but it did not answer a request during the check. The cause may be on the server or on the way to it, a check from here cannot tell. Try the server from another network, or ask whoever runs it.",
     "key": "The handshake with the server completes, but it did not answer a request during the check. The cause may be on the server or on the way to it, a check from here cannot tell. Try the server from another network, or ask whoever runs it.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:315"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:323"
     ]
   },
   {
@@ -3465,7 +3472,7 @@
     "call": "The port of the server does not answer from this router. The cause cannot be told from here.",
     "key": "The port of the server does not answer from this router. The cause cannot be told from here.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:257"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:265"
     ]
   },
   {
@@ -3660,7 +3667,7 @@
     "call": "The router seems to have no internet connection: the uplink check failed.",
     "key": "The router seems to have no internet connection: the uplink check failed.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:281"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:289"
     ]
   },
   {
@@ -3674,14 +3681,14 @@
     "call": "The search is still running; its result did not come in time.",
     "key": "The search is still running; its result did not come in time.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:564"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:580"
     ]
   },
   {
     "call": "The search was stopped.",
     "key": "The search was stopped.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:562"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:578"
     ]
   },
   {
@@ -3695,56 +3702,56 @@
     "call": "The server accepts only connections with ML-KEM (Xray ≥ 26.9.8).",
     "key": "The server accepts only connections with ML-KEM (Xray ≥ 26.9.8).",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:292"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:300"
     ]
   },
   {
     "call": "The server accepts only connections with ML-KEM (Xray ≥ 26.9.8). This is not a block.",
     "key": "The server accepts only connections with ML-KEM (Xray ≥ 26.9.8). This is not a block.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:289"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:297"
     ]
   },
   {
     "call": "The server answered, but its certificate did not pass the check: expired, for another name, or from an unknown issuer.",
     "key": "The server answered, but its certificate did not pass the check: expired, for another name, or from an unknown issuer.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:199"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:207"
     ]
   },
   {
     "call": "The server answered, but the REALITY check failed: a wrong key or shortId in the link, a name the server does not list, or the server has changed. Update the link or the subscription; if that does not help, the fault is on the server.",
     "key": "The server answered, but the REALITY check failed: a wrong key or shortId in the link, a name the server does not list, or the server has changed. Update the link or the subscription; if that does not help, the fault is on the server.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:202"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:210"
     ]
   },
   {
     "call": "The server answers, but the handshake does not complete with any fingerprint.",
     "key": "The server answers, but the handshake does not complete with any fingerprint.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:305"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:313"
     ]
   },
   {
     "call": "The server closed the requests without an answer. The usual reason is a user or password it does not know; a server with no way out looks the same from here.",
     "key": "The server closed the requests without an answer. The usual reason is a user or password it does not know; a server with no way out looks the same from here.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:209"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:217"
     ]
   },
   {
     "call": "The server does not answer from here or through another server of yours, which may itself be unstable. The cause cannot be told from this one try.",
     "key": "The server does not answer from here or through another server of yours, which may itself be unstable. The cause cannot be told from this one try.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:246"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:254"
     ]
   },
   {
     "call": "The server does not answer from here or through your other servers (%d). It may be off, or its address may be closed to these networks; from another network it may work.",
     "key": "The server does not answer from here or through your other servers (%d). It may be off, or its address may be closed to these networks; from another network it may work.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:229"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:237"
     ]
   },
   {
@@ -3758,21 +3765,21 @@
     "call": "The server is reached through another one: the cause may be there.",
     "key": "The server is reached through another one: the cause may be there.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:325"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:333"
     ]
   },
   {
     "call": "The server is reached through the fallback fingerprint %s. Sometimes this is the trace of a block; a check will tell for sure.",
     "key": "The server is reached through the fallback fingerprint %s. Sometimes this is the trace of a block; a check will tell for sure.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:300"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:308"
     ]
   },
   {
     "call": "The server works through the fallback fingerprint %s. Sometimes this is the trace of a block; a check will tell for sure.",
     "key": "The server works through the fallback fingerprint %s. Sometimes this is the trace of a block; a check will tell for sure.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:297"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:305"
     ]
   },
   {
@@ -3857,14 +3864,14 @@
     "call": "The treatment does not fit this server: a mask must be a host name other than the server’s own.",
     "key": "The treatment does not fit this server: a mask must be a host name other than the server’s own.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:533"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:549"
     ]
   },
   {
     "call": "The treatment does not fit this server.",
     "key": "The treatment does not fit this server.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:536"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:552"
     ]
   },
   {
@@ -3878,7 +3885,7 @@
     "call": "The URL test of this server failed, and no connection opened since then has received data. Press “Check server” to learn why.",
     "key": "The URL test of this server failed, and no connection opened since then has received data. Press “Check server” to learn why.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:238"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:246"
     ]
   },
   {
@@ -3913,21 +3920,21 @@
     "call": "This server has changed since the page was drawn; reopen it and try again.",
     "key": "This server has changed since the page was drawn; reopen it and try again.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:528"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:540"
     ]
   },
   {
     "call": "This server is no longer in the running configuration.",
     "key": "This server is no longer in the running configuration.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:366"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:374"
     ]
   },
   {
     "call": "This server is reached through another one; masking needs its own connection, which a relay does not give.",
     "key": "This server is reached through another one; masking needs its own connection, which a relay does not give.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:524"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:536"
     ]
   },
   {
@@ -3935,6 +3942,13 @@
     "key": "This server will be masked as a whitelisted site on the wire.",
     "places": [
       "src/podkop/tabs/dashboard/initController.ts:325"
+    ]
+  },
+  {
+    "call": "This server’s protocol has no TLS handshake over TCP for this treatment to act on.",
+    "key": "This server’s protocol has no TLS handshake over TCP for this treatment to act on.",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:544"
     ]
   },
   {
@@ -3962,7 +3976,7 @@
     "call": "through: %s",
     "key": "through: %s",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:511"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:523"
     ]
   },
   {
@@ -4069,7 +4083,7 @@
     "call": "Turn on the uTLS fallback (switch the fingerprint)",
     "key": "Turn on the uTLS fallback (switch the fingerprint)",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:477"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:489"
     ]
   },
   {
@@ -4114,7 +4128,7 @@
     "call": "unavailable through a relay",
     "key": "unavailable through a relay",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:483"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:495"
     ]
   },
   {
@@ -4372,21 +4386,21 @@
     "call": "Your account may view this page but may not change a server.",
     "key": "Your account may view this page but may not change a server.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:540"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:556"
     ]
   },
   {
     "call": "Your account may view this page but may not start a check.",
     "key": "Your account may view this page but may not start a check.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:370"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:378"
     ]
   },
   {
     "call": "Your account may view this page but may not start a search.",
     "key": "Your account may view this page but may not start a search.",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/verdictText.ts:572"
+      "src/podkop/tabs/dashboard/helpers/verdictText.ts:588"
     ]
   }
 ]

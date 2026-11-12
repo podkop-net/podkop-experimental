@@ -2312,6 +2312,14 @@ function verdictLines(verdict) {
       }
       break;
     case "limit":
+      if (active && notes.includes("no_mask")) {
+        lines.push(
+          _(
+            "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. A disguise as a whitelisted site cannot act on this server: its protocol has no TLS handshake over TCP. Another server, one with TLS (VLESS, Trojan), may help."
+          ).format(verdict.kb ?? 0)
+        );
+        break;
+      }
       lines.push(
         active ? _(
           "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. Another server or a disguise as a whitelisted site may help; where the network also limits by address, the disguise will not."
@@ -2485,6 +2493,9 @@ function cureChoice(verdict, via, viaInterface = false) {
     return none;
   }
   const detour = !direct && !viaInterface;
+  if (verdict.block === "limit" && (verdict.notes ?? []).includes("no_mask")) {
+    return none;
+  }
   if (verdict.block === "limit") {
     return detour ? {
       show: true,
@@ -2566,6 +2577,10 @@ function setCureProblem(reply, kind) {
     case "unknown":
       return _(
         "This server has changed since the page was drawn; reopen it and try again."
+      );
+    case "no_tls":
+      return _(
+        "This server\u2019s protocol has no TLS handshake over TCP for this treatment to act on."
       );
     case "invalid":
       return kind === "spoof" ? _(

@@ -17,10 +17,13 @@ import (
 
 // The states of a set_cure / clear_cure / drop_stale_cures call, read by the page.
 const (
-	CureOK         = "ok"
-	CureViaDetour  = "via_detour"
-	CureUnknown    = "unknown"
-	CureInvalid    = "invalid"
+	CureOK        = "ok"
+	CureViaDetour = "via_detour"
+	CureUnknown   = "unknown"
+	CureInvalid   = "invalid"
+	// CureNoTLS: a mask or a split of the hello asked of a server whose handshake is no TLS over TCP
+	// (no TLS, or QUIC): there is nothing for it to act on
+	CureNoTLS      = "no_tls"
 	CureNotRunning = "not_running"
 )
 
@@ -115,7 +118,12 @@ func (s *Supervisor) SetCure(ctx context.Context, tag, kind, sni, wantHash, thro
 			return CureResult{State: CureViaDetour}
 		}
 		cure.Through, cure.Relay = way.Source, way.Hash
-	} else if kind == model.CureSpoof {
+	} else if server, found := findServer(snapshot.servers, tag); found && !server.Kind.Maskable() && server.Kind != detect.KindNone {
+		// a server detoured by a treatment of its own is a tunnel now, and its next treatment
+		// replaces the detour: only a protocol without a TLS handshake over TCP is refused
+		return CureResult{State: CureNoTLS}
+	}
+	if kind == model.CureSpoof {
 		if !model.ValidMaskName(sni) {
 			return CureResult{State: CureInvalid}
 		}
@@ -248,7 +256,7 @@ func (s *Supervisor) SuggestMask(ctx context.Context, tag string) SuggestResult 
 		return scan.result
 	default:
 		server, ok := findServer(snapshot.servers, tag)
-		if !ok || server.Kind == detect.KindNone {
+		if !ok || !server.Kind.Maskable() {
 			s.suggestAccess.Unlock()
 			return SuggestResult{State: SuggestNone}
 		}

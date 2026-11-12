@@ -509,6 +509,7 @@ describe('cureChoice', () => {
   >([
     ['limit', 'active', [], '', true],
     ['limit', 'active', [], 'relay-nl', true],
+    ['limit', 'active', ['no_mask'], '', false],
     ['limit', 'passive', [], '', false],
     ['freeze', 'active', ['cured'], '', false],
     ['freeze', 'active', ['fallback_off'], '', true],
@@ -686,6 +687,19 @@ describe('cureBadge', () => {
   });
 });
 
+describe('a limit on a server without a TLS handshake over TCP', () => {
+  const noMask = verdict('limit', 'active', { notes: ['no_mask'], kb: 16 });
+  it('offers no treatment', () => {
+    expect(cureChoice(noMask, '').show).toBe(false);
+  });
+  it('says why a disguise does not help, not that it may', () => {
+    const text = verdictLines(noMask).join(' ');
+    expect(text).toContain('16 KB');
+    expect(text).toContain('cannot act');
+    expect(text).not.toContain('may help; where');
+  });
+});
+
 describe('setCureProblem', () => {
   it('ok is undefined; the five non-ok states are truthy and distinct', () => {
     expect(setCureProblem({ state: 'ok' })).toBeUndefined();
@@ -693,12 +707,13 @@ describe('setCureProblem', () => {
       'via_detour',
       'unknown',
       'invalid',
+      'no_tls',
       'not_running',
       'denied',
     ] as const;
     const texts = states.map((state) => setCureProblem({ state }));
     expect(texts.every(Boolean)).toBe(true);
-    expect(new Set(texts).size).toBe(5);
+    expect(new Set(texts).size).toBe(6);
   });
   it('invalid tells of the mask only for a mask', () => {
     expect(setCureProblem({ state: 'invalid' }, 'spoof')).toContain('host');

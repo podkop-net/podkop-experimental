@@ -77,6 +77,10 @@ const (
 	NoteTLSCert = "tls_cert"
 	// NoteStandIn: with a freeze: the fingerprint of the link was not probed, another stood in.
 	NoteStandIn = "stand_in"
+	// NoteNoMask: with a limit: the handshake of the server is no TLS over TCP (a protocol without
+	// TLS, or one over QUIC), so a mask, which is a forged TLS hello on the server's TCP connection,
+	// cannot act on it.
+	NoteNoMask = "no_mask"
 	// NoteUpgradeInDial: with a hello drop: the upgrade of ws or httpupgrade is inside the dial, so
 	// the silence may be of the upgrade after a TLS handshake that completed.
 	NoteUpgradeInDial = "upgrade_in_dial"
@@ -434,7 +438,18 @@ func classifyOne(server Server, open []Conn, others bool, signals Signals, polic
 	if server.Kind == KindNone && verdict.Block != BlockUnknown {
 		verdict.note(NoteThroughDetour)
 	}
+	// through a tunnel the handshake is not on the path from here (through_detour says so)
+	if verdict.Block == BlockLimit && server.Kind != KindNone && !server.Kind.Maskable() {
+		verdict.note(NoteNoMask)
+	}
 	return verdict
+}
+
+// Maskable tells a server whose handshake is TLS over TCP from here: a mask (tls.spoof) and a split
+// of the hello (record_fragment) act on it. No TLS (plain), QUIC (udp) and a tunnel (none) are not;
+// a server whose kind is not known yet is taken as maskable.
+func (k Kind) Maskable() bool {
+	return k != KindPlain && k != KindUDP && k != KindNone
 }
 
 // switched tells that the engine uses a fingerprint the server's refusal and the fallback's

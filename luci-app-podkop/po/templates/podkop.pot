@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 14:35+0000\n"
-"PO-Revision-Date: 2026-11-12 14:35+0000\n"
+"POT-Creation-Date: 2026-11-12 17:45+0000\n"
+"PO-Revision-Date: 2026-11-12 17:45+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -121,7 +121,7 @@ msgstr ""
 msgid "0 of %d, check the words"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:362
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:370
 msgid "A check is not possible now: this address was checked recently or is waiting in the queue, or the queue is full. Try again in %d s."
 msgstr ""
 
@@ -149,7 +149,7 @@ msgstr ""
 msgid "A number is expected, as 0x10000"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:558
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:574
 msgid "A probe of this server ran recently; try again in %d s."
 msgstr ""
 
@@ -157,7 +157,7 @@ msgstr ""
 msgid "A row cannot connect through its own source"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:566
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:582
 msgid "A search for another server is running; try again when it ends."
 msgstr ""
 
@@ -211,7 +211,7 @@ msgstr ""
 msgid "All the traffic of these devices of the network goes by this rule"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:279
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:287
 msgid "Also check the clock of the router."
 msgstr ""
 
@@ -355,7 +355,7 @@ msgstr ""
 msgid "Browser is using FakeIP correctly"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:509
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:521
 msgid "bypass: record fragment"
 msgstr ""
 
@@ -402,11 +402,11 @@ msgstr ""
 msgid "Check that the text is copied whole, or choose the type by hand"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:348
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:356
 msgid "Checked %d min ago"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:347
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:355
 msgid "Checked just now"
 msgstr ""
 
@@ -465,7 +465,7 @@ msgstr ""
 msgid "Configuration for Podkop service"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:471
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:483
 msgid "Connect through %s"
 msgstr ""
 
@@ -474,6 +474,10 @@ msgid "connecting…"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:187
+msgid "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. A disguise as a whitelisted site cannot act on this server: its protocol has no TLS handshake over TCP. Another server, one with TLS (VLESS, Trojan), may help."
+msgstr ""
+
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:195
 msgid "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. Another server or a disguise as a whitelisted site may help; where the network also limits by address, the disguise will not."
 msgstr ""
 
@@ -795,9 +799,9 @@ msgstr ""
 #: src/podkop/tabs/diagnostic/initController.ts:278
 #: src/podkop/tabs/diagnostic/initController.ts:315
 #: src/podkop/tabs/diagnostic/initController.ts:319
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:372
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:542
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:574
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:380
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:558
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:590
 msgid "Failed to execute!"
 msgstr ""
 
@@ -995,7 +999,7 @@ msgstr ""
 msgid "Issues detected"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:221
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:229
 msgid "It does not connect from here, but the handshake passes through another server of yours. The server is on; the provider cuts the path or the server does not accept your network."
 msgstr ""
 
@@ -1003,7 +1007,7 @@ msgstr ""
 msgid "just now"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:475
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:487
 msgid "Keep the fingerprint, split the TLS record"
 msgstr ""
 
@@ -1101,11 +1105,11 @@ msgstr ""
 msgid "mark %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:473
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:485
 msgid "Mask as a whitelisted site"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:507
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:519
 msgid "mask: %s"
 msgstr ""
 
@@ -1276,7 +1280,7 @@ msgstr ""
 msgid "No treatment"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:554
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:570
 msgid "No whitelisted name lifted the limit on this server. The network may limit by address too, where masking does not help."
 msgstr ""
 
@@ -1369,7 +1373,7 @@ msgstr ""
 msgid "One outbound is expected: {\"type\": \"vless\", …}"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:309
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:317
 msgid "One request passes, the requests after it do not. It looks like a limit of the server or the line."
 msgstr ""
 
@@ -1446,9 +1450,9 @@ msgstr ""
 msgid "podkop is not running: start it to load the list"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:368
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:538
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:570
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:376
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:554
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:586
 msgid "Podkop is not running."
 msgstr ""
 
@@ -1498,7 +1502,7 @@ msgstr ""
 msgid "Recognized: %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:484
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:496
 msgid "recommended"
 msgstr ""
 
@@ -1749,11 +1753,11 @@ msgstr ""
 msgid "Show sing-box config"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:485
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:497
 msgid "simplest"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:323
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:331
 msgid "Some of the test connections were lost, the rest passed."
 msgstr ""
 
@@ -1879,11 +1883,11 @@ msgstr ""
 msgid "The address is taken from the link that adds it to %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:319
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:327
 msgid "The address of the check did not answer, the server is not at fault."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:285
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:293
 msgid "The address of the server could not be resolved by its name."
 msgstr ""
 
@@ -1911,15 +1915,15 @@ msgstr ""
 msgid "the certificate is not valid by the router's clock: check the clock"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:329
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:337
 msgid "The check does not apply to a server behind a tunnel."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:313
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:321
 msgid "The check gave no clear answer, repeat it later."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:331
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:339
 msgid "The check's hello was refused, but the running connection through this server works. Nothing needs changing."
 msgstr ""
 
@@ -1983,11 +1987,11 @@ msgstr ""
 msgid "The fastest of all the servers of these rows is used. Words of a filter go by commas; a word finds the start of a word of the name: “AI” finds “USA AI-1”, but not “Spain”. Directly or Block works here only as the one row."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:335
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:343
 msgid "The fingerprint of the link was not tested: this one stood in for it, so real connections may not be affected."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:315
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:323
 msgid "The handshake with the server completes, but it did not answer a request during the check. The cause may be on the server or on the way to it, a check from here cannot tell. Try the server from another network, or ask whoever runs it."
 msgstr ""
 
@@ -2047,7 +2051,7 @@ msgstr ""
 msgid "The port is open, but the TLS hello gets no answer. It looks like a block by SNI or address."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:257
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:265
 msgid "The port of the server does not answer from this router. The cause cannot be told from here."
 msgstr ""
 
@@ -2161,7 +2165,7 @@ msgstr ""
 msgid "The router knows no DNS server of the provider now."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:281
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:289
 msgid "The router seems to have no internet connection: the uplink check failed."
 msgstr ""
 
@@ -2169,11 +2173,11 @@ msgstr ""
 msgid "The row connects through its own source"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:564
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:580
 msgid "The search is still running; its result did not come in time."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:562
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:578
 msgid "The search was stopped."
 msgstr ""
 
@@ -2181,35 +2185,35 @@ msgstr ""
 msgid "the secure connection failed"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:292
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:300
 msgid "The server accepts only connections with ML-KEM (Xray ≥ 26.9.8)."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:289
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:297
 msgid "The server accepts only connections with ML-KEM (Xray ≥ 26.9.8). This is not a block."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:199
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:207
 msgid "The server answered, but its certificate did not pass the check: expired, for another name, or from an unknown issuer."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:202
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:210
 msgid "The server answered, but the REALITY check failed: a wrong key or shortId in the link, a name the server does not list, or the server has changed. Update the link or the subscription; if that does not help, the fault is on the server."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:305
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:313
 msgid "The server answers, but the handshake does not complete with any fingerprint."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:209
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:217
 msgid "The server closed the requests without an answer. The usual reason is a user or password it does not know; a server with no way out looks the same from here."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:246
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:254
 msgid "The server does not answer from here or through another server of yours, which may itself be unstable. The cause cannot be told from this one try."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:229
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:237
 msgid "The server does not answer from here or through your other servers (%d). It may be off, or its address may be closed to these networks; from another network it may work."
 msgstr ""
 
@@ -2217,15 +2221,15 @@ msgstr ""
 msgid "The server in use changes only for one faster by this much"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:325
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:333
 msgid "The server is reached through another one: the cause may be there."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:300
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:308
 msgid "The server is reached through the fallback fingerprint %s. Sometimes this is the trace of a block; a check will tell for sure."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:297
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:305
 msgid "The server works through the fallback fingerprint %s. Sometimes this is the trace of a block; a check will tell for sure."
 msgstr ""
 
@@ -2274,11 +2278,11 @@ msgstr ""
 msgid "the transfer stopped at %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:533
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:549
 msgid "The treatment does not fit this server: a mask must be a host name other than the server’s own."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:536
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:552
 msgid "The treatment does not fit this server."
 msgstr ""
 
@@ -2286,7 +2290,7 @@ msgstr ""
 msgid "The URL must serve at least 64 KiB or announce a shorter length"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:238
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:246
 msgid "The URL test of this server failed, and no connection opened since then has received data. Press “Check server” to learn why."
 msgstr ""
 
@@ -2306,20 +2310,24 @@ msgstr ""
 msgid "These are not links of servers: %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:528
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:540
 msgid "This server has changed since the page was drawn; reopen it and try again."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:366
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:374
 msgid "This server is no longer in the running configuration."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:524
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:536
 msgid "This server is reached through another one; masking needs its own connection, which a relay does not give."
 msgstr ""
 
 #: src/podkop/tabs/dashboard/initController.ts:325
 msgid "This server will be masked as a whitelisted site on the wire."
+msgstr ""
+
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:544
+msgid "This server’s protocol has no TLS handshake over TCP for this treatment to act on."
 msgstr ""
 
 #: src/podkop/tabs/dashboard/initController.ts:327
@@ -2334,7 +2342,7 @@ msgstr ""
 msgid "through %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:511
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:523
 msgid "through: %s"
 msgstr ""
 
@@ -2396,7 +2404,7 @@ msgstr ""
 msgid "TTL value cannot be empty"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:477
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:489
 msgid "Turn on the uTLS fallback (switch the fingerprint)"
 msgstr ""
 
@@ -2423,7 +2431,7 @@ msgstr ""
 msgid "UDP over TCP"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:483
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:495
 msgid "unavailable through a relay"
 msgstr ""
 
@@ -2579,14 +2587,14 @@ msgstr ""
 msgid "YACD Secret Key"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:540
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:556
 msgid "Your account may view this page but may not change a server."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:370
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:378
 msgid "Your account may view this page but may not start a check."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/verdictText.ts:572
+#: src/podkop/tabs/dashboard/helpers/verdictText.ts:588
 msgid "Your account may view this page but may not start a search."
 msgstr ""

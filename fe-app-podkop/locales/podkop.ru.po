@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 14:35+0000\n"
-"PO-Revision-Date: 2026-11-12 14:35+0000\n"
+"POT-Creation-Date: 2026-11-12 17:45+0000\n"
+"PO-Revision-Date: 2026-11-12 17:45+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -337,6 +337,9 @@ msgstr "Подключаться через %s"
 
 msgid "connecting…"
 msgstr "соединение…"
+
+msgid "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. A disguise as a whitelisted site cannot act on this server: its protocol has no TLS handshake over TCP. Another server, one with TLS (VLESS, Trojan), may help."
+msgstr "Соединения обрываются около %d КБ — это лимит ТСПУ. Сайты открываются частично. Маскировка под сайт из белого списка на этот сервер не действует: у его протокола нет TLS-рукопожатия по TCP. Может помочь другой сервер, с TLS (VLESS, Trojan)."
 
 msgid "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. Another server or a disguise as a whitelisted site may help; where the network also limits by address, the disguise will not."
 msgstr "Соединения обрываются около %d КБ — это лимит ТСПУ. Сайты открываются частично. Может помочь другой сервер или маскировка под сайт из белого списка; если сеть режет и по адресу, маскировка не поможет."
@@ -1648,6 +1651,9 @@ msgstr "Этот сервер доступен через другой; маск
 
 msgid "This server will be masked as a whitelisted site on the wire."
 msgstr "В сети этот сервер будет выглядеть как сайт из белого списка."
+
+msgid "This server’s protocol has no TLS handshake over TCP for this treatment to act on."
+msgstr "У протокола этого сервера нет TLS-рукопожатия по TCP, на которое мог бы подействовать этот обход."
 
 msgid "This server's TLS hello will be split into two records."
 msgstr "TLS-приветствие этого сервера будет разбито на две записи."

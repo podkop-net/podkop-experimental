@@ -220,6 +220,27 @@ func TestStaleDetour(t *testing.T) {
 	require.Nil(t, cureByHash(left, "h4", ""))
 }
 
+// A mask and a split of the hello are refused for a server whose handshake is no TLS over TCP:
+// the build would leave them off, and the tile would say they are on.
+func TestSetCureNoTLS(t *testing.T) {
+	s, path := liveSupervisor(t, &fakeInstance{})
+	s.liveServers = append(s.liveServers,
+		detect.Server{Tag: "ss", Kind: detect.KindPlain, Destination: "c.example:8388"},
+		detect.Server{Tag: "hy2", Kind: detect.KindUDP, Destination: "d.example:443"})
+	s.liveStable["ss"] = detect.Identity{Hash: "h7", Source: "own"}
+	s.liveStable["hy2"] = detect.Identity{Hash: "h8", Source: "own"}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	for _, tag := range []string{"ss", "hy2"} {
+		require.Equal(t, CureNoTLS, s.SetCure(ctx, tag, "spoof", "packagist.org", "", "").State, tag)
+		require.Equal(t, CureNoTLS, s.SetCure(ctx, tag, "record_fragment", "", "", "").State, tag)
+	}
+	require.Empty(t, parseFile(t, path).SectionsOfType("cure"), "nothing stored")
+	// a detour has nothing to do with TLS: it goes through another server
+	require.Equal(t, CureOK, s.SetCure(ctx, "ss", "detour", "", "", "px1").State)
+	require.Equal(t, SuggestNone, s.SuggestMask(ctx, "ss").State, "no scan for a mask")
+}
+
 // A mask is refused when it is the server's own name, and allowed through an interface, which
 // gives the server its own socket.
 func TestSetCureMaskRules(t *testing.T) {

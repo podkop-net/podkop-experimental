@@ -67,6 +67,8 @@ func TestClassify(t *testing.T) {
 			signals: Signals{Open: []Conn{{Outbound: "other", Down: 200 << 10, CreatedAt: now}}}, block: BlockUnknown},
 		{name: "three cuts at different moments", server: reality,
 			signals: Signals{Flows: map[string]FlowSample{"s": {Cuts: cuts(3, 3*time.Second), LastDataAt: alive}}}, block: BlockLimit, kb: 18},
+		{name: "three cuts of a server without TLS: no mask acts on it", server: Server{Tag: "s", Kind: KindPlain, Destination: "192.0.2.1:8388", TestInterval: time.Minute},
+			signals: Signals{Flows: map[string]FlowSample{"s": {Cuts: cuts(3, 3*time.Second), LastDataAt: alive}}}, block: BlockLimit, notes: []string{NoteNoMask}, kb: 18},
 		{name: "a mass close is one moment", server: reality,
 			signals: Signals{Flows: map[string]FlowSample{"s": {Cuts: cuts(8, time.Millisecond), LastDataAt: alive}}}, block: BlockUnknown},
 		{name: "two cuts are not enough", server: reality,
@@ -360,6 +362,9 @@ func TestClassifyStages(t *testing.T) {
 		// the dictionary, row by row
 		{name: "none: a single and a burst in full", stages: stagesOf(KindFingerprint, func(s *Stages) { s.Single, s.Burst = &full, burst(8, 0, 0) }), block: BlockNone},
 		{name: "limit: every flow cut", stages: stagesOf(KindFingerprint, func(s *Stages) { s.Single, s.Burst = &cut, burst(0, 8, 0) }), block: BlockLimit, kb: 18},
+		{name: "limit without TLS: no mask acts on it", stages: stagesOf(KindPlain, func(s *Stages) { s.Single, s.Burst = &cut, burst(0, 8, 0) }),
+			block: BlockLimit, notes: []string{NoteNoMask}, kb: 18},
+		{name: "limit over TLS, pooled: a mask acts on it", stages: stagesOf(KindPooled, func(s *Stages) { s.Single, s.Burst = &cut, burst(0, 8, 0) }), block: BlockLimit, kb: 18},
 		{name: "no limit: a full single excludes it", stages: stagesOf(KindFingerprint, func(s *Stages) { s.Single, s.Burst = &full, burst(0, 8, 0) }),
 			block: BlockUnknown, notes: []string{NoteInconclusive}},
 		{name: "no limit: a full single excludes it for another fingerprint too", stages: stagesOf(KindFingerprint, func(s *Stages) { s.Single, s.Burst, s.AlternateBurst = &full, burst(0, 5, 3), burst(0, 8, 0) }),

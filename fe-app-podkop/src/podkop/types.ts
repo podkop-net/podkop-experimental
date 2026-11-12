@@ -140,6 +140,8 @@ export namespace Podkop {
     | 'tls_cert'
     | 'stand_in'
     | 'upgrade_in_dial'
+    // with a limit: the server has no TLS handshake over TCP (no TLS, or QUIC): no mask acts on it
+    | 'no_mask'
     | 'server_silent';
 
   // what the page shows of a verdict; the English why of the backend is for logs and the CLI
@@ -213,6 +215,7 @@ export namespace Podkop {
       | 'via_detour'
       | 'unknown'
       | 'invalid'
+      | 'no_tls'
       | 'not_running'
       | 'denied';
   }

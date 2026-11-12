@@ -182,6 +182,14 @@ export function verdictLines(verdict: Podkop.Verdict): string[] {
       }
       break;
     case 'limit':
+      if (active && notes.includes('no_mask')) {
+        lines.push(
+          _(
+            'Connections are cut at about %d KB: this is the DPI limit. Sites open partly. A disguise as a whitelisted site cannot act on this server: its protocol has no TLS handshake over TCP. Another server, one with TLS (VLESS, Trojan), may help.',
+          ).format(verdict.kb ?? 0),
+        );
+        break;
+      }
       lines.push(
         active
           ? _(
@@ -417,6 +425,10 @@ export function cureChoice(
     return none;
   }
   const detour = !direct && !viaInterface;
+  // a protocol without a TLS handshake over TCP gives a mask nothing to act on
+  if (verdict.block === 'limit' && (verdict.notes ?? []).includes('no_mask')) {
+    return none;
+  }
   if (verdict.block === 'limit') {
     return detour
       ? {
@@ -527,6 +539,10 @@ export function setCureProblem(
     case 'unknown':
       return _(
         'This server has changed since the page was drawn; reopen it and try again.',
+      );
+    case 'no_tls':
+      return _(
+        'This server’s protocol has no TLS handshake over TCP for this treatment to act on.',
       );
     case 'invalid':
       return kind === 'spoof'

@@ -289,6 +289,9 @@ func (s *Stages) flows(policy Policy) (Verdict, Step) {
 	case burst.cutOnly(policy) && !singleFull:
 		verdict := finished(BlockLimit, strconv.Itoa(burst.band)+" of "+n+" flows cut in the band, none full")
 		verdict.KB = burst.kb()
+		if !s.Kind.Maskable() {
+			verdict.note(NoteNoMask)
+		}
 		return verdict, StepDone
 	case burst.zero >= policy.MinZeros && s.Kind == KindFingerprint:
 		if s.AlternateBurst == nil {
