@@ -725,7 +725,19 @@ async function handleChooseOutbound(selector: string, tag: string) {
   await fetchDashboardSections();
 }
 
-async function handleTestGroupLatency(tag: string) {
+// proxyLatency is the delay of one server a test of the Clash API found, 0 when it got no answer
+async function proxyLatency(tag: string): Promise<number> {
+  const reply = await PodkopShellMethods.getClashApiProxyLatency(tag);
+  const delay = reply.success ? Number(reply.data?.delay) : 0;
+  return Number.isFinite(delay) && delay > 0 ? delay : 0;
+}
+
+// keepLatencyNow keeps the results of a test of these servers, replacing what an older test found
+function keepLatencyNow(results: Record<string, number>) {
+  store.set({ latencyNow: { ...store.get().latencyNow, ...results } });
+}
+
+async function handleTestGroupLatency(tag: string, members: string[] = []) {
   store.set({
     sectionsWidget: {
       ...store.get().sectionsWidget,
@@ -733,7 +745,20 @@ async function handleTestGroupLatency(tag: string) {
     },
   });
 
-  await PodkopShellMethods.getClashApiGroupLatency(tag);
+  const reply = await PodkopShellMethods.getClashApiGroupLatency(tag);
+  const found =
+    reply.success && reply.data && typeof reply.data === 'object'
+      ? reply.data
+      : {};
+  const results: Record<string, number> = {};
+  if (Object.keys(found).length) {
+    for (const member of members) results[member] = Number(found[member]) || 0;
+  } else {
+    // a group in its own round answers nothing to a test of the group: each server alone
+    const delays = await Promise.all(members.map(proxyLatency));
+    members.forEach((member, index) => (results[member] = delays[index]));
+  }
+  keepLatencyNow(results);
   await fetchDashboardSections();
 
   store.set({
@@ -752,7 +777,7 @@ async function handleTestProxyLatency(tag: string) {
     },
   });
 
-  await PodkopShellMethods.getClashApiProxyLatency(tag);
+  keepLatencyNow({ [tag]: await proxyLatency(tag) });
   await fetchDashboardSections();
 
   store.set({
@@ -811,9 +836,13 @@ async function renderSectionsWidget() {
         onCheckProblems: handleCheckProblems,
         onCancelChecks: handleCancelChecks,
       },
+      latencyNow: store.get().latencyNow,
       onTestLatency: (tag) => {
         if (section.withTagSelect) {
-          return handleTestGroupLatency(tag);
+          return handleTestGroupLatency(
+            tag,
+            section.outbounds.map((outbound) => outbound.code),
+          );
         }
 
         return handleTestProxyLatency(tag);
@@ -994,6 +1023,7 @@ async function onStoreUpdate(
   // the skeleton of the grid has nothing of the detector to show
   if (
     diff.sectionsWidget ||
+    diff.latencyNow ||
     (diff.detectWidget &&
       !next.sectionsWidget.loading &&
       !next.sectionsWidget.failed)
@@ -1058,6 +1088,7 @@ function onPageUnmount() {
     'systemInfoWidget',
     'servicesInfoWidget',
     'sectionsWidget',
+    'latencyNow',
     'detectWidget',
   ]);
   stopStats();

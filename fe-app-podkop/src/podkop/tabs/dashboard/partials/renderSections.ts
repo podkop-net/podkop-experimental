@@ -27,7 +27,28 @@ interface IRenderSectionsProps {
   onTestLatency: (tag: string) => void;
   onChooseOutbound: (selector: string, tag: string) => void;
   latencyFetching: boolean;
+  // the result of the last "Test latency" of a server by its tag (0 = no answer), shown beside
+  // the median the group chooses by
+  latencyNow?: Record<string, number>;
   checks?: ISectionChecks;
+}
+
+// renderLatencyNow is the line of a tile with what the last "Test latency" found of the server:
+// nothing before a test
+export function renderLatencyNow(delay: number | undefined): unknown[] {
+  if (delay === undefined) return [];
+  return [
+    E(
+      'div',
+      {
+        class: 'pdk_dashboard-page__outbound-grid__item__latency-now',
+        title: _(
+          'Your test just now. The group chooses by the median of its own rounds, shown above.',
+        ),
+      },
+      [delay > 0 ? _('now %d ms').format(delay) : _('now: no answer')],
+    ),
+  ];
 }
 
 function renderFailedState() {
@@ -54,6 +75,7 @@ export function renderDefaultState({
   onChooseOutbound,
   onTestLatency,
   latencyFetching,
+  latencyNow,
   checks,
 }: IRenderSectionsProps) {
   function testLatency() {
@@ -212,6 +234,7 @@ export function renderDefaultState({
           ]),
           E('div', { class: getLatencyClass() }, [
             outbound.latency ? `${outbound.latency}ms` : 'N/A',
+            ...renderLatencyNow(latencyNow?.[outbound.code]),
             ...(outbound.loss
               ? [
                   ' · ',

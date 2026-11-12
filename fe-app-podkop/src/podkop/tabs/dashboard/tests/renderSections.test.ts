@@ -48,6 +48,7 @@ function render(
   outbounds: Podkop.Outbound[],
   detect: Partial<IDetectWidget> = {},
   rule: Partial<Podkop.OutboundGroup> = {},
+  latencyNow?: Record<string, number>,
 ) {
   const checks: ISectionChecks = {
     detect: {
@@ -80,6 +81,7 @@ function render(
     onTestLatency: () => {},
     onChooseOutbound,
     latencyFetching: false,
+    latencyNow,
     checks,
   }) as unknown as Node;
   return { root, checks, onChooseOutbound };
@@ -111,6 +113,26 @@ describe('the tile of a server', () => {
         bare: typeof children === 'string',
       }),
     );
+  });
+
+  it('keeps the median and shows the result of the last test beside it', () => {
+    const NOW = 'pdk_dashboard-page__outbound-grid__item__latency-now';
+    const text = (node: Node) =>
+      walk(node)
+        .flatMap((n) => n.children.filter((c) => typeof c === 'string'))
+        .join(' ');
+    const before = render([outbound('a', { latency: 183 })]).root;
+    expect(byClass(before, NOW)).toHaveLength(0);
+    const { root } = render(
+      [outbound('a', { latency: 183 }), outbound('b', { latency: 0 })],
+      {},
+      {},
+      { a: 241, b: 0 },
+    );
+    const [tileA, tileB] = byClass(root, TILE);
+    expect(text(tileA)).toContain('183ms');
+    expect(text(byClass(tileA, NOW)[0])).toContain('241');
+    expect(text(byClass(tileB, NOW)[0])).toContain('no answer');
   });
 
   it('has a check button that does not choose the server', () => {

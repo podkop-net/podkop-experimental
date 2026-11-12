@@ -187,6 +187,10 @@ export interface StoreType {
     data: Podkop.OutboundGroup[];
     latencyFetching: boolean;
   };
+  // the result of the last "Test latency" of each server, by its tag, in ms; 0 = no answer. Shown
+  // beside the median of the tile until the next test or a reload: the group chooses by the median,
+  // which a one-off test leaves alone
+  latencyNow: Record<string, number>;
   detectWidget: IDetectWidget;
   diagnosticsRunAction: {
     loading: boolean;
@@ -244,6 +248,7 @@ const initialStore: StoreType = {
     latencyFetching: false,
     data: [],
   },
+  latencyNow: {},
   detectWidget: {
     verdicts: {},
     servers: {},

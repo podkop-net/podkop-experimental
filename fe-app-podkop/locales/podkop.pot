@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 17:45+0000\n"
-"PO-Revision-Date: 2026-11-12 17:45+0000\n"
+"POT-Creation-Date: 2026-11-12 18:32+0000\n"
+"PO-Revision-Date: 2026-11-12 18:32+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -28,16 +28,16 @@ msgstr ""
 msgid "(data as of %s)"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:317
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:340
 msgid "%: the loss its checks counted"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:231
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:268
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:291
 msgid "%d of %d"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:262
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:285
 msgid "%d of %d, first %d of %d"
 msgstr ""
 
@@ -93,27 +93,27 @@ msgstr ""
 msgid "%s via %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:319
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:342
 msgid "⇄N: devices in the balance on the server"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:318
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:341
 msgid "~: too few checks yet"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:975
+#: src/podkop/tabs/dashboard/initController.ts:1004
 msgid "✔ Enabled"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:964
+#: src/podkop/tabs/dashboard/initController.ts:993
 msgid "✔ Running"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:976
+#: src/podkop/tabs/dashboard/initController.ts:1005
 msgid "✘ Disabled"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:965
+#: src/podkop/tabs/dashboard/initController.ts:994
 msgid "✘ Stopped"
 msgstr ""
 
@@ -185,7 +185,7 @@ msgstr ""
 msgid "A whole configuration of sing-box"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:925
+#: src/podkop/tabs/dashboard/initController.ts:954
 msgid "Active Connections"
 msgstr ""
 
@@ -242,7 +242,7 @@ msgstr ""
 msgid "An outbound of sing-box is expected: {\"type\": \"vless\", …}"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:300
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:323
 msgid "Another section is being checked."
 msgstr ""
 
@@ -289,7 +289,7 @@ msgstr ""
 msgid "Automatically: as the provider advises, otherwise once a day"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:973
+#: src/podkop/tabs/dashboard/initController.ts:1002
 msgid "Autostart"
 msgstr ""
 
@@ -297,7 +297,7 @@ msgstr ""
 msgid "Available actions"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:358
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:381
 msgid "Back to automatic choice"
 msgstr ""
 
@@ -369,7 +369,7 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:843
 #: src/podkop/tabs/dashboard/initController.ts:263
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:288
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:311
 msgid "Cancel"
 msgstr ""
 
@@ -388,13 +388,13 @@ msgstr ""
 msgid "certificate"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:303
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:326
 msgid "Check problem servers"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/initController.ts:275
 #: src/podkop/tabs/dashboard/initController.ts:714
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:134
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:156
 msgid "Check server"
 msgstr ""
 
@@ -443,7 +443,7 @@ msgstr ""
 msgid "Choose the devices YACD is opened from"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:196
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:218
 msgid "Chosen inside the fallback"
 msgstr ""
 
@@ -514,7 +514,7 @@ msgstr ""
 msgid "Dashboard"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:40
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:61
 msgid "Dashboard currently unavailable"
 msgstr ""
 
@@ -643,8 +643,8 @@ msgstr ""
 msgid "Dont Touch My DHCP!"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:859
-#: src/podkop/tabs/dashboard/initController.ts:893
+#: src/podkop/tabs/dashboard/initController.ts:888
+#: src/podkop/tabs/dashboard/initController.ts:922
 msgid "Downlink"
 msgstr ""
 
@@ -912,7 +912,7 @@ msgstr ""
 msgid "If the server does not answer, it is tried through another server of yours, whose operator can see the address of this one."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:198
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:220
 msgid "In the balance: %d devices"
 msgstr ""
 
@@ -1117,7 +1117,7 @@ msgstr ""
 msgid "Matched"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:929
+#: src/podkop/tabs/dashboard/initController.ts:958
 msgid "Memory Usage"
 msgstr ""
 
@@ -1340,6 +1340,14 @@ msgstr ""
 msgid "Nothing yet: press Add and paste a subscription or a link"
 msgstr ""
 
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:49
+msgid "now %d ms"
+msgstr ""
+
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:49
+msgid "now: no answer"
+msgstr ""
+
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:58
 msgid "ok"
 msgstr ""
@@ -1442,7 +1450,7 @@ msgstr ""
 msgid "Pending"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:962
+#: src/podkop/tabs/dashboard/initController.ts:991
 msgid "Podkop"
 msgstr ""
 
@@ -1489,7 +1497,7 @@ msgstr ""
 msgid "queued"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:270
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:293
 msgid "Queued: %d"
 msgstr ""
 
@@ -1715,7 +1723,7 @@ msgstr ""
 msgid "Servers: %d, usable: %d"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:958
+#: src/podkop/tabs/dashboard/initController.ts:987
 msgid "Services info"
 msgstr ""
 
@@ -1837,7 +1845,7 @@ msgstr ""
 msgid "Supported"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:922
+#: src/podkop/tabs/dashboard/initController.ts:951
 msgid "System info"
 msgstr ""
 
@@ -1865,7 +1873,7 @@ msgstr ""
 msgid "test failed"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:439
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:462
 msgid "Test latency"
 msgstr ""
 
@@ -2350,7 +2358,7 @@ msgstr ""
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:856
+#: src/podkop/tabs/dashboard/initController.ts:885
 msgid "Traffic"
 msgstr ""
 
@@ -2358,7 +2366,7 @@ msgstr ""
 msgid "Traffic resets %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:886
+#: src/podkop/tabs/dashboard/initController.ts:915
 msgid "Traffic Total"
 msgstr ""
 
@@ -2380,7 +2388,7 @@ msgstr ""
 
 #: src/podkop/tabs/dashboard/initController.ts:522
 #: src/podkop/tabs/dashboard/initController.ts:614
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:156
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:178
 msgid "Treatment for this server"
 msgstr ""
 
@@ -2467,8 +2475,8 @@ msgstr ""
 msgid "Update now"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:858
-#: src/podkop/tabs/dashboard/initController.ts:889
+#: src/podkop/tabs/dashboard/initController.ts:887
+#: src/podkop/tabs/dashboard/initController.ts:918
 msgid "Uplink"
 msgstr ""
 
@@ -2597,4 +2605,8 @@ msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:588
 msgid "Your account may view this page but may not start a search."
+msgstr ""
+
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:45
+msgid "Your test just now. The group chooses by the median of its own rounds, shown above."
 msgstr ""

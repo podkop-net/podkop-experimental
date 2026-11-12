@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 17:45+0000\n"
-"PO-Revision-Date: 2026-11-12 17:45+0000\n"
+"POT-Creation-Date: 2026-11-12 18:32+0000\n"
+"PO-Revision-Date: 2026-11-12 18:32+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -938,6 +938,12 @@ msgstr "Примечание"
 msgid "Nothing yet: press Add and paste a subscription or a link"
 msgstr "Пока ничего нет: нажмите «Добавить» и вставьте подписку или ссылку"
 
+msgid "now %d ms"
+msgstr "сейчас %d мс"
+
+msgid "now: no answer"
+msgstr "сейчас: нет ответа"
+
 msgid "ok"
 msgstr "норма"
 
@@ -1837,3 +1843,6 @@ msgstr "Вашей учётной записи можно смотреть эт�
 
 msgid "Your account may view this page but may not start a search."
 msgstr "Вашей учётной записи можно смотреть эту страницу, но нельзя запускать поиск."
+
+msgid "Your test just now. The group chooses by the median of its own rounds, shown above."
+msgstr "Ваша проверка только что. Группа выбирает по медиане своих раундов — она показана выше."

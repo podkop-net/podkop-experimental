@@ -2068,6 +2068,7 @@ var initialStore = {
     latencyFetching: false,
     data: []
   },
+  latencyNow: {},
   detectWidget: {
     verdicts: {},
     servers: {},
@@ -2739,6 +2740,21 @@ function detectIsBusy(detect) {
 }
 
 // src/podkop/tabs/dashboard/partials/renderSections.ts
+function renderLatencyNow(delay) {
+  if (delay === void 0) return [];
+  return [
+    E(
+      "div",
+      {
+        class: "pdk_dashboard-page__outbound-grid__item__latency-now",
+        title: _(
+          "Your test just now. The group chooses by the median of its own rounds, shown above."
+        )
+      },
+      [delay > 0 ? _("now %d ms").format(delay) : _("now: no answer")]
+    )
+  ];
+}
 function renderFailedState() {
   return E(
     "div",
@@ -2761,6 +2777,7 @@ function renderDefaultState({
   onChooseOutbound,
   onTestLatency,
   latencyFetching,
+  latencyNow,
   checks
 }) {
   function testLatency() {
@@ -2882,6 +2899,7 @@ function renderDefaultState({
           ]),
           E("div", { class: getLatencyClass() }, [
             outbound.latency ? `${outbound.latency}ms` : "N/A",
+            ...renderLatencyNow(latencyNow?.[outbound.code]),
             ...outbound.loss ? [
               " \xB7 ",
               E(
@@ -3900,14 +3918,31 @@ async function handleChooseOutbound(selector, tag) {
   await PodkopShellMethods.setClashApiGroupProxy(selector, tag);
   await fetchDashboardSections();
 }
-async function handleTestGroupLatency(tag) {
+async function proxyLatency(tag) {
+  const reply = await PodkopShellMethods.getClashApiProxyLatency(tag);
+  const delay = reply.success ? Number(reply.data?.delay) : 0;
+  return Number.isFinite(delay) && delay > 0 ? delay : 0;
+}
+function keepLatencyNow(results) {
+  store.set({ latencyNow: { ...store.get().latencyNow, ...results } });
+}
+async function handleTestGroupLatency(tag, members = []) {
   store.set({
     sectionsWidget: {
       ...store.get().sectionsWidget,
       latencyFetching: true
     }
   });
-  await PodkopShellMethods.getClashApiGroupLatency(tag);
+  const reply = await PodkopShellMethods.getClashApiGroupLatency(tag);
+  const found = reply.success && reply.data && typeof reply.data === "object" ? reply.data : {};
+  const results = {};
+  if (Object.keys(found).length) {
+    for (const member of members) results[member] = Number(found[member]) || 0;
+  } else {
+    const delays = await Promise.all(members.map(proxyLatency));
+    members.forEach((member, index) => results[member] = delays[index]);
+  }
+  keepLatencyNow(results);
   await fetchDashboardSections();
   store.set({
     sectionsWidget: {
@@ -3923,7 +3958,7 @@ async function handleTestProxyLatency(tag) {
       latencyFetching: true
     }
   });
-  await PodkopShellMethods.getClashApiProxyLatency(tag);
+  keepLatencyNow({ [tag]: await proxyLatency(tag) });
   await fetchDashboardSections();
   store.set({
     sectionsWidget: {
@@ -3974,9 +4009,13 @@ async function renderSectionsWidget() {
         onCheckProblems: handleCheckProblems,
         onCancelChecks: handleCancelChecks
       },
+      latencyNow: store.get().latencyNow,
       onTestLatency: (tag) => {
         if (section.withTagSelect) {
-          return handleTestGroupLatency(tag);
+          return handleTestGroupLatency(
+            tag,
+            section.outbounds.map((outbound) => outbound.code)
+          );
         }
         return handleTestProxyLatency(tag);
       },
@@ -4116,7 +4155,7 @@ async function renderServicesInfoWidget() {
   container.replaceChildren(renderedWidget);
 }
 async function onStoreUpdate(next, prev, diff) {
-  if (diff.sectionsWidget || diff.detectWidget && !next.sectionsWidget.loading && !next.sectionsWidget.failed) {
+  if (diff.sectionsWidget || diff.latencyNow || diff.detectWidget && !next.sectionsWidget.loading && !next.sectionsWidget.failed) {
     renderSectionsWidget();
   }
   if (diff.bandwidthWidget) {
@@ -4155,6 +4194,7 @@ function onPageUnmount() {
     "systemInfoWidget",
     "servicesInfoWidget",
     "sectionsWidget",
+    "latencyNow",
     "detectWidget"
   ]);
   stopStats();
@@ -4486,6 +4526,15 @@ button.pdk_dashboard-page__outbound-grid__item__block--neutral {
 
 .pdk_dashboard-page__outbound-grid__item__latency--red {
     color: var(--error-color-medium, red);
+}
+
+/* what the last "Test latency" found, under the median: small and muted, in the colour of text */
+.pdk_dashboard-page__outbound-grid__item__latency-now {
+    font-size: 0.8em;
+    opacity: 0.8;
+    color: var(--text-color-medium, inherit);
+    text-align: right;
+    white-space: nowrap;
 }
 
 /* the cure line: small and muted, wraps between words, a too-wide word shrinks and is cut, so it

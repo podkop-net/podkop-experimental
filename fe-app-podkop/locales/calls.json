@@ -24,7 +24,7 @@
     "call": "%: the loss its checks counted",
     "key": "%: the loss its checks counted",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:317"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:340"
     ]
   },
   {
@@ -32,14 +32,14 @@
     "key": "%d of %d",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:231",
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:268"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:291"
     ]
   },
   {
     "call": "%d of %d, first %d of %d",
     "key": "%d of %d, first %d of %d",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:262"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:285"
     ]
   },
   {
@@ -134,42 +134,42 @@
     "call": "⇄N: devices in the balance on the server",
     "key": "⇄N: devices in the balance on the server",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:319"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:342"
     ]
   },
   {
     "call": "~: too few checks yet",
     "key": "~: too few checks yet",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:318"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:341"
     ]
   },
   {
     "call": "✔ Enabled",
     "key": "✔ Enabled",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:975"
+      "src/podkop/tabs/dashboard/initController.ts:1004"
     ]
   },
   {
     "call": "✔ Running",
     "key": "✔ Running",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:964"
+      "src/podkop/tabs/dashboard/initController.ts:993"
     ]
   },
   {
     "call": "✘ Disabled",
     "key": "✘ Disabled",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:976"
+      "src/podkop/tabs/dashboard/initController.ts:1005"
     ]
   },
   {
     "call": "✘ Stopped",
     "key": "✘ Stopped",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:965"
+      "src/podkop/tabs/dashboard/initController.ts:994"
     ]
   },
   {
@@ -295,7 +295,7 @@
     "call": "Active Connections",
     "key": "Active Connections",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:925"
+      "src/podkop/tabs/dashboard/initController.ts:954"
     ]
   },
   {
@@ -391,7 +391,7 @@
     "call": "Another section is being checked.",
     "key": "Another section is being checked.",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:300"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:323"
     ]
   },
   {
@@ -471,7 +471,7 @@
     "call": "Autostart",
     "key": "Autostart",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:973"
+      "src/podkop/tabs/dashboard/initController.ts:1002"
     ]
   },
   {
@@ -485,7 +485,7 @@
     "call": "Back to automatic choice",
     "key": "Back to automatic choice",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:358"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:381"
     ]
   },
   {
@@ -608,7 +608,7 @@
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:843",
       "src/podkop/tabs/dashboard/initController.ts:263",
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:288"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:311"
     ]
   },
   {
@@ -639,7 +639,7 @@
     "call": "Check problem servers",
     "key": "Check problem servers",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:303"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:326"
     ]
   },
   {
@@ -648,7 +648,7 @@
     "places": [
       "src/podkop/tabs/dashboard/initController.ts:275",
       "src/podkop/tabs/dashboard/initController.ts:714",
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:134"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:156"
     ]
   },
   {
@@ -730,7 +730,7 @@
     "call": "Chosen inside the fallback",
     "key": "Chosen inside the fallback",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:196"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:218"
     ]
   },
   {
@@ -852,7 +852,7 @@
     "call": "Dashboard currently unavailable",
     "key": "Dashboard currently unavailable",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:40"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:61"
     ]
   },
   {
@@ -1071,8 +1071,8 @@
     "call": "Downlink",
     "key": "Downlink",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:859",
-      "src/podkop/tabs/dashboard/initController.ts:893"
+      "src/podkop/tabs/dashboard/initController.ts:888",
+      "src/podkop/tabs/dashboard/initController.ts:922"
     ]
   },
   {
@@ -1526,7 +1526,7 @@
     "call": "In the balance: %d devices",
     "key": "In the balance: %d devices",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:198"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:220"
     ]
   },
   {
@@ -1875,7 +1875,7 @@
     "call": "Memory Usage",
     "key": "Memory Usage",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:929"
+      "src/podkop/tabs/dashboard/initController.ts:958"
     ]
   },
   {
@@ -2245,6 +2245,20 @@
     ]
   },
   {
+    "call": "now %d ms",
+    "key": "now %d ms",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:49"
+    ]
+  },
+  {
+    "call": "now: no answer",
+    "key": "now: no answer",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:49"
+    ]
+  },
+  {
     "call": "ok",
     "key": "ok",
     "places": [
@@ -2422,7 +2436,7 @@
     "call": "Podkop",
     "key": "Podkop",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:962"
+      "src/podkop/tabs/dashboard/initController.ts:991"
     ]
   },
   {
@@ -2502,7 +2516,7 @@
     "call": "Queued: %d",
     "key": "Queued: %d",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:270"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:293"
     ]
   },
   {
@@ -2890,7 +2904,7 @@
     "call": "Services info",
     "key": "Services info",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:958"
+      "src/podkop/tabs/dashboard/initController.ts:987"
     ]
   },
   {
@@ -3099,7 +3113,7 @@
     "call": "System info",
     "key": "System info",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:922"
+      "src/podkop/tabs/dashboard/initController.ts:951"
     ]
   },
   {
@@ -3148,7 +3162,7 @@
     "call": "Test latency",
     "key": "Test latency",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:439"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:462"
     ]
   },
   {
@@ -3990,7 +4004,7 @@
     "call": "Traffic",
     "key": "Traffic",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:856"
+      "src/podkop/tabs/dashboard/initController.ts:885"
     ]
   },
   {
@@ -4004,7 +4018,7 @@
     "call": "Traffic Total",
     "key": "Traffic Total",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:886"
+      "src/podkop/tabs/dashboard/initController.ts:915"
     ]
   },
   {
@@ -4041,7 +4055,7 @@
     "places": [
       "src/podkop/tabs/dashboard/initController.ts:522",
       "src/podkop/tabs/dashboard/initController.ts:614",
-      "src/podkop/tabs/dashboard/partials/renderSections.ts:156"
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:178"
     ]
   },
   {
@@ -4185,8 +4199,8 @@
     "call": "Uplink",
     "key": "Uplink",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:858",
-      "src/podkop/tabs/dashboard/initController.ts:889"
+      "src/podkop/tabs/dashboard/initController.ts:887",
+      "src/podkop/tabs/dashboard/initController.ts:918"
     ]
   },
   {
@@ -4401,6 +4415,13 @@
     "key": "Your account may view this page but may not start a search.",
     "places": [
       "src/podkop/tabs/dashboard/helpers/verdictText.ts:588"
+    ]
+  },
+  {
+    "call": "Your test just now. The group chooses by the median of its own rounds, shown above.",
+    "key": "Your test just now. The group chooses by the median of its own rounds, shown above.",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderSections.ts:45"
     ]
   }
 ]

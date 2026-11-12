@@ -290,6 +290,15 @@ button.pdk_dashboard-page__outbound-grid__item__block--neutral {
     color: var(--error-color-medium, red);
 }
 
+/* what the last "Test latency" found, under the median: small and muted, in the colour of text */
+.pdk_dashboard-page__outbound-grid__item__latency-now {
+    font-size: 0.8em;
+    opacity: 0.8;
+    color: var(--text-color-medium, inherit);
+    text-align: right;
+    white-space: nowrap;
+}
+
 /* the cure line: small and muted, wraps between words, a too-wide word shrinks and is cut, so it
    never widens the tile (the same rule as the chip above). As a button (it opens the window of the
    server) it keeps the look of the line. */
