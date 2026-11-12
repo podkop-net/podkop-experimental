@@ -50,12 +50,62 @@ jobs:
           echo "matrix=$(jq -c . matrix.json)" >> "$GITHUB_OUTPUT"
           jq -r '.include[] | "\(.format) \(.pkgarch) \(.image)"' matrix.json >> "$GITHUB_STEP_SUMMARY"
 
+  # the tests of the backend, in the Go image the lab uses; no package is built while they fail.
+  # cmd/podkop is tested with the tags of the package (podkop_slim), the rest with every protocol
+  test:
+    name: Tests of the backend
+    runs-on: ubuntu-latest
+    container: golang:1.26.8
+    timeout-minutes: 30
+    env:
+      GOFLAGS: -buildvcs=false
+      GOMODCACHE: /cache/mod
+      GOCACHE: /cache/build
+      FULL: with_quic,with_utls,with_clash_api,badlinkname,tfogo_checklinkname0
+      SLIM: with_quic,with_utls,with_clash_api,podkop_slim,badlinkname,tfogo_checklinkname0
+    defaults:
+      run:
+        working-directory: src/backend
+    steps:
+      - uses: actions/checkout@v5.0.0
+
+      - name: Cache Go modules and builds
+        uses: actions/cache@v4.2.3
+        with:
+          path: /cache
+          key: gotest-${{ hashFiles('src/backend/go.sum') }}
+          restore-keys: gotest-
+
+      - name: Formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          [ -z "$unformatted" ] || { echo "::error::not formatted by gofmt: $unformatted"; exit 1; }
+
+      - name: go.mod and go.sum are tidy
+        run: |
+          cp go.mod /tmp/go.mod.before && cp go.sum /tmp/go.sum.before
+          go mod tidy
+          cmp go.mod /tmp/go.mod.before && cmp go.sum /tmp/go.sum.before || { echo "::error::run go mod tidy"; exit 1; }
+
+      - name: go vet
+        run: |
+          go vet -tags "$FULL" $(go list -tags "$FULL" ./... | grep -v '/cmd/podkop$')
+          go vet -tags "$SLIM" ./cmd/podkop/
+
+      - name: go test
+        run: |
+          CGO_ENABLED=0 go test -ldflags=-checklinkname=0 -count=1 -tags "$FULL" $(go list -tags "$FULL" ./... | grep -v '/cmd/podkop$')
+          CGO_ENABLED=0 go test -ldflags=-checklinkname=0 -count=1 -tags "$SLIM" . ./cmd/podkop/
+
+      - name: go test -race (the packages with goroutines of their own)
+        run: CGO_ENABLED=1 go test -ldflags=-checklinkname=0 -count=1 -race -tags "$FULL" ./supervisor/ ./subscription/ ./detect/ ./plan/ ./model/
+
   # podkop holds a Go program: one package for each architecture, built in the SDK of OpenWrt
   # for that architecture
   podkop:
     name: podkop ${{ matrix.format }} ${{ matrix.pkgarch }}
     runs-on: ubuntu-latest
-    needs: [preparation, matrix]
+    needs: [preparation, matrix, test]
     timeout-minutes: 90
     strategy:
       fail-fast: false
