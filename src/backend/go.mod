@@ -2,6 +2,13 @@ module github.com/podkop-net/podkop-experimental/src/backend
 
 go 1.26.0
 
+// the GODEBUG defaults of the releases of upstream sing-box (its release/LDFLAGS): the listeners
+// take no MPTCP, TLS 1.2 takes SHA-1 signatures
+godebug (
+	multipathtcp=0
+	tlssha1=1
+)
+
 require (
 	github.com/mdlayher/netlink v1.11.2
 	github.com/miekg/dns v1.1.72
