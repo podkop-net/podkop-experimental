@@ -42,7 +42,7 @@ function freeName(prefix) {
   // a name still named somewhere is not given to a new section: the rows of the rules and the
   // detours of outbound JSONs would take the new one for the old one
   const named = new Set(
-    [uci.get("podkop", "settings", "download_lists_via_proxy_section")].concat(
+    [].concat(
       ...uci
         .sections("podkop", "member")
         .map((row) => [row.section, row.source, row.via]),

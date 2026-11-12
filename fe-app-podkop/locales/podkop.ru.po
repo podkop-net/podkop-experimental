@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 10:29+0000\n"
-"PO-Revision-Date: 2026-11-12 10:29+0000\n"
+"POT-Creation-Date: 2026-11-12 14:35+0000\n"
+"PO-Revision-Date: 2026-11-12 14:35+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -20,8 +20,8 @@ msgstr ""
 msgid "“%s” is not a host name, such as packagist.org."
 msgstr "«%s» — не имя хоста вроде packagist.org."
 
-msgid "“Find a mask” on the dashboard also tries the names of a public whitelist, downloaded for each search directly or through your servers. Off: only the built-in names"
-msgstr "«Подобрать маску» на дашборде пробует и имена из открытого белого списка: он скачивается при каждом подборе, напрямую или через ваши серверы. Выключено: только встроенные имена"
+msgid "“Find a mask” on the dashboard also tries the names of public whitelists, downloaded for each search directly or through your servers. Off: only the built-in names"
+msgstr "«Подобрать маску» на дашборде пробует и имена из открытых белых списков: они скачиваются при каждом подборе, напрямую или через ваши серверы. Выключено: только встроенные имена"
 
 msgid "(data as of %s)"
 msgstr "(данные на %s)"
@@ -149,8 +149,8 @@ msgstr "Найдены дополнительные правила маркир�
 msgid "Address"
 msgstr "Адрес"
 
-msgid "Address of the list of masks"
-msgstr "Адрес списка масок"
+msgid "Addresses of the lists of masks"
+msgstr "Адреса списков масок"
 
 msgid "all"
 msgstr "все"
@@ -314,9 +314,6 @@ msgstr "Проверки не выполнены"
 msgid "Checks passed"
 msgstr "Проверки пройдены"
 
-msgid "Choose a rule"
-msgstr "Выберите правило"
-
 msgid "Choose the devices YACD is opened from"
 msgstr "Выберите устройства, с которых открывается YACD"
 
@@ -470,17 +467,8 @@ msgstr "Проверка загрузки"
 msgid "Download Check URL"
 msgstr "Ссылка для проверки загрузки"
 
-msgid "Download Lists via Proxy/VPN"
-msgstr "Скачивать списки через Proxy/VPN"
-
-msgid "Download Lists via specific proxy section"
-msgstr "Скачивать списки через выбранную секцию"
-
 msgid "Downloaded after Save & Apply"
 msgstr "Загрузится после «Сохранить и применить»"
-
-msgid "Downloading all lists via specific Proxy/VPN"
-msgstr "Загрузка всех списков через указанный прокси/VPN"
 
 msgid "Dynamic List"
 msgstr "Динамический список"
@@ -896,9 +884,6 @@ msgstr "Другие правила маркировки не найдены"
 msgid "no path"
 msgstr "нет пути"
 
-msgid "No rule yet"
-msgstr "Правил пока нет"
-
 msgid "No rule yet: press Add"
 msgstr "Правил пока нет: нажмите «Добавить»"
 
@@ -962,8 +947,8 @@ msgstr "Одна проверка для серверов всех правил.
 msgid "One DNS server is needed at least: change this one, or add another first."
 msgstr "Нужен хотя бы один DNS-сервер: измените этот или сначала добавьте другой."
 
-msgid "One host name per line. Empty: the list of hxehex/russia-mobile-internet-whitelist"
-msgstr "Одно имя хоста в строке. Пусто: список hxehex/russia-mobile-internet-whitelist"
+msgid "One host name per line in each list; their names are tried in turn with the built-in ones. Empty: the lists of Runnin4ik/dpi-detector and cheburcheck.ru"
+msgstr "В каждом списке одно имя хоста в строке; их имена пробуются по очереди со встроенными. Пусто: списки Runnin4ik/dpi-detector и cheburcheck.ru"
 
 msgid "One link per field"
 msgstr "Одна ссылка на поле"
@@ -1049,8 +1034,8 @@ msgstr "предварительно: проб пока мало"
 msgid "Protocol"
 msgstr "Протокол"
 
-msgid "Public list of masks"
-msgstr "Открытый список масок"
+msgid "Public lists of masks"
+msgstr "Открытые списки масок"
 
 msgid "queued"
 msgstr "в очереди"
@@ -1145,8 +1130,8 @@ msgstr "защищённое соединение…"
 msgid "Select a predefined list for routing"
 msgstr "Выберите предопределенный список для маршрутизации"
 
-msgid "Select how often the domain or subnet lists are updated automatically"
-msgstr "Выберите частоту автоматического обновления списков доменов или подсетей."
+msgid "Select how often the domain or subnet lists are updated automatically. A list is downloaded directly; one that does not come directly comes through the servers of your first rules"
+msgstr "Выберите частоту автоматического обновления списков доменов или подсетей. Список скачивается напрямую, а если напрямую не приходит — через серверы ваших первых правил."
 
 msgid "Select or enter DNS server address"
 msgstr "Выберите или введите адрес DNS-сервера"
@@ -1451,9 +1436,6 @@ msgstr "Список больше %s МиБ"
 msgid "The list is not downloaded yet"
 msgstr "Список ещё не загружен"
 
-msgid "The lists are downloaded through the servers of this rule"
-msgstr "Списки скачиваются через серверы этого правила"
-
 msgid "The mark of the connections for mwan3 or pbr. Empty: no mark"
 msgstr "Метка соединений для mwan3 или pbr. Пусто: без метки"
 
@@ -1648,9 +1630,6 @@ msgstr "пользователь должен быть UUID и паролем"
 
 msgid "The web panel of sing-box, opened from the devices chosen below; without it the panel's API is reached from the router only"
 msgstr "Веб-панель sing-box, открывается с устройств, выбранных ниже; без неё API панели доступен только с самого роутера"
-
-msgid "There is no rule %s: choose another one"
-msgstr "Правила %s нет: выберите другое"
 
 msgid "There is no way to the provider to try"
 msgstr "Нет ни одного пути к провайдеру"

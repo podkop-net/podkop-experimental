@@ -8,6 +8,12 @@
 "require view.podkop.main as main";
 "require view.podkop.devices as devices";
 
+// the public lists of masks of the backend (model.DefaultMaskLists)
+const MASK_LISTS = [
+  "https://raw.githubusercontent.com/Runnin4ik/dpi-detector/main/whitelist_sni.txt",
+  "https://cheburcheck.ru/whitelist/domains.csv",
+];
+
 // The provider's DNS servers netifd knows now, for the note under the list: those of the
 // interfaces with a default route, as the backend takes them.
 function providerDNS() {
@@ -371,28 +377,29 @@ function createSettingsContent(section, singBoxFeatures = []) {
   o.rmempty = false;
 
   // "Find a mask" on the dashboard tries its built-in names and, in turn with them, the names of a
-  // public whitelist; the backend downloads it for each search and keeps the last copy in RAM
+  // public whitelists; the backend downloads them for each search and keeps the last copies in RAM
   o = section.option(
     form.Flag,
     "mask_list",
-    _("Public list of masks"),
+    _("Public lists of masks"),
     _(
-      "“Find a mask” on the dashboard also tries the names of a public whitelist, downloaded for each search directly or through your servers. Off: only the built-in names",
+      "“Find a mask” on the dashboard also tries the names of public whitelists, downloaded for each search directly or through your servers. Off: only the built-in names",
     ),
   );
   o.default = "1";
   o.rmempty = false;
 
+  // the defaults are those of the backend (model.DefaultMaskLists): an empty list is them
   o = section.option(
-    form.Value,
+    form.DynamicList,
     "mask_list_url",
-    _("Address of the list of masks"),
+    _("Addresses of the lists of masks"),
     _(
-      "One host name per line. Empty: the list of hxehex/russia-mobile-internet-whitelist",
+      "One host name per line in each list; their names are tried in turn with the built-in ones. Empty: the lists of Runnin4ik/dpi-detector and cheburcheck.ru",
     ),
   );
-  o.placeholder =
-    "https://raw.githubusercontent.com/hxehex/russia-mobile-internet-whitelist/main/whitelist.txt";
+  o.default = MASK_LISTS;
+  o.placeholder = "https://example.com/whitelist.txt";
   o.rmempty = true;
   o.depends("mask_list", "1");
   o.validate = function (section_id, value) {
@@ -564,67 +571,15 @@ function createSettingsContent(section, singBoxFeatures = []) {
     form.ListValue,
     "update_interval",
     _("List Update Frequency"),
-    _("Select how often the domain or subnet lists are updated automatically"),
+    _(
+      "Select how often the domain or subnet lists are updated automatically. A list is downloaded directly; one that does not come directly comes through the servers of your first rules",
+    ),
   );
   Object.entries(main.UPDATE_INTERVAL_OPTIONS).forEach(([key, label]) => {
     o.value(key, _(label));
   });
   o.default = "1d";
   o.rmempty = false;
-
-  o = section.option(
-    form.Flag,
-    "download_lists_via_proxy",
-    _("Download Lists via Proxy/VPN"),
-    _("Downloading all lists via specific Proxy/VPN"),
-  );
-  o.default = "0";
-  o.rmempty = false;
-
-  // the rule whose servers the lists are downloaded through
-  o = section.option(
-    form.ListValue,
-    "download_lists_via_proxy_section",
-    _("Download Lists via specific proxy section"),
-    _("The lists are downloaded through the servers of this rule"),
-  );
-  o.rmempty = false;
-  o.depends("download_lists_via_proxy", "1");
-  // the choices are the rules as the page has them when it is drawn
-  o.renderWidget = function (section_id, option_index, cfgvalue) {
-    this.keylist = [];
-    this.vallist = [];
-    uci.sections("podkop", "section").forEach((rule) => {
-      this.value(
-        rule[".name"],
-        String(rule.label || "").trim() || rule[".name"],
-      );
-    });
-    // a list of LuCI with no choice is not drawn at all (25.12 fails on it)
-    if (!this.keylist.length) {
-      this.value("", _("No rule yet"));
-    }
-    // a rule that is no longer there stays shown, and validate tells why
-    if (cfgvalue && !this.keylist.includes(cfgvalue)) {
-      this.value(cfgvalue, _("%s (deleted)").format(cfgvalue));
-    }
-    return form.ListValue.prototype.renderWidget.call(
-      this,
-      section_id,
-      option_index,
-      cfgvalue,
-    );
-  };
-  o.validate = function (section_id, value) {
-    if (!value) {
-      return _("Choose a rule");
-    }
-    const rule = uci.get("podkop", value);
-    if (!rule || rule[".type"] !== "section") {
-      return _("There is no rule %s: choose another one").format(value);
-    }
-    return true;
-  };
 
   o = section.option(
     form.Flag,
