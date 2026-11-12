@@ -665,6 +665,14 @@ describe('cureBadge', () => {
   it('detour names its source', () => {
     expect(cureBadge({ kind: 'detour', through: 'relay' })).toContain('relay');
   });
+  it('detour names the server it goes through, before its source', () => {
+    const text = cureBadge(
+      { kind: 'detour', through: 'freebie', relay: 'freebie: DE Senko' },
+      'freebie: EE Hostslim',
+    );
+    expect(text).toContain('DE Senko');
+    expect(text).not.toContain('EE Hostslim');
+  });
   it('detour is shown by a server of its source', () => {
     const servers = {
       Netherlands: { hash: 'h1', via: '', source: 'nl' },

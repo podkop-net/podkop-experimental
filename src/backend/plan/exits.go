@@ -532,16 +532,21 @@ func (b *builder) applyCure(tag string, outbound *object, cure *model.Cure, thro
 	return nil
 }
 
-// applyDetour connects a server through the servers of another source (a detour cure, for a server
-// whose path from here is cut and which answers through another one): the outbound of that source
-// as a row with "via" takes it, the server's tag and identity unchanged. The cure is keyed by the
-// direct use, so a detoured use never takes it. Applied inside another detour cure (the source it
-// goes through has a server with a detour cure of its own) it could close a loop, so it is left
-// off there with a warning; so is a detour through the server's own source (viaTag).
+// applyDetour connects a server whose path from here is cut and which answers through another one
+// (a detour cure) through that other server: the outbound of the relay the cure names, reached
+// directly, becomes the detour of the server's outbound (applyRelay), the server's tag and identity
+// unchanged. A cure written by 0.8.13 names no relay, only its source: the server goes through the
+// best server of that source, as a row with "via" would. The cure is keyed by the direct use, so a
+// detoured use never takes it. Applied inside another detour cure (the source it goes through has a
+// server with a detour cure of its own) it could close a loop, so it is left off there with a
+// warning; so is a detour of 0.8.13 through the server's own source (viaTag).
 func (b *builder) applyDetour(section *model.Section, tag string, server sourceServer, outbound *object, cure *model.Cure) error {
 	if b.detouring {
 		b.warnOnce("server ", tag, ": its treatment connects it through another source, but it is itself the way of a treated server: left off here, so no loop is made")
 		return nil
+	}
+	if cure.Relay != "" {
+		return b.applyRelay(tag, outbound, cure)
 	}
 	b.detouring = true
 	through, err := b.viaTag(section.Name, cure.Through, server.source)
@@ -554,6 +559,45 @@ func (b *builder) applyDetour(section *model.Section, tag string, server sourceS
 		return nil
 	}
 	outbound.set("detour", through)
+	return nil
+}
+
+// applyRelay sets the detour of a server to the one server its cure names: the server of the
+// source cure.Through whose stable identity is cure.Relay, reached directly, the same outbound a
+// rule has of it (or put in once for the treatment). The relay may be of the server's own source:
+// it is another server, which connects directly, so no loop is made. A relay that is the server
+// itself, is gone from its source (the subscription dropped or changed it), or is connected
+// through another server by a treatment of its own (a chain) leaves the treatment off, with a
+// warning; the dashboard counts such a treatment as stale.
+func (b *builder) applyRelay(tag string, outbound *object, cure *model.Cure) error {
+	if cure.Relay == cure.Hash {
+		b.warnOnce("server ", tag, ": its treatment connects it through itself: left off")
+		return nil
+	}
+	if relayCure := b.config.Cure(cure.Relay, ""); relayCure != nil && relayCure.Kind == model.CureDetour {
+		b.warnOnce("server ", tag, ": the server its treatment connects it through is connected through another one itself: left off, so no chain is made")
+		return nil
+	}
+	source := b.config.Source(cure.Through)
+	if source != nil && source.Filled() {
+		servers, err := b.sourceServers(source)
+		if err != nil {
+			return err
+		}
+		for _, candidate := range servers {
+			raw, _ := json.Marshal(candidate.outbound)
+			if serverid.Canonical(raw) != cure.Relay {
+				continue
+			}
+			relayTag, err := b.addServer(&model.Section{Name: cure.Through}, candidate, "", "")
+			if err != nil {
+				return err
+			}
+			outbound.set("detour", relayTag)
+			return nil
+		}
+	}
+	b.warnOnce("server ", tag, ": the server its treatment connects it through is not in the source ", b.names.SourceText(cure.Through), " now: the treatment is left off")
 	return nil
 }
 

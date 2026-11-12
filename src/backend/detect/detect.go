@@ -144,8 +144,10 @@ const (
 type Cure struct {
 	Kind string `json:"kind"`
 	SNI  string `json:"sni,omitempty"`
-	// Through is the source a detour cure connects the server through.
+	// Through is the source a detour cure connects the server through; Relay the tag of the live
+	// server of it the cure names ("" for a cure of the source as a whole, or a relay not live).
 	Through string `json:"through,omitempty"`
+	Relay   string `json:"relay,omitempty"`
 }
 
 // Identity is what the detect report tells the page about a live server besides its verdict: its

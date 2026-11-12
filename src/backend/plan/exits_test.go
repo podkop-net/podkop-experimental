@@ -127,6 +127,81 @@ func TestExitCureDetour(t *testing.T) {
 	require.Empty(t, outbounds["Own"].Detour)
 }
 
+// TestExitCureRelay connects a server through the one server its detour cure names (relay): of
+// its own source (one subscription), or of a source no rule uses, which is put in once. A relay
+// that is gone, is the server itself, or is detoured by a treatment of its own leaves the
+// treatment off.
+func TestExitCureRelay(t *testing.T) {
+	t.Parallel()
+	base := "\nconfig source 'sub'\n\toption type 'links'\n" +
+		"\tlist link 'vless://u@us.example:443?security=reality#US'\n" +
+		"\tlist link 'vless://u@de.example:443?security=reality#DE'\n" +
+		"\tlist link 'vless://u@ee.example:443?security=reality#EE'\n" +
+		"\nconfig source 'other'\n\toption type 'links'\n\tlist link 'vless://u@fi.example:443?security=reality#FI'\n" +
+		ruleText("link", row("server", "sub"))
+	result, err := buildRules(t, base, nil)
+	require.NoError(t, err)
+	tagOf := func(result *Result, host string) string {
+		for tag, info := range result.Tags.Outbounds {
+			if info.Source != "" && strings.Contains(tag, host) && info.Via == "" {
+				return tag
+			}
+		}
+		t.Fatalf("no tag of %s in %v", host, result.Tags.Outbounds)
+		return ""
+	}
+	us, de, ee := tagOf(result, "US"), tagOf(result, "DE"), tagOf(result, "EE")
+	hash := func(tag string) string { return result.Tags.Outbounds[tag].StableHash }
+	usHash, deHash := hash(us), hash(de)
+	relay := func(hash, through, relay string) string {
+		return "\nconfig cure\n\toption hash '" + hash + "'\n\toption kind 'detour'\n\toption through '" + through + "'\n\toption relay '" + relay + "'\n"
+	}
+
+	// the report's case: US through DE, a server of its own source
+	got, err := buildRules(t, base+relay(usHash, "sub", deHash), nil)
+	require.NoError(t, err)
+	_, outbounds := outboundsOf(t, got)
+	require.Equal(t, de, outbounds[us].Detour, "US goes through DE")
+	require.Empty(t, outbounds[de].Detour, "DE goes directly")
+	require.Empty(t, outbounds[ee].Detour)
+	require.Equal(t, usHash, got.Tags.Outbounds[us].StableHash, "the identity of US stays")
+	var config struct {
+		Outbounds []map[string]any `json:"outbounds"`
+	}
+	require.NoError(t, json.Unmarshal(got.Config, &config))
+	count := 0
+	for _, outbound := range config.Outbounds {
+		if outbound["tag"] == de {
+			count++
+		}
+	}
+	require.Equal(t, 1, count, "DE is in once, the same outbound for the rule and for the treatment")
+
+	// a relay of a source no rule uses: put in once, directly
+	fiHash := ""
+	withFI, err := buildRules(t, base+ruleText("fi", row("server", "other")), nil)
+	require.NoError(t, err)
+	fiHash = withFI.Tags.Outbounds[tagOf(withFI, "FI")].StableHash
+	got, err = buildRules(t, base+relay(usHash, "other", fiHash), nil)
+	require.NoError(t, err)
+	_, outbounds = outboundsOf(t, got)
+	fi := tagOf(got, "FI")
+	require.Equal(t, fi, outbounds[us].Detour)
+	require.Empty(t, outbounds[fi].Detour)
+
+	// left off: a relay gone from its source, the server itself, a relay detoured itself
+	for name, cures := range map[string]string{
+		"gone":    relay(usHash, "sub", "000000000000000000000000"),
+		"itself":  relay(usHash, "sub", usHash),
+		"a chain": relay(usHash, "sub", deHash) + relay(deHash, "other", fiHash),
+	} {
+		got, err = buildRules(t, base+cures, nil)
+		require.NoError(t, err, name)
+		_, outbounds = outboundsOf(t, got)
+		require.Empty(t, outbounds[us].Detour, name)
+	}
+}
+
 // TestExitCureThroughDetourRejected fails the build when a spoof cure lands on a server
 // reached through a proxy: it needs the server's own socket, which a detour does not give.
 func TestExitCureThroughDetourRejected(t *testing.T) {

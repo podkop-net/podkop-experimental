@@ -417,6 +417,7 @@ func Load(parsed *uci.Package) (*Config, error) {
 			cure.SNI = section.Get("sni")
 		case CureDetour:
 			cure.Through = section.Get("through")
+			cure.Relay = section.Get("relay")
 			if cure.Through == "" {
 				config.UnreadCures++
 				continue

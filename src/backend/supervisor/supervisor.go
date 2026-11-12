@@ -497,6 +497,14 @@ func (s *Supervisor) done(ok bool, replaced bool, message ...any) Result {
 		// the stable identity, the way and the cure of each server, from the plan's tags and the
 		// cure store; set on the servers too, so a probe carries it
 		stable = make(map[string]detect.Identity, len(servers))
+		// the live tag of a server reached directly, by its stable identity: the relay of a detour
+		direct := make(map[string]string, len(servers))
+		for index := range servers {
+			tagOf := s.current.result.Tags.Outbounds[servers[index].Tag]
+			if tagOf.Via == "" && tagOf.StableHash != "" {
+				direct[tagOf.StableHash] = servers[index].Tag
+			}
+		}
 		for index := range servers {
 			tagOf := s.current.result.Tags.Outbounds[servers[index].Tag]
 			servers[index].StableHash = tagOf.StableHash
@@ -507,6 +515,9 @@ func (s *Supervisor) done(ok bool, replaced bool, message ...any) Result {
 			}
 			if cure := s.current.settings.Cure(tagOf.StableHash, tagOf.Via); cure != nil {
 				identity.Cure = &detect.Cure{Kind: cure.Kind, SNI: cure.SNI, Through: cure.Through}
+				if cure.Relay != "" {
+					identity.Cure.Relay = direct[cure.Relay]
+				}
 			}
 			stable[servers[index].Tag] = identity
 		}

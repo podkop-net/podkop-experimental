@@ -16,18 +16,24 @@ import (
 //	    option via  'relay'             # the through-source name; absent/'' = direct
 //	    option kind 'spoof'             # spoof | record_fragment | detour
 //	    option sni  'packagist.org'     # only for kind=spoof
-//	    option through 'relay'          # only for kind=detour: the source to connect through
+//	    option through 'relay'          # only for kind=detour: the source of the relay server
+//	    option relay '0a1b2c...'        # only for kind=detour: serverid.Canonical of the relay server
+//
+// A detour connects the server through the one server its check answered through (relay, of the
+// source through, reached directly). A row written by 0.8.13 has no relay: it goes through the
+// best server of the source through, which must be another source than the server's own.
 type Cure struct {
 	Hash    string
 	Via     string
 	Kind    string
 	SNI     string
 	Through string
+	Relay   string
 }
 
 // The kinds of a cure. spoof masks the limit with a whitelisted SNI; record_fragment beats the
 // freeze while keeping the fingerprint; detour connects a server whose path from here is blocked
-// through the servers of another source (a pathblock: through another server it answers).
+// through the server it answered through (a pathblock: through another server it answers).
 const (
 	CureSpoof          = "spoof"
 	CureRecordFragment = "record_fragment"

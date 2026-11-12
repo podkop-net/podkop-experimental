@@ -165,23 +165,59 @@ func liveSupervisor(t *testing.T, instance *fakeInstance) (*Supervisor, string) 
 	return s, path
 }
 
-// A detour goes through the source of a live server of another source that connects directly;
-// the source is stored, not the tag.
+// A detour goes through a live server that connects directly, of another source or of the
+// server's own (one subscription); that server is stored by its stable identity, with its source.
 func TestSetCureDetour(t *testing.T) {
 	s, path := liveSupervisor(t, &fakeInstance{})
+	s.liveStable["chained"] = detect.Identity{Hash: "h6", Source: "relay", Cure: &detect.Cure{Kind: model.CureDetour, Through: "own"}}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "detour", "", "", "").State, "no way named")
 	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "detour", "", "", "nope").State, "no such server")
-	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "detour", "", "", "own2").State, "a server of its own source")
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "detour", "", "", "srv").State, "the server itself")
 	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "detour", "", "", "srvVia").State, "a way that is detoured itself")
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "detour", "", "", "chained").State, "a way with a detour of its own: a chain")
 	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "record_fragment", "", "", "px1").State, "a way is only for a detour")
 	require.Equal(t, CureViaDetour, s.SetCure(ctx, "srvVia", "detour", "", "", "px1").State, "a server that goes another way already")
-	require.Equal(t, CureOK, s.SetCure(ctx, "srv", "detour", "", "", "px1").State)
+
+	require.Equal(t, CureOK, s.SetCure(ctx, "srv", "detour", "", "", "px1").State, "a server of another source")
 	stored := cureByHash(parseFile(t, path), "h1", "")
 	require.NotNil(t, stored)
 	require.Equal(t, "detour", stored.Get("kind"))
 	require.Equal(t, "relay", stored.Get("through"), "the source of px1")
+	require.Equal(t, "h4", stored.Get("relay"), "px1 itself")
+
+	// the report's case: a server of the same subscription
+	require.Equal(t, CureOK, s.SetCure(ctx, "srv", "detour", "", "", "own2").State, "a server of its own source")
+	parsed := parseFile(t, path)
+	require.Len(t, parsed.SectionsOfType("cure"), 1, "the new treatment replaces the old one")
+	stored = cureByHash(parsed, "h1", "")
+	require.Equal(t, "own", stored.Get("through"))
+	require.Equal(t, "h5", stored.Get("relay"))
+}
+
+// A detour whose relay server is not live is stale, as one whose own server is not; a detour of
+// 0.8.13 (no relay) is stale only by its own server.
+func TestStaleDetour(t *testing.T) {
+	s, path := liveSupervisor(t, &fakeInstance{})
+	content := "config settings 'settings'\n\toption config_version '2'\n" +
+		"\nconfig cure\n\toption hash 'h1'\n\toption kind 'detour'\n\toption through 'own'\n\toption relay 'h5'\n" +
+		"\nconfig cure\n\toption hash 'h4'\n\toption kind 'detour'\n\toption through 'own'\n\toption relay 'gone'\n" +
+		"\nconfig cure\n\toption hash 'h5'\n\toption kind 'detour'\n\toption through 'relay'\n"
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+	parsed, err := uci.Parse([]byte(content))
+	require.NoError(t, err)
+	settings, err := model.Load(parsed)
+	require.NoError(t, err)
+	require.Equal(t, "h5", settings.Cures[0].Relay)
+	require.Equal(t, 1, staleCures(settings, s.liveStable), "the relay of h4 is gone")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	require.Equal(t, CureOK, s.DropStaleCures(ctx).State)
+	left := parseFile(t, path)
+	require.Len(t, left.SectionsOfType("cure"), 2)
+	require.Nil(t, cureByHash(left, "h4", ""))
 }
 
 // A mask is refused when it is the server's own name, and allowed through an interface, which

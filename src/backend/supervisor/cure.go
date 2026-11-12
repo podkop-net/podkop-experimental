@@ -76,13 +76,13 @@ type suggestScan struct {
 
 // SetCure stores a treatment for the server a tag names and applies it. It refuses with a state
 // when the tag is not a live server (unknown), the kind or sni is wrong (invalid: a mask must be a
-// host name other than the server's own; a detour goes through a live server of another source,
-// which itself connects directly), or a mask or a detour is asked of a server reached through a
-// proxy (via_detour: a mask needs the server's own socket, an interface gives one; a detoured
-// server already goes another way). through is the tag of the server a detour connects through
-// (the one a pathblock answered through); the source of that server is stored. wantHash, when the
-// page sends it, must still name the same server (unknown on a mismatch — the config changed under
-// the page).
+// host name other than the server's own; a detour goes through another live server, of any
+// source, which itself connects directly and has no detour of its own), or a mask or a detour is
+// asked of a server reached through a proxy (via_detour: a mask needs the server's own socket, an
+// interface gives one; a detoured server already goes another way). through is the tag of the
+// server a detour connects through (the one a pathblock answered through); that server is stored
+// by its stable identity, with its source. wantHash, when the page sends it, must still name the
+// same server (unknown on a mismatch — the config changed under the page).
 func (s *Supervisor) SetCure(ctx context.Context, tag, kind, sni, wantHash, through string) CureResult {
 	snapshot := s.detectSnapshot()
 	if snapshot.instance == nil {
@@ -106,12 +106,15 @@ func (s *Supervisor) SetCure(ctx context.Context, tag, kind, sni, wantHash, thro
 	if kind == model.CureDetour {
 		way, found := snapshot.stable[through]
 		switch {
-		case sni != "" || !found || way.Source == "" || way.Source == identity.Source || way.Via != "":
+		case sni != "" || !found || way.Source == "" || way.Via != "" || way.Hash == "" || way.Hash == identity.Hash:
+			return CureResult{State: CureInvalid}
+		case way.Cure != nil && way.Cure.Kind == model.CureDetour:
+			// a relay that is itself connected through another server would make a chain
 			return CureResult{State: CureInvalid}
 		case identity.Via != "":
 			return CureResult{State: CureViaDetour}
 		}
-		cure.Through = way.Source
+		cure.Through, cure.Relay = way.Source, way.Hash
 	} else if kind == model.CureSpoof {
 		if !model.ValidMaskName(sni) {
 			return CureResult{State: CureInvalid}
@@ -159,7 +162,8 @@ func (s *Supervisor) ClearCure(ctx context.Context, tag string) CureResult {
 }
 
 // DropStaleCures removes the stored treatments that name no live server (the server changed or
-// went away, or its subscription is not downloaded yet) and the rows this build cannot read. The
+// went away, or its subscription is not downloaded yet; for a detour, its relay server too) and the
+// rows this build cannot read. The
 // page offers it when the report counts stale treatments; nothing is dropped on its own, as a
 // subscription that failed to download looks the same as a server that is gone.
 func (s *Supervisor) DropStaleCures(ctx context.Context) CureResult {
@@ -175,8 +179,9 @@ func (s *Supervisor) DropStaleCures(ctx context.Context) CureResult {
 		kept := make([]*uci.Section, 0, len(sections))
 		for _, section := range sections {
 			kind := section.Get("kind")
+			relay := section.Get("relay")
 			if section.Type == "cure" && (!live[cureKey{section.Get("hash"), section.Get("via")}] || !model.ValidCureKind(kind) ||
-				(kind == model.CureDetour && section.Get("through") == "")) {
+				(kind == model.CureDetour && (section.Get("through") == "" || (relay != "" && !live[cureKey{relay, ""}])))) {
 				continue
 			}
 			kept = append(kept, section)
@@ -196,8 +201,8 @@ func (s *Supervisor) DropStaleCures(ctx context.Context) CureResult {
 
 type cureKey struct{ hash, via string }
 
-// staleCures counts the stored treatments that name no live server, and the rows this build
-// cannot read. The caller holds the state of the running configuration.
+// staleCures counts the stored treatments that name no live server (for a detour, no live relay
+// server either), and the rows this build cannot read. The caller holds the state of the running configuration.
 func staleCures(settings *model.Config, stable map[string]detect.Identity) int {
 	live := make(map[cureKey]bool, len(stable))
 	for _, identity := range stable {
@@ -207,7 +212,9 @@ func staleCures(settings *model.Config, stable map[string]detect.Identity) int {
 	seen := make(map[cureKey]bool)
 	for _, cure := range settings.Cures {
 		key := cureKey{cure.Hash, cure.Via}
-		if !live[key] && !seen[key] {
+		// a detour whose relay server is gone does nothing either
+		gone := !live[key] || (cure.Kind == model.CureDetour && cure.Relay != "" && !live[cureKey{cure.Relay, ""}])
+		if gone && !seen[key] {
 			stale++
 		}
 		seen[key] = true
@@ -328,6 +335,9 @@ func (s *Supervisor) writeCure(cure model.Cure) error {
 			section.Set("sni", cure.SNI)
 		case model.CureDetour:
 			section.Set("through", cure.Through)
+			if cure.Relay != "" {
+				section.Set("relay", cure.Relay)
+			}
 		}
 		return append(kept, section)
 	})

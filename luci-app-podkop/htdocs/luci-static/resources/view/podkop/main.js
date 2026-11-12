@@ -2552,7 +2552,7 @@ function cureBadge(cure, name) {
     case "record_fragment":
       return _("bypass: record fragment");
     case "detour":
-      return _("through: %s").format(name ?? cure.through ?? "");
+      return _("through: %s").format(cure.relay || name || cure.through || "");
   }
 }
 function setCureProblem(reply, kind) {

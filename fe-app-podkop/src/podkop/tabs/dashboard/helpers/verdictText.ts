@@ -444,8 +444,8 @@ export function cureChoice(
     return { show: true, options, default: 'record_fragment', mask: false };
   }
   if (verdict.block === 'pathblock') {
-    // the server answered through a working one: connect through its source. A server that goes
-    // another way already (a row with "via") cannot take it.
+    // the server answered through a working one: connect through that server, of any source. A
+    // server that goes another way already (a row with "via") cannot take it.
     if (!verdict.via) return none;
     return direct
       ? {
@@ -499,8 +499,8 @@ export function throughName(
   return found[0] ?? through ?? '';
 }
 
-// cureBadge is the read-only line on a tile that carries a cure; name is how a detour's source is
-// shown (throughName)
+// cureBadge is the read-only line on a tile that carries a cure; a detour names the server it goes
+// through, or, for a treatment of a whole source, name (throughName)
 export function cureBadge(cure: Podkop.Cure, name?: string): string {
   switch (cure.kind) {
     case 'spoof':
@@ -508,7 +508,7 @@ export function cureBadge(cure: Podkop.Cure, name?: string): string {
     case 'record_fragment':
       return _('bypass: record fragment');
     case 'detour':
-      return _('through: %s').format(name ?? cure.through ?? '');
+      return _('through: %s').format(cure.relay || name || cure.through || '');
   }
 }
 
