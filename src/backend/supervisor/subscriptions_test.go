@@ -266,6 +266,35 @@ func TestSubscriptionRoutesOfTheDownloader(t *testing.T) {
 	}, fake.recorded)
 }
 
+// The servers of a subscription kept off the downloads are given to the engine before sing-box
+// starts and again as a new list of the subscription is swapped in: none is in the configuration.
+func TestSubscriptionKeptOffDownloads(t *testing.T) {
+	directory := t.TempDir()
+	fake, system := &fakeEngine{refuse: map[string]error{}}, new(recorder)
+	source := &provider{body: "vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\n"}
+	options := Options{
+		SettingsPath: filepath.Join(directory, "podkop"), RuleSetDir: filepath.Join(directory, "rulesets"),
+		StagingDir: filepath.Join(directory, "candidate"), StatePath: filepath.Join(directory, "state"),
+		ConfigDir: filepath.Join(directory, "run"), ReadyTimeout: time.Second, System: system, Engine: fake,
+		SubscriptionDir: filepath.Join(directory, "subscriptions"), Download: source.download,
+	}
+	settings := strings.Replace(subscriptionSettings(directory, "all"), "\toption update_interval '1h'\n", "\toption update_interval '1h'\n\toption skip_downloads '1'\n", 1)
+	require.NoError(t, os.WriteFile(options.SettingsPath, []byte(settings), 0o644))
+	s := New(options)
+	require.True(t, s.Boot().OK)
+	downloadNow(t, s)
+	fake.access.Lock()
+	require.Equal(t, []string{"prov1: NL 1"}, fake.excluded)
+	fake.access.Unlock()
+	source.serve("vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\nvless://u2@nl2.example:443?security=tls&sni=nl2.example#NL%202\n")
+	downloadNow(t, s)
+	fake.access.Lock()
+	defer fake.access.Unlock()
+	require.Equal(t, []string{"prov1: NL 1", "prov1: NL 2"}, fake.excluded)
+	require.Len(t, fake.built, 1, "the new list is swapped in")
+	require.NotContains(t, string(s.current.result.Config), "skip")
+}
+
 // linkRoute is the way through the proxy link of the settings of the tests: the source main_link
 // (podkop migrate) has no label, and its tag is the name the page gives it.
 const linkRoute = "socks5 link"

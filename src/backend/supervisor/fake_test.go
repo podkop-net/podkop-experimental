@@ -54,6 +54,8 @@ type fakeEngine struct {
 	ways     []string
 	together bool
 	recorded []string
+	// excluded are the tags ExcludeDownloads was last given
+	excluded []string
 	access   sync.Mutex
 	// swaps are what the instances were asked to replace while they run; swapRefused texts of
 	// configurations they refuse to take so
@@ -208,6 +210,12 @@ func (i *fakeInstance) Dial(ctx context.Context, tag string, address string) (ne
 		return nil, E.New("no way through ", tag)
 	}
 	return dial(ctx, tag, address)
+}
+
+func (e *fakeEngine) ExcludeDownloads(tags []string) {
+	e.access.Lock()
+	defer e.access.Unlock()
+	e.excluded = tags
 }
 
 // DownloadWays are the ways of the engine, recorded what RecordDownload was told.

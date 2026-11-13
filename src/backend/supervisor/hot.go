@@ -222,8 +222,10 @@ func referenceTo(content json.RawMessage, keys map[string]bool, tags map[string]
 // and the caller starts the configuration anew.
 func (s *Supervisor) swap(current *running, next *candidate, started time.Time) (Result, bool) {
 	limit := max(minKept, len(next.result.Swappable))
+	s.excludeDownloads(next.settings, next.result)
 	swapped, err := current.instance.Swap(next.result.Config, next.hot.swap, limit)
 	if err != nil {
+		s.excludeDownloads(current.settings, current.result)
 		if errors.Is(err, engine.ErrTooManyKept) {
 			s.log("info", "sing-box keeps more than ", limit, " servers replaced in the last minutes (each is closed 2 minutes after the change at the earliest, later while a connection uses it): the configuration is checked to start anew")
 		} else {

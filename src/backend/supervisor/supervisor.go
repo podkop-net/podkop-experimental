@@ -142,6 +142,9 @@ type Engine interface {
 	// (engine.DownloadResult).
 	URLTestFailure(tag string) (time.Time, bool)
 	DownloadResult(tag string) (detect.DownloadResult, bool)
+	// ExcludeDownloads sets the outbounds the downloads of the lists and the subscriptions must
+	// not go through (engine.ExcludeDownloads, plan.NoDownloads).
+	ExcludeDownloads(tags []string)
 }
 
 // Instance is a sing-box of one configuration (engine.Instance).
@@ -217,6 +220,7 @@ func (realEngine) CheckServers(servers []subscription.Server, known map[string]s
 	return subscription.Check(servers, known, checkAll, engine.CheckLink)
 }
 
+func (realEngine) ExcludeDownloads(tags []string)         { engine.ExcludeDownloads(tags) }
 func (realEngine) Delays(tags []string) map[string]uint16 { return engine.Delays(tags) }
 
 func (realEngine) URLTestFailure(tag string) (time.Time, bool) { return engine.URLTestFailure(tag) }
@@ -1363,6 +1367,8 @@ func (s *Supervisor) start(next *candidate, previous *plan.Result) (Instance, er
 	if s.options.Watcher != nil {
 		hooks = append(hooks, s.options.Watcher.Note)
 	}
+	// before the start: the rule sets download while it starts
+	s.excludeDownloads(next.settings, next.result)
 	instance, err := s.options.Engine.Build(next.result.Config, s.options.EngineLog, hooks...)
 	if err != nil {
 		return nil, E.Cause(err, "build sing-box")
@@ -2080,4 +2086,13 @@ func (s *Supervisor) survive(what string, answer func()) {
 // oneLine keeps a message on one line of the log.
 func oneLine(message string) string {
 	return strings.Join(strings.Fields(message), " ")
+}
+
+// excludeDownloads gives the engine the servers the downloads of the lists and the subscriptions
+// must not go through for a configuration (plan.NoDownloads).
+func (s *Supervisor) excludeDownloads(settings *model.Config, result *plan.Result) {
+	if settings == nil || result == nil {
+		return
+	}
+	s.options.Engine.ExcludeDownloads(plan.NoDownloads(settings, result.Tags))
 }

@@ -1079,11 +1079,11 @@ msgstr "Убрать обход"
 msgid "replies %s"
 msgstr "отвечает %s"
 
-msgid "Download lists and subscriptions through this rule"
-msgstr "Загружать списки и подписки через это правило"
+msgid "Do not use for downloading lists and subscriptions"
+msgstr "Не использовать для загрузки списков и подписок"
 
-msgid "Lists and subscriptions download directly first, then through the servers of the rules with this option. When no rule has it, through the servers of every rule, those that brought the files before first"
-msgstr "Списки и подписки загружаются сначала напрямую, затем через серверы правил с этой опцией. Если её нет ни у одного правила — через серверы всех правил, первыми те, через которые файлы приходили раньше"
+msgid "Lists and subscriptions download directly first, then through the servers of the rules, those that brought them before first. Mark a source that should not carry them: a subscription with little traffic, a test one kept as the last reserve, a tunnel to a closed network, a local helper"
+msgstr "Списки и подписки загружаются сначала напрямую, затем через серверы правил — первыми те, через которые они приходили раньше. Отметьте источник, через который их загружать не нужно: подписку с малым лимитом трафика, тестовую подписку в дальнем резерве, туннель в закрытую сеть, локальный помощник"
 
 msgid "Resolve real IP for routing"
 msgstr "Разрешение реальных IP-адресов"

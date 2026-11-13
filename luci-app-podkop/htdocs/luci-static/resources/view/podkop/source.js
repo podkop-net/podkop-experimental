@@ -1527,6 +1527,19 @@ function createSourceContent(section) {
     return validation.valid ? true : validation.message;
   };
 
+  // kept off the downloads of the lists and the subscriptions
+  o = section.option(
+    form.Flag,
+    "skip_downloads",
+    _("Do not use for downloading lists and subscriptions"),
+    _(
+      "Lists and subscriptions download directly first, then through the servers of the rules, those that brought them before first. Mark a source that should not carry them: a subscription with little traffic, a test one kept as the last reserve, a tunnel to a closed network, a local helper",
+    ),
+  );
+  o.modalonly = true;
+  o.default = "0";
+  o.rmempty = true;
+
   // the name it is shown by
   o = section.option(
     form.Value,

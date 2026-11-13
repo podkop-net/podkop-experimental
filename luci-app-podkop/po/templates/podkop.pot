@@ -1538,12 +1538,12 @@ msgstr ""
 msgid "replies %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js
-msgid "Download lists and subscriptions through this rule"
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js
+msgid "Do not use for downloading lists and subscriptions"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js
-msgid "Lists and subscriptions download directly first, then through the servers of the rules with this option. When no rule has it, through the servers of every rule, those that brought the files before first"
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js
+msgid "Lists and subscriptions download directly first, then through the servers of the rules, those that brought them before first. Mark a source that should not carry them: a subscription with little traffic, a test one kept as the last reserve, a tunnel to a closed network, a local helper"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:937

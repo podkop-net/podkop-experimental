@@ -181,7 +181,7 @@ func TestFromShell(t *testing.T) {
 
 // The lists go directly first, then through the outbounds of the rules that have servers now, in
 // the order of the settings: a rule that is off, goes direct or blocks, has no servers or is
-// refused (usable) is passed by; the rules that download the lists, when some do, alone.
+// refused (usable) is passed by.
 func TestListsClients(t *testing.T) {
 	servers := func(source string) []model.Member { return []model.Member{{Source: source}} }
 	config := &model.Config{
@@ -208,18 +208,32 @@ func TestListsClients(t *testing.T) {
 		require.NoError(t, err)
 		return string(expected)
 	}
-	// no rule downloads the lists: directly, then the servers of every rule with servers
-	require.Equal(t, want("direct-out", RuleOutbound(config, "first"), RuleOutbound(config, "second"), RuleOutbound(config, "third"), RuleOutbound(config, "fourth")), ways())
-	// rules that download the lists: directly, then they alone
-	config.Sections[6].DownloadLists = true
-	config.Sections[4].DownloadLists = true
-	require.Equal(t, want("direct-out", RuleOutbound(config, "third")), ways())
-	// a rule that downloads them but is refused now is passed by: as if none did
-	config.Sections[6].DownloadLists = false
+	// directly, then the outbound of every rule with servers
 	require.Equal(t, want("direct-out", RuleOutbound(config, "first"), RuleOutbound(config, "second"), RuleOutbound(config, "third"), RuleOutbound(config, "fourth")), ways())
 
 	// no rule has servers: the client of the lists goes directly
 	got, err := indented(listsClients(&model.Config{}, usable))
 	require.NoError(t, err)
 	require.Equal(t, want("direct-out"), string(got))
+}
+
+// The servers kept off the downloads are those of the sources marked so, and those reached
+// through one; none is written into the configuration.
+func TestNoDownloads(t *testing.T) {
+	config := &model.Config{Sources: []model.Source{
+		{Name: "test", Type: "subscription", SkipDownloads: true},
+		{Name: "helper", Type: "json", SkipDownloads: true},
+		{Name: "nl", Type: "links"},
+	}}
+	tags := Tags{Outbounds: map[string]TagOf{
+		"test: NL 1":          {Source: "test", Server: "NL 1"},
+		"helper":              {Source: "helper"},
+		"nl-1":                {Source: "nl"},
+		"nl-1 via helper":     {Source: "nl", Via: "helper"},
+		"youtube-out":         {Rule: "youtube"},
+		"youtube-urltest-out": {Rule: "youtube"},
+	}}
+	require.Equal(t, []string{"helper", "nl-1 via helper", "test: NL 1"}, NoDownloads(config, tags))
+	config.Sources[0].SkipDownloads, config.Sources[1].SkipDownloads = false, false
+	require.Empty(t, NoDownloads(config, tags))
 }

@@ -238,3 +238,9 @@ func withoutTag(content []byte) string {
 	}
 	return string(body)
 }
+
+// ExcludeDownloads sets the outbounds the downloads of the lists and the subscriptions must not
+// go through, for the instances of the process (httpclient.DownloadMemory.SetExcluded).
+func ExcludeDownloads(tags []string) {
+	history.downloads.SetExcluded(tags)
+}

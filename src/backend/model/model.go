@@ -60,6 +60,11 @@ type Source struct {
 	DomainResolverEnabled   bool
 	DomainResolverDNSType   string
 	DomainResolverDNSServer string
+
+	// SkipDownloads keeps the lists and the subscriptions off the servers of the source (a
+	// subscription of little traffic, a test one kept as the last reserve of a rule, a tunnel to
+	// a closed network, a local helper): plan.NoDownloads.
+	SkipDownloads bool
 }
 
 // Filled tells whether the source names servers: a source the page added and the user has
@@ -273,10 +278,6 @@ type Section struct {
 	MixedProxyEnabled       bool
 	MixedProxyPort          string
 	ResolveRealIPForRouting bool
-	// DownloadLists tells that the lists and the subscriptions download through the servers of
-	// this rule (and of the other rules that tell it); when no rule tells it, through the servers
-	// of every rule. Directly first either way.
-	DownloadLists bool
 
 	// Choice is how the rule chooses among its servers: fastest, loss (the fastest, weighed
 	// by the loss probes count) or balance (the devices spread over the best servers);
@@ -356,7 +357,6 @@ func Load(parsed *uci.Package) (*Config, error) {
 			MixedProxyEnabled:       section.Bool("mixed_proxy_enabled", false),
 			MixedProxyPort:          section.Get("mixed_proxy_port"),
 			ResolveRealIPForRouting: section.Bool("resolve_real_ip_for_routing", false),
-			DownloadLists:           section.Bool("download_lists", false),
 			Choice:                  get(section, "server_choice", ChoiceFastest),
 			LossInterval:            section.Get("loss_check_interval"),
 			LossThreshold:           section.Get("loss_threshold"),
@@ -380,6 +380,7 @@ func Load(parsed *uci.Package) (*Config, error) {
 			DomainResolverEnabled:   isOne(section.Get("domain_resolver_enabled")),
 			DomainResolverDNSType:   get(section, "domain_resolver_dns_type", "udp"),
 			DomainResolverDNSServer: section.Get("domain_resolver_dns_server"),
+			SkipDownloads:           section.Bool("skip_downloads", false),
 		})
 	}
 	for _, row := range parsed.SectionsOfType("dns_server") {

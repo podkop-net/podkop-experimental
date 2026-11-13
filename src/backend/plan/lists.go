@@ -110,25 +110,19 @@ func (b *builder) listsHTTPClients() []any {
 }
 
 // listsClients are the HTTP clients of the remote rule sets: "lists", whose outbounds are the ways
-// the downloader of the engine takes (http_client.outbounds, engine r26): directly first, then the
-// rules that download the lists (download_lists), or every rule when none does, in the order of
-// the settings, each as the outbound of the rule (its selector: the server it uses now). The
-// downloader orders them for each host by what it found; the backend downloads the subscriptions
+// the downloader of the engine takes (http_client.outbounds, engine r26): directly first, then
+// every rule with servers, in the order of the settings, each as the outbound of the rule (its
+// selector: the server it uses now). The downloader orders them for each host by what it found,
+// and passes by those that go through a server the user keeps off the downloads (NoDownloads,
+// given to the engine while it runs, not written here); the backend downloads the subscriptions
 // and the mask lists through the same ways. The tags of the rules do not change with their
 // servers: a new list of a subscription is taken while sing-box runs (hot.go). usable tells a
-// rule whose servers may carry them now.
+// rule whose servers may carry them.
 func listsClients(config *model.Config, usable func(*model.Section) bool) []any {
-	flagged := false
-	for index := range config.Sections {
-		if section := &config.Sections[index]; section.DownloadLists && usable(section) {
-			flagged = true
-			break
-		}
-	}
 	ways := []string{tagDirectOutbound}
 	for index := range config.Sections {
 		section := &config.Sections[index]
-		if !usable(section) || (flagged && !section.DownloadLists) {
+		if !usable(section) {
 			continue
 		}
 		if tag := RuleOutbound(config, section.Name); !slices.Contains(ways, tag) {
@@ -136,6 +130,26 @@ func listsClients(config *model.Config, usable func(*model.Section) bool) []any 
 		}
 	}
 	return []any{newObject("tag", tagListsHTTPClient, "outbounds", stringsToAny(ways))}
+}
+
+// NoDownloads are the tags of the outbounds the lists and the subscriptions must not go through:
+// the servers of the sources the settings keep off the downloads (skip_downloads), and the
+// servers reached through one of them. They change with the lists of the subscriptions, so the
+// supervisor gives them to the engine as it starts or swaps a configuration
+// (engine.ExcludeDownloads) instead of writing them into it.
+func NoDownloads(config *model.Config, tags Tags) []string {
+	skipped := func(name string) bool {
+		source := config.Source(name)
+		return source != nil && source.SkipDownloads
+	}
+	var result []string
+	for tag, of := range tags.Outbounds {
+		if (of.Source != "" && skipped(of.Source)) || (of.Via != "" && skipped(of.Via)) {
+			result = append(result, tag)
+		}
+	}
+	sort.Strings(result)
+	return result
 }
 
 // addSourceRuleSet makes a rule-set file the backend fills itself, names it in the
