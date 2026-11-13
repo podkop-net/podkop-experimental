@@ -48,6 +48,12 @@ type fakeEngine struct {
 	unusable []string
 	dial     func(ctx context.Context, tag string, address string) (net.Conn, error)
 	dialed   []string
+	// ways and together are what the downloader of the lists orders (DownloadWays); none:
+	// the configuration has no downloader. recorded are what downloads told it, "host way
+	// brought|failed"
+	ways     []string
+	together bool
+	recorded []string
 	access   sync.Mutex
 	// swaps are what the instances were asked to replace while they run; swapRefused texts of
 	// configurations they refuse to take so
@@ -202,6 +208,22 @@ func (i *fakeInstance) Dial(ctx context.Context, tag string, address string) (ne
 		return nil, E.New("no way through ", tag)
 	}
 	return dial(ctx, tag, address)
+}
+
+// DownloadWays are the ways of the engine, recorded what RecordDownload was told.
+func (i *fakeInstance) DownloadWays(client string, host string) ([]string, bool) {
+	i.engine.access.Lock()
+	defer i.engine.access.Unlock()
+	return i.engine.ways, i.engine.together
+}
+func (i *fakeInstance) RecordDownload(client string, host string, way string, err error, took time.Duration, bytes int64) {
+	i.engine.access.Lock()
+	defer i.engine.access.Unlock()
+	outcome := "brought"
+	if err != nil {
+		outcome = "failed"
+	}
+	i.engine.recorded = append(i.engine.recorded, host+" "+way+" "+outcome)
 }
 
 // Swap takes the configuration when it has none of the texts of swapRefused: the instance

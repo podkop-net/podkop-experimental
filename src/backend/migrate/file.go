@@ -15,8 +15,8 @@ func Backup(path string) string {
 
 // File converts the settings file in place. The file as it was is kept as Backup unless a
 // copy is there already: a second conversion (a backup of 0.8 restored later) keeps the
-// first copy. A file of the format already is not written. The notes are those of Convert,
-// after one that names the copy.
+// first copy. A file of the format already is written only when Tidy changes it, with no copy.
+// The notes are those of Convert and Tidy, after one that names the copy.
 func File(path string) ([]string, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -26,18 +26,26 @@ func File(path string) ([]string, error) {
 	if err != nil {
 		return nil, E.Cause(err, "read ", path)
 	}
-	if !Needed(parsed) {
+	needed := Needed(parsed)
+	var notes []string
+	if needed {
+		notes = Convert(parsed)
+	}
+	tidied, changed := Tidy(parsed)
+	if !needed && !changed {
 		return nil, nil
 	}
-	notes := Convert(parsed)
+	notes = append(notes, tidied...)
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
 	backup := Backup(path)
-	if _, err := os.Stat(backup); os.IsNotExist(err) {
-		if err := os.WriteFile(backup, content, info.Mode().Perm()); err != nil {
-			return nil, E.Cause(err, "keep the old settings")
+	if needed {
+		if _, err := os.Stat(backup); os.IsNotExist(err) {
+			if err := os.WriteFile(backup, content, info.Mode().Perm()); err != nil {
+				return nil, E.Cause(err, "keep the old settings")
+			}
 		}
 	}
 	temporary, err := os.CreateTemp(filepath.Dir(path), ".podkop-migrate-*")
@@ -58,6 +66,9 @@ func File(path string) ([]string, error) {
 	}
 	if err := os.Rename(temporary.Name(), path); err != nil {
 		return nil, err
+	}
+	if !needed {
+		return notes, nil
 	}
 	return append([]string{"the settings were converted to the format " + Version + ": the old file is " + backup}, notes...), nil
 }

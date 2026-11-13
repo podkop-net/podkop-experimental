@@ -9,6 +9,7 @@ import (
 
 	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/common/httpclient"
 	"github.com/sagernet/sing-box/common/urltest"
 	"github.com/sagernet/sing/service"
 )
@@ -25,11 +26,15 @@ import (
 // changed are forgotten at the start of the next configuration (forgetChanged), or a group
 // would take the delay of the server a tag had before for the one it has now, and would
 // not test that one for an interval.
-var history = &sharedHistory{storage: urltest.NewHistoryStorage()}
+//
+// What the downloads of the lists found of the ways (httpclient.DownloadMemory: which way brought
+// a host's file, which failed) is the process's too, and is forgotten with the results.
+var history = &sharedHistory{storage: urltest.NewHistoryStorage(), downloads: httpclient.NewDownloadMemory()}
 
 type sharedHistory struct {
-	storage *urltest.HistoryStorage
-	access  sync.Mutex
+	storage   *urltest.HistoryStorage
+	downloads *httpclient.DownloadMemory
+	access    sync.Mutex
 	// started are the dialers of the configuration started last; nil before the first
 	started map[string]dialer
 }
@@ -40,11 +45,14 @@ type dialer struct {
 	content []byte
 	// detour is the tag of the outbound it dials through, if any
 	detour string
+	// group tells a selector or a URL test: what the downloads found of it is of the rule it
+	// is, whatever its members
+	group bool
 }
 
 // withHistory gives a context the history of the process.
 func withHistory(ctx context.Context) context.Context {
-	return service.ContextWithPtr(ctx, history.storage)
+	return service.ContextWithPtr(service.ContextWithPtr(ctx, history.storage), history.downloads)
 }
 
 // dialersOf reads the outbounds and the endpoints of a configuration by tag. A
@@ -61,12 +69,13 @@ func dialersOf(configuration []byte) map[string]dialer {
 	for _, content := range append(parsed.Outbounds, parsed.Endpoints...) {
 		var head struct {
 			Tag    string `json:"tag"`
+			Type   string `json:"type"`
 			Detour string `json:"detour"`
 		}
 		if json.Unmarshal(content, &head) != nil || head.Tag == "" {
 			continue
 		}
-		result[head.Tag] = dialer{content: content, detour: head.Detour}
+		result[head.Tag] = dialer{content: content, detour: head.Detour, group: head.Type == "selector" || head.Type == "urltest"}
 	}
 	return result
 }
@@ -114,6 +123,9 @@ func (h *sharedHistory) forgetChanged(next map[string]dialer) forgetting {
 			done.results[tag] = result
 		}
 		h.storage.DeleteURLTestHistory(tag)
+		if now, kept := next[tag]; !kept || !now.group {
+			h.downloads.Forget(tag)
+		}
 		done.tags = append(done.tags, tag)
 	}
 	return done
@@ -140,6 +152,7 @@ func (h *sharedHistory) undo(done forgetting, started map[string]dialer) {
 func (h *sharedHistory) forget(tags []string) {
 	for _, tag := range tags {
 		h.storage.DeleteURLTestHistory(tag)
+		h.downloads.Forget(tag)
 	}
 }
 

@@ -217,6 +217,55 @@ func TestSubscriptionLists(t *testing.T) {
 	third.Stop()
 }
 
+// While sing-box runs with the downloader of the lists, a subscription goes the ways it orders for
+// the host of the provider, all of them, named as the page names them; that the first failed for
+// the host the last time starts the second beside it; and what each way came to goes back to the
+// downloader.
+func TestSubscriptionRoutesOfTheDownloader(t *testing.T) {
+	directory := t.TempDir()
+	fake, system := &fakeEngine{refuse: map[string]error{}, delays: map[string]uint16{"prov1: NL 2": 90}}, new(recorder)
+	source := &provider{body: "vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\nvless://u2@nl2.example:443?security=tls&sni=nl2.example#NL%202\n"}
+	options := Options{
+		SettingsPath: filepath.Join(directory, "podkop"), RuleSetDir: filepath.Join(directory, "rulesets"),
+		StagingDir: filepath.Join(directory, "candidate"), StatePath: filepath.Join(directory, "state"),
+		ConfigDir: filepath.Join(directory, "run"), ReadyTimeout: time.Second, System: system, Engine: fake,
+		SubscriptionDir: filepath.Join(directory, "subscriptions"), Download: source.download,
+	}
+	require.NoError(t, os.WriteFile(options.SettingsPath, []byte(subscriptionSettings(directory, "all")), 0o644))
+	s := New(options)
+	require.True(t, s.Boot().OK)
+	downloadNow(t, s)
+
+	fake.access.Lock()
+	fake.ways, fake.together = []string{"prov1: NL 1", "direct-out", "awg0-out", "prov1: NL 2", "spare-out"}, true
+	fake.recorded = nil
+	fake.access.Unlock()
+	routes, _, together := s.routes(3, "", "sub.example")
+	var names []string
+	for _, route := range routes {
+		names = append(names, route.Name)
+	}
+	// every way, not the 3 fastest; an outbound of no link by its tag
+	require.Equal(t, []string{"prov1: NL 1", "direct", "awg0-out", "prov1: NL 2", "spare-out"}, names)
+	require.True(t, routes[1].Direct)
+	require.False(t, routes[0].Direct)
+	require.True(t, together)
+
+	source.access.Lock()
+	source.asked, source.plans = nil, nil
+	source.refused = []string{"prov1: NL 1", "direct", "awg0-out"}
+	source.access.Unlock()
+	downloadNow(t, s)
+	require.Equal(t, []string{"prov1: NL 1", "direct", "awg0-out", "prov1: NL 2"}, source.asked)
+	require.True(t, source.plans[0].Together)
+	fake.access.Lock()
+	defer fake.access.Unlock()
+	require.Equal(t, []string{
+		"sub.example prov1: NL 1 failed", "sub.example direct-out failed", "sub.example awg0-out failed",
+		"sub.example prov1: NL 2 brought",
+	}, fake.recorded)
+}
+
 // linkRoute is the way through the proxy link of the settings of the tests: the source main_link
 // (podkop migrate) has no label, and its tag is the name the page gives it.
 const linkRoute = "socks5 link"
@@ -238,7 +287,7 @@ func TestSubscriptionRoutes(t *testing.T) {
 	require.True(t, s.Boot().OK)
 	downloadNow(t, s)
 	require.Equal(t, []string{"direct"}, source.asked)
-	routes, _ := s.routes(3, "")
+	routes, _, _ := s.routes(3, "", "sub.example")
 	var names []string
 	for _, route := range routes {
 		names = append(names, route.Name)
@@ -246,7 +295,7 @@ func TestSubscriptionRoutes(t *testing.T) {
 	// a way is named as the page names the outbound: the server, or the section of a link
 	require.Equal(t, []string{"direct", "prov1: NL 2", "prov1: NL 1", linkRoute}, names)
 	// the way that brought the list the last time first among the servers
-	routes, _ = s.routes(3, linkRoute)
+	routes, _, _ = s.routes(3, linkRoute, "sub.example")
 	require.Equal(t, linkRoute, routes[1].Name)
 	// direct goes through direct-out of sing-box while it runs
 	fake.dial = func(ctx context.Context, tag string, address string) (net.Conn, error) { return nil, os.ErrClosed }

@@ -29,6 +29,8 @@ type Route struct {
 	// HTTP, whose token a proxy would read.
 	Direct bool
 	Dial   func(ctx context.Context, network string, address string) (net.Conn, error)
+	// Tag is the tag of the outbound of the way, for the caller; "" when it has none
+	Tag string
 }
 
 // Answer is a list as the provider sent it.
@@ -79,6 +81,12 @@ func (f *Failure) Error() string {
 	return f.Text
 }
 
+// Final tells an answer of the provider itself: another way would get the same, and the way it
+// came by is not at fault.
+func (f *Failure) Final() bool {
+	return f.final
+}
+
 func fail(code string, final bool, text string, args ...string) *Failure {
 	return &Failure{Code: code, Args: args, Text: text, final: final}
 }
@@ -93,8 +101,8 @@ type Plan struct {
 	Wait  time.Duration
 	Body  time.Duration
 	Total time.Duration
-	// Together starts the first way after the direct one beside it: the direct way brought
-	// no list the last time
+	// Together starts the second way beside the first: the first brought no list the last
+	// time
 	Together bool
 }
 
@@ -193,7 +201,7 @@ func (d *download) run(ctx context.Context, report func([]Try)) (*Answer, []Try,
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(errSuperseded)
 	d.start(ctx)
-	if d.plan.Together && d.ways[0].Direct {
+	if d.plan.Together {
 		d.start(ctx)
 	}
 	watch := time.NewTicker(watchEvery)

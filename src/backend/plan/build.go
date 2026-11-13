@@ -40,6 +40,14 @@ const (
 	versionUDPOverTCP    = 2
 )
 
+// ListsHTTPClient is the tag of the HTTP client the lists download with, whose downloader the
+// backend downloads the subscriptions and the mask lists through too; DirectOutbound the tag of
+// the outbound that goes directly.
+const (
+	ListsHTTPClient = tagListsHTTPClient
+	DirectOutbound  = tagDirectOutbound
+)
+
 // communityLists are the names of the community lists, as the shell backend of podkop
 // 0.7.24 knows them (COMMUNITY_SERVICES of its constants.sh): it refuses any other name.
 var communityLists = []string{
@@ -433,15 +441,13 @@ type builder struct {
 	// does not take one of its own, which could close a loop
 	detouring bool
 
-	inbounds   []any
-	outbounds  []any
-	dnsServers []any
-	dnsRules   []*rule
-	routeRules []*rule
-	ruleSets   []any
-	// remoteRuleSets tells that sing-box downloads some of them
-	remoteRuleSets bool
-	experimental   *object
+	inbounds     []any
+	outbounds    []any
+	dnsServers   []any
+	dnsRules     []*rule
+	routeRules   []*rule
+	ruleSets     []any
+	experimental *object
 
 	files     map[string]*object
 	fileOrder []string
@@ -542,10 +548,10 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 		"ntp", new(object),
 		"certificate", new(object),
 	)
-	if b.remoteRuleSets {
-		document.set("http_clients", b.listsHTTPClients())
-		route.set("default_http_client", tagListsHTTPClient)
-	}
+	// always: the backend downloads the subscriptions and the mask lists through the ways of
+	// its downloader too, remote rule sets or not
+	document.set("http_clients", b.listsHTTPClients())
+	route.set("default_http_client", tagListsHTTPClient)
 	document.append(
 		"endpoints", []any{},
 		"inbounds", listOrEmpty(b.inbounds),

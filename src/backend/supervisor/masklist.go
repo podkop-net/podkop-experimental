@@ -103,8 +103,8 @@ func maskListFile(dir string, address string) string {
 	return filepath.Join(dir, maskListDir, hex.EncodeToString(sum[:8])+".txt")
 }
 
-// maskList downloads the public list at address the way a subscription is downloaded (directly,
-// and through the fastest servers, so a blocked GitHub still gives it), without the headers of
+// maskList downloads the public list at address the way a subscription is downloaded (through
+// the ways of the lists, directly first, so a blocked GitHub still gives it), without the headers of
 // the device, and returns its names beyond the built-in ones (model.MaskNames). A list that does
 // not come is taken from the copy of the last download.
 func (s *Supervisor) maskList(ctx context.Context, address string) []string {
@@ -116,8 +116,12 @@ func (s *Supervisor) maskList(ctx context.Context, address string) []string {
 	if s.options.ConfigDir != "" {
 		cache = maskListFile(s.options.ConfigDir, address)
 	}
-	routes, _ := s.routes(previewProxies, "")
-	answer, _, err := download(ctx, address, http.Header{}, routes, subscription.DefaultPlan, nil)
+	host := hostOf(address)
+	routes, through, together := s.routes(previewProxies, "", host)
+	way := subscription.DefaultPlan
+	way.Together = together
+	answer, tries, err := download(ctx, address, http.Header{}, routes, way, nil)
+	recordTries(through, host, routes, tries)
 	if err == nil {
 		names := model.MaskNames(answer.Body, engine.WhiteSNICandidates)
 		if len(names) > 0 {

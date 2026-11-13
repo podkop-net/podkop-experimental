@@ -1079,6 +1079,12 @@ msgstr "Убрать обход"
 msgid "replies %s"
 msgstr "отвечает %s"
 
+msgid "Download lists and subscriptions through this rule"
+msgstr "Загружать списки и подписки через это правило"
+
+msgid "Lists and subscriptions download directly first, then through the servers of the rules with this option. When no rule has it, through the servers of every rule, those that brought the files before first"
+msgstr "Списки и подписки загружаются сначала напрямую, затем через серверы правил с этой опцией. Если её нет ни у одного правила — через серверы всех правил, первыми те, через которые файлы приходили раньше"
+
 msgid "Resolve real IP for routing"
 msgstr "Разрешение реальных IP-адресов"
 

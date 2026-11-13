@@ -169,6 +169,10 @@ type Instance interface {
 	// of a limit. candidates nil = the engine's built-in list.
 	SuggestMask(ctx context.Context, content []byte, names <-chan string) (string, int, error)
 	Dial(ctx context.Context, tag string, address string) (net.Conn, error)
+	// DownloadWays and RecordDownload are the downloader of an HTTP client of the configuration:
+	// the order of its ways for a host, and what a download through one came to.
+	DownloadWays(client string, host string) ([]string, bool)
+	RecordDownload(client string, host string, way string, err error, took time.Duration, bytes int64)
 	// Swap replaces outbounds while the instance runs (hot.go).
 	Swap(configuration []byte, swap engine.Swap, limit int) (engine.Swapped, error)
 	// CarrySelections moves the choices of the selectors to the tags the servers chosen have in

@@ -99,47 +99,43 @@ func (b *builder) addRemoteRuleSet(tag string, format string, url string) {
 	ruleSet := newObject("type", "remote", "tag", tag, "format", format, "url", url)
 	ruleSet.set("update_interval", b.config.Settings.UpdateInterval)
 	b.ruleSets = append(b.ruleSets, ruleSet)
-	b.remoteRuleSets = true
 }
 
-// listsFallbacks is how many rules with servers a list that does not come directly may come
-// through: as many as the servers a subscription is downloaded through (supervisor
-// previewProxies).
-const listsFallbacks = 3
-
-// listsHTTPClients are the HTTP clients the remote rule sets download with (listsClients), the
-// rules whose servers are refused now left out.
+// listsHTTPClients are the HTTP clients the remote rule sets download with (listsClients): the
+// rules with servers in the settings, those refused now too (their outbound blocks, and the
+// downloader passes it at once), so that the ways do not change with the lists of the
+// subscriptions and a new list is taken while sing-box runs.
 func (b *builder) listsHTTPClients() []any {
-	return listsClients(b.config, func(section *model.Section) bool {
-		return b.config.HasOutbound(section) && !b.isRefused(section)
-	})
+	return listsClients(b.config, b.config.HasOutbound)
 }
 
-// listsClients are the HTTP clients of the remote rule sets: "lists", which goes directly, and,
-// as its fallbacks (http_client.fallback of sing-box), a client through the outbound of each of
-// the first listsFallbacks rules usable takes, in the order of the settings. A list that does not
-// come directly comes through the server a rule chose, then through that of the next rule.
+// listsClients are the HTTP clients of the remote rule sets: "lists", whose outbounds are the ways
+// the downloader of the engine takes (http_client.outbounds, engine r26): directly first, then the
+// rules that download the lists (download_lists), or every rule when none does, in the order of
+// the settings, each as the outbound of the rule (its selector: the server it uses now). The
+// downloader orders them for each host by what it found; the backend downloads the subscriptions
+// and the mask lists through the same ways. The tags of the rules do not change with their
+// servers: a new list of a subscription is taken while sing-box runs (hot.go). usable tells a
+// rule whose servers may carry them now.
 func listsClients(config *model.Config, usable func(*model.Section) bool) []any {
-	direct := newObject("tag", tagListsHTTPClient)
-	clients := []any{direct}
-	var fallback []any
+	flagged := false
 	for index := range config.Sections {
-		section := &config.Sections[index]
-		if len(fallback) == listsFallbacks {
+		if section := &config.Sections[index]; section.DownloadLists && usable(section) {
+			flagged = true
 			break
 		}
-		if !usable(section) {
+	}
+	ways := []string{tagDirectOutbound}
+	for index := range config.Sections {
+		section := &config.Sections[index]
+		if !usable(section) || (flagged && !section.DownloadLists) {
 			continue
 		}
-		outbound := RuleOutbound(config, section.Name)
-		tag := tagListsHTTPClient + "-" + outbound
-		fallback = append(fallback, tag)
-		clients = append(clients, newObject("tag", tag, "detour", outbound))
+		if tag := RuleOutbound(config, section.Name); !slices.Contains(ways, tag) {
+			ways = append(ways, tag)
+		}
 	}
-	if len(fallback) > 0 {
-		direct.set("fallback", fallback)
-	}
-	return clients
+	return []any{newObject("tag", tagListsHTTPClient, "outbounds", stringsToAny(ways))}
 }
 
 // addSourceRuleSet makes a rule-set file the backend fills itself, names it in the

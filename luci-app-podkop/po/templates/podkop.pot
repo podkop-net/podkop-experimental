@@ -1538,6 +1538,14 @@ msgstr ""
 msgid "replies %s"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js
+msgid "Download lists and subscriptions through this rule"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js
+msgid "Lists and subscriptions download directly first, then through the servers of the rules with this option. When no rule has it, through the servers of every rule, those that brought the files before first"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:937
 msgid "Resolve real IP for routing"
 msgstr ""

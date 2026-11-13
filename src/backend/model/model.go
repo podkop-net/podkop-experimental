@@ -273,6 +273,10 @@ type Section struct {
 	MixedProxyEnabled       bool
 	MixedProxyPort          string
 	ResolveRealIPForRouting bool
+	// DownloadLists tells that the lists and the subscriptions download through the servers of
+	// this rule (and of the other rules that tell it); when no rule tells it, through the servers
+	// of every rule. Directly first either way.
+	DownloadLists bool
 
 	// Choice is how the rule chooses among its servers: fastest, loss (the fastest, weighed
 	// by the loss probes count) or balance (the devices spread over the best servers);
@@ -288,6 +292,7 @@ func Load(parsed *uci.Package) (*Config, error) {
 	// settings of an older format are read as podkop migrate converts them; the file on the
 	// disk is converted by the install and by the daemon
 	migrate.Convert(parsed)
+	migrate.Tidy(parsed)
 	settings := parsed.Section("settings")
 	if settings == nil || settings.Type != "settings" {
 		// the page writes "config settings 'settings'"; a section of another type that
@@ -352,6 +357,7 @@ func Load(parsed *uci.Package) (*Config, error) {
 			MixedProxyEnabled:       section.Bool("mixed_proxy_enabled", false),
 			MixedProxyPort:          section.Get("mixed_proxy_port"),
 			ResolveRealIPForRouting: section.Bool("resolve_real_ip_for_routing", false),
+			DownloadLists:           section.Bool("download_lists", false),
 			Choice:                  get(section, "server_choice", ChoiceFastest),
 			LossInterval:            section.Get("loss_check_interval"),
 			LossThreshold:           section.Get("loss_threshold"),

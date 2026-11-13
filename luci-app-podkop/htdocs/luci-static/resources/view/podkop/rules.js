@@ -943,6 +943,19 @@ function createRulesContent(section, singBoxFeatures = []) {
   o.default = "0";
   o.rmempty = false;
 
+  o = section.taboption(
+    "extra",
+    form.Flag,
+    "download_lists",
+    _("Download lists and subscriptions through this rule"),
+    _(
+      "Lists and subscriptions download directly first, then through the servers of the rules with this option. When no rule has it, through the servers of every rule, those that brought the files before first",
+    ),
+  );
+  o.modalonly = true;
+  o.default = "0";
+  o.rmempty = true;
+
   if (!singBoxFeatures.includes("urltest.modes")) return;
 
   // how the rule chooses among its servers (podkop-engine urltest modes)

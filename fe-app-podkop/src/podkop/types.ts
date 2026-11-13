@@ -363,6 +363,7 @@ export namespace Podkop {
     mixed_proxy_enabled?: string;
     mixed_proxy_port?: string;
     resolve_real_ip_for_routing?: string;
+    download_lists?: string;
   }
 
   // a "config source" block: where servers come from (tab Servers)

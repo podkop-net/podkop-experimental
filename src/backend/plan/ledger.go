@@ -18,9 +18,10 @@ import (
 // instead, so that every case still checks the rest byte for byte:
 //
 //  1. Remote rule sets download with the named HTTP client "lists", which
-//     route.default_http_client names: it goes directly, and its fallbacks go through the
-//     outbounds of the first rules with servers (listsClients), so a list the provider does
-//     not let through comes through a server. The shell backend gives each rule set
+//     route.default_http_client names, always: its outbounds are directly first and then the
+//     servers of the rules (listsClients), the ways the downloader of the engine orders for
+//     each host, so a list the provider does not let through comes through a server; the
+//     backend downloads the subscriptions through them too. The shell backend gives each rule set
 //     download_detour to the section the settings name for the lists, or nothing (the
 //     implicit default client): sing-box 1.14 notes both as deprecated, and 1.16 removes
 //     them; download_lists_via_proxy is read no more.
@@ -209,18 +210,8 @@ func FromShell(content []byte, shell Shell) (*Converted, error) {
 			}
 		}
 		routeObject.set("rule_set", list)
-		remote := false
-		for _, entry := range list {
-			if ruleSet, isObject := entry.(*object); isObject {
-				if kind, _ := ruleSet.get("type"); kind == "remote" {
-					remote = true
-				}
-			}
-		}
-		if remote {
-			document.insertAfter("certificate", "http_clients", listsClients(shell.Settings, shell.Settings.HasOutbound))
-			routeObject.set("default_http_client", tagListsHTTPClient)
-		}
+		document.insertAfter("certificate", "http_clients", listsClients(shell.Settings, shell.Settings.HasOutbound))
+		routeObject.set("default_http_client", tagListsHTTPClient)
 	}
 	if experimental, _ := document.get("experimental"); experimental != nil && shell.Settings != nil {
 		if experimentalObject, isObject := experimental.(*object); isObject {

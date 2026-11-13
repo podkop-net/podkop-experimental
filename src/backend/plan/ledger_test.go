@@ -15,7 +15,7 @@ func TestFromShell(t *testing.T) {
 	noFiles := Options{ReadFile: func(string) ([]byte, error) { return nil, os.ErrNotExist }}
 
 	// the shell backend's download_detour goes: the HTTP client of the lists, named the
-	// default, goes directly (no rule has servers here to fall back through, see
+	// default, goes directly (no rule has servers here to go through as well, see
 	// TestListsClients); independent_cache goes; the key of the settings goes
 	// to the Clash API, which listens on this host (YACD is off); the uTLS fallback is
 	// told as the settings have it
@@ -34,7 +34,10 @@ func TestFromShell(t *testing.T) {
   "certificate": {},
   "http_clients": [
     {
-      "tag": "lists"
+      "tag": "lists",
+      "outbounds": [
+        "direct-out"
+      ]
     }
   ],
   "endpoints": [],
@@ -129,7 +132,8 @@ func TestFromShell(t *testing.T) {
 	require.NotContains(t, text, "sing-box")
 
 	// the rules of the names of podkop 0.7's page checks go, and their DNS rule answers
-	// the readiness name (item 9); a rule of a list stays
+	// the readiness name (item 9); a rule of a list stays; the HTTP client of the lists is
+	// there with no remote list too (item 1), after the rest when there is no certificate
 	shell = []byte(`{"dns":{"rules":[{"action":"route","server":"fakeip-server","rewrite_ttl":60,"domain":["fakeip.podkop.fyi","ip.podkop.fyi"]}]},` +
 		`"route":{"rules":[{"action":"route","inbound":"tproxy-in","outbound":"main-out","domain":"ip.podkop.fyi"},` +
 		`{"action":"route-options","domain":"fakeip.podkop.fyi","override_port":8443},` +
@@ -160,15 +164,24 @@ func TestFromShell(t *testing.T) {
         ]
       }
     ],
-    "rule_set": []
-  }
+    "rule_set": [],
+    "default_http_client": "lists"
+  },
+  "http_clients": [
+    {
+      "tag": "lists",
+      "outbounds": [
+        "direct-out"
+      ]
+    }
+  ]
 }
 `, string(converted.Config))
 }
 
-// The lists go directly, and fall back through the first three rules that have servers now,
-// in the order of the settings: a rule that is off, goes direct or blocks, has no servers or
-// is refused (usable) is passed by.
+// The lists go directly first, then through the outbounds of the rules that have servers now, in
+// the order of the settings: a rule that is off, goes direct or blocks, has no servers or is
+// refused (usable) is passed by; the rules that download the lists, when some do, alone.
 func TestListsClients(t *testing.T) {
 	servers := func(source string) []model.Member { return []model.Member{{Source: source}} }
 	config := &model.Config{
@@ -185,23 +198,28 @@ func TestListsClients(t *testing.T) {
 		},
 	}
 	usable := func(section *model.Section) bool { return config.HasOutbound(section) && section.Name != "refused" }
-	clients := listsClients(config, usable)
-	var want []any
-	var fallback []any
-	for _, name := range []string{"first", "second", "third"} {
-		tag := "lists-" + RuleOutbound(config, name)
-		fallback = append(fallback, tag)
-		want = append(want, newObject("tag", tag, "detour", RuleOutbound(config, name)))
+	ways := func() string {
+		got, err := indented(listsClients(config, usable))
+		require.NoError(t, err)
+		return string(got)
 	}
-	want = append([]any{newObject("tag", "lists", "fallback", fallback)}, want...)
-	got, err := indented(clients)
-	require.NoError(t, err)
-	expected, err := indented(want)
-	require.NoError(t, err)
-	require.Equal(t, string(expected), string(got))
+	want := func(outbounds ...string) string {
+		expected, err := indented([]any{newObject("tag", "lists", "outbounds", stringsToAny(outbounds))})
+		require.NoError(t, err)
+		return string(expected)
+	}
+	// no rule downloads the lists: directly, then the servers of every rule with servers
+	require.Equal(t, want("direct-out", RuleOutbound(config, "first"), RuleOutbound(config, "second"), RuleOutbound(config, "third"), RuleOutbound(config, "fourth")), ways())
+	// rules that download the lists: directly, then they alone
+	config.Sections[6].DownloadLists = true
+	config.Sections[4].DownloadLists = true
+	require.Equal(t, want("direct-out", RuleOutbound(config, "third")), ways())
+	// a rule that downloads them but is refused now is passed by: as if none did
+	config.Sections[6].DownloadLists = false
+	require.Equal(t, want("direct-out", RuleOutbound(config, "first"), RuleOutbound(config, "second"), RuleOutbound(config, "third"), RuleOutbound(config, "fourth")), ways())
 
-	// no rule has servers: the client of the lists alone, without fallbacks
-	got, err = indented(listsClients(&model.Config{}, usable))
+	// no rule has servers: the client of the lists goes directly
+	got, err := indented(listsClients(&model.Config{}, usable))
 	require.NoError(t, err)
-	require.Equal(t, "[\n  {\n    \"tag\": \"lists\"\n  }\n]\n", string(got))
+	require.Equal(t, want("direct-out"), string(got))
 }

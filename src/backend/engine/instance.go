@@ -512,6 +512,41 @@ func (i *Instance) Dial(ctx context.Context, tag string, address string) (net.Co
 	return &dialed{Conn: conn, stop: stop, cancel: cancel}, nil
 }
 
+// DownloadWays are the ways the downloader of the HTTP client of the tag takes for a download
+// from host (http_client.outbounds, engine r26), in its order, and whether the first two start
+// together; none when the configuration has no such client.
+func (i *Instance) DownloadWays(client string, host string) ([]string, bool) {
+	downloader := i.downloader(client)
+	if downloader == nil {
+		return nil, false
+	}
+	return downloader.Ways(host)
+}
+
+// RecordDownload tells the downloader of the HTTP client of the tag what a download from host
+// through a way came to: err nil when it brought the file, of size bytes in took.
+func (i *Instance) RecordDownload(client string, host string, way string, err error, took time.Duration, bytes int64) {
+	if downloader := i.downloader(client); downloader != nil {
+		downloader.Record(host, way, err, took, bytes)
+	}
+}
+
+func (i *Instance) downloader(client string) adapter.HTTPDownloader {
+	if !i.enter() {
+		return nil
+	}
+	defer i.leave()
+	downloaders, loaded := service.FromContext[adapter.HTTPClientManager](i.ctx).(adapter.HTTPDownloaders)
+	if !loaded {
+		return nil
+	}
+	downloader, err := downloaders.ResolveDownloader(&option.HTTPClientOptions{Tag: client})
+	if err != nil {
+		return nil
+	}
+	return downloader
+}
+
 // dialed is a connection of Dial: closed, it lets go of the context it was opened with.
 type dialed struct {
 	net.Conn
