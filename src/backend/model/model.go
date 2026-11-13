@@ -292,7 +292,6 @@ func Load(parsed *uci.Package) (*Config, error) {
 	// settings of an older format are read as podkop migrate converts them; the file on the
 	// disk is converted by the install and by the daemon
 	migrate.Convert(parsed)
-	migrate.Tidy(parsed)
 	settings := parsed.Section("settings")
 	if settings == nil || settings.Type != "settings" {
 		// the page writes "config settings 'settings'"; a section of another type that
