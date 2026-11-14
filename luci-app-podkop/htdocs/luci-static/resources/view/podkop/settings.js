@@ -572,7 +572,7 @@ function createSettingsContent(section, singBoxFeatures = []) {
     "update_interval",
     _("List Update Frequency"),
     _(
-      "Select how often the domain or subnet lists are updated automatically. A list is downloaded directly; one that does not come directly comes through the servers of your first rules",
+      "Select how often the domain or subnet lists are updated automatically. A list is downloaded directly first, then through the servers of the rules, those that brought it before first; a source marked “Do not use for downloading lists and subscriptions” never carries it",
     ),
   );
   Object.entries(main.UPDATE_INTERVAL_OPTIONS).forEach(([key, label]) => {

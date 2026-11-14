@@ -1145,8 +1145,8 @@ msgstr "защищённое соединение…"
 msgid "Select a predefined list for routing"
 msgstr "Выберите предопределенный список для маршрутизации"
 
-msgid "Select how often the domain or subnet lists are updated automatically. A list is downloaded directly; one that does not come directly comes through the servers of your first rules"
-msgstr "Выберите частоту автоматического обновления списков доменов или подсетей. Список скачивается напрямую, а если напрямую не приходит — через серверы ваших первых правил."
+msgid "Select how often the domain or subnet lists are updated automatically. A list is downloaded directly first, then through the servers of the rules, those that brought it before first; a source marked “Do not use for downloading lists and subscriptions” never carries it"
+msgstr "Выберите частоту автоматического обновления списков доменов или подсетей. Список скачивается сначала напрямую, затем через серверы правил — первыми теми, через которые он уже приходил; источник с отметкой «Не использовать для загрузки списков и подписок» для этого не используется."
 
 msgid "Select or enter DNS server address"
 msgstr "Выберите или введите адрес DNS-сервера"
