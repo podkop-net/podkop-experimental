@@ -114,6 +114,10 @@ func (s *Supervisor) SetCure(ctx context.Context, tag, kind, sni, wantHash, thro
 		case way.Cure != nil && way.Cure.Kind == model.CureDetour:
 			// a relay that is itself connected through another server would make a chain
 			return CureResult{State: CureInvalid}
+		case relayOfOthers(snapshot.stable, tag):
+			// so would a relay of another server connected through a third: the build would
+			// leave the treatment of the other one off
+			return CureResult{State: CureInvalid}
 		case identity.Via != "":
 			return CureResult{State: CureViaDetour}
 		}
@@ -179,17 +183,20 @@ func (s *Supervisor) DropStaleCures(ctx context.Context) CureResult {
 	if snapshot.instance == nil {
 		return CureResult{State: CureNotRunning}
 	}
-	live := make(map[cureKey]bool, len(snapshot.stable))
-	for _, identity := range snapshot.stable {
-		live[cureKey{identity.Hash, identity.Via}] = true
-	}
+	live, direct := liveKeys(snapshot.stable)
 	removed, err := s.editCures(func(sections []*uci.Section) []*uci.Section {
+		detoured := make(map[string]bool)
+		for _, section := range sections {
+			if section.Type == "cure" && section.Get("kind") == model.CureDetour && section.Get("via") == "" {
+				detoured[section.Get("hash")] = true
+			}
+		}
 		kept := make([]*uci.Section, 0, len(sections))
 		for _, section := range sections {
 			kind := section.Get("kind")
-			relay := section.Get("relay")
-			if section.Type == "cure" && (!live[cureKey{section.Get("hash"), section.Get("via")}] || !model.ValidCureKind(kind) ||
-				(kind == model.CureDetour && (section.Get("through") == "" || (relay != "" && !live[cureKey{relay, ""}])))) {
+			cure := model.Cure{Hash: section.Get("hash"), Via: section.Get("via"), Kind: kind, Through: section.Get("through"), Relay: section.Get("relay")}
+			if section.Type == "cure" && (!model.ValidCureKind(kind) || (kind == model.CureDetour && cure.Through == "") ||
+				staleCure(cure, live, direct, func(hash string) bool { return detoured[hash] })) {
 				continue
 			}
 			kept = append(kept, section)
@@ -209,25 +216,67 @@ func (s *Supervisor) DropStaleCures(ctx context.Context) CureResult {
 
 type cureKey struct{ hash, via string }
 
-// staleCures counts the stored treatments that name no live server (for a detour, no live relay
-// server either), and the rows this build cannot read. The caller holds the state of the running configuration.
+// relayKey is a server reached directly, by its stable identity, in a source.
+type relayKey struct{ hash, source string }
+
+// staleCures counts the stored treatments that do nothing in the running configuration
+// (staleCure), and the rows this build cannot read. The caller holds the state of the running
+// configuration.
 func staleCures(settings *model.Config, stable map[string]detect.Identity) int {
-	live := make(map[cureKey]bool, len(stable))
-	for _, identity := range stable {
-		live[cureKey{identity.Hash, identity.Via}] = true
+	live, direct := liveKeys(stable)
+	detoured := func(hash string) bool {
+		own := settings.Cure(hash, "")
+		return own != nil && own.Kind == model.CureDetour
 	}
 	stale := settings.UnreadCures
 	seen := make(map[cureKey]bool)
 	for _, cure := range settings.Cures {
 		key := cureKey{cure.Hash, cure.Via}
-		// a detour whose relay server is gone does nothing either
-		gone := !live[key] || (cure.Kind == model.CureDetour && cure.Relay != "" && !live[cureKey{cure.Relay, ""}])
-		if gone && !seen[key] {
+		if staleCure(cure, live, direct, detoured) && !seen[key] {
 			stale++
 		}
 		seen[key] = true
 	}
 	return stale
+}
+
+// liveKeys are the live servers by their stable identity and way, and those reached directly by
+// their stable identity and source.
+func liveKeys(stable map[string]detect.Identity) (map[cureKey]bool, map[relayKey]bool) {
+	live := make(map[cureKey]bool, len(stable))
+	direct := make(map[relayKey]bool, len(stable))
+	for _, identity := range stable {
+		live[cureKey{identity.Hash, identity.Via}] = true
+		if identity.Via == "" {
+			direct[relayKey{identity.Hash, identity.Source}] = true
+		}
+	}
+	return live, direct
+}
+
+// staleCure tells a stored treatment that does nothing in the running configuration: its server
+// is not live, or it is a detour through a relay the build does not take (plan's applyRelay): the
+// server itself, not live and reached directly in the source the treatment names, or connected
+// through another server by a treatment of its own (detoured: a chain). A detour of 0.8.13 names
+// no relay: only its own server tells.
+func staleCure(cure model.Cure, live map[cureKey]bool, direct map[relayKey]bool, detoured func(hash string) bool) bool {
+	if !live[cureKey{cure.Hash, cure.Via}] {
+		return true
+	}
+	if cure.Kind != model.CureDetour || cure.Relay == "" {
+		return false
+	}
+	return cure.Relay == cure.Hash || !direct[relayKey{cure.Relay, cure.Through}] || detoured(cure.Relay)
+}
+
+// relayOfOthers tells a live server another one is connected through by its treatment.
+func relayOfOthers(stable map[string]detect.Identity, tag string) bool {
+	for other, identity := range stable {
+		if other != tag && identity.Cure != nil && identity.Cure.Kind == model.CureDetour && identity.Cure.Relay == tag {
+			return true
+		}
+	}
+	return false
 }
 
 // SuggestMask looks for a whitelisted SNI that lifts a limit on a server, on demand. One scan runs

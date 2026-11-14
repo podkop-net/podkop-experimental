@@ -179,6 +179,12 @@ func TestSetCureDetour(t *testing.T) {
 	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "detour", "", "", "chained").State, "a way with a detour of its own: a chain")
 	require.Equal(t, CureInvalid, s.SetCure(ctx, "srv", "record_fragment", "", "", "px1").State, "a way is only for a detour")
 	require.Equal(t, CureViaDetour, s.SetCure(ctx, "srvVia", "detour", "", "", "px1").State, "a server that goes another way already")
+	// a server another one goes through: a detour of it would make a chain
+	s.liveStable["rider"] = detect.Identity{Hash: "h9", Source: "own", Cure: &detect.Cure{Kind: model.CureDetour, Through: "relay", Relay: "px1"}}
+	require.Equal(t, CureInvalid, s.SetCure(ctx, "px1", "detour", "", "", "own2").State, "a relay of another server")
+	require.Equal(t, CureOK, s.SetCure(ctx, "px1", "record_fragment", "", "", "").State, "another treatment of a relay")
+	delete(s.liveStable, "rider")
+	require.NoError(t, os.WriteFile(path, []byte("config settings 'settings'\n\toption config_version '2'\n"), 0o600))
 
 	require.Equal(t, CureOK, s.SetCure(ctx, "srv", "detour", "", "", "px1").State, "a server of another source")
 	stored := cureByHash(parseFile(t, path), "h1", "")
@@ -196,8 +202,9 @@ func TestSetCureDetour(t *testing.T) {
 	require.Equal(t, "h5", stored.Get("relay"))
 }
 
-// A detour whose relay server is not live is stale, as one whose own server is not; a detour of
-// 0.8.13 (no relay) is stale only by its own server.
+// A detour whose relay server is not live is stale, as one whose own server is not, and so is one
+// whose relay is connected through another server itself; a detour of 0.8.13 (no relay) is stale
+// only by its own server. What the count counts is what "Remove them" removes.
 func TestStaleDetour(t *testing.T) {
 	s, path := liveSupervisor(t, &fakeInstance{})
 	content := "config settings 'settings'\n\toption config_version '2'\n" +
@@ -210,14 +217,40 @@ func TestStaleDetour(t *testing.T) {
 	settings, err := model.Load(parsed)
 	require.NoError(t, err)
 	require.Equal(t, "h5", settings.Cures[0].Relay)
-	require.Equal(t, 1, staleCures(settings, s.liveStable), "the relay of h4 is gone")
+	require.Equal(t, 2, staleCures(settings, s.liveStable), "the relay of h4 is gone, that of h1 (h5) is connected through another server itself")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	require.Equal(t, CureOK, s.DropStaleCures(ctx).State)
 	left := parseFile(t, path)
-	require.Len(t, left.SectionsOfType("cure"), 2)
+	require.Len(t, left.SectionsOfType("cure"), 1)
 	require.Nil(t, cureByHash(left, "h4", ""))
+	require.Nil(t, cureByHash(left, "h1", ""))
+	require.NotNil(t, cureByHash(left, "h5", ""), "a detour of 0.8.13 whose server is live")
+}
+
+// A detour through a relay is stale when the build leaves it off: the relay is the server itself,
+// is not live in the source the treatment names, or is connected through another server itself.
+func TestStaleRelay(t *testing.T) {
+	stable := map[string]detect.Identity{
+		"x":  {Hash: "hx", Source: "own"},
+		"r":  {Hash: "hr", Source: "relay"},
+		"r2": {Hash: "hr2", Source: "relay"},
+	}
+	settingsOf := func(cures string) *model.Config {
+		parsed, err := uci.Parse([]byte("config settings 'settings'\n\toption config_version '2'\n" + cures))
+		require.NoError(t, err)
+		settings, err := model.Load(parsed)
+		require.NoError(t, err)
+		return settings
+	}
+	relay := func(hash, through, relay string) string {
+		return "\nconfig cure\n\toption hash '" + hash + "'\n\toption kind 'detour'\n\toption through '" + through + "'\n\toption relay '" + relay + "'\n"
+	}
+	require.Equal(t, 0, staleCures(settingsOf(relay("hx", "relay", "hr")), stable), "a relay live in its source")
+	require.Equal(t, 1, staleCures(settingsOf(relay("hx", "relay", "hx")), stable), "the server itself")
+	require.Equal(t, 1, staleCures(settingsOf(relay("hx", "other", "hr")), stable), "a relay not in the source named")
+	require.Equal(t, 1, staleCures(settingsOf(relay("hx", "relay", "hr")+relay("hr", "relay", "hr2")), stable), "a relay connected through another one")
 }
 
 // A mask and a split of the hello are refused for a server whose handshake is no TLS over TCP:

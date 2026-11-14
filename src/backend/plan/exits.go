@@ -351,11 +351,9 @@ func (b *builder) addServer(section *model.Section, server sourceServer, via str
 			return "", err
 		}
 	}
-	// a server whose link or JSON already carries spoof, or a cure that slipped through, must not
-	// reach a proxy detour: the engine fails every connection of it (it needs its own socket)
-	if err := b.rejectSpoofThrough(tag, outbound, through); err != nil {
-		return "", err
-	}
+	// a server whose link or JSON already carries spoof, or a cure that slipped through, reaches a
+	// proxy detour without it: the engine would fail every connection of it (it needs its own socket)
+	b.dropSpoofThrough(tag, outbound, through)
 	b.outbounds = append(b.outbounds, outbound)
 	if server.link != "" {
 		b.links = append(b.links, Link{Section: section.Name, Name: tag, Tag: tag, Text: server.link})
@@ -458,8 +456,18 @@ func jsonDetour(source *model.Source, servers []sourceServer) string {
 	return strings.TrimSpace(name)
 }
 
+// detoursItself tells a server of a source whose own treatment (of its direct use) connects it
+// through another server.
+func (b *builder) detoursItself(server sourceServer) bool {
+	raw, _ := json.Marshal(server.outbound)
+	cure := b.config.Cure(serverid.Canonical(raw), "")
+	return cure != nil && cure.Kind == model.CureDetour
+}
+
 // viaTag is the outbound the servers of a row connect through: the one server of the
-// source, or a URL test of its servers ("<source>-best").
+// source, or a URL test of its servers ("<source>-best"). Inside a treatment of 0.8.13
+// (detouring), the servers of the source that are treated to go through another server
+// themselves are left out ("<source>-relays" when some are).
 func (b *builder) viaTag(rule string, name string, rowSource string) (string, error) {
 	rule = b.names.RuleText(rule)
 	if name == rowSource {
@@ -486,17 +494,35 @@ func (b *builder) viaTag(rule string, name string, rowSource string) (string, er
 		return "", nil
 	}
 	var tags []string
+	left := 0
 	for _, server := range servers {
+		if b.detouring && b.detoursItself(server) {
+			// the way of a treatment written by 0.8.13 (it names no relay, only this source) is
+			// never a server its own treatment connects through another one: that would be a
+			// chain or a loop, and building it here without its treatment would take the
+			// treatment from its other uses too (they share its tag)
+			left++
+			continue
+		}
 		tag, err := b.addServer(&model.Section{Name: name}, server, "", "")
 		if err != nil {
 			return "", err
 		}
 		tags = append(tags, tag)
 	}
+	if len(tags) == 0 {
+		b.warnOnce("rule ", rule, ": every server of the source ", b.names.SourceText(name), " is connected through another one by a treatment of its own: a treatment through it is left off")
+		return "", nil
+	}
 	if len(tags) == 1 {
 		return tags[0], nil
 	}
-	tag := b.claim(b.names.Source(name)+"-best", "best\x00"+name)
+	label, owner := b.names.Source(name)+"-best", "best\x00"+name
+	if left > 0 {
+		// not all the servers of the source: a group of its own, the rows through the source keep theirs
+		label, owner = b.names.Source(name)+"-relays", "relays\x00"+name
+	}
+	tag := b.claim(label, owner)
 	if !b.groups[tag] {
 		b.groups[tag] = true
 		b.addURLTest(tag, tags, nil)
@@ -505,9 +531,9 @@ func (b *builder) viaTag(rule string, name string, rowSource string) (string, er
 	return tag, nil
 }
 
-// applyCure sets the treatment of a cure on the server's TLS; rejectSpoofThrough (called next)
-// fails the build if a spoof cure landed on a proxy detour. A server with no TLS gets a warning
-// and no change — a cure needs a TLS handshake to act on.
+// applyCure sets the treatment of a cure on the server's TLS; dropSpoofThrough (called next)
+// leaves a spoof off a proxy detour. A server with no TLS gets a warning and no change — a cure
+// needs a TLS handshake to act on.
 func (b *builder) applyCure(tag string, outbound *object, cure *model.Cure, through string) error {
 	value, _ := outbound.get("tls")
 	tls, isObject := value.(*object)
@@ -536,10 +562,10 @@ func (b *builder) applyCure(tag string, outbound *object, cure *model.Cure, thro
 // (a detour cure) through that other server: the outbound of the relay the cure names, reached
 // directly, becomes the detour of the server's outbound (applyRelay), the server's tag and identity
 // unchanged. A cure written by 0.8.13 names no relay, only its source: the server goes through the
-// best server of that source, as a row with "via" would. The cure is keyed by the direct use, so a
-// detoured use never takes it. Applied inside another detour cure (the source it goes through has a
-// server with a detour cure of its own) it could close a loop, so it is left off there with a
-// warning; so is a detour of 0.8.13 through the server's own source (viaTag).
+// best server of that source, as a row with "via" would, of those of its servers that are not
+// treated to go through another server themselves (viaTag: a chain or a loop otherwise, whatever
+// the order of the build); a detour of 0.8.13 through the server's own source is left off. The
+// cure is keyed by the direct use, so a detoured use never takes it.
 func (b *builder) applyDetour(section *model.Section, tag string, server sourceServer, outbound *object, cure *model.Cure) error {
 	if b.detouring {
 		b.warnOnce("server ", tag, ": its treatment connects it through another source, but it is itself the way of a treated server: left off here, so no loop is made")
@@ -601,29 +627,30 @@ func (b *builder) applyRelay(tag string, outbound *object, cure *model.Cure) err
 	return nil
 }
 
-// rejectSpoofThrough fails the build when a server reached through a proxy carries tls.spoof: it
+// dropSpoofThrough leaves tls.spoof off a server reached through a proxy, with a warning: it
 // forges the first ClientHello on the server's own socket (common/tls of the engine), which a
-// proxy detour does not give, so every connection of the outbound would fail. An
-// interface gives a real socket and is allowed; a direct server (through == "") is allowed;
-// record_fragment is carried through a detour and is not checked. The hard error (not a warning)
-// is what lets the dashboard rely on spoof being impossible through a detour — set_cure refuses
-// to store such a cure, so this fires only on a link or outbound JSON that carries it by hand.
-func (b *builder) rejectSpoofThrough(tag string, outbound *object, through string) error {
+// proxy detour does not give, so every connection of the outbound would fail. An interface gives
+// a real socket and keeps it; a direct server (through == "") keeps it; record_fragment is
+// carried through a detour and is not touched. Only that use goes without it (the outbound
+// reached through a proxy is a copy), so spoof is never on a proxy detour and one server does not
+// stop the whole configuration: set_cure refuses such a cure, so this meets a link or an outbound
+// JSON that carries spoof by hand, or a cure stored for a way that has become a proxy since.
+func (b *builder) dropSpoofThrough(tag string, outbound *object, through string) {
 	if through == "" {
-		return nil
+		return
 	}
 	if source := b.config.Source(through); source != nil && source.Type == "interface" {
-		return nil
+		return
 	}
 	value, _ := outbound.get("tls")
 	tls, isObject := value.(*object)
 	if !isObject {
-		return nil
+		return
 	}
 	if spoof, _ := tls.get("spoof"); spoof != nil && spoof != "" {
-		return E.New("server ", tag, ": tls.spoof does not work through a proxy, only directly or through an interface (it needs the server's own connection)")
+		tls.remove("spoof")
+		b.warnOnce("server ", tag, ": tls.spoof does not work through a proxy, only directly or through an interface (it needs the server's own connection): it is left off here")
 	}
-	return nil
 }
 
 // sourceServers are the servers of a source in its order, decoded once.

@@ -112,13 +112,16 @@ func TestExitCureDetour(t *testing.T) {
 	require.Equal(t, before, outTag(result, "Own"), "its tag and identity stay")
 	require.Equal(t, own, result.Tags.Outbounds["Own"].StableHash)
 
-	// the relay treated to go back through own: left off inside the detour, no loop
+	// the relay treated to go back through own: it is no way of a treatment, the only server of
+	// relay, so neither goes through the other (no loop), as a relay detoured itself is not taken
+	// by a treatment that names it (TestExitCureRelay)
 	relayHash := result.Tags.Outbounds["Relay"].StableHash
 	result, err = buildRules(t, base+detour(own, "relay")+detour(relayHash, "own"), nil)
 	require.NoError(t, err)
 	_, outbounds = outboundsOf(t, result)
-	require.Equal(t, "Relay", outbounds["Own"].Detour)
+	require.Empty(t, outbounds["Own"].Detour)
 	require.Empty(t, outbounds["Relay"].Detour, "no loop")
+	require.Contains(t, strings.Join(result.Warnings, "\n"), "is connected through another one by a treatment of its own")
 
 	// through its own source: left off
 	result, err = buildRules(t, base+detour(own, "own"), nil)
@@ -202,32 +205,94 @@ func TestExitCureRelay(t *testing.T) {
 	}
 }
 
-// TestExitCureThroughDetourRejected fails the build when a spoof cure lands on a server
-// reached through a proxy: it needs the server's own socket, which a detour does not give.
-func TestExitCureThroughDetourRejected(t *testing.T) {
+// A detour of 0.8.13 (no relay) through a source leaves out the servers of that source treated to
+// go through another server themselves: whatever the order of the rules, they keep that treatment
+// for their other uses, and the treated server never goes through them (a chain, or a loop).
+func TestExitCureLegacyDetourOrder(t *testing.T) {
+	t.Parallel()
+	sources := "\nconfig source 'own'\n\toption type 'links'\n\tlist link 'vless://u@own.example:443?security=reality#Own'\n" +
+		"\nconfig source 'relay'\n\toption type 'links'\n" +
+		"\tlist link 'vless://u@y.example:443?security=reality#Y'\n" +
+		"\tlist link 'vless://u@z.example:443?security=reality#Z'\n" +
+		"\nconfig source 'far'\n\toption type 'links'\n\tlist link 'vless://u@w.example:443?security=reality#W'\n"
+	ownRule, relayRule := ruleText("link", row("server", "own")), ruleText("yt", row("server", "relay"))
+	// the tag of a server reached directly; server "" for the one server of a source (TagOf.Server)
+	tagOf := func(result *Result, source string, server string) string {
+		for tag, info := range result.Tags.Outbounds {
+			if info.Source == source && info.Server == server && info.Via == "" {
+				return tag
+			}
+		}
+		t.Fatalf("no tag of %s %q in %v", source, server, result.Tags.Outbounds)
+		return ""
+	}
+	result, err := buildRules(t, sources+ownRule+relayRule+ruleText("w", row("server", "far")), nil)
+	require.NoError(t, err)
+	own, y, z, w := tagOf(result, "own", ""), tagOf(result, "relay", "Y"), tagOf(result, "relay", "Z"), tagOf(result, "far", "")
+	detour := func(tag string, through string) string {
+		return "\nconfig cure\n\toption hash '" + result.Tags.Outbounds[tag].StableHash + "'\n\toption kind 'detour'\n\toption through '" + through + "'\n"
+	}
+	cures := detour(own, "relay") + detour(y, "far")
+	for name, rules := range map[string]string{"treated first": ownRule + relayRule, "relays first": relayRule + ownRule} {
+		got, err := buildRules(t, sources+rules+cures, nil)
+		require.NoError(t, err, name)
+		_, outbounds := outboundsOf(t, got)
+		require.Equal(t, z, outbounds[own].Detour, name+": Own goes through Z, not through Y")
+		require.Equal(t, w, outbounds[y].Detour, name+": Y keeps its own treatment")
+		require.Empty(t, outbounds[z].Detour, name)
+	}
+}
+
+// TestExitSpoofThroughProxyLeftOff leaves tls.spoof off a server reached through a proxy, with a
+// warning, instead of failing the build: it needs the server's own socket, which a detour does not
+// give. The same server reached directly keeps it; record_fragment is carried through a detour.
+func TestExitSpoofThroughProxyLeftOff(t *testing.T) {
 	t.Parallel()
 	base := "\nconfig source 'own'\n\toption type 'links'\n\tlist link 'vless://u@own.example:443?security=reality#Own'\n" +
 		"\nconfig source 'relay'\n\toption type 'links'\n\tlist link 'vless://u@relay.example:443?security=reality#Relay'\n" +
 		ruleText("link", row("server", "own", "via relay"))
 	result, err := buildRules(t, base, nil)
 	require.NoError(t, err)
-	var tag string
-	var via TagOf
-	for candidate, info := range result.Tags.Outbounds {
-		if info.Source == "own" && info.Via == "relay" {
-			tag, via = candidate, info
+	viaTagOf := func(result *Result, source string) (string, TagOf) {
+		for candidate, info := range result.Tags.Outbounds {
+			if info.Source == source && info.Via == "relay" {
+				return candidate, info
+			}
 		}
+		t.Fatalf("no tag of %s through relay in %v", source, result.Tags.Outbounds)
+		return "", TagOf{}
 	}
-	require.NotEmpty(t, tag, "the server own routed through relay")
+	tag, via := viaTagOf(result, "own")
 	require.Len(t, via.StableHash, 24)
+	// a spoof cure stored for that way (set_cure refuses one: a row written by hand, or a way
+	// that has become a proxy since): left off there, and the settings are built
 	spoofCure := "\nconfig cure\n\toption hash '" + via.StableHash + "'\n\toption via 'relay'\n\toption kind 'spoof'\n\toption sni 'packagist.org'\n"
-	_, err = buildRules(t, base+spoofCure, nil)
-	require.Error(t, err)
+	result, err = buildRules(t, base+spoofCure, nil)
+	require.NoError(t, err)
+	require.Nil(t, tlsOf(t, result, tag)["spoof"])
+	require.Contains(t, strings.Join(result.Warnings, "\n"), "tls.spoof does not work through a proxy")
 	// record_fragment is carried through a detour and is allowed
 	rfCure := "\nconfig cure\n\toption hash '" + via.StableHash + "'\n\toption via 'relay'\n\toption kind 'record_fragment'\n"
 	result, err = buildRules(t, base+rfCure, nil)
 	require.NoError(t, err)
 	require.Equal(t, true, tlsOf(t, result, tag)["record_fragment"])
+
+	// an outbound JSON that carries spoof itself keeps it where it is reached directly, and goes
+	// without it through the proxy
+	jsonSource := "\nconfig source 'js'\n\toption label 'js'\n\toption type 'json'\n\toption outbound_json '{\"type\":\"vless\",\"server\":\"j.example\",\"server_port\":443,\"uuid\":\"6f1c9a0e-3b52-4c1e-9a55-2d4a1b0f7c11\",\"tls\":{\"enabled\":true,\"server_name\":\"j.example\",\"spoof\":\"packagist.org\"}}'\n" +
+		ruleText("first", row("server", "js")) + ruleText("second", row("server", "js", "via relay"))
+	result, err = buildRules(t, base+jsonSource, nil)
+	require.NoError(t, err)
+	direct := ""
+	for candidate, info := range result.Tags.Outbounds {
+		if info.Source == "js" && info.Via == "" {
+			direct = candidate
+		}
+	}
+	require.NotEmpty(t, direct)
+	proxied, _ := viaTagOf(result, "js")
+	require.Equal(t, "packagist.org", tlsOf(t, result, direct)["spoof"])
+	require.Nil(t, tlsOf(t, result, proxied)["spoof"])
 }
 
 // decodeTestLink decodes a link of a test: the host is the server, the name after # the tag,
