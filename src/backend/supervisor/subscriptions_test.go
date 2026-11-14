@@ -295,6 +295,47 @@ func TestSubscriptionKeptOffDownloads(t *testing.T) {
 	require.NotContains(t, string(s.current.result.Config), "skip")
 }
 
+// A source marked or unmarked alone changes nothing in the configuration: sing-box keeps
+// running, and the engine is told the servers kept off the downloads all the same.
+func TestSkipDownloadsAloneReachesTheEngine(t *testing.T) {
+	directory := t.TempDir()
+	fake, system := &fakeEngine{refuse: map[string]error{}}, new(recorder)
+	source := &provider{body: "vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\n"}
+	options := Options{
+		SettingsPath: filepath.Join(directory, "podkop"), RuleSetDir: filepath.Join(directory, "rulesets"),
+		StagingDir: filepath.Join(directory, "candidate"), StatePath: filepath.Join(directory, "state"),
+		ConfigDir: filepath.Join(directory, "run"), ReadyTimeout: time.Second, System: system, Engine: fake,
+		SubscriptionDir: filepath.Join(directory, "subscriptions"), Download: source.download,
+	}
+	plain := subscriptionSettings(directory, "all")
+	marked := strings.Replace(plain, "\toption update_interval '1h'\n", "\toption update_interval '1h'\n\toption skip_downloads '1'\n", 1)
+	require.NotEqual(t, plain, marked)
+	require.NoError(t, os.WriteFile(options.SettingsPath, []byte(plain), 0o644))
+	s := New(options)
+	require.True(t, s.Boot().OK)
+	downloadNow(t, s)
+	fake.access.Lock()
+	require.Empty(t, fake.excluded)
+	builds := len(fake.built)
+	fake.access.Unlock()
+
+	require.NoError(t, os.WriteFile(options.SettingsPath, []byte(marked), 0o644))
+	result := s.Apply()
+	require.True(t, result.OK, result.Message)
+	require.Contains(t, result.Message, "sing-box keeps running")
+	fake.access.Lock()
+	require.Equal(t, []string{"prov1: NL 1"}, fake.excluded)
+	require.Len(t, fake.built, builds, "nothing is built for it")
+	fake.access.Unlock()
+
+	require.NoError(t, os.WriteFile(options.SettingsPath, []byte(plain), 0o644))
+	result = s.Apply()
+	require.True(t, result.OK, result.Message)
+	fake.access.Lock()
+	defer fake.access.Unlock()
+	require.Empty(t, fake.excluded)
+}
+
 // linkRoute is the way through the proxy link of the settings of the tests: the source main_link
 // (podkop migrate) has no label, and its tag is the name the page gives it.
 const linkRoute = "socks5 link"
@@ -347,7 +388,7 @@ func TestSubscriptionRoutes(t *testing.T) {
 	// the plan of the next download: by the downloads that brought a list (0.7 s to the first
 	// byte, 0.8 s in all: the floors), the direct way beside the server that brought it now
 	plan, first := s.planOf(subscription.AddressKey("https://sub.example/api/sub/TOKEN"))
-	require.Equal(t, subscription.Plan{Wait: 2 * time.Second, Body: 2 * time.Second, Total: 5 * time.Second, Together: true}, plan)
+	require.Equal(t, subscription.Plan{Wait: 2 * time.Second, Body: 2 * time.Second, Total: 5 * time.Second, Stall: 3 * time.Second, Together: true}, plan)
 	require.Equal(t, "prov1: NL 2", first)
 
 	// nothing reaches it: the list there was stays, the error is told with its code (the

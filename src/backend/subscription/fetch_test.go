@@ -233,6 +233,37 @@ func TestDownloadWaitsForASlowProvider(t *testing.T) {
 	require.GreaterOrEqual(t, tries[0].FirstByte, time.Second)
 }
 
+// A plan without Total (the default one) starts no way for the age of a try that goes on: a
+// body that comes slowly, every pause shorter than Body, is waited for. With a Total shorter
+// than the body takes, the next way starts beside it.
+func TestDownloadWithoutTotal(t *testing.T) {
+	var asked atomic.Int32
+	address, reach := provider(t, true, func(writer http.ResponseWriter, request *http.Request) {
+		asked.Add(1)
+		writer.WriteHeader(http.StatusOK)
+		writer.(http.Flusher).Flush()
+		for range 8 {
+			_, _ = writer.Write([]byte("vless://u@a.example:443#A\n"))
+			writer.(http.Flusher).Flush()
+			time.Sleep(150 * time.Millisecond)
+		}
+	})
+	routes := []Route{{Name: "direct", Direct: true, Dial: reach}, {Name: "px", Dial: reach}}
+	require.Zero(t, DefaultPlan.Total)
+	answer, tries, err := Download(context.Background(), address, nil, routes, Plan{Wait: 400 * time.Millisecond, Body: 400 * time.Millisecond}, nil)
+	require.NoError(t, err)
+	require.Equal(t, "direct", answer.Route)
+	require.Len(t, tries, 1)
+	require.Equal(t, int32(1), asked.Load())
+
+	asked.Store(0)
+	answer, tries, err = Download(context.Background(), address, nil, routes, Plan{Wait: 400 * time.Millisecond, Body: 400 * time.Millisecond, Total: 500 * time.Millisecond}, nil)
+	require.NoError(t, err)
+	require.Equal(t, "direct", answer.Route, "the first way went on")
+	require.Len(t, tries, 2)
+	require.Equal(t, int32(2), asked.Load())
+}
+
 // A body that stops on the way (a flow frozen after 16 KB) is left soon: the next way starts
 // after the plan's wait in the body and brings the list.
 func TestDownloadLeavesAStoppedBody(t *testing.T) {
@@ -262,6 +293,66 @@ func TestDownloadLeavesAStoppedBody(t *testing.T) {
 	require.Equal(t, []string{"15"}, tries[0].Failure.Args)
 	require.Positive(t, tries[0].Bytes)
 	require.Positive(t, reports.Load())
+}
+
+// A body that paused for longer than Body but less than Stall when another way brought the list
+// is not a fault of its way: Body started the next way, the first is only told it was not needed.
+func TestDownloadPausedBodyIsNotAtFault(t *testing.T) {
+	address, reach := provider(t, true, func(writer http.ResponseWriter, request *http.Request) {
+		_, _ = writer.Write([]byte("vless://u@a.example:443#A\n"))
+	})
+	paused := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Length", "100000")
+		_, _ = writer.Write([]byte(strings.Repeat("vless://u@a.example:443#A\n", 600)))
+		writer.(http.Flusher).Flush()
+		<-request.Context().Done()
+	}))
+	t.Cleanup(paused.Close)
+	slow := func(ctx context.Context, network string, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, network, paused.Listener.Addr().String())
+	}
+	require.Equal(t, 3*time.Second, DefaultPlan.Stall)
+	answer, tries, err := Download(context.Background(), address, nil, []Route{{Name: "direct", Direct: true, Dial: slow}, {Name: "px", Dial: reach}},
+		Plan{Wait: 5 * time.Second, Body: 300 * time.Millisecond, Stall: 2 * time.Second}, nil)
+	require.NoError(t, err)
+	require.Equal(t, "px", answer.Route)
+	require.Equal(t, PhaseCanceled, tries[0].Phase)
+	require.Equal(t, "canceled", tries[0].Failure.Code)
+}
+
+// A try the end of the download's context cuts (its deadline, or a caller that gave up) is Cut:
+// it says nothing of its way. A try that failed on its own before it is not.
+func TestDownloadCutByTheCaller(t *testing.T) {
+	address := "https://sub.example.com/api/sub/" + token
+	slow := func(ctx context.Context, _ string, _ string) (net.Conn, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	for _, way := range []string{"deadline", "cancel"} {
+		t.Run(way, func(t *testing.T) {
+			var ctx context.Context
+			var cancel context.CancelFunc
+			if way == "cancel" {
+				ctx, cancel = context.WithCancel(context.Background())
+				time.AfterFunc(300*time.Millisecond, cancel)
+			} else {
+				ctx, cancel = context.WithTimeout(context.Background(), 300*time.Millisecond)
+			}
+			defer cancel()
+			routes := []Route{{Name: "direct", Direct: true, Dial: refused}, {Name: "px", Dial: slow}}
+			_, tries, err := Download(ctx, address, nil, routes, Plan{Wait: time.Minute, Body: time.Minute}, nil)
+			require.Error(t, err)
+			require.Len(t, tries, 2)
+			require.Equal(t, PhaseFailed, tries[0].Phase)
+			require.Equal(t, "dns", tries[0].Failure.Code)
+			require.False(t, tries[0].Cut, "it failed on its own")
+			require.True(t, tries[1].Cut, tries[1].Phase)
+			if way == "deadline" {
+				require.Equal(t, PhaseFailed, tries[1].Phase)
+				require.Equal(t, "timeout", tries[1].Failure.Code)
+			}
+		})
+	}
 }
 
 // A way that is refused starts the next one at once; ways the last download found broken are

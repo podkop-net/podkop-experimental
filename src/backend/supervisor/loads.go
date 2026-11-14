@@ -75,7 +75,8 @@ func (s *Supervisor) remember(key string, tries []subscription.Try) {
 	}
 	for _, item := range tries {
 		switch {
-		case item.Route == "direct":
+		case item.Route == "direct" && !item.Cut:
+			// a try the end of the download's context cut says nothing of the way
 			record.directFailed = item.Phase != subscription.PhaseDone
 		}
 		if item.Phase == subscription.PhaseDone {

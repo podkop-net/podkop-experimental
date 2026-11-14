@@ -31,8 +31,9 @@ type (
 // history of the address plans them (subscription.Plan); these bound the whole. A download in
 // the background has 2 minutes, nobody waits for it; Load of the page a minute, as a job the
 // page asks about (LuCI waits for a call 20 s); Check of a group, a call itself, what LuCI
-// waits less the rest of the call. The ways through proxies are the fastest few the URL tests
-// found.
+// waits less the rest of the call. The ways are those the downloader of the lists orders
+// (routes); without it, directly and then the fastest few servers the URL tests found
+// (downloadProxies).
 const (
 	downloadBudget     = 2 * time.Minute
 	downloadProxies    = 8
@@ -344,7 +345,8 @@ func (s *Supervisor) routes(proxies int, first string, host string) ([]subscript
 
 // recordTries tells the downloader of the lists what the tries of a download from host came to:
 // a way that brought the list, and one that failed for a fault of its own (not one another way
-// made needless, nor an answer of the provider itself).
+// made needless, nor one the end of the download's context cut — a search that found its mask,
+// a page that gave up, a budget spent —, nor an answer of the provider itself).
 func recordTries(live Instance, host string, routes []subscription.Route, tries []subscription.Try) {
 	if live == nil {
 		return
@@ -361,7 +363,7 @@ func recordTries(live Instance, host string, routes []subscription.Route, tries 
 		switch {
 		case item.Phase == subscription.PhaseDone:
 			live.RecordDownload(plan.ListsHTTPClient, host, tag, nil, item.Took, item.Bytes)
-		case item.Phase == subscription.PhaseFailed && item.Failure != nil && !item.Failure.Final() && item.Failure.Code != "canceled":
+		case item.Phase == subscription.PhaseFailed && item.Failure != nil && !item.Failure.Final() && item.Failure.Code != "canceled" && !item.Cut:
 			live.RecordDownload(plan.ListsHTTPClient, host, tag, item.Failure, item.Took, item.Bytes)
 		}
 	}

@@ -1883,6 +1883,8 @@ func (s *Supervisor) apply(force bool) Result {
 		// the path of the export may be what changed
 		s.storeConfig(next)
 		s.current = &running{settings: next.settings, result: next.result, instance: current.instance}
+		// so may the sources kept off the downloads: they are not in the configuration
+		s.excludeDownloads(next.settings, next.result)
 		err = s.surround(previousFirewall)
 		if err != nil {
 			s.log("error", err)

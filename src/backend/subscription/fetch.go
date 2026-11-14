@@ -94,22 +94,34 @@ func fail(code string, final bool, text string, args ...string) *Failure {
 // Plan is how the ways to the provider are started. The first way starts at once; the next
 // one starts beside those under way when a try fails, when no try showed progress for Wait
 // (none has the headers yet) or Body (one gets the body), and when the youngest try is Total
-// old. A try under way is not stopped for it: the first to bring the list wins. The waits
-// come from the downloads of the subscription before (the supervisor keeps them): a slow
-// provider is waited for, and a broken way is left soon.
+// old (a plan without Total has no such limit). A try under way is not stopped for it: the
+// first to bring the list wins. The waits come from the downloads of the subscription before
+// (the supervisor keeps them): a slow provider is waited for, and a broken way is left soon.
 type Plan struct {
 	Wait  time.Duration
 	Body  time.Duration
 	Total time.Duration
+	// Stall is how long the body of a way has paused, when another way brings the list first,
+	// for the pause to be a fault of its way (stalled), Body at least: Body starts the next way,
+	// Stall blames the first
+	Stall time.Duration
 	// Together starts the second way beside the first: the first brought no list the last
 	// time
 	Together bool
 }
 
-// DefaultPlan is the plan of a subscription with no downloads before: 5 s is what a way had
-// before the plan, 3 s in the body a choice (a body that stopped on the way does not start
-// again), 10 s what a way had in the background.
-var DefaultPlan = Plan{Wait: 5 * time.Second, Body: 3 * time.Second, Total: 10 * time.Second}
+// DefaultPlan is the plan of an address with no downloads before (a subscription after the
+// start of the backend, every mask list): the plan of the engine's downloader of the lists,
+// from the delays of real ways (1200 tries a client on a Filogic 820, an MT7621 and an x86
+// server; directly and through REALITY, Trojan, Shadowsocks 2022 and hysteria2 servers near
+// and far): Wait 4 s, the slowest answer of a way that worked (its headers after 3.78 s)
+// rounded up; Body 1 s, the longest pause in a body (0.94 s) rounded up; no Total, it never
+// decided. A provider builds its answer where those were files: one slower than Wait gets
+// the next way beside it (the first to bring the list wins), and its own downloads give the
+// waits of the next one. Stall 3 s, the pause the engine's downloader allows a body past 1 MiB
+// (LargeBody): a way whose body paused for less, when another one came first, is not held to
+// be at fault for it.
+var DefaultPlan = Plan{Wait: 4 * time.Second, Body: time.Second, Stall: 3 * time.Second}
 
 // The hard limits of a try, past which its way failed: the connection (sing-box's own limit
 // of direct-out), the TLS handshake (sing-box's TCP timeout), and a time with no progress
@@ -149,6 +161,9 @@ type Try struct {
 	Bytes     int64
 	// Failure is why it failed; none when it brought the list or is under way.
 	Failure *Failure
+	// Cut tells a try the end of the download's context stopped (its deadline, or a caller
+	// that gave up), not a limit of its own nor another way: it says nothing of its way.
+	Cut bool
 }
 
 var (
@@ -214,12 +229,12 @@ func (d *download) run(ctx context.Context, report func([]Try)) (*Answer, []Try,
 			d.running--
 			if finished.answer != nil {
 				cancel(errSuperseded)
-				return finished.answer, d.ended(report, d.superseded), nil
+				return finished.answer, d.ended(report, d.superseded, false), nil
 			}
 			failure := finished.result()
 			if failure.final {
 				cancel(errSuperseded)
-				return nil, d.ended(report, d.superseded), failure
+				return nil, d.ended(report, d.superseded, false), failure
 			}
 			if failure.Code == "status" {
 				// a status of the provider: one more way, then it is the answer
@@ -227,7 +242,7 @@ func (d *download) run(ctx context.Context, report func([]Try)) (*Answer, []Try,
 				status = providerStatus(failure)
 				if statuses >= 2 {
 					cancel(errSuperseded)
-					return nil, d.ended(report, d.superseded), status
+					return nil, d.ended(report, d.superseded, false), status
 				}
 			}
 			if d.next < len(d.ways) {
@@ -248,7 +263,7 @@ func (d *download) run(ctx context.Context, report func([]Try)) (*Answer, []Try,
 			for _, item := range d.tries {
 				item.stop(context.Cause(ctx))
 			}
-			tries := d.ended(report, expired)
+			tries := d.ended(report, expired, true)
 			if status != nil {
 				return nil, tries, d.statusOf(status, tries)
 			}
@@ -306,14 +321,15 @@ func (d *download) watch(ctx context.Context) {
 	if body {
 		wait = d.plan.Body
 	}
-	if idle >= wait || youngest >= d.plan.Total {
+	if idle >= wait || (d.plan.Total > 0 && youngest >= d.plan.Total) {
 		d.start(ctx)
 	}
 }
 
 // ended is the tries when the download ends: those still under way are told as they end
-// now (stopping is theirs to finish in their goroutines), and report is told them.
-func (d *download) ended(report func([]Try), as func(item *try, view Try) *Failure) []Try {
+// now (stopping is theirs to finish in their goroutines), and report is told them. cut tells
+// the end of the download's context ended it: those tries are Cut.
+func (d *download) ended(report func([]Try), as func(item *try, view Try) *Failure, cut bool) []Try {
 	tries := make([]Try, 0, len(d.tries))
 	for _, item := range d.tries {
 		view := item.view()
@@ -325,6 +341,7 @@ func (d *download) ended(report func([]Try), as func(item *try, view Try) *Failu
 			if view.Failure.Code == "canceled" {
 				view.Phase = PhaseCanceled
 			}
+			view.Cut = cut
 		}
 		tries = append(tries, view)
 	}
@@ -335,13 +352,13 @@ func (d *download) ended(report func([]Try), as func(item *try, view Try) *Failu
 }
 
 // superseded is why a try under way did not bring the list another way brought: a body that
-// stopped for longer than the plan waits in a body is a fault of its way; a try still waiting
-// for the provider is only slower (a slow provider is slow on every way).
+// stopped for longer than the plan's Stall (Body at least) is a fault of its way; a try still
+// waiting for the provider is only slower (a slow provider is slow on every way).
 func (d *download) superseded(item *try, view Try) *Failure {
 	item.access.Lock()
 	idle := time.Since(item.last)
 	item.access.Unlock()
-	if view.Phase == PhaseBody && idle >= d.plan.Body {
+	if view.Phase == PhaseBody && idle >= max(d.plan.Body, d.plan.Stall) {
 		kib := strconv.FormatInt((view.Bytes+512)/1024, 10)
 		return fail("stalled", false, "the transfer stopped at "+kib+" KB", kib)
 	}
@@ -472,6 +489,7 @@ type try struct {
 	finished  time.Duration
 	answer    *Answer
 	failure   *Failure
+	cut       bool
 }
 
 func (t *try) stop(cause error) {
@@ -508,15 +526,16 @@ func (t *try) view() Try {
 	if took == 0 {
 		took = time.Since(t.started)
 	}
-	return Try{Route: t.route.Name, Phase: t.phase, Started: t.started, Took: took, FirstByte: t.firstByte, Pause: t.pause, Bytes: t.bytes, Failure: t.failure}
+	return Try{Route: t.route.Name, Phase: t.phase, Started: t.started, Took: took, FirstByte: t.firstByte, Pause: t.pause, Bytes: t.bytes, Failure: t.failure, Cut: t.cut}
 }
 
-// end records what the try came to.
-func (t *try) end(answer *Answer, failure *Failure) {
+// end records what the try came to; cut tells it was stopped by the end of the download's
+// context.
+func (t *try) end(answer *Answer, failure *Failure, cut bool) {
 	t.access.Lock()
 	defer t.access.Unlock()
 	t.finished = time.Since(t.started)
-	t.answer, t.failure = answer, failure
+	t.answer, t.failure, t.cut = answer, failure, cut
 	switch {
 	case answer != nil:
 		t.phase = PhaseDone
@@ -529,10 +548,20 @@ func (t *try) end(answer *Answer, failure *Failure) {
 
 func (t *try) run(ctx context.Context, target *url.URL, header http.Header) {
 	answer, failure := t.ask(ctx, target, header)
+	cut := false
 	if failure != nil && ctx.Err() != nil {
 		failure = t.stopped(ctx, failure)
+		cut = byCaller(ctx)
 	}
-	t.end(answer, failure)
+	t.end(answer, failure, cut)
+}
+
+// byCaller tells a try stopped by the end of the download's context (its deadline, or a caller
+// that gave up), not by a limit of its own (errConnect, errStall) nor by another way that
+// brought the list (errSuperseded).
+func byCaller(ctx context.Context) bool {
+	cause := context.Cause(ctx)
+	return !errors.Is(cause, errConnect) && !errors.Is(cause, errStall) && !errors.Is(cause, errSuperseded)
 }
 
 func (t *try) ask(ctx context.Context, target *url.URL, header http.Header) (*Answer, *Failure) {
