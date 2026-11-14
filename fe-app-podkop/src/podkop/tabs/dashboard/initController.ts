@@ -732,6 +732,32 @@ async function proxyLatency(tag: string): Promise<number> {
   return Number.isFinite(delay) && delay > 0 ? delay : 0;
 }
 
+// how many servers are tested at a time when a group answers nothing to a test of the group: as
+// many as a round of the URL test of the engine tests (urlTestConcurrency of its group)
+const LATENCY_TESTS_AT_ONCE = 10;
+
+// the Clash API types of tiles a test of latency says nothing of
+const NO_LATENCY = ['Direct', 'Block', 'Reject'];
+
+// latencyEach tests the servers each alone, in their order, LATENCY_TESTS_AT_ONCE at a time
+async function latencyEach(members: string[]): Promise<Record<string, number>> {
+  const results: Record<string, number> = {};
+  let next = 0;
+  const worker = async () => {
+    while (next < members.length) {
+      const member = members[next++];
+      results[member] = await proxyLatency(member);
+    }
+  };
+  await Promise.all(
+    Array.from(
+      { length: Math.min(LATENCY_TESTS_AT_ONCE, members.length) },
+      worker,
+    ),
+  );
+  return results;
+}
+
 // keepLatencyNow keeps the results of a test of these servers, replacing what an older test found
 function keepLatencyNow(results: Record<string, number>) {
   store.set({ latencyNow: { ...store.get().latencyNow, ...results } });
@@ -754,9 +780,9 @@ async function handleTestGroupLatency(tag: string, members: string[] = []) {
   if (Object.keys(found).length) {
     for (const member of members) results[member] = Number(found[member]) || 0;
   } else {
-    // a group in its own round answers nothing to a test of the group: each server alone
-    const delays = await Promise.all(members.map(proxyLatency));
-    members.forEach((member, index) => (results[member] = delays[index]));
+    // a group in its own round answers nothing to a test of the group: each server alone, as
+    // many at a time as a round of the group tests
+    Object.assign(results, await latencyEach(members));
   }
   keepLatencyNow(results);
   await fetchDashboardSections();
@@ -841,7 +867,9 @@ async function renderSectionsWidget() {
         if (section.withTagSelect) {
           return handleTestGroupLatency(
             tag,
-            section.outbounds.map((outbound) => outbound.code),
+            section.outbounds
+              .filter((outbound) => !NO_LATENCY.includes(outbound.type))
+              .map((outbound) => outbound.code),
           );
         }
 

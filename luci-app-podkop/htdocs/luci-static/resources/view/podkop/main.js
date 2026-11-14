@@ -3923,6 +3923,25 @@ async function proxyLatency(tag) {
   const delay = reply.success ? Number(reply.data?.delay) : 0;
   return Number.isFinite(delay) && delay > 0 ? delay : 0;
 }
+var LATENCY_TESTS_AT_ONCE = 10;
+var NO_LATENCY = ["Direct", "Block", "Reject"];
+async function latencyEach(members) {
+  const results = {};
+  let next = 0;
+  const worker = async () => {
+    while (next < members.length) {
+      const member = members[next++];
+      results[member] = await proxyLatency(member);
+    }
+  };
+  await Promise.all(
+    Array.from(
+      { length: Math.min(LATENCY_TESTS_AT_ONCE, members.length) },
+      worker
+    )
+  );
+  return results;
+}
 function keepLatencyNow(results) {
   store.set({ latencyNow: { ...store.get().latencyNow, ...results } });
 }
@@ -3939,8 +3958,7 @@ async function handleTestGroupLatency(tag, members = []) {
   if (Object.keys(found).length) {
     for (const member of members) results[member] = Number(found[member]) || 0;
   } else {
-    const delays = await Promise.all(members.map(proxyLatency));
-    members.forEach((member, index) => results[member] = delays[index]);
+    Object.assign(results, await latencyEach(members));
   }
   keepLatencyNow(results);
   await fetchDashboardSections();
@@ -4014,7 +4032,7 @@ async function renderSectionsWidget() {
         if (section.withTagSelect) {
           return handleTestGroupLatency(
             tag,
-            section.outbounds.map((outbound) => outbound.code)
+            section.outbounds.filter((outbound) => !NO_LATENCY.includes(outbound.type)).map((outbound) => outbound.code)
           );
         }
         return handleTestProxyLatency(tag);
