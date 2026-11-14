@@ -133,18 +133,26 @@ func listsClients(config *model.Config, usable func(*model.Section) bool) []any 
 }
 
 // NoDownloads are the tags of the outbounds the lists and the subscriptions must not go through:
-// the servers of the sources the settings keep off the downloads (skip_downloads), and the
-// servers reached through one of them. They change with the lists of the subscriptions, so the
-// supervisor gives them to the engine as it starts or swaps a configuration
-// (engine.ExcludeDownloads) instead of writing them into it.
+// the servers of the sources the settings keep off the downloads (skip_downloads), the servers
+// reached through one of them (the way of a row), and those a treatment connects through one of
+// them (a detour cure, by the key the build takes it by: the stable identity and the way). They
+// change with the lists of the subscriptions, so the supervisor gives them to the engine as it
+// starts or swaps a configuration (engine.ExcludeDownloads) instead of writing them into it.
 func NoDownloads(config *model.Config, tags Tags) []string {
 	skipped := func(name string) bool {
 		source := config.Source(name)
 		return source != nil && source.SkipDownloads
 	}
+	detourSkipped := func(of TagOf) bool {
+		if of.StableHash == "" {
+			return false
+		}
+		cure := config.Cure(of.StableHash, of.Via)
+		return cure != nil && cure.Kind == model.CureDetour && skipped(cure.Through)
+	}
 	var result []string
 	for tag, of := range tags.Outbounds {
-		if (of.Source != "" && skipped(of.Source)) || (of.Via != "" && skipped(of.Via)) {
+		if (of.Source != "" && skipped(of.Source)) || (of.Via != "" && skipped(of.Via)) || detourSkipped(of) {
 			result = append(result, tag)
 		}
 	}

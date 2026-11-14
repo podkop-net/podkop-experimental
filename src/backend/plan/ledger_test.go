@@ -236,4 +236,16 @@ func TestNoDownloads(t *testing.T) {
 	require.Equal(t, []string{"helper", "nl-1 via helper", "test: NL 1"}, NoDownloads(config, tags))
 	config.Sources[0].SkipDownloads, config.Sources[1].SkipDownloads = false, false
 	require.Empty(t, NoDownloads(config, tags))
+
+	// a server a treatment connects through a server of a source kept off: kept off too, by the
+	// key the build takes the treatment by (its identity and its way)
+	config.Sources[0].SkipDownloads = true
+	tags.Outbounds["nl-2"] = TagOf{Source: "nl", StableHash: "h2"}
+	tags.Outbounds["nl-3"] = TagOf{Source: "nl", StableHash: "h3"}
+	config.Cures = []model.Cure{
+		{Hash: "h2", Kind: model.CureDetour, Through: "test", Relay: "h1"},
+		{Hash: "h3", Kind: model.CureDetour, Through: "nl", Relay: "h2"},
+		{Hash: "h3", Via: "helper", Kind: model.CureDetour, Through: "test"},
+	}
+	require.Equal(t, []string{"nl-2", "test: NL 1"}, NoDownloads(config, tags))
 }
