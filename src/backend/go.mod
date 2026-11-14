@@ -201,3 +201,7 @@ replace github.com/sagernet/sing-box => github.com/podkop-net/sing-box v0.0.0-20
 // the fork podkop-engine builds with (its go.mod has it; a replace counts only in the
 // main module)
 replace github.com/sagernet/sing-vmess => github.com/FiyeroT/sing-vmess v0.2.9-pdk.2
+
+// the fork podkop-engine r26 builds with (its go.mod has it; a replace counts only in the main
+// module): Chrome's QUIC ClientHello in the order of the CPU, ChaCha20 first without AES hardware
+replace github.com/sagernet/quic-go => github.com/podkop-net/quic-go v0.61.0-sing-box-mod.12-pdk.1
