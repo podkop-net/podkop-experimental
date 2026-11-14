@@ -68,7 +68,7 @@ func (i *Instance) Swap(configuration []byte, swap Swap, limit int) (Swapped, er
 	}
 	// and again: a round of a group replaced, which stops only at the end of the swap, may have
 	// stored meanwhile what it found through the outbound a tag had before
-	history.forget(forgot.tags)
+	history.forget(forgot)
 	i.forgetDetect(forgot.tags)
 	i.dialers = next
 	return Swapped{Added: update.Added, Replaced: update.Replaced, Removed: update.Removed, Kept: update.Kept}, nil

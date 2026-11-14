@@ -103,6 +103,32 @@ func TestInstanceSwap(t *testing.T) {
 	require.ErrorIs(t, err, ErrClosed)
 }
 
+// A hot swap keeps what the downloads found of the selector of a rule whose servers changed: it
+// is the same way, as a start anew keeps it.
+func TestSwapKeepsTheDownloadsOfAGroup(t *testing.T) {
+	const host = "swap-keeps-downloads.example"
+	withLists := func(configuration []byte) []byte {
+		changed := strings.Replace(string(configuration), `"route":`, `"http_clients": [{"tag": "lists", "outbounds": ["direct-out", "yt-out"]}],
+  "route":`, 1)
+		require.NotEqual(t, string(configuration), changed)
+		return []byte(changed)
+	}
+	before := withLists(swapConfiguration(t, "DE 113d", "NL"))
+	instance, err := Build(before)
+	require.NoError(t, err)
+	require.NoError(t, instance.Start())
+	t.Cleanup(func() { instance.Close(10 * time.Second) })
+	instance.RecordDownload("lists", host, "yt-out", nil, 100*time.Millisecond, 1000)
+	ways, _ := instance.DownloadWays("lists", host)
+	require.Equal(t, []string{"yt-out", "direct-out"}, ways)
+
+	after := withLists(swapConfiguration(t, "DE 112d", "NL"))
+	_, err = instance.Swap(after, Swap{Put: pickOutbounds(t, after, "prov: DE 112d", "g-group", "yt-out"), Remove: []string{"prov: DE 113d"}}, 0)
+	require.NoError(t, err)
+	ways, _ = instance.DownloadWays("lists", host)
+	require.Equal(t, []string{"yt-out", "direct-out"}, ways, "the way that brought the list stays first")
+}
+
 // detectConfiguration is an instance a client reaches through its mixed inbound, every connection
 // through a selector and a server of the test; packetEncoding only tells one outbound from another.
 func detectConfiguration(t *testing.T, mixedPort int, serverPort int, packetEncoding string) []byte {

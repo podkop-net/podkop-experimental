@@ -83,9 +83,12 @@ func dialersOf(configuration []byte) map[string]dialer {
 // forgetting is what forgetChanged did: the tags it forgot and the results they had, and the
 // tags it gave the result of the tag they had before.
 type forgetting struct {
-	tags    []string
-	results map[string]*adapter.URLTestHistory
-	carried []string
+	tags []string
+	// downloads are the tags whose download memory was forgotten: not a group the next
+	// configuration keeps (its members change, it stays the way of its rule)
+	downloads []string
+	results   map[string]*adapter.URLTestHistory
+	carried   []string
 }
 
 // forgetChanged is called before a configuration starts: the results of the dialers that
@@ -125,6 +128,7 @@ func (h *sharedHistory) forgetChanged(next map[string]dialer) forgetting {
 		h.storage.DeleteURLTestHistory(tag)
 		if now, kept := next[tag]; !kept || !now.group {
 			h.downloads.Forget(tag)
+			done.downloads = append(done.downloads, tag)
 		}
 		done.tags = append(done.tags, tag)
 	}
@@ -148,10 +152,14 @@ func (h *sharedHistory) undo(done forgetting, started map[string]dialer) {
 	}
 }
 
-// forget drops the results of the tags.
-func (h *sharedHistory) forget(tags []string) {
-	for _, tag := range tags {
+// forget drops again what forgetChanged dropped (a round of a group replaced, or a download,
+// may have stored meanwhile what it found through the outbound a tag had before): the results
+// of its tags, and the download memory of those it forgot it of — not of a group kept.
+func (h *sharedHistory) forget(done forgetting) {
+	for _, tag := range done.tags {
 		h.storage.DeleteURLTestHistory(tag)
+	}
+	for _, tag := range done.downloads {
 		h.downloads.Forget(tag)
 	}
 }

@@ -40,6 +40,24 @@ func TestForgetChanged(t *testing.T) {
 	}
 }
 
+// A group whose members changed stays the way of its rule: what the downloads found of it is
+// kept, while a server that changed or went is forgotten.
+func TestForgetChangedKeepsTheDownloadsOfGroups(t *testing.T) {
+	shared := &sharedHistory{storage: urltest.NewHistoryStorage()}
+	shared.forgetChanged(dialersOf([]byte(`{"outbounds": [
+		{"type": "vless", "tag": "a", "server": "a.example"},
+		{"type": "vless", "tag": "b", "server": "b.example"},
+		{"type": "selector", "tag": "yt-out", "outbounds": ["a", "b"]}
+	]}`)))
+	done := shared.forgetChanged(dialersOf([]byte(`{"outbounds": [
+		{"type": "vless", "tag": "a", "server": "a.example"},
+		{"type": "vless", "tag": "c", "server": "c.example"},
+		{"type": "selector", "tag": "yt-out", "outbounds": ["a", "c"]}
+	]}`)))
+	require.ElementsMatch(t, []string{"b", "yt-out"}, done.tags)
+	require.Equal(t, []string{"b"}, done.downloads)
+}
+
 // The instances of the process share one history: a result found while one configuration
 // ran is there for the next, until the outbound it was found for changes.
 func TestInstancesShareHistory(t *testing.T) {
