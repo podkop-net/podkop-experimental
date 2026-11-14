@@ -110,7 +110,7 @@ func ServersOf(configuration []byte) ([]detect.Server, bool) {
 		}
 		server := detect.Server{Tag: head.Tag, Hash: hashOf(parsed.Outbounds[index]), Kind: head.kind(types), Detour: head.Detour,
 			TestInterval: intervals[head.Tag], Reality: head.reality(), LazyDial: head.lazyDial(), UpgradeInDial: head.upgradeInDial(),
-			Framed: head.framed(), DownloadLeg: head.downloadLeg(), Content: parsed.Outbounds[index]}
+			Framed: head.framed() || head.chunked(), DownloadLeg: head.downloadLeg(), Content: parsed.Outbounds[index]}
 		if head.Server != "" {
 			server.Destination = M.ParseSocksaddrHostPort(head.Server, head.ServerPort).String()
 		}
@@ -172,6 +172,15 @@ func (h serverHead) upgradeInDial() bool {
 // (decodeProbeOutbound); naive and anytls have frames of their own, but no stand measured them.
 func (h serverHead) framed() bool {
 	return h.transportIs(C.V2RayTransportTypeGRPC, C.V2RayTransportTypeHTTP, C.V2RayTransportTypeXHTTP)
+}
+
+// chunked tells a protocol that frames the stream itself: Shadowsocks, whose AEAD chunks of up to
+// 16 KB the client reads only whole, so a cut across a large chunk leaves it the chunks before (the
+// stand of cures-ui, a cut of 18 KB: 7373 raw bytes in a burst whose other flows had 16.5 KB,
+// 2026-11-14). The band of its bursts is that of a framed transport (detect.Server.Framed); its
+// probe stays of its kind, not a pooled one.
+func (h serverHead) chunked() bool {
+	return h.Type == C.TypeShadowsocks
 }
 
 // downloadLeg tells xhttp with the download on a leg of its own: overQUIC reads only the main one.

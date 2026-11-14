@@ -197,7 +197,8 @@ type Server struct {
 	// Attempt.Handshake false does not mean that the TLS handshake failed.
 	UpgradeInDial bool
 	// Framed: xhttp, grpc or http: the copy of a probe keeps the frames of the transport, which count
-	// on the wire and not in the raw bytes. Multiplex is no such thing: a probe goes without it.
+	// on the wire and not in the raw bytes; Shadowsocks too, its AEAD chunks. Multiplex is no such
+	// thing: a probe goes without it.
 	Framed bool
 	// DownloadLeg: xhttp with the download on a leg of its own, maybe another server and over UDP:
 	// what is asked of the main server says nothing of it.

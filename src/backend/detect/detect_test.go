@@ -671,6 +671,18 @@ func TestClassifyStages(t *testing.T) {
 		}), block: BlockLimit, kb: 2},
 		{name: "framed: under the floor, the headers and no more", stages: stagesOf(KindPooled, func(s *Stages) { s.Framed, s.Single, s.Burst = true, &tiny, repeated(tiny, 3) }),
 			block: BlockUnknown, notes: []string{NoteInconclusive}},
+		// Shadowsocks: a cut of 18 KB across an AEAD chunk of 16 KB leaves the client the chunks
+		// before it (a burst of the stand of cures-ui, 2026-11-14): a limit when framed, mixed ends not
+		{name: "framed without TLS: Shadowsocks chunks across the cut", stages: stagesOf(KindPlain, func(s *Stages) {
+			ss := func(n int64) Attempt { return Attempt{Handshake: true, Bytes: n, Status: 200, Class: ClassNoHello} }
+			s.Framed, s.Single = true, &cut
+			s.Burst = []Attempt{ss(16517), ss(16517), ss(7373), ss(16517), ss(16517), ss(16516), ss(16517), ss(16517)}
+		}), block: BlockLimit, kb: 15, notes: []string{NoteNoMask}},
+		{name: "not framed without TLS: the same burst, mixed ends", stages: stagesOf(KindPlain, func(s *Stages) {
+			ss := func(n int64) Attempt { return Attempt{Handshake: true, Bytes: n, Status: 200, Class: ClassNoHello} }
+			s.Single = &cut
+			s.Burst = []Attempt{ss(16517), ss(16517), ss(7373), ss(16517), ss(16517), ss(16516), ss(16517), ss(16517)}
+		}), block: BlockUnknown, notes: []string{NoteInconclusive}},
 		{name: "framed: a timeout after the headers", stages: stagesOf(KindPooled, func(s *Stages) {
 			headers := Attempt{Handshake: true, Bytes: 300, Status: 200, Class: ClassNoHello}
 			s.Framed, s.Single, s.Burst = true, &headers, repeated(headers, 3)

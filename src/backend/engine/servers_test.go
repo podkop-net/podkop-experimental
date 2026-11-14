@@ -137,16 +137,17 @@ func TestServersOfFramedAndDownloadLeg(t *testing.T) {
     {"type": "vless", "tag": "reality h2, download h3", "server": "192.0.2.9", "server_port": 443, "tls": {"enabled": true, "reality": {"enabled": true, "public_key": "k"}, "utls": {"enabled": true}},
       "transport": {"type": "xhttp", "download": {"server": "192.0.2.10", "server_port": 443, "tls": {"enabled": true, "alpn": ["h3"]}}}},
     {"type": "vless", "tag": "a null download", "server": "192.0.2.11", "server_port": 443, "tls": {"enabled": true}, "transport": {"type": "xhttp", "download": null}},
-    {"type": "vless", "tag": "a download of another transport", "server": "192.0.2.12", "server_port": 443, "tls": {"enabled": true}, "transport": {"type": "ws", "download": {"server": "x"}}}
+    {"type": "vless", "tag": "a download of another transport", "server": "192.0.2.12", "server_port": 443, "tls": {"enabled": true}, "transport": {"type": "ws", "download": {"server": "x"}}},
+    {"type": "shadowsocks", "tag": "ss", "server": "192.0.2.13", "server_port": 8388, "method": "aes-256-gcm", "password": "p"}
   ]}`))
 	byTag := make(map[string]detect.Server)
 	for _, server := range servers {
 		byTag[server.Tag] = server
 	}
-	require.Len(t, byTag, 11)
+	require.Len(t, byTag, 12)
 	for tag, framed := range map[string]bool{
 		"xhttp": true, "grpc": true, "http": true, "mux": false, "mux over grpc": true, "naive": false, "anytls": false, "ws": false,
-		"reality h2, download h3": true, "a null download": true, "a download of another transport": false,
+		"reality h2, download h3": true, "a null download": true, "a download of another transport": false, "ss": true,
 	} {
 		require.Equal(t, framed, byTag[tag].Framed, tag)
 	}
