@@ -371,8 +371,18 @@ func Apply(plan *Plan) error {
 	returns := []expr.Any{&expr.Verdict{Kind: expr.VerdictReturn}}
 	transports := []byte{unix.IPPROTO_TCP, unix.IPPROTO_UDP}
 
-	// mangle: what comes from the LAN. The shell backend puts the rules of a device on
-	// top of the chain one device after another, so the last device comes first.
+	// mangle: what comes from the LAN. First the connections the router forwards to a device
+	// (a port forward, UPnP): their replies are no traffic of the device's own. The shell backend
+	// had this return below the rules of the devices routed whole, so the reply of such a device
+	// was marked for the proxy, and a forwarded TCP connection to it never came up (the stand of
+	// lab/bt16/fwd.sh, 2026-11-15: a timeout with the device routed whole, an answer without).
+	add(mangle, []expr.Any{
+		&expr.Ct{Register: 1, Key: expr.CtKeySTATUS},
+		&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(statusDNAT), Xor: binaryutil.NativeEndian.PutUint32(0)},
+		&expr.Cmp{Op: expr.CmpOpNeq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(0)},
+	}, returns)
+	// The shell backend puts the rules of a device on top of the chain one device after another,
+	// so the last device comes first.
 	for index := len(plan.Sources) - 1; index >= 0; index-- {
 		fromDevice := append(ipv4(), addressWithin(offsetSource, plan.Sources[index])...)
 		add(mangle, fromDevice, addressIn(offsetDestination, SetLocal, idLocal), returns)
@@ -382,11 +392,6 @@ func Apply(plan *Plan) error {
 	if plan.ExcludeNTP {
 		add(mangle, protocol(unix.IPPROTO_UDP), destinationPort(123), returns)
 	}
-	add(mangle, []expr.Any{
-		&expr.Ct{Register: 1, Key: expr.CtKeySTATUS},
-		&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(statusDNAT), Xor: binaryutil.NativeEndian.PutUint32(0)},
-		&expr.Cmp{Op: expr.CmpOpNeq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(0)},
-	}, returns)
 	for _, destination := range [][]expr.Any{toSubnets, toFakeIP} {
 		for _, transport := range transports {
 			add(mangle, fromInterfaces, destination, protocol(transport), mark)
