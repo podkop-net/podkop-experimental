@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 18:32+0000\n"
-"PO-Revision-Date: 2026-11-12 18:32+0000\n"
+"POT-Creation-Date: 2026-11-15 06:25+0000\n"
+"PO-Revision-Date: 2026-11-15 06:25+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -191,6 +191,9 @@ msgstr "Применимо для SOCKS и Shadowsocks прокси"
 msgid "Apply"
 msgstr "Применить"
 
+msgid "As the other traffic"
+msgstr "Как остальной трафик"
+
 msgid "Asked in the order of the list or the fastest first, as chosen below. Drag a row by its handle to move it."
 msgstr "Опрашиваются по порядку списка или сначала самый быстрый — как выбрано ниже. Строку можно перетащить за ручку."
 
@@ -235,6 +238,9 @@ msgstr "Перед переключением на сервер через не�
 
 msgid "best of %s"
 msgstr "лучший из %s"
+
+msgid "BitTorrent"
+msgstr "BitTorrent"
 
 msgid "Block"
 msgstr "Блокировать"
@@ -445,6 +451,9 @@ msgstr "DNS-серверы"
 
 msgid "Do not panic, everything can be fixed, just..."
 msgstr "Не паникуйте, всё можно исправить, просто..."
+
+msgid "Do not use for downloading lists and subscriptions"
+msgstr "Не использовать для загрузки списков и подписок"
 
 msgid "Domain Resolver"
 msgstr "Резолвер доменов"
@@ -704,6 +713,9 @@ msgstr "Обнаружены проблемы"
 msgid "It does not connect from here, but the handshake passes through another server of yours. The server is on; the provider cuts the path or the server does not accept your network."
 msgstr "Отсюда не подключается, а через другой ваш сервер рукопожатие проходит. Сервер включён; путь режет провайдер либо сервер не принимает вашу сеть."
 
+msgid "Its servers carry the BitTorrent traffic podkop takes"
+msgstr "Его серверы несут трафик BitTorrent, который берёт podkop"
+
 msgid "just now"
 msgstr "только что"
 
@@ -742,6 +754,9 @@ msgstr "Частота обновления списков"
 
 msgid "Lists"
 msgstr "Списки"
+
+msgid "Lists and subscriptions download directly first, then through the servers of the rules, those that brought them before first. Mark a source that should not carry them: a subscription with little traffic, a test one kept as the last reserve, a tunnel to a closed network, a local helper"
+msgstr "Списки и подписки загружаются сначала напрямую, затем через серверы правил — первыми те, через которые они приходили раньше. Отметьте источник, через который их загружать не нужно: подписку с малым лимитом трафика, тестовую подписку в дальнем резерве, туннель в закрытую сеть, локальный помощник"
 
 msgid "lists by link: %d"
 msgstr "списки по ссылке: %d"
@@ -950,6 +965,9 @@ msgstr "норма"
 msgid "On"
 msgstr "Вкл."
 
+msgid "On the whole LAN"
+msgstr "Во всей локальной сети"
+
 msgid "One check for the servers of every rule. Each round tests every server with the next URL of the list; the delay of a server is the median of a full cycle, so one slow URL or one stray test does not change the server in use. A server is unavailable when two URLs do not answer through it. URLs of different companies are best"
 msgstr "Одна проверка для серверов всех правил. Каждый раунд проверяет все серверы следующей ссылкой списка; задержка сервера — медиана за полный круг, поэтому одна медленная ссылка или случайный выброс не меняют сервер. Сервер недоступен, если через него не ответили две ссылки. Лучше брать ссылки разных компаний"
 
@@ -973,6 +991,9 @@ msgstr "Один запрос проходит, следующие за ним �
 
 msgid "Only Happ opens it. Paste the plain subscription address https://… from the account at your provider"
 msgstr "Её открывает только Happ. Вставьте обычный адрес подписки https://… из кабинета провайдера"
+
+msgid "Only what podkop takes"
+msgstr "Только то, что берёт podkop"
 
 msgid "Operation timed out"
 msgstr "Время ожидания истекло"
@@ -1000,6 +1021,9 @@ msgstr "свои домены"
 
 msgid "own subnets"
 msgstr "свои подсети"
+
+msgid "Past podkop"
+msgstr "Мимо podkop"
 
 msgid "Path cannot be empty"
 msgstr "Путь не может быть пустым"
@@ -1139,8 +1163,8 @@ msgstr "защищённое соединение…"
 msgid "Select a predefined list for routing"
 msgstr "Выберите предопределенный список для маршрутизации"
 
-msgid "Select how often the domain or subnet lists are updated automatically. A list is downloaded directly; one that does not come directly comes through the servers of your first rules"
-msgstr "Выберите частоту автоматического обновления списков доменов или подсетей. Список скачивается напрямую, а если напрямую не приходит — через серверы ваших первых правил."
+msgid "Select how often the domain or subnet lists are updated automatically. A list is downloaded directly first, then through the servers of the rules, those that brought it before first; a source marked “Do not use for downloading lists and subscriptions” never carries it"
+msgstr "Выберите частоту автоматического обновления списков доменов или подсетей. Список скачивается сначала напрямую, затем через серверы правил — первыми теми, через которые он уже приходил; источник с отметкой «Не использовать для загрузки списков и подписок» для этого не используется."
 
 msgid "Select or enter DNS server address"
 msgstr "Выберите или введите адрес DNS-сервера"
@@ -1544,6 +1568,9 @@ msgstr "Похоже, у роутера нет связи с интернето�
 msgid "The row connects through its own source"
 msgstr "Строка подключается через свой же источник"
 
+msgid "The rule for BitTorrent"
+msgstr "Правило для BitTorrent"
+
 msgid "The search is still running; its result did not come in time."
 msgstr "Поиск ещё идёт; результат не пришёл вовремя."
 
@@ -1669,6 +1696,9 @@ msgstr "Через"
 
 msgid "through %s"
 msgstr "через %s"
+
+msgid "Through the servers of a rule"
+msgstr "Через серверы правила"
 
 msgid "through: %s"
 msgstr "через: %s"
@@ -1816,6 +1846,12 @@ msgstr "Предупреждение: Russia inside может быть испо
 
 msgid "What changed: renamed %d, other server under the name %d, removed %d, added %d"
 msgstr "Что изменилось: переименовано %d, другой сервер под тем же именем %d, удалено %d, добавлено %d"
+
+msgid "What happens to the traffic of BitTorrent clients that podkop would take (fully routed IPs, the addresses of the lists). Past podkop: straight to the internet, and the router can offload it. Block: dropped. Through the servers of a rule: for example to servers without a data cap"
+msgstr "Что делать с трафиком BitTorrent-клиентов, который взял бы podkop (полностью маршрутизированные IP-адреса, адреса из списков). Мимо podkop: напрямую в интернет, и роутер может разгрузить его (flow offloading). Блокировать: отбрасывать. Через серверы правила: например, на серверы без лимита трафика"
+
+msgid "Where to block BitTorrent"
+msgstr "Где блокировать BitTorrent"
 
 msgid "Which sites go through which servers. When a site is in several rules, the upper one works. Drag ☰ to change the order. The server in use is shown on the dashboard."
 msgstr "Какие сайты через какие серверы идут. Если сайт есть в нескольких правилах, работает верхнее. Порядок меняется перетаскиванием за ☰. Какой сервер работает сейчас, видно на дашборде."

@@ -376,6 +376,46 @@ function createSettingsContent(section, singBoxFeatures = []) {
   o.default = "0";
   o.rmempty = false;
 
+  // BitTorrent: the firewall tells the traffic of clients by its first packets (DHT, uTP, the
+  // trackers, the handshake, the peers of a client's socket) and does with what podkop would
+  // take what this says (the backend's firewall/bittorrent_linux.go)
+  o = section.option(
+    form.ListValue,
+    "bittorrent",
+    _("BitTorrent"),
+    _(
+      "What happens to the traffic of BitTorrent clients that podkop would take (fully routed IPs, the addresses of the lists). Past podkop: straight to the internet, and the router can offload it. Block: dropped. Through the servers of a rule: for example to servers without a data cap",
+    ),
+  );
+  o.value("off", _("As the other traffic"));
+  o.value("bypass", _("Past podkop"));
+  o.value("block", _("Block"));
+  o.value("section", _("Through the servers of a rule"));
+  o.default = "off";
+  o.rmempty = false;
+
+  o = section.option(
+    form.ListValue,
+    "bittorrent_block_scope",
+    _("Where to block BitTorrent"),
+  );
+  o.value("podkop", _("Only what podkop takes"));
+  o.value("lan", _("On the whole LAN"));
+  o.default = "podkop";
+  o.depends("bittorrent", "block");
+
+  o = section.option(
+    form.ListValue,
+    "bittorrent_section",
+    _("The rule for BitTorrent"),
+    _("Its servers carry the BitTorrent traffic podkop takes"),
+  );
+  uci.sections("podkop", "section").forEach((rule) => {
+    const label = String(rule.label || "").trim();
+    o.value(rule[".name"], label || rule[".name"]);
+  });
+  o.depends("bittorrent", "section");
+
   // "Find a mask" on the dashboard tries its built-in names and, in turn with them, the names of a
   // public whitelists; the backend downloads them for each search and keeps the last copies in RAM
   o = section.option(
