@@ -47,9 +47,9 @@ func nft(t *testing.T, arguments ...string) string {
 // nft_list_all_traffic_from_ip for every device, then what the list update adds for the
 // Discord list, then the elements. Three differences are the backend's own: what the router
 // sends has a mark of its own (dataplane.RouterMark), and proxy has rules for it; the NTP
-// of the router goes past the proxy; the return of forwarded connections comes first, before
-// the rules of the devices routed whole (the shell backend's order broke a port forward to
-// such a device).
+// of the router goes past the proxy; the replies of a connection that did not begin on the LAN
+// return first, before the rules of the devices routed whole (the shell backend's return of
+// DNAT, below them, let a port forward to such a device break).
 func shellBackendTable(t *testing.T, plan *Plan) {
 	table := "inet " + tableName
 	lines := []string{
@@ -66,6 +66,7 @@ func shellBackendTable(t *testing.T, plan *Plan) {
 		"add chain "+table+" mangle { type filter hook prerouting priority -150; policy accept; }",
 		"add chain "+table+" mangle_output { type route hook output priority -150; policy accept; }",
 		"add chain "+table+" proxy { type filter hook prerouting priority -100; policy accept; }",
+		"add rule "+table+" mangle ct status dnat return",
 		"add rule "+table+" mangle iifname @interfaces ip daddr @podkop_subnets meta l4proto tcp meta mark set 0x00100000 counter",
 		"add rule "+table+" mangle iifname @interfaces ip daddr @podkop_subnets meta l4proto udp meta mark set 0x00100000 counter",
 		"add rule "+table+" mangle iifname @interfaces ip daddr 198.18.0.0/15 meta l4proto tcp meta mark set 0x00100000 counter",
@@ -96,8 +97,8 @@ func shellBackendTable(t *testing.T, plan *Plan) {
 			"insert rule "+table+" mangle ip saddr "+address+" ip daddr @localv4 return",
 		)
 	}
-	// the backend's own: forwarded connections first, above every device
-	lines = append(lines, "insert rule "+table+" mangle ct status dnat return")
+	// the backend's own: the replies of what did not begin on the LAN first, above every device
+	lines = append(lines, "insert rule "+table+" mangle ct direction reply return")
 	elements := func(set string, ranges []Range) {
 		if len(ranges) == 0 {
 			return
