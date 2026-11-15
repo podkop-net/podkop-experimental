@@ -6,6 +6,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -23,6 +24,7 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/podkop-net/podkop-experimental/src/backend/firewall"
+	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/plan"
 	"github.com/podkop-net/podkop-experimental/src/backend/probe"
 	"github.com/podkop-net/podkop-experimental/src/backend/sockets"
@@ -45,6 +47,9 @@ type recorder struct {
 	// routing and the table look taken away
 	dnsOurs                   bool
 	routingGone, firewallGone bool
+	// firewallFails are the next updates of the firewall that fail, the table before them
+	// staying as it was
+	firewallFails int
 	// secrets are the keys of the Clash API written into the settings
 	secrets []string
 	// bridged is whether bridged packets pass the IP firewall hooks (br_netfilter)
@@ -114,8 +119,8 @@ func (r *recorder) RestoreDNS() (bool, error) {
 	return changed, nil
 }
 
-func (r *recorder) ForgetBitTorrentFlows() error {
-	r.calls = append(r.calls, "forget bittorrent")
+func (r *recorder) ForgetBitTorrentFlows(which firewall.Forget) error {
+	r.calls = append(r.calls, "forget bittorrent "+which.String())
 	return nil
 }
 
@@ -124,6 +129,10 @@ func (r *recorder) UpdateFirewall(previous *firewall.Plan, next *firewall.Plan) 
 		r.calls = append(r.calls, "firewall")
 	} else {
 		r.calls = append(r.calls, "firewall update")
+	}
+	if r.firewallFails > 0 {
+		r.firewallFails--
+		return errors.New("the firewall fails")
 	}
 	r.plans = append(r.plans, next)
 	return nil
@@ -437,10 +446,11 @@ func TestDontTouchDHCP(t *testing.T) {
 	require.True(t, f.logged("dont_touch_dhcp is on"), "%v", f.lines())
 }
 
-// BitTorrent taken out of the mode bypass while the backend runs: the connections bypass let past
-// podkop are ended once the firewall has the new mode (one the router offloads passes no rule of
-// it), and only then: not at a start, not with the same mode, not from another mode.
-func TestBitTorrentLeavesBypass(t *testing.T) {
+// A change of the mode of BitTorrent while the backend runs ends the connections past podkop the
+// new mode takes another way, once the firewall has it (one the router offloads passes no rule of
+// it): leaving bypass those podkop takes, the block of the whole LAN all of them. Not at a start,
+// not with the same mode, not between the modes that take them as they were.
+func TestBitTorrentModeChangeForgets(t *testing.T) {
 	f := newFixture(t)
 	s := f.supervisor
 	f.settings("\toption bittorrent 'bypass'\n", oneName)
@@ -452,11 +462,44 @@ func TestBitTorrentLeavesBypass(t *testing.T) {
 	require.Equal(t, []string{"routing", "firewall update", "dns"}, f.system.take())
 	f.settings("\toption bittorrent 'block'\n", oneName)
 	s.Apply()
-	require.Equal(t, []string{"routing", "firewall update", "forget bittorrent", "dns"}, f.system.take())
-	require.True(t, f.logged("BitTorrent left the mode bypass: its connections past podkop were ended, and the mode block"), "%v", f.lines())
+	require.Equal(t, []string{"routing", "firewall update", "forget bittorrent intercepted", "dns"}, f.system.take())
+	require.True(t, f.logged("BitTorrent went from the mode bypass to block: its connections past podkop were ended, and the mode block takes them"), "%v", f.lines())
+	f.settings("\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n", oneName)
+	s.Apply()
+	require.Equal(t, []string{"routing", "firewall update", "forget bittorrent all", "dns"}, f.system.take())
+	require.True(t, f.logged("BitTorrent went from the mode block to block of the whole LAN"), "%v", f.lines())
+	f.settings("\toption bittorrent 'block'\n", oneName)
+	s.Apply()
+	require.Equal(t, []string{"routing", "firewall update", "dns"}, f.system.take())
 	f.settings("\toption bittorrent 'off'\n", oneName)
 	s.Apply()
 	require.Equal(t, []string{"routing", "firewall update", "dns"}, f.system.take())
+}
+
+// An update of the firewall that failed left the table of bypass in the kernel: the update after
+// it, from no plan, still ends the connections bypass let past podkop.
+func TestBitTorrentForgetsAfterAFailedUpdate(t *testing.T) {
+	f := newFixture(t)
+	s := f.supervisor
+	f.settings("\toption bittorrent 'bypass'\n", oneName)
+	s.Boot()
+	require.True(t, s.Running(), "%v", f.lines())
+	defer s.Stop()
+	f.system.take()
+	f.settings("\toption bittorrent 'block'\n", oneName)
+	f.system.firewallFails = 1
+	s.Apply()
+	require.Equal(t, []string{"routing", "firewall update"}, f.system.take())
+	s.refreshFirewall()
+	require.Equal(t, []string{"firewall", "forget bittorrent intercepted"}, f.system.take())
+}
+
+// The firewall and the settings name the modes alike: the plan hands the name of the settings
+// over as it is.
+func TestBitTorrentModeNames(t *testing.T) {
+	require.Equal(t, model.BitTorrentBypass, firewall.BitTorrentBypass)
+	require.Equal(t, model.BitTorrentBlock, firewall.BitTorrentBlock)
+	require.Equal(t, model.BitTorrentSection, firewall.BitTorrentSection)
 }
 
 // What the network took (a restart of netifd flushes the rule, the loopback going down

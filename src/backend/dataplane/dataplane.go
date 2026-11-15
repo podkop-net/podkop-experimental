@@ -73,15 +73,19 @@ const (
 	// dead end of the check names (probe.DeadEndPort).
 	BitTorrentTProxyPort = 1604
 	// The bits of the conntrack mark the BitTorrent detector of the firewall keeps of a
-	// connection, above the bits of mwan3 (its default mask is 0x3F00): BitTorrentCt the
-	// detector told it as BitTorrent; BitTorrentLateCt it told so by the first data, after
-	// the connection was handed to sing-box already (the route rule of the protocol takes
-	// it there); BitTorrentNotCt it looked at its first packet or data and it was not;
-	// InterceptedCt the connection was marked for the proxy.
-	BitTorrentCt     = 0x10000000
-	BitTorrentLateCt = 0x20000000
-	BitTorrentNotCt  = 0x40000000
-	InterceptedCt    = 0x08000000
+	// connection, 0x000f8000: above the bits of mwan3 (its default mask is 0x3F00), below the
+	// top byte, where the example of act_ctinfo (tc-ctinfo(8): dscp 0xfc000000 0x01000000)
+	// keeps the DSCP of a connection, and an egress rule of such a setup rewrites it whole.
+	// BitTorrentCt the detector told it as BitTorrent; BitTorrentLateCt it told so by the
+	// first data, after the connection was handed to sing-box already (the route rule of the
+	// protocol takes it there); BitTorrentNotCt it looked at its first packet or data and it
+	// was not; BitTorrentGuessCt the mode section took it at its SYN by its port alone, not
+	// told; InterceptedCt the connection was marked for the proxy.
+	BitTorrentCt      = 0x00010000
+	BitTorrentLateCt  = 0x00020000
+	BitTorrentNotCt   = 0x00040000
+	BitTorrentGuessCt = 0x00080000
+	InterceptedCt     = 0x00008000
 
 	// ReadinessName is the name the supervisor asks the DNS inbound for after a start: an
 	// answer from the FakeIP range tells that the DNS inbound, the DNS rules and the FakeIP

@@ -25,23 +25,29 @@ import (
 // of the connection: a connection never changes its way on the run.
 //
 // What is done with it, bt_act, after mangle and on what mangle marked for the proxy: bypass takes
-// podkop's mark off (the connection is forwarded, and the router may offload it), block drops,
-// section leaves the mark, and the first rules of proxy send it to the inbound of BitTorrent. With
-// BlockLAN, bt_detect drops it for every device of the interfaces.
+// podkop's mark off (the connection is forwarded, and the router may offload it), but not of what
+// goes to the FakeIP range (an address only sing-box can turn back into its name: its route rule of
+// the protocol sends it straight on), block drops, section leaves the mark, and the first rules of
+// proxy send it to the inbound of BitTorrent. With BlockLAN, bt_detect drops it for every device
+// of the interfaces.
 //
 // Other TCP of a device running a client, to a peer not known yet: bypass leaves it to sing-box
-// (owner's choice, 2026-11-15: no heuristic), section takes its connections to uncommon ports, and
-// block drops a first data packet shaped like the first message of the encrypted handshake (96
-// bytes of key and up to 512 of padding) to such a port, unless it begins as TLS, HTTP or SSH,
-// remembering the peer for the retry.
+// (owner's choice, 2026-11-15: no heuristic), section takes its connections to uncommon ports (as
+// a guess, ctGuess: not a peer for the sets, and no BitTorrent for another mode), and block drops
+// a first data packet shaped like the first message of the encrypted handshake (96 bytes of key
+// and up to 512 of padding) to such a port, unless it begins as TLS, HTTP or SSH, remembering the
+// peer for the retry. The router offloads a forwarded TCP connection at its first ACK, before any
+// data: with BlockLAN, a connection to a peer not known yet that podkop does not take is told by
+// its first data only when the router does not offload it.
 //
 // A change of the mode: a connection decided before goes on by its mark, and the new mode takes
 // its next packet. The sets go into the table made anew (bitTorrentKept), and a decided connection
 // puts its device, socket and peer back in them when they are not there (a table of a start has
-// none). A connection the router offloads passes no rule at all: when BitTorrent leaves bypass,
-// the backend ends the conntrack entries of BitTorrent (ForgetBitTorrentFlows), and the next
-// packet of such a connection makes a new entry that the sets tell (a TCP packet whose SYN was
-// not seen, to a peer the device knows, is taken as a plaintext handshake is).
+// none). A connection the router offloads passes no rule at all: when the new mode ends a way the
+// old one gave the connections of BitTorrent past podkop (ForgetFor), the backend ends their
+// conntrack entries (ForgetBitTorrentFlows), and the next packet of such a connection makes a new
+// entry that the sets tell (a TCP packet whose SYN was not seen, to a peer the device knows, is
+// taken as a plaintext handshake is).
 
 // BitTorrent is what the firewall does with the traffic of BitTorrent clients it tells.
 type BitTorrent struct {
@@ -78,8 +84,9 @@ const (
 	ctBitTorrent  = dataplane.BitTorrentCt
 	ctLate        = dataplane.BitTorrentLateCt
 	ctNot         = dataplane.BitTorrentNotCt
+	ctGuess       = dataplane.BitTorrentGuessCt
 	ctIntercepted = dataplane.InterceptedCt
-	ctDecided     = ctBitTorrent | ctLate | ctNot
+	ctDecided     = ctBitTorrent | ctLate | ctNot | ctGuess
 )
 
 // lsdAddress is the multicast group of the local peer discovery of BitTorrent (BEP 14), port 6771.
@@ -104,11 +111,17 @@ var (
 	signatureHandshake = append([]byte{19}, "BitTorrent protocol"...)
 	// the announce of a client to an HTTP tracker (BEP 3): a client that speaks only encrypted TCP to
 	// its peers and asks such a tracker for them (rTorrent of a public swarm of Debian, whose tracker
-	// is HTTP, 2026-11-15) sends no UDP the detector knows, and is told by this
-	signatureAnnounce = []byte("GET /announce")
-	// how TLS (a handshake record of version 3), HTTP and SSH begin: the first data of such a
-	// connection is not taken for the encrypted handshake of BitTorrent in the mode block
-	notBitTorrentStarts = [][]byte{{0x16, 0x03}, []byte("GET "), []byte("POST"), []byte("HEAD"), []byte("SSH-")}
+	// is HTTP, 2026-11-15) sends no UDP the detector knows, and is told by this. The query follows
+	// the path at once (an announce carries info_hash), at /announce or /announce.php: a page such
+	// as /announcements is none
+	signatureAnnounce    = []byte("GET /announce?")
+	signatureAnnouncePHP = []byte("GET /announce.php?")
+	// how TLS (a handshake record of version 3), HTTP (a request of a method of RFC 9110, PATCH or
+	// WebDAV, the preface of HTTP/2, a response) and SSH begin: the first data of such a connection
+	// is not taken for the encrypted handshake of BitTorrent in the mode block
+	notBitTorrentStarts = [][]byte{{0x16, 0x03}, []byte("GET "), []byte("POST"), []byte("HEAD"), []byte("PUT "), []byte("DELE"),
+		[]byte("OPTI"), []byte("PATC"), []byte("CONN"), []byte("TRAC"), []byte("PROP"), []byte("MKCO"), []byte("COPY"),
+		[]byte("MOVE"), []byte("LOCK"), []byte("UNLO"), []byte("REPO"), []byte("PRI "), []byte("HTTP"), []byte("SSH-")}
 )
 
 // inner loads length bytes of the payload of a packet, after its transport header, from offset.
@@ -196,14 +209,20 @@ func bitTorrentKept() map[string][]nftables.SetElement {
 	return kept
 }
 
-// bitTorrentSets adds the sets of the detector, with the elements kept of the table before.
+// bitTorrentSets adds the sets of the detector, with the elements kept of the table before: by
+// addElements, a message at a time, as the sets of the lists (a set holds up to 65535, and the
+// elements of one message go in one attribute of at most 64 KiB, which takes about two thousand of
+// bt_peers).
 func bitTorrentSets(conn *nftables.Conn, table *nftables.Table, nextID *uint32, kept map[string][]nftables.SetElement) (sockets, hosts, peers *nftables.Set, err error) {
 	endpointType := nftables.MustConcatSetType(nftables.TypeIPAddr, nftables.TypeInetService)
 	newSet := func(name string, keyType nftables.SetDatatype, concatenation bool) (*nftables.Set, error) {
 		*nextID++
 		set := &nftables.Set{Table: table, ID: *nextID, Name: name, KeyType: keyType, Dynamic: true, HasTimeout: true,
 			Timeout: bitTorrentTimeout, Concatenation: concatenation}
-		return set, conn.AddSet(set, kept[name])
+		if err := conn.AddSet(set, nil); err != nil {
+			return set, err
+		}
+		return set, addElements(conn, set, kept[name])
 	}
 	if sockets, err = newSet(SetBitTorrentSockets, endpointType, true); err != nil {
 		return
@@ -216,12 +235,13 @@ func bitTorrentSets(conn *nftables.Conn, table *nftables.Table, nextID *uint32, 
 }
 
 // addBitTorrentProxy adds the first rules of proxy in the mode section: what bt_act left marked
-// as BitTorrent goes to the inbound of BitTorrent, and is accepted there: tproxy does not end the
-// rules of a chain, and the rule of the transparent proxy after it would take the packet again
-// (on the stand of 2026-11-15 every packet of the inbound of BitTorrent was counted by both).
+// as BitTorrent, or taken by its port as a guess, goes to the inbound of BitTorrent, and is
+// accepted there: tproxy does not end the rules of a chain, and the rule of the transparent proxy
+// after it would take the packet again (on the stand of 2026-11-15 every packet of the inbound of
+// BitTorrent was counted by both).
 func addBitTorrentProxy(add func(*nftables.Chain, ...[]expr.Any), proxy *nftables.Chain) {
 	for _, transport := range []byte{unix.IPPROTO_TCP, unix.IPPROTO_UDP} {
-		add(proxy, ctMarkTest(ctBitTorrent, expr.CmpOpNeq), []expr.Any{
+		add(proxy, ctMarkTest(ctBitTorrent|ctGuess, expr.CmpOpNeq), []expr.Any{
 			&expr.Meta{Key: expr.MetaKeyMARK, Register: 1},
 			&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(markProxy), Xor: binaryutil.NativeEndian.PutUint32(0)},
 			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(markProxy)},
@@ -244,18 +264,20 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	if err != nil {
 		return err
 	}
-	*nextID++
-	ports := &nftables.Set{Table: table, ID: *nextID, Name: "__set%d", Anonymous: true, Constant: true, KeyType: nftables.TypeInetService}
 	var elements []nftables.SetElement
 	for _, port := range commonPorts {
 		elements = append(elements, nftables.SetElement{Key: binaryutil.BigEndian.PutUint16(port)})
 	}
-	if mode != BitTorrentBypass {
-		if err = conn.AddSet(ports, elements); err != nil {
-			return err
-		}
-	}
+	// notCommonPort: the port at offset is none of commonPorts, by an anonymous set of its own for
+	// each rule: the kernel binds an anonymous set to the one rule it is in, and answers the rule
+	// of a second with EBUSY
+	var portsErr error
 	notCommonPort := func(offset uint32) []expr.Any {
+		*nextID++
+		ports := &nftables.Set{Table: table, ID: *nextID, Name: "__set%d", Anonymous: true, Constant: true, KeyType: nftables.TypeInetService}
+		if err := conn.AddSet(ports, elements); err != nil && portsErr == nil {
+			portsErr = err
+		}
 		return []expr.Any{
 			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseTransportHeader, Offset: offset, Len: 2},
 			&expr.Lookup{SourceRegister: 1, SetName: ports.Name, SetID: ports.ID, Invert: true},
@@ -329,8 +351,13 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	add(tcp, innerIs(0, signatureHandshake[:12]), innerIs(12, signatureHandshake[12:20]), counter, verdict(expr.VerdictGoto, handshake.Name))
 	// an announce to an HTTP tracker: the device runs a client; the connection itself is the
 	// tracker's, not of the swarm
-	announce := append([][]expr.Any{innerIs(0, signatureAnnounce)}, updateHost()...)
-	add(tcp, append(announce, ctMarkAdd(ctNot), counter, returns)...)
+	for _, signature := range [][][]expr.Any{
+		{innerIs(0, signatureAnnounce)},
+		{innerIs(0, signatureAnnouncePHP[:12]), innerIs(12, signatureAnnouncePHP[12:])},
+	} {
+		announce := append(signature, updateHost()...)
+		add(tcp, append(announce, ctMarkAdd(ctNot), counter, returns)...)
+	}
 	if mode == BitTorrentBlock {
 		// a first data packet that begins as TLS, HTTP or SSH is none of BitTorrent's, as the
 		// prototype took it
@@ -339,17 +366,22 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		}
 		// the first message of the encrypted handshake: 96 to 608 bytes of payload, with the
 		// headers of IPv4 and TCP 136 to 668
-		rule := [][]expr.Any{ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID), protocol(unix.IPPROTO_TCP),
-			notCommonPort(2), hasPayload(), {
-				&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 2, Len: 2},
-				&expr.Range{Op: expr.CmpOpEq, Register: 1, FromData: binaryutil.BigEndian.PutUint16(136), ToData: binaryutil.BigEndian.PutUint16(668)},
-			}}
-		if !plan.BitTorrent.BlockLAN {
-			rule = append(rule, ctMarkTest(ctIntercepted, expr.CmpOpNeq))
+		encrypted := func() [][]expr.Any {
+			rule := [][]expr.Any{ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID), protocol(unix.IPPROTO_TCP),
+				notCommonPort(2), hasPayload(), {
+					&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: 2, Len: 2},
+					&expr.Range{Op: expr.CmpOpEq, Register: 1, FromData: binaryutil.BigEndian.PutUint16(136), ToData: binaryutil.BigEndian.PutUint16(668)},
+				}}
+			if !plan.BitTorrent.BlockLAN {
+				rule = append(rule, ctMarkTest(ctIntercepted, expr.CmpOpNeq))
+			}
+			return rule
 		}
-		rule = append(rule, endpoint(offsetDestination, 2), []expr.Any{update(peers)}, ctMarkAdd(ctBitTorrent), counter,
-			verdict(expr.VerdictDrop, ""))
-		add(tcp, rule...)
+		// the peer is remembered for the retry by a rule of its own: an update that fails ends the
+		// rule it is in (nft_dynset: NFT_BREAK; a set of no size is full at 65535 elements), and the
+		// drop must not end with it
+		add(tcp, append(encrypted(), endpoint(offsetDestination, 2), []expr.Any{update(peers)})...)
+		add(tcp, append(encrypted(), ctMarkAdd(ctBitTorrent), counter, verdict(expr.VerdictDrop, ""))...)
 	}
 	// a packet of a connection whose SYN this table did not see, or saw before its peer was known
 	// (the entry of a connection ForgetBitTorrentFlows ended makes a new one with its next packet):
@@ -360,12 +392,13 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	add(tcp, hasPayload(), ctMarkAdd(ctNot))
 
 	// bt_syn: a connection of a device running a client to a peer it knows, or in the mode section
-	// to an uncommon port
+	// to an uncommon port: a guess the section takes, whose far end is no peer for the sets, and
+	// which no other mode takes for BitTorrent when the mode changes
 	add(syn, ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID), protocol(unix.IPPROTO_TCP), endpoint(offsetDestination, 2),
 		[]expr.Any{inSet(peers)}, ctMarkAdd(ctBitTorrent), counter, verdict(expr.VerdictGoto, decided.Name))
 	if mode == BitTorrentSection {
 		add(syn, ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID), protocol(unix.IPPROTO_TCP), notCommonPort(2),
-			ctMarkAdd(ctBitTorrent), counter, verdict(expr.VerdictGoto, decided.Name))
+			ctMarkAdd(ctGuess), counter, returns)
 	}
 
 	// bt_handshake: the plaintext handshake; a connection the proxy has taken stays with sing-box
@@ -402,6 +435,9 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	add(act, ctMarkTest(ctBitTorrent, expr.CmpOpEq), returns)
 	switch mode {
 	case BitTorrentBypass:
+		// an address of the FakeIP range only sing-box can turn back into its name: a tracker of a
+		// list (its route rule of the protocol sends it straight on)
+		add(act, ipv4(), addressWithin(offsetDestination, rangeFakeIP), returns)
 		add(act, []expr.Any{
 			&expr.Meta{Key: expr.MetaKeyMARK, Register: 1},
 			&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(^uint32(markProxy)), Xor: binaryutil.NativeEndian.PutUint32(0)},
@@ -410,5 +446,5 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	case BitTorrentBlock:
 		add(act, counter, verdict(expr.VerdictDrop, ""))
 	}
-	return nil
+	return portsErr
 }

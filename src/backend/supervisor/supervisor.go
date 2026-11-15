@@ -76,8 +76,8 @@ type System interface {
 	// no previous plan the table is made anew.
 	UpdateFirewall(previous *firewall.Plan, next *firewall.Plan) error
 	// ForgetBitTorrentFlows ends the conntrack entries of the connections the detector of
-	// BitTorrent decided were its (firewall.ForgetBitTorrentFlows).
-	ForgetBitTorrentFlows() error
+	// BitTorrent decided were its, those podkop takes or all (firewall.ForgetBitTorrentFlows).
+	ForgetBitTorrentFlows(which firewall.Forget) error
 	RemoveFirewall() error
 	// TakeOverDNS points the resolver of the LAN at the backend, RestoreDNS gives it back
 	// what it had. Each tells whether it changed anything.
@@ -396,6 +396,12 @@ type Supervisor struct {
 	subscriptions        subscriptions
 	downloads            chan downloaded
 	subscriptionRequests chan subscriptionRequest
+
+	// bitTorrentApplied is the BitTorrent detector of the firewall table this process put in
+	// the kernel last, nil before the first and after the table was removed: what a change of
+	// its mode is told against (updateFirewall). Not the plan of current: that is nil after an
+	// update that failed, which left the table before it in the kernel.
+	bitTorrentApplied *firewall.BitTorrent
 }
 
 // running is a state of the router that was brought up.
@@ -774,7 +780,7 @@ func (s *Supervisor) restoreRouting() string {
 		if plan == nil {
 			plan = s.firewallPlan(current)
 		}
-		err = s.options.System.UpdateFirewall(nil, plan)
+		err = s.updateFirewall(nil, plan)
 		if err != nil {
 			s.log("error", "put the firewall table back: ", err)
 		} else {
@@ -1604,15 +1610,12 @@ func (s *Supervisor) surround(previousFirewall *firewall.Plan) error {
 	// the plan is kept once the kernel has it: one that failed leaves none, and the next
 	// update sets the whole table up
 	plan := s.firewallPlan(current)
-	err = s.options.System.UpdateFirewall(previousFirewall, plan)
+	err = s.updateFirewall(previousFirewall, plan)
 	if err != nil {
 		return E.Cause(err, "set up the firewall")
 	}
 	current.firewall = plan
 	s.tellFirewall(plan)
-	if firewall.LeavesBypass(previousFirewall, plan) {
-		s.forgetBitTorrent(plan)
-	}
 	if current.result.Dataplane.TakeDNS {
 		changed, err := s.options.System.TakeOverDNS()
 		if err != nil {
@@ -1826,20 +1829,47 @@ func (s *Supervisor) deriveSets(sources []keyedSource) (*lists.Destinations, []e
 	return destinations, problems
 }
 
-// forgetBitTorrent ends the connections the mode bypass let past podkop, once BitTorrent left it
-// (firewall.LeavesBypass): those the router offloads pass no rule of the firewall, and the mode
-// of the plan takes them only when they go on with new entries.
-func (s *Supervisor) forgetBitTorrent(plan *firewall.Plan) {
-	mode := plan.BitTorrent.Mode
-	if mode == "" {
-		mode = "off"
-	}
-	err := s.options.System.ForgetBitTorrentFlows()
+// updateFirewall brings the firewall table from previous to next (System.UpdateFirewall). Once the
+// kernel has next, it ends the connections of BitTorrent past podkop that a change of the mode of
+// its detector takes another way (firewall.ForgetFor), told against the detector of the table this
+// process put there last (bitTorrentApplied).
+func (s *Supervisor) updateFirewall(previous, next *firewall.Plan) error {
+	err := s.options.System.UpdateFirewall(previous, next)
 	if err != nil {
-		s.log("warn", "BitTorrent left the mode bypass, but the connections it had past podkop go on that way until they end: ", err)
+		return err
+	}
+	if s.bitTorrentApplied != nil {
+		if which := firewall.ForgetFor(*s.bitTorrentApplied, next.BitTorrent); which != firewall.ForgetNone {
+			s.forgetBitTorrent(*s.bitTorrentApplied, next.BitTorrent, which)
+		}
+	}
+	applied := next.BitTorrent
+	s.bitTorrentApplied = &applied
+	return nil
+}
+
+// forgetBitTorrent ends the connections of BitTorrent past podkop that the mode next takes
+// otherwise than the mode previous did: those the router offloads pass no rule of the firewall,
+// and the mode next takes them only when they go on with new entries.
+func (s *Supervisor) forgetBitTorrent(previous, next firewall.BitTorrent, which firewall.Forget) {
+	from, to := bitTorrentModeName(previous), bitTorrentModeName(next)
+	err := s.options.System.ForgetBitTorrentFlows(which)
+	if err != nil {
+		s.log("warn", "BitTorrent went from the mode ", from, " to ", to, ", but its connections past podkop go on that way until they end: ", err)
 		return
 	}
-	s.log("info", "BitTorrent left the mode bypass: its connections past podkop were ended, and the mode ", mode, " takes them when they go on")
+	s.log("info", "BitTorrent went from the mode ", from, " to ", to, ": its connections past podkop were ended, and the mode ", to, " takes them when they go on")
+}
+
+// bitTorrentModeName is the mode of a detector as the log names it.
+func bitTorrentModeName(detector firewall.BitTorrent) string {
+	switch {
+	case detector.Mode == "":
+		return "off"
+	case detector.BlockLAN:
+		return detector.Mode + " of the whole LAN"
+	}
+	return detector.Mode
 }
 
 // refreshFirewall brings the firewall to what the rule sets hold now.
@@ -1849,7 +1879,7 @@ func (s *Supervisor) refreshFirewall() {
 		return
 	}
 	next := s.firewallPlan(current)
-	err := s.options.System.UpdateFirewall(current.firewall, next)
+	err := s.updateFirewall(current.firewall, next)
 	if err != nil {
 		s.log("error", "update the firewall sets: ", err)
 		// a set may be half filled: the next update sets the whole table up
@@ -2054,6 +2084,8 @@ func (s *Supervisor) release() {
 	err = s.options.System.RemoveFirewall()
 	if err != nil {
 		s.log("error", "remove the firewall table: ", err)
+	} else {
+		s.bitTorrentApplied = nil
 	}
 	err = s.options.System.RemoveRouting()
 	if err != nil {

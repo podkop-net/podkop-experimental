@@ -18,22 +18,66 @@ const (
 	ctaMarkMask         = 21
 )
 
-// LeavesBypass tells whether an update from previous to next takes BitTorrent out of the mode
-// bypass while the backend runs: a connection bypass let past podkop that the router offloads
-// passes no rule of nftables, so the new mode reaches it only once ForgetBitTorrentFlows ended its
-// entry. A start (no previous plan) leaves the connections alone: the sets of the detector were
-// taken down with the table at the stop, and the new entries of the connections it ended could not
-// be told (bitTorrentKept).
-func LeavesBypass(previous, next *Plan) bool {
-	return previous != nil && previous.BitTorrent.Mode == BitTorrentBypass && next.BitTorrent.Mode != BitTorrentBypass
+// Forget is which connections of BitTorrent a change of the mode ends (ForgetFor).
+type Forget int
+
+const (
+	// ForgetNone: every connection of BitTorrent goes on the way it had, or the new mode takes
+	// its next packet by its mark
+	ForgetNone Forget = iota
+	// ForgetIntercepted: those podkop takes, which the mode bypass let past it
+	ForgetIntercepted
+	// ForgetAll: every one, which the block of the whole LAN drops; those podkop does not take
+	// went past it in every other mode
+	ForgetAll
+)
+
+func (f Forget) String() string {
+	switch f {
+	case ForgetIntercepted:
+		return "intercepted"
+	case ForgetAll:
+		return "all"
+	}
+	return "none"
 }
 
-// ForgetBitTorrentFlows ends the conntrack entries the detector marked as BitTorrent (ctnetlink: a
-// delete without a tuple ends the entries the mark and its mask match; the module
-// nf_conntrack_netlink, kmod-nf-conntrack-netlink of OpenWrt). The next packet of such a connection
-// makes a new entry, which the detector tells again by its sets and the mode of now takes: the
-// router offloads a connection by its entry, so the offloading ends with it.
-func ForgetBitTorrentFlows() error {
+// ForgetFor tells which connections of BitTorrent a change of the mode from previous (the
+// detector of the table the backend put in the kernel last) to next ends. The router forwards a
+// connection of BitTorrent podkop does not take in every mode but the block of the whole LAN, and
+// one podkop takes in the mode bypass; it may offload what it forwards, and an offloaded
+// connection passes no rule of nftables: the new mode reaches it only once ForgetBitTorrentFlows
+// ended its entry. A detector made when there was none leaves the connections alone: its sets are
+// empty, the new entries of the connections it ended could not be told, and the marks of those
+// entries tell them as they are (bt_decided).
+func ForgetFor(previous, next BitTorrent) Forget {
+	lan := func(detector BitTorrent) bool { return detector.Mode == BitTorrentBlock && detector.BlockLAN }
+	switch {
+	case previous.Mode == "":
+		return ForgetNone
+	case lan(next) && !lan(previous):
+		return ForgetAll
+	case previous.Mode == BitTorrentBypass && next.Mode != BitTorrentBypass:
+		return ForgetIntercepted
+	}
+	return ForgetNone
+}
+
+// ForgetBitTorrentFlows ends the conntrack entries the detector marked as BitTorrent, those podkop
+// takes or all of them (ctnetlink: a delete without a tuple ends the entries the mark and its mask
+// match; the module nf_conntrack_netlink, kmod-nf-conntrack-netlink of OpenWrt). The next packet
+// of such a connection makes a new entry, which the detector tells again by its sets and the mode
+// of now takes: the router offloads a connection by its entry, so the offloading ends with it.
+func ForgetBitTorrentFlows(which Forget) error {
+	var mark uint32
+	switch which {
+	case ForgetIntercepted:
+		mark = ctBitTorrent | ctIntercepted
+	case ForgetAll:
+		mark = ctBitTorrent
+	default:
+		return nil
+	}
 	conn, err := netlink.Dial(unix.NETLINK_NETFILTER, nil)
 	if err != nil {
 		return E.Cause(err, "open netlink of netfilter")
@@ -41,8 +85,8 @@ func ForgetBitTorrentFlows() error {
 	defer conn.Close()
 	encoder := netlink.NewAttributeEncoder()
 	encoder.ByteOrder = binary.BigEndian
-	encoder.Uint32(ctaMark, ctBitTorrent)
-	encoder.Uint32(ctaMarkMask, ctBitTorrent)
+	encoder.Uint32(ctaMark, mark)
+	encoder.Uint32(ctaMarkMask, mark)
 	attributes, err := encoder.Encode()
 	if err != nil {
 		return err

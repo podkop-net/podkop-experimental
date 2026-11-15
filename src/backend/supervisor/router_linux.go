@@ -59,7 +59,9 @@ func (Router) UpdateFirewall(previous *firewall.Plan, next *firewall.Plan) error
 	return firewall.Update(previous, next)
 }
 
-func (Router) ForgetBitTorrentFlows() error { return firewall.ForgetBitTorrentFlows() }
+func (Router) ForgetBitTorrentFlows(which firewall.Forget) error {
+	return firewall.ForgetBitTorrentFlows(which)
+}
 
 func (Router) RemoveFirewall() error { return firewall.Remove() }
 
