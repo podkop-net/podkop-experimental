@@ -44,7 +44,7 @@ define Package/podkop-exp
 	CATEGORY:=Network
 	TITLE:=Domain routing app, the backend in Go (experimental)
 	URL:=https://podkop.net
-	DEPENDS:=$(GO_ARCH_DEPENDS) +ca-bundle +kmod-nft-tproxy
+	DEPENDS:=$(GO_ARCH_DEPENDS) +ca-bundle +kmod-nft-tproxy +kmod-nf-conntrack-netlink
 	# podkop is the package of itdoginfo/podkop: the same service, settings and files.
 	# https-dns-proxy, nextdns and luci-app-xray take the forwarding of dnsmasq as soon as
 	# they are installed. podkop-engine is the sing-box of podkop 0.7 and nothing else.

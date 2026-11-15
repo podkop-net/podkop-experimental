@@ -34,6 +34,14 @@ import (
 // block drops a first data packet shaped like the first message of the encrypted handshake (96
 // bytes of key and up to 512 of padding) to such a port, unless it begins as TLS, HTTP or SSH,
 // remembering the peer for the retry.
+//
+// A change of the mode: a connection decided before goes on by its mark, and the new mode takes
+// its next packet. The sets go into the table made anew (bitTorrentKept), and a decided connection
+// puts its device, socket and peer back in them when they are not there (a table of a start has
+// none). A connection the router offloads passes no rule at all: when BitTorrent leaves bypass,
+// the backend ends the conntrack entries of BitTorrent (ForgetBitTorrentFlows), and the next
+// packet of such a connection makes a new entry that the sets tell (a TCP packet whose SYN was
+// not seen, to a peer the device knows, is taken as a plaintext handshake is).
 
 // BitTorrent is what the firewall does with the traffic of BitTorrent clients it tells.
 type BitTorrent struct {
@@ -156,14 +164,46 @@ func verdict(kind expr.VerdictKind, chain string) []expr.Any {
 	return []expr.Any{&expr.Verdict{Kind: kind, Chain: chain}}
 }
 
-// bitTorrentSets adds the sets of the detector.
-func bitTorrentSets(conn *nftables.Conn, table *nftables.Table, nextID *uint32) (sockets, hosts, peers *nftables.Set, err error) {
+// bitTorrentKept reads what the sets of the detector of the table there now hold, each element
+// with the time it has left: a table made anew while the backend runs (a change of the settings
+// that changes its rules) starts with them. Without them, a connection whose conntrack entry
+// ForgetBitTorrentFlows ended would make a new entry the detector cannot tell: the next packet of
+// a uTP connection carries no signature, and only its socket in bt_sockets says what it is. A
+// table, or a set, that is not there gives nothing.
+func bitTorrentKept() map[string][]nftables.SetElement {
+	conn, err := newConn()
+	if err != nil {
+		return nil
+	}
+	table := &nftables.Table{Name: tableName, Family: nftables.TableFamilyINet}
+	kept := make(map[string][]nftables.SetElement)
+	for _, name := range []string{SetBitTorrentSockets, SetBitTorrentHosts, SetBitTorrentPeers} {
+		set, err := conn.GetSetByName(table, name)
+		if err != nil {
+			continue
+		}
+		elements, err := conn.GetSetElements(set)
+		if err != nil {
+			continue
+		}
+		for _, element := range elements {
+			// an element about to go is not worth a new timer
+			if element.Expires >= time.Second {
+				kept[name] = append(kept[name], nftables.SetElement{Key: element.Key, Timeout: element.Expires})
+			}
+		}
+	}
+	return kept
+}
+
+// bitTorrentSets adds the sets of the detector, with the elements kept of the table before.
+func bitTorrentSets(conn *nftables.Conn, table *nftables.Table, nextID *uint32, kept map[string][]nftables.SetElement) (sockets, hosts, peers *nftables.Set, err error) {
 	endpointType := nftables.MustConcatSetType(nftables.TypeIPAddr, nftables.TypeInetService)
 	newSet := func(name string, keyType nftables.SetDatatype, concatenation bool) (*nftables.Set, error) {
 		*nextID++
 		set := &nftables.Set{Table: table, ID: *nextID, Name: name, KeyType: keyType, Dynamic: true, HasTimeout: true,
 			Timeout: bitTorrentTimeout, Concatenation: concatenation}
-		return set, conn.AddSet(set, nil)
+		return set, conn.AddSet(set, kept[name])
 	}
 	if sockets, err = newSet(SetBitTorrentSockets, endpointType, true); err != nil {
 		return
@@ -195,10 +235,12 @@ func addBitTorrentProxy(add func(*nftables.Chain, ...[]expr.Any), proxy *nftable
 	}
 }
 
-// addBitTorrent adds the sets and the chains of the detector to the table.
-func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add func(*nftables.Chain, ...[]expr.Any), nextID *uint32) error {
+// addBitTorrent adds the sets (with what kept holds of them) and the chains of the detector to
+// the table.
+func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add func(*nftables.Chain, ...[]expr.Any), nextID *uint32,
+	kept map[string][]nftables.SetElement) error {
 	mode := plan.BitTorrent.Mode
-	sockets, hosts, peers, err := bitTorrentSets(conn, table, nextID)
+	sockets, hosts, peers, err := bitTorrentSets(conn, table, nextID, kept)
 	if err != nil {
 		return err
 	}
@@ -309,6 +351,12 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 			verdict(expr.VerdictDrop, ""))
 		add(tcp, rule...)
 	}
+	// a packet of a connection whose SYN this table did not see, or saw before its peer was known
+	// (the entry of a connection ForgetBitTorrentFlows ended makes a new one with its next packet):
+	// a device running a client, to a peer it knows, is taken as a plaintext handshake is; after
+	// the rules of block, whose drop of the encrypted handshake comes first
+	add(tcp, ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID), protocol(unix.IPPROTO_TCP), endpoint(offsetDestination, 2),
+		[]expr.Any{inSet(peers)}, counter, verdict(expr.VerdictGoto, handshake.Name))
 	add(tcp, hasPayload(), ctMarkAdd(ctNot))
 
 	// bt_syn: a connection of a device running a client to a peer it knows, or in the mode section
@@ -326,8 +374,20 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	add(handshake, ctMarkTest(ctIntercepted, expr.CmpOpNeq), ctMarkAdd(ctLate), counter, returns)
 	add(handshake, ctMarkAdd(ctBitTorrent), counter, verdict(expr.VerdictGoto, decided.Name))
 
-	// bt_decided: a connection of BitTorrent, for every device with BlockLAN
+	// bt_decided: a connection of BitTorrent, for every device with BlockLAN. While it lasts, its
+	// device, its socket and its peer are put back in the sets when they are not there: a table
+	// made when the backend started has none, and a device whose connections were decided before
+	// (their marks are in conntrack) is told again at their next packets, its new connections with
+	// it (on the stand of 2026-11-15, a restart of podkop in the mode block let the encrypted
+	// retry of a blocked connection through: the device was in no set)
+	notIn := func(set *nftables.Set) []expr.Any {
+		return []expr.Any{&expr.Lookup{SourceRegister: 1, SetName: set.Name, SetID: set.ID, Invert: true}}
+	}
 	add(decided, ctMarkTest(ctBitTorrent, expr.CmpOpEq), returns)
+	add(decided, ipv4(), []expr.Any{addressLoad(offsetSource)}, notIn(hosts), []expr.Any{addressLoad(offsetSource), update(hosts)})
+	add(decided, udp4(), endpoint(offsetSource, 0), notIn(sockets), endpoint(offsetSource, 0), []expr.Any{update(sockets)})
+	add(decided, udp4(), endpoint(offsetDestination, 2), notIn(peers), endpoint(offsetDestination, 2), []expr.Any{update(peers)})
+	add(decided, tcp4(), endpoint(offsetDestination, 2), notIn(peers), endpoint(offsetDestination, 2), []expr.Any{update(peers)})
 	if mode == BitTorrentBlock && plan.BitTorrent.BlockLAN {
 		add(decided, counter, verdict(expr.VerdictDrop, ""))
 	}

@@ -2,7 +2,7 @@
 # shellcheck shell=dash
 
 # install.sh: podkop-exp of the latest release of podkop-net/podkop-experimental.
-#   1. kmod-nft-tproxy is installed from the feeds of OpenWrt
+#   1. kmod-nft-tproxy and kmod-nf-conntrack-netlink are installed from the feeds of OpenWrt
 #   2. the package of podkop-exp for this router is downloaded from the release
 #   3. what podkop-exp cannot work beside is removed, if the user agrees
 #   4. the flash must hold podkop-exp, compression counted
@@ -130,10 +130,11 @@ while pidof opkg apk >/dev/null && [ $n -lt 60 ]; do
     n=$((n + 1))
 done
 
-# 1. kmod-nft-tproxy, asked for by name: a dependency of podkop 0.7 would go with it. A feed
+# 1. the kernel modules, asked for by name: a dependency of podkop 0.7 would go with it. A feed
 # of the firmware that does not answer is no reason to stop yet.
 run update || msg "Some package lists were not updated"
 run add kmod-nft-tproxy || die "kmod-nft-tproxy cannot be installed (kernel $(uname -r)): podkop-exp needs it for the transparent proxy"
+run add kmod-nf-conntrack-netlink || die "kmod-nf-conntrack-netlink cannot be installed (kernel $(uname -r)): podkop-exp needs it to end the connections of BitTorrent past podkop when the mode changes"
 
 # 2. the package for this router
 wget -q -O "$D/release.json" "https://api.github.com/repos/$REPO/releases/latest" ||

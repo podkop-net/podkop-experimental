@@ -1,6 +1,7 @@
 package firewall
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -64,6 +65,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 			" update @bt_peers { ip daddr . tcp dport } ct mark set ct mark | 0x10000000 counter drop"))
 	}
 	lines = append(lines,
+		rule("bt_tcp", "ip saddr @bt_hosts ip daddr . tcp dport @bt_peers counter goto bt_handshake"),
 		rule("bt_tcp", "@ih,0,8 0x0-0xff ct mark set ct mark | 0x40000000"),
 		rule("bt_syn", "ip saddr @bt_hosts ip daddr . tcp dport @bt_peers ct mark set ct mark | 0x10000000 counter goto bt_decided"),
 	)
@@ -76,6 +78,10 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_handshake", "ct mark & 0x08000000 != 0 ct mark set ct mark | 0x20000000 counter return"),
 		rule("bt_handshake", "ct mark set ct mark | 0x10000000 counter goto bt_decided"),
 		rule("bt_decided", "ct mark & 0x10000000 == 0 return"),
+		rule("bt_decided", "ip saddr != @bt_hosts update @bt_hosts { ip saddr }"),
+		rule("bt_decided", "ip saddr . udp sport != @bt_sockets update @bt_sockets { ip saddr . udp sport }"),
+		rule("bt_decided", "ip daddr . udp dport != @bt_peers update @bt_peers { ip daddr . udp dport }"),
+		rule("bt_decided", "ip daddr . tcp dport != @bt_peers update @bt_peers { ip daddr . tcp dport }"),
 	)
 	if mode == BitTorrentBlock && plan.BitTorrent.BlockLAN {
 		lines = append(lines, rule("bt_decided", "counter drop"))
@@ -150,5 +156,61 @@ func TestBitTorrentModeIsStructure(t *testing.T) {
 	}
 	if len(structures) != 4 {
 		t.Errorf("modes share a structure: %d of 4", len(structures))
+	}
+}
+
+// Only BitTorrent leaving the mode bypass while the backend runs ends the connections bypass let
+// past podkop: a start does not (its sets are empty, the new entries could not be told), nor a
+// change between the other modes.
+func TestLeavesBypass(t *testing.T) {
+	plan := func(mode string) *Plan { return &Plan{BitTorrent: BitTorrent{Mode: mode}} }
+	for _, c := range []struct {
+		previous *Plan
+		next     string
+		leaves   bool
+	}{
+		{plan(BitTorrentBypass), BitTorrentBlock, true},
+		{plan(BitTorrentBypass), BitTorrentSection, true},
+		{plan(BitTorrentBypass), "", true},
+		{plan(BitTorrentBypass), BitTorrentBypass, false},
+		{plan(BitTorrentBlock), BitTorrentSection, false},
+		{plan(""), BitTorrentBlock, false},
+		{nil, BitTorrentBlock, false},
+		{nil, BitTorrentBypass, false},
+	} {
+		if got := LeavesBypass(c.previous, plan(c.next)); got != c.leaves {
+			t.Errorf("from %+v to %q: %v", c.previous, c.next, got)
+		}
+	}
+}
+
+// What the detector learned is in the table a change of its mode makes anew, each element with
+// the time it had left.
+func TestBitTorrentKept(t *testing.T) {
+	needNft(t)
+	_ = Remove()
+	t.Cleanup(func() { _ = Remove() })
+	plan := func(mode string) *Plan {
+		return &Plan{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: BitTorrent{Mode: mode}}
+	}
+	bypass, block := plan(BitTorrentBypass), plan(BitTorrentBlock)
+	if err := Apply(bypass); err != nil {
+		t.Fatal(err)
+	}
+	learned := map[string]string{"bt_hosts": "192.168.1.60", "bt_sockets": "192.168.1.60 . 6881", "bt_peers": "203.0.113.7 . 51413"}
+	for set, element := range learned {
+		nft(t, "add element inet "+tableName+" "+set+" { "+element+" timeout 10m }")
+	}
+	if err := Update(bypass, block); err != nil {
+		t.Fatal(err)
+	}
+	for set, element := range learned {
+		listed := nft(t, "list", "set", "inet", tableName, set)
+		if !strings.Contains(listed, element+" timeout") {
+			t.Errorf("%s of the new table has not %s:\n%s", set, element, listed)
+		}
+	}
+	if listed := nft(t, "list", "chain", "inet", tableName, "bt_act"); !strings.Contains(listed, "drop") {
+		t.Errorf("the new table is not of the mode block:\n%s", listed)
 	}
 }

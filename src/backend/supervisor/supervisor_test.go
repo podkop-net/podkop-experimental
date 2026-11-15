@@ -114,6 +114,11 @@ func (r *recorder) RestoreDNS() (bool, error) {
 	return changed, nil
 }
 
+func (r *recorder) ForgetBitTorrentFlows() error {
+	r.calls = append(r.calls, "forget bittorrent")
+	return nil
+}
+
 func (r *recorder) UpdateFirewall(previous *firewall.Plan, next *firewall.Plan) error {
 	if previous == nil {
 		r.calls = append(r.calls, "firewall")
@@ -430,6 +435,28 @@ func TestDontTouchDHCP(t *testing.T) {
 	s.Apply()
 	require.Equal(t, []string{"routing", "firewall update", "no dns"}, f.system.take())
 	require.True(t, f.logged("dont_touch_dhcp is on"), "%v", f.lines())
+}
+
+// BitTorrent taken out of the mode bypass while the backend runs: the connections bypass let past
+// podkop are ended once the firewall has the new mode (one the router offloads passes no rule of
+// it), and only then: not at a start, not with the same mode, not from another mode.
+func TestBitTorrentLeavesBypass(t *testing.T) {
+	f := newFixture(t)
+	s := f.supervisor
+	f.settings("\toption bittorrent 'bypass'\n", oneName)
+	s.Boot()
+	require.True(t, s.Running(), "%v", f.lines())
+	defer s.Stop()
+	require.Equal(t, []string{"routing", "firewall", "dns"}, f.system.take())
+	s.Apply()
+	require.Equal(t, []string{"routing", "firewall update", "dns"}, f.system.take())
+	f.settings("\toption bittorrent 'block'\n", oneName)
+	s.Apply()
+	require.Equal(t, []string{"routing", "firewall update", "forget bittorrent", "dns"}, f.system.take())
+	require.True(t, f.logged("BitTorrent left the mode bypass: its connections past podkop were ended, and the mode block"), "%v", f.lines())
+	f.settings("\toption bittorrent 'off'\n", oneName)
+	s.Apply()
+	require.Equal(t, []string{"routing", "firewall update", "dns"}, f.system.take())
 }
 
 // What the network took (a restart of netifd flushes the rule, the loopback going down

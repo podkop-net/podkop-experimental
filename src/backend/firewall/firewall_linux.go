@@ -283,6 +283,12 @@ func rangesDifferUpTo(before []Range, after []Range, limit int) (gone []Range, c
 // Apply makes the table anew, in one transaction: what a previous run left is replaced
 // whole, and the kernel never has a half of it.
 func Apply(plan *Plan) error {
+	// what the detector of BitTorrent learned goes into the new table (bitTorrentKept), read
+	// before the transaction that replaces the old one
+	var kept map[string][]nftables.SetElement
+	if plan.BitTorrent.Mode != "" {
+		kept = bitTorrentKept()
+	}
 	conn, err := newConn()
 	if err != nil {
 		return E.Cause(err, "open netlink")
@@ -468,7 +474,7 @@ func Apply(plan *Plan) error {
 	}
 	// the BitTorrent detector, after the sets of the groups
 	if plan.BitTorrent.Mode != "" {
-		err = addBitTorrent(conn, table, plan, add, &nextID)
+		err = addBitTorrent(conn, table, plan, add, &nextID, kept)
 		if err != nil {
 			return E.Cause(err, "add the BitTorrent detector")
 		}

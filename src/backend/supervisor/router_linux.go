@@ -59,6 +59,8 @@ func (Router) UpdateFirewall(previous *firewall.Plan, next *firewall.Plan) error
 	return firewall.Update(previous, next)
 }
 
+func (Router) ForgetBitTorrentFlows() error { return firewall.ForgetBitTorrentFlows() }
+
 func (Router) RemoveFirewall() error { return firewall.Remove() }
 
 func (Router) TakeOverDNS() (bool, error) { return dnsmasq.TakeOver(dnsmasq.Router{}) }
