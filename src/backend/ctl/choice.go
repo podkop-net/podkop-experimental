@@ -47,7 +47,8 @@ const choiceSegment = 1448
 
 // choiceLines tells what the server choice of the rules that choose avoiding loss or balance has
 // counted, for a report: the loss of their servers over the windows the engine keeps (1, 6 and
-// 24 hours, with the probes), the least RTT, a server whose probe could not count, the servers of
+// 24 hours, with the probes), the least RTT, a server whose probe could not count (no connection of
+// its own to the server, or QUIC and a loss URL without ranges), the servers of
 // a balance with the devices each carries, and the traffic of the probes over the last day. Nothing
 // when no rule chooses so.
 func choiceLines(caller *clashCaller, config *model.Config) []string {
@@ -164,7 +165,7 @@ func serverChoiceLine(tag string, server choiceProxy) string {
 	case server.Loss == nil:
 		parts = append(parts, "no loss probe yet")
 	case server.Loss.NotCounted != "" && lossWindow(server, 24) == nil:
-		parts = append(parts, "its probe could not count (a multiplexed transport or QUIC): chosen by its delay")
+		parts = append(parts, "its probe could not count (a multiplexed transport, or QUIC and a loss URL that serves no ranges): chosen by its delay")
 	default:
 		var windows []string
 		for _, hours := range []int{1, 6, 24} {

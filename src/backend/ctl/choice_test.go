@@ -44,7 +44,7 @@ func TestChoiceLines(t *testing.T) {
 		"🎯 av: avoiding loss, now s-b",
 		"\ts-a: delay 80 ms, loss 1 h 0.00% (0 of 400, 2 probes), 6 h 0.50% (6 of 1200, 6 probes), 24 h 1.50% (30 of 2000, 10 probes) RTT 42 ms",
 		"\ts-b: delay 120 ms, loss 1 h 0.00% (0 of 400, 2 probes), 6 h 0.00% (0 of 1200, 6 probes), 24 h 0.00% (0 of 2000, 10 probes) RTT 42 ms",
-		"\ts-g: delay 90 ms, its probe could not count (a multiplexed transport or QUIC): chosen by its delay",
+		"\ts-g: delay 90 ms, its probe could not count (a multiplexed transport, or QUIC and a loss URL that serves no ranges): chosen by its delay",
 		"🎯 bl: balance over s-a (2 devices), s-b (1 devices)",
 		"\ts-a: delay 80 ms, loss 1 h 0.00% (0 of 400, 2 probes), 6 h 0.50% (6 of 1200, 6 probes), 24 h 1.50% (30 of 2000, 10 probes) RTT 42 ms",
 		"\ts-b: delay 120 ms, loss 1 h 0.00% (0 of 400, 2 probes), 6 h 0.00% (0 of 1200, 6 probes), 24 h 0.00% (0 of 2000, 10 probes) RTT 42 ms",
