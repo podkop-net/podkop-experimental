@@ -195,13 +195,18 @@ require (
 )
 
 // podkop-engine, the sing-box of podkop: the branch podkop-engine-1.14 of the fork
-// podkop-net/sing-box (podkop-engine r26, sing-box 1.14.4)
-replace github.com/sagernet/sing-box => github.com/podkop-net/sing-box v0.0.0-20261114142345-20447b2d4fb5
+// podkop-net/sing-box (podkop-engine r27, sing-box 1.14.4)
+replace github.com/sagernet/sing-box => github.com/podkop-net/sing-box v0.0.0-20261115102032-99eafe2980ac
 
 // the fork podkop-engine builds with (its go.mod has it; a replace counts only in the
 // main module)
 replace github.com/sagernet/sing-vmess => github.com/FiyeroT/sing-vmess v0.2.9-pdk.2
 
-// the fork podkop-engine r26 builds with (its go.mod has it; a replace counts only in the main
+// the fork podkop-engine builds with (its go.mod has it; a replace counts only in the main
 // module): Chrome's QUIC ClientHello in the order of the CPU, ChaCha20 first without AES hardware
-replace github.com/sagernet/quic-go => github.com/podkop-net/quic-go v0.61.0-sing-box-mod.12-pdk.1
+// (r26); the count of the peer's packets of a connection (r27)
+replace github.com/sagernet/quic-go => github.com/podkop-net/quic-go v0.61.0-sing-box-mod.12-pdk.2
+
+// the fork podkop-engine r27 builds with (its go.mod has it; a replace counts only in the main
+// module): the statistics of the current QUIC connection of a hysteria2 or tuic client
+replace github.com/sagernet/sing-quic => github.com/podkop-net/sing-quic v0.7.2-pdk.1
