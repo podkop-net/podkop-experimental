@@ -94,6 +94,10 @@ var (
 	signatureTracker     = []byte{0, 0, 0x04, 0x17, 0x27, 0x10, 0x19, 0x80, 0, 0, 0, 0}
 	// the plaintext handshake of TCP: the length 19 and "BitTorrent protocol"
 	signatureHandshake = append([]byte{19}, "BitTorrent protocol"...)
+	// the announce of a client to an HTTP tracker (BEP 3): a client that speaks only encrypted TCP to
+	// its peers and asks such a tracker for them (rTorrent of a public swarm of Debian, whose tracker
+	// is HTTP, 2026-11-15) sends no UDP the detector knows, and is told by this
+	signatureAnnounce = []byte("GET /announce")
 	// how TLS (a handshake record of version 3), HTTP and SSH begin: the first data of such a
 	// connection is not taken for the encrypted handshake of BitTorrent in the mode block
 	notBitTorrentStarts = [][]byte{{0x16, 0x03}, []byte("GET "), []byte("POST"), []byte("HEAD"), []byte("SSH-")}
@@ -281,6 +285,10 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{0x02}},
 	}, verdict(expr.VerdictGoto, syn.Name))
 	add(tcp, innerIs(0, signatureHandshake[:12]), innerIs(12, signatureHandshake[12:20]), counter, verdict(expr.VerdictGoto, handshake.Name))
+	// an announce to an HTTP tracker: the device runs a client; the connection itself is the
+	// tracker's, not of the swarm
+	announce := append([][]expr.Any{innerIs(0, signatureAnnounce)}, updateHost()...)
+	add(tcp, append(announce, ctMarkAdd(ctNot), counter, returns)...)
 	if mode == BitTorrentBlock {
 		// a first data packet that begins as TLS, HTTP or SSH is none of BitTorrent's, as the
 		// prototype took it

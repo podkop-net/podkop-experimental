@@ -50,6 +50,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_tcp", "ip daddr @localv4 return"),
 		rule("bt_tcp", "tcp flags & (syn | ack) == syn goto bt_syn"),
 		rule("bt_tcp", "@ih,0,96 0x13426974546f7272656e7420 @ih,96,64 0x70726f746f636f6c counter goto bt_handshake"),
+		rule("bt_tcp", "@ih,0,104 0x474554202f616e6e6f756e6365 update @bt_hosts { ip saddr } ct mark set ct mark | 0x40000000 counter return"),
 	}
 	if mode == BitTorrentBlock {
 		for _, start := range []string{"@ih,0,16 0x1603", "@ih,0,32 0x47455420", "@ih,0,32 0x504f5354", "@ih,0,32 0x48454144", "@ih,0,32 0x5353482d"} {
