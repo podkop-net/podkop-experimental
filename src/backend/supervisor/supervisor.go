@@ -1634,7 +1634,8 @@ func (s *Supervisor) surround(previousFirewall *firewall.Plan) error {
 // sets from what the rule sets hold now.
 func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
 	wanted := &current.result.Dataplane
-	result := &firewall.Plan{Interfaces: wanted.Interfaces, ExcludeNTP: wanted.ExcludeNTP, Sources: wanted.Sources, ClashAPIInterfaces: wanted.ClashAPIInterfaces}
+	result := &firewall.Plan{Interfaces: wanted.Interfaces, ExcludeNTP: wanted.ExcludeNTP, Sources: wanted.Sources, ClashAPIInterfaces: wanted.ClashAPIInterfaces,
+		BitTorrent: firewall.BitTorrent{Mode: wanted.BitTorrent, BlockLAN: wanted.BitTorrentBlockLAN}}
 	var sources []keyedSource
 	known := make(map[string]knownSource, len(current.result.RuleSets))
 	for _, ruleSet := range current.result.RuleSets {

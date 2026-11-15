@@ -108,6 +108,8 @@ type Plan struct {
 	// and those of the router itself (lo), and drops the others. None: no such chain, the
 	// API listens on this host only.
 	ClashAPIInterfaces []string
+	// BitTorrent is what becomes of the traffic of BitTorrent clients (bittorrent_linux.go).
+	BitTorrent BitTorrent
 
 	// the ranges of Subnets, merged once
 	subnets merged
@@ -166,7 +168,7 @@ type PortRange struct {
 // structure tells the rules of two plans apart: everything but what the sets hold.
 func (p *Plan) structure() string {
 	var text strings.Builder
-	fmt.Fprint(&text, p.Interfaces, p.ExcludeNTP, p.Sources, p.ClashAPIInterfaces)
+	fmt.Fprint(&text, p.Interfaces, p.ExcludeNTP, p.Sources, p.ClashAPIInterfaces, p.BitTorrent)
 	for _, group := range p.Groups {
 		fmt.Fprint(&text, group.Set, group.Protocol, group.Ports)
 	}
@@ -390,8 +392,12 @@ func Apply(plan *Plan) error {
 			add(mangle, fromInterfaces, destination, protocol(transport), mark)
 		}
 	}
-	// proxy: what is marked goes to the transparent proxy inbound; what the router sent
-	// comes here through the loopback with its own mark
+	// proxy: what is marked goes to the transparent proxy inbound (BitTorrent of the mode
+	// section to its own first); what the router sent comes here through the loopback with
+	// its own mark
+	if plan.BitTorrent.Mode == BitTorrentSection {
+		addBitTorrentProxy(add, proxy)
+	}
 	for _, value := range []uint32{markProxy, markRouter} {
 		for _, transport := range transports {
 			add(proxy, []expr.Any{
@@ -454,6 +460,13 @@ func Apply(plan *Plan) error {
 			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseTransportHeader, Offset: 2, Len: 2},
 			&expr.Lookup{SourceRegister: 1, SetName: portSet.Name, SetID: portSet.ID},
 		}, mark)
+	}
+	// the BitTorrent detector, after the sets of the groups
+	if plan.BitTorrent.Mode != "" {
+		err = addBitTorrent(conn, table, plan, add, &nextID)
+		if err != nil {
+			return E.Cause(err, "add the BitTorrent detector")
+		}
 	}
 	// clash_api: the port of the Clash API from the devices of YACD and from the router
 	// itself; before the input chain of fw4, whose rules then go on as they would

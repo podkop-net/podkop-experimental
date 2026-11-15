@@ -323,6 +323,10 @@ type Dataplane struct {
 	// listens on every address with YACD on (firewall.Plan.ClashAPIInterfaces): those of
 	// yacd_interfaces, or Interfaces. None with YACD off.
 	ClashAPIInterfaces []string
+	// BitTorrent is the mode of the BitTorrent detector of the firewall (model.BitTorrent*),
+	// none when off; BitTorrentBlockLAN blocks it for every device of Interfaces.
+	BitTorrent         string
+	BitTorrentBlockLAN bool
 }
 
 // defaultInterface is the interface the firewall takes traffic from when the settings
@@ -377,6 +381,7 @@ func (b *builder) devices(names []string) []string {
 func (b *builder) dataplane() Dataplane {
 	settings := &b.config.Settings
 	result := Dataplane{Interfaces: b.devices(settings.SourceNetworkInterfaces), ExcludeNTP: settings.ExcludeNTP, TakeDNS: !settings.DontTouchDHCP, ClashAPI: b.clashAPI, ClashSecret: b.clashSecret}
+	result.BitTorrent, result.BitTorrentBlockLAN = b.bitTorrentDataplane()
 	if len(result.Interfaces) == 0 {
 		result.Interfaces = []string{defaultInterface}
 	}
@@ -437,6 +442,9 @@ type builder struct {
 	config  *model.Config
 	facts   Facts
 	options Options
+	// bitTorrentMode and bitTorrentSection are what becomes of BitTorrent (bittorrent.go)
+	bitTorrentMode    string
+	bitTorrentSection *model.Section
 	// detouring: a detour cure is being applied (exits.go applyDetour), so a server it reaches
 	// does not take one of its own, which could close a loop
 	detouring bool
@@ -506,6 +514,7 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 		names: config.Names(), owners: make(map[string]string), tagOf: make(map[string]string),
 		tags: Tags{Rules: make(map[string]RuleTags), Outbounds: make(map[string]TagOf)}}
 	b.claimRuleTags()
+	b.bitTorrentMode, b.bitTorrentSection = b.bitTorrent()
 	b.buildInbounds()
 	err := b.buildOutbounds()
 	if err != nil {
@@ -599,6 +608,7 @@ func (b *builder) buildInbounds() {
 		newObject("type", "tproxy", "tag", tagTProxyInbound, "listen", dataplane.TProxyAddress, "listen_port", dataplane.TProxyPort, "tcp_fast_open", true, "udp_fragment", true),
 		newObject("type", "direct", "tag", tagDNSInbound, "listen", dataplane.DNSAddress, "listen_port", dataplane.DNSPort),
 	)
+	b.buildBitTorrentInbound()
 }
 
 // ruleTag is the tag of an outbound of a rule of the name: its selector (kind ""), the URL
@@ -863,6 +873,9 @@ func (b *builder) buildRoute() (*object, error) {
 		b.addRouteRule("", newObject("action", "route-options", "domain_suffix", names.Suffix, "override_address", names.DeadEndAddress, "override_port", names.DeadEndPort))
 		b.addRouteRule("", newObject("action", "route", "ip_cidr", names.DeadEndAddress, "port", names.DeadEndPort, "outbound", tagDirectOutbound))
 	}
+	// BitTorrent before the devices and the lists: the firewall sent it here, or the sniffer
+	// named it in a connection the proxy had taken
+	b.addBitTorrentRoutes()
 
 	// The rules of direct and block at the top go before the devices left out and the devices
 	// routed whole, as the block and exclusion sections of 0.8 did (the conversion puts those

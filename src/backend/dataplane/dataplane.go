@@ -67,6 +67,21 @@ const (
 	// ClashAPIPort is the port of the Clash API; the page of podkop has it too
 	// (getClashApiUrl.ts).
 	ClashAPIPort = 9090
+	// BitTorrentTProxyPort is where the transparent proxy inbound of BitTorrent listens: the
+	// firewall sends there what it told as BitTorrent when it goes to a section, and the
+	// route rule of that inbound sends it to the section's servers. Not 1603, the port of the
+	// dead end of the check names (probe.DeadEndPort).
+	BitTorrentTProxyPort = 1604
+	// The bits of the conntrack mark the BitTorrent detector of the firewall keeps of a
+	// connection, above the bits of mwan3 (its default mask is 0x3F00): BitTorrentCt the
+	// detector told it as BitTorrent; BitTorrentLateCt it told so by the first data, after
+	// the connection was handed to sing-box already (the route rule of the protocol takes
+	// it there); BitTorrentNotCt it looked at its first packet or data and it was not;
+	// InterceptedCt the connection was marked for the proxy.
+	BitTorrentCt     = 0x10000000
+	BitTorrentLateCt = 0x20000000
+	BitTorrentNotCt  = 0x40000000
+	InterceptedCt    = 0x08000000
 
 	// ReadinessName is the name the supervisor asks the DNS inbound for after a start: an
 	// answer from the FakeIP range tells that the DNS inbound, the DNS rules and the FakeIP

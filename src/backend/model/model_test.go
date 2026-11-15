@@ -175,3 +175,23 @@ func TestTestingURLs(t *testing.T) {
 		require.Equal(t, testCase.want, config.Settings.Check.TestingURLs)
 	}
 }
+
+// The options of BitTorrent, and their defaults: off, the block of what podkop takes.
+func TestBitTorrentSettings(t *testing.T) {
+	load := func(text string) Settings {
+		parsed, err := uci.Parse([]byte("config settings 'settings'\n" + text))
+		require.NoError(t, err)
+		config, err := Load(parsed)
+		require.NoError(t, err)
+		return config.Settings
+	}
+	settings := load("")
+	require.Equal(t, BitTorrentOff, settings.BitTorrent)
+	require.False(t, settings.BitTorrentBlockLAN)
+	require.Empty(t, settings.BitTorrentSection)
+	settings = load("\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n\toption bittorrent_section 'torrents'\n")
+	require.Equal(t, BitTorrentBlock, settings.BitTorrent)
+	require.True(t, settings.BitTorrentBlockLAN)
+	require.Equal(t, "torrents", settings.BitTorrentSection)
+	require.False(t, load("\toption bittorrent 'block'\n\toption bittorrent_block_scope 'podkop'\n").BitTorrentBlockLAN)
+}

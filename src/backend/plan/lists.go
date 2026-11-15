@@ -22,7 +22,9 @@ func (b *builder) buildSectionLists(section *model.Section) error {
 		return nil
 	}
 	if !section.HasEnabledLists() {
-		if len(section.FullyRoutedIPs) == 0 && !section.MixedProxyEnabled {
+		// a rule may carry no more than BitTorrent (servers without a data cap): it has route
+		// rules of its own (addBitTorrentRoutes)
+		if len(section.FullyRoutedIPs) == 0 && !section.MixedProxyEnabled && b.bitTorrentSection != section {
 			b.warn("rule ", b.names.RuleText(section.Name), " has no list: no route rule for it")
 		}
 		return nil

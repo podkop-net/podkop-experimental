@@ -236,6 +236,14 @@ type Settings struct {
 	// ("utls_fallback" 'disabled'); the page writes nothing for the default
 	UTLSFallback bool
 	DisableQUIC  bool
+	// BitTorrent is what becomes of the traffic of BitTorrent clients that the backend takes
+	// (devices routed whole, the addresses of the lists), told by the firewall: BitTorrentOff,
+	// BitTorrentBypass (past podkop: forwarded, and the router may offload it),
+	// BitTorrentBlock, or BitTorrentSection (to the servers of the rule BitTorrentSection).
+	// BitTorrentBlockLAN blocks it for every device of the LAN ("bittorrent_block_scope" 'lan').
+	BitTorrent         string
+	BitTorrentBlockLAN bool
+	BitTorrentSection  string
 	// MaskLists are the public lists of names "Find a mask" tries beside the built-in ones
 	// (maskLists); none when the settings turn them off
 	MaskLists []string
@@ -249,6 +257,14 @@ type Settings struct {
 
 	Check Check
 }
+
+// The values of "bittorrent" (Settings.BitTorrent).
+const (
+	BitTorrentOff     = "off"
+	BitTorrentBypass  = "bypass"
+	BitTorrentBlock   = "block"
+	BitTorrentSection = "section"
+)
 
 // Section is one "config section" block: a rule, which lists name a part of the traffic
 // and where that part goes.
@@ -321,6 +337,9 @@ func Load(parsed *uci.Package) (*Config, error) {
 		YACDSecretKey:           settings.Get("yacd_secret_key"),
 		UTLSFallback:            settings.Bool("utls_fallback", true),
 		DisableQUIC:             settings.Bool("disable_quic", false),
+		BitTorrent:              get(settings, "bittorrent", BitTorrentOff),
+		BitTorrentBlockLAN:      settings.Get("bittorrent_block_scope") == "lan",
+		BitTorrentSection:       settings.Get("bittorrent_section"),
 		MaskLists:               maskLists(settings),
 		UpdateInterval:          get(settings, "update_interval", "1d"),
 		DontTouchDHCP:           settings.Bool("dont_touch_dhcp", false),
