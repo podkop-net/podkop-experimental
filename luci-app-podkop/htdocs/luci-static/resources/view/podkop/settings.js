@@ -410,10 +410,25 @@ function createSettingsContent(section, singBoxFeatures = []) {
     _("The rule for BitTorrent"),
     _("Its servers carry the BitTorrent traffic podkop takes"),
   );
-  uci.sections("podkop", "section").forEach((rule) => {
-    const label = String(rule.label || "").trim();
-    o.value(rule[".name"], label || rule[".name"]);
-  });
+  // the rules are listed when the field is drawn: the settings are loaded then, not yet when the
+  // form is made (the list was empty, 2026-11-15); a rule that is gone is shown as such
+  o.renderWidget = function (section_id, option_index, cfgvalue) {
+    this.keylist = [];
+    this.vallist = [];
+    uci.sections("podkop", "section").forEach((rule) => {
+      const label = String(rule.label || "").trim();
+      this.value(rule[".name"], label || rule[".name"]);
+    });
+    if (cfgvalue && !this.keylist.includes(cfgvalue)) {
+      this.value(cfgvalue, _("%s (deleted)").format(cfgvalue));
+    }
+    return form.ListValue.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue,
+    );
+  };
   o.depends("bittorrent", "section");
 
   // "Find a mask" on the dashboard tries its built-in names and, in turn with them, the names of a
