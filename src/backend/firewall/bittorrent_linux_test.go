@@ -85,6 +85,9 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_decided", "ip daddr . udp dport != @bt_peers update @bt_peers { ip daddr . udp dport }"),
 		rule("bt_decided", "ip daddr . tcp dport != @bt_peers update @bt_peers { ip daddr . tcp dport }"),
 	)
+	if mode != BitTorrentBlock {
+		lines = append(lines, rule("bt_decided", "ct mark & 0x00004000 != 0 @ih,0,8 0x41 @ih,8,8 < 0x3 @ih,64,32 0x0 update @bt_utp { ip saddr . udp sport } counter drop"))
+	}
 	if mode == BitTorrentBlock && detector.LAN {
 		lines = append(lines, rule("bt_decided", "counter drop"))
 	}

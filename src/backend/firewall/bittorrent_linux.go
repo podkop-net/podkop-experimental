@@ -26,7 +26,10 @@ import (
 //     DHT message or a tracker's connect) is marked as such: it goes through sing-box, whose
 //     module learns the peers the replies name (a uTP socket learns them from its own writes, and
 //     qBittorrent's DHT asks the far side to take its source port, which sing-box's would change:
-//     A4 of notes/2026-11-16-bt-phaseA.md).
+//     A4 of notes/2026-11-16-bt-phaseA.md). A uTP SYN on a flow marked as discovery (its socket
+//     spoke DHT to that peer before its first uTP SYN) puts the socket in bt_utp and is dropped:
+//     the client tries the peer again over TCP, decided at the SYN, rather than keeping a
+//     connection on a flow sing-box relays.
 //   - TCP, at the SYN: to a peer the module learned for the device (bt_learned, device . peer .
 //     port; the lookup refreshes it), or to one of bt_peers, it is BitTorrent. A device running a
 //     client, to a port no other program uses (not commonPorts): it is inspected, in sing-box.
@@ -403,9 +406,12 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	}, protocol(unix.IPPROTO_UDP), destinationPort(6771), []expr.Any{addressLoad(offsetSource), update(hosts), &expr.Counter{}}, returns)
 	add(udp, ipv4(), addressIn(offsetDestination, SetLocal, idLocal), returns)
 	// a uTP SYN of version 1, an extension of a known type or none, a timestamp difference of 0
-	add(udp, innerIs(0, []byte{0x41}), []expr.Any{
-		inner(1, 1), &expr.Cmp{Op: expr.CmpOpLt, Register: 1, Data: []byte{3}},
-	}, innerIs(8, []byte{0, 0, 0, 0}), udp4(), endpoint(offsetSource, 0), []expr.Any{update(utp)}, counter, verdict(expr.VerdictGoto, socket.Name))
+	utpSyn := func(then ...[]expr.Any) [][]expr.Any {
+		return append([][]expr.Any{innerIs(0, []byte{0x41}), {
+			inner(1, 1), &expr.Cmp{Op: expr.CmpOpLt, Register: 1, Data: []byte{3}},
+		}, innerIs(8, []byte{0, 0, 0, 0})}, then...)
+	}
+	add(udp, utpSyn(udp4(), endpoint(offsetSource, 0), []expr.Any{update(utp)}, counter, verdict(expr.VerdictGoto, socket.Name))...)
 	for _, signature := range [][]byte{signatureDHTQuery, signatureDHTResponse, signatureDHTAddress, signatureDHTError, signatureTracker} {
 		add(udp, innerIs(0, signature), counter, verdict(expr.VerdictGoto, discovery.Name))
 	}
@@ -484,6 +490,17 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	add(decided, udp4(), endpoint(offsetSource, 0), notIn(sockets), endpoint(offsetSource, 0), []expr.Any{update(sockets)})
 	add(decided, udp4(), endpoint(offsetDestination, 2), notIn(peers), endpoint(offsetDestination, 2), []expr.Any{update(peers)})
 	add(decided, tcp4(), endpoint(offsetDestination, 2), notIn(peers), endpoint(offsetDestination, 2), []expr.Any{update(peers)})
+	// a uTP SYN on a flow of discovery: the socket spoke DHT to this peer before its first uTP SYN
+	// (qBittorrent at its start: its DHT and its uTP share the socket, and so do the peer's). The
+	// flow goes through sing-box, and a connection on it would, for its whole life (the stand of
+	// 2026-11-16, bypass, qBittorrent: 85 % of its UDP bytes through sing-box). The socket speaks
+	// uTP from now on (its new flows are forwarded); the SYN is dropped, and the client tries the
+	// peer over TCP (libtorrent does when a uTP connect fails), decided at the SYN by bt_peers.
+	// Block drops the flow already (or forwards the discovery of the traffic podkop does not take).
+	if mode != BitTorrentBlock {
+		add(decided, append([][]expr.Any{ctMarkTest(ctDiscovery, expr.CmpOpNeq)},
+			utpSyn(udp4(), endpoint(offsetSource, 0), []expr.Any{update(utp)}, counter, verdict(expr.VerdictDrop, ""))...)...)
+	}
 	if mode == BitTorrentBlock && detector.LAN {
 		add(decided, counter, verdict(expr.VerdictDrop, ""))
 	}
