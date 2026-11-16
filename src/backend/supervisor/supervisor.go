@@ -966,6 +966,11 @@ func (s *Supervisor) Probe(ctx context.Context, label string, wait time.Duration
 // ProbeSelf checks the router itself: the backend opens a connection to a fresh check
 // name with the resolver and the routing a program of the router has, and tells what
 // came of it.
+// BitTorrent is what the BitTorrent module of the running sing-box has counted (api.Backend).
+func (s *Supervisor) BitTorrent() map[string]int64 {
+	return engine.BitTorrentCounters()
+}
+
 func (s *Supervisor) ProbeSelf(ctx context.Context) ProbeResult {
 	return s.probe(ctx, probeRequest{})
 }
@@ -1024,7 +1029,7 @@ func (s *Supervisor) answerProbe(request probeRequest) {
 		}
 		// through another inbound a connection proves nothing of the firewall and the
 		// routing: a proxy inbound of a section is reached without them
-		if arrived && arrival.Inbound == plan.TProxyInboundTag {
+		if arrived && (arrival.Inbound == plan.TProxyInboundTag || arrival.Inbound == plan.BitTorrentCheckInboundTag) {
 			result.Connection, result.Client = true, arrival.Source.String()
 		}
 		request.reply <- result
@@ -1644,7 +1649,7 @@ func (s *Supervisor) surround(previousFirewall *firewall.Plan) error {
 func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
 	wanted := &current.result.Dataplane
 	result := &firewall.Plan{Interfaces: wanted.Interfaces, ExcludeNTP: wanted.ExcludeNTP, Sources: wanted.Sources, ClashAPIInterfaces: wanted.ClashAPIInterfaces,
-		BitTorrent: firewall.BitTorrent{Mode: wanted.BitTorrent, BlockLAN: wanted.BitTorrentBlockLAN}}
+		BitTorrent: firewall.BitTorrent{Mode: wanted.BitTorrent, LAN: wanted.BitTorrentLAN, Sources: wanted.Sources}}
 	var sources []keyedSource
 	known := make(map[string]knownSource, len(current.result.RuleSets))
 	for _, ruleSet := range current.result.RuleSets {
@@ -1866,7 +1871,7 @@ func bitTorrentModeName(detector firewall.BitTorrent) string {
 	switch {
 	case detector.Mode == "":
 		return "off"
-	case detector.BlockLAN:
+	case detector.LAN:
 		return detector.Mode + " of the whole LAN"
 	}
 	return detector.Mode

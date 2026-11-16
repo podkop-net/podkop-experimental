@@ -240,10 +240,13 @@ type Settings struct {
 	// (devices routed whole, the addresses of the lists), told by the firewall: BitTorrentOff,
 	// BitTorrentBypass (past podkop: forwarded, and the router may offload it),
 	// BitTorrentBlock, or BitTorrentSection (to the servers of the rule BitTorrentSection).
-	// BitTorrentBlockLAN blocks it for every device of the LAN ("bittorrent_block_scope" 'lan').
-	BitTorrent         string
-	BitTorrentBlockLAN bool
-	BitTorrentSection  string
+	// BitTorrentBlockLAN blocks it for every device of the LAN ("bittorrent_block_scope" 'lan'),
+	// BitTorrentSectionLAN sends that of every device of the LAN to the rule
+	// ("bittorrent_section_scope" 'lan').
+	BitTorrent           string
+	BitTorrentBlockLAN   bool
+	BitTorrentSection    string
+	BitTorrentSectionLAN bool
 	// MaskLists are the public lists of names "Find a mask" tries beside the built-in ones
 	// (maskLists); none when the settings turn them off
 	MaskLists []string
@@ -340,6 +343,7 @@ func Load(parsed *uci.Package) (*Config, error) {
 		BitTorrent:              get(settings, "bittorrent", BitTorrentOff),
 		BitTorrentBlockLAN:      settings.Get("bittorrent_block_scope") == "lan",
 		BitTorrentSection:       settings.Get("bittorrent_section"),
+		BitTorrentSectionLAN:    settings.Get("bittorrent_section_scope") == "lan",
 		MaskLists:               maskLists(settings),
 		UpdateInterval:          get(settings, "update_interval", "1d"),
 		DontTouchDHCP:           settings.Bool("dont_touch_dhcp", false),

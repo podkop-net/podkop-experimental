@@ -413,11 +413,11 @@ func Apply(plan *Plan) error {
 			add(mangle, fromInterfaces, destination, protocol(transport), mark)
 		}
 	}
-	// proxy: what is marked goes to the transparent proxy inbound (BitTorrent of the mode
-	// section to its own first); what the router sent comes here through the loopback with
-	// its own mark
-	if plan.BitTorrent.Mode == BitTorrentSection {
-		addBitTorrentProxy(add, proxy)
+	// proxy: what is marked goes to the transparent proxy inbound (BitTorrent to its own inbounds
+	// first, by the conntrack mark of the detector); what the router sent comes here through the
+	// loopback with its own mark
+	if plan.BitTorrent.Mode != "" {
+		addBitTorrentProxy(add, proxy, plan.BitTorrent)
 	}
 	for _, value := range []uint32{markProxy, markRouter} {
 		for _, transport := range transports {

@@ -67,25 +67,37 @@ const (
 	// ClashAPIPort is the port of the Clash API; the page of podkop has it too
 	// (getClashApiUrl.ts).
 	ClashAPIPort = 9090
-	// BitTorrentTProxyPort is where the transparent proxy inbound of BitTorrent listens: the
-	// firewall sends there what it told as BitTorrent when it goes to a section, and the
-	// route rule of that inbound sends it to the section's servers. Not 1603, the port of the
-	// dead end of the check names (probe.DeadEndPort).
+	// The transparent proxy inbounds of BitTorrent (design H; firewall/bittorrent_linux.go, the
+	// module in package bittorrent). Not 1603, the port of the dead end of the check names
+	// (probe.DeadEndPort).
+	// BitTorrentTProxyPort: what the firewall told as BitTorrent of the traffic podkop takes
+	// (and in the section for the whole LAN, of every device): the route rule of the inbound
+	// does with it what the mode says.
 	BitTorrentTProxyPort = 1604
+	// BitTorrentLANTProxyPort: of the traffic podkop does not take, the discovery (the module
+	// learns its peers) and the connections inspected for the whole LAN: out directly.
+	BitTorrentLANTProxyPort = 1605
+	// BitTorrentCheckTProxyPort: the connections the firewall could not decide at their SYN,
+	// of the traffic podkop takes: the module inspects them, and they go where podkop's rules
+	// route them.
+	BitTorrentCheckTProxyPort = 1606
 	// The bits of the conntrack mark the BitTorrent detector of the firewall keeps of a
-	// connection, 0x000f8000: above the bits of mwan3 (its default mask is 0x3F00), below the
+	// connection, 0x000fc000: above the bits of mwan3 (its default mask is 0x3F00), below the
 	// top byte, where the example of act_ctinfo (tc-ctinfo(8): dscp 0xfc000000 0x01000000)
 	// keeps the DSCP of a connection, and an egress rule of such a setup rewrites it whole.
 	// BitTorrentCt the detector told it as BitTorrent; BitTorrentLateCt it told so by the
 	// first data, after the connection was handed to sing-box already (the route rule of the
 	// protocol takes it there); BitTorrentNotCt it looked at its first packet or data and it
-	// was not; BitTorrentGuessCt the mode section took it at its SYN by its port alone, not
-	// told; InterceptedCt the connection was marked for the proxy.
-	BitTorrentCt      = 0x00010000
-	BitTorrentLateCt  = 0x00020000
-	BitTorrentNotCt   = 0x00040000
-	BitTorrentGuessCt = 0x00080000
-	InterceptedCt     = 0x00008000
+	// was not; BitTorrentInspectCt a device running a client opened it to a port no other
+	// program uses, and the module inspects it; BitTorrentDiscoveryCt it is discovery (the DHT,
+	// a UDP tracker) of a socket that has not spoken uTP, which goes through sing-box for the
+	// module to learn its peers; InterceptedCt the connection was marked for the proxy.
+	BitTorrentCt          = 0x00010000
+	BitTorrentLateCt      = 0x00020000
+	BitTorrentNotCt       = 0x00040000
+	BitTorrentInspectCt   = 0x00080000
+	BitTorrentDiscoveryCt = 0x00004000
+	InterceptedCt         = 0x00008000
 
 	// ReadinessName is the name the supervisor asks the DNS inbound for after a start: an
 	// answer from the FakeIP range tells that the DNS inbound, the DNS rules and the FakeIP
@@ -104,6 +116,11 @@ const (
 	RunDir  = "/var/run/podkop"
 	DataDir = "/usr/share/podkop"
 )
+
+// BitTorrentCommonPorts are the ports a BitTorrent client does not listen on in practice and other
+// programs use: the firewall inspects the TCP of a device running a client to any other port, and
+// the module never learns a peer on them.
+var BitTorrentCommonPorts = []uint16{22, 25, 53, 80, 110, 123, 143, 443, 465, 587, 853, 993, 995, 3478, 5222, 5223, 5228, 8080, 8443}
 
 // DNSServer is the address and the port of the DNS inbound, as a DNS client dials it.
 var DNSServer = netip.AddrPortFrom(netip.MustParseAddr(DNSAddress), DNSPort)

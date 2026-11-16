@@ -431,6 +431,16 @@ function createSettingsContent(section, singBoxFeatures = []) {
   };
   o.depends("bittorrent", "section");
 
+  o = section.option(
+    form.ListValue,
+    "bittorrent_section_scope",
+    _("Whose BitTorrent goes through the rule"),
+  );
+  o.value("podkop", _("Only what podkop takes"));
+  o.value("lan", _("On the whole LAN"));
+  o.default = "podkop";
+  o.depends("bittorrent", "section");
+
   // "Find a mask" on the dashboard tries its built-in names and, in turn with them, the names of a
   // public whitelists; the backend downloads them for each search and keeps the last copies in RAM
   o = section.option(

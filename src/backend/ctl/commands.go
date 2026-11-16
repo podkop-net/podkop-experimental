@@ -294,6 +294,16 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 			return 1
 		}
 		return pretty(result)
+	case "bittorrent_counters":
+		// what the BitTorrent module has counted since sing-box started (none when it is off)
+		counters, err := client.BitTorrent()
+		if err != nil {
+			return 1
+		}
+		if counters == nil {
+			counters = map[string]int64{}
+		}
+		return pretty(counters)
 	case "clash_api":
 		return clashAPI(client, arguments[1:], output)
 	case "global_check":

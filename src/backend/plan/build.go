@@ -324,9 +324,10 @@ type Dataplane struct {
 	// yacd_interfaces, or Interfaces. None with YACD off.
 	ClashAPIInterfaces []string
 	// BitTorrent is the mode of the BitTorrent detector of the firewall (model.BitTorrent*),
-	// none when off; BitTorrentBlockLAN blocks it for every device of Interfaces.
-	BitTorrent         string
-	BitTorrentBlockLAN bool
+	// none when off; BitTorrentLAN makes the block or the section act on every device of
+	// Interfaces.
+	BitTorrent    string
+	BitTorrentLAN bool
 }
 
 // defaultInterface is the interface the firewall takes traffic from when the settings
@@ -381,7 +382,7 @@ func (b *builder) devices(names []string) []string {
 func (b *builder) dataplane() Dataplane {
 	settings := &b.config.Settings
 	result := Dataplane{Interfaces: b.devices(settings.SourceNetworkInterfaces), ExcludeNTP: settings.ExcludeNTP, TakeDNS: !settings.DontTouchDHCP, ClashAPI: b.clashAPI, ClashSecret: b.clashSecret}
-	result.BitTorrent, result.BitTorrentBlockLAN = b.bitTorrentDataplane()
+	result.BitTorrent, result.BitTorrentLAN = b.bitTorrentDataplane()
 	if len(result.Interfaces) == 0 {
 		result.Interfaces = []string{defaultInterface}
 	}
@@ -445,6 +446,8 @@ type builder struct {
 	// bitTorrentMode and bitTorrentSection are what becomes of BitTorrent (bittorrent.go)
 	bitTorrentMode    string
 	bitTorrentSection *model.Section
+	// services are the services of sing-box (the BitTorrent module)
+	services []any
 	// detouring: a detour cure is being applied (exits.go applyDetour), so a server it reaches
 	// does not take one of its own, which could close a loop
 	detouring bool
@@ -566,7 +569,7 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 		"inbounds", listOrEmpty(b.inbounds),
 		"outbounds", listOrEmpty(b.outbounds),
 		"route", route,
-		"services", []any{},
+		"services", listOrEmpty(b.services),
 		"experimental", b.experimental,
 	)
 	content, err := indented(document)
@@ -859,7 +862,7 @@ func (b *builder) buildRoute() (*object, error) {
 		route.set("default_interface", b.device(settings.OutputNetworkInterface))
 	}
 
-	b.addRouteRule("", newObject("action", "sniff", "inbound", []any{tagTProxyInbound, tagDNSInbound}))
+	b.addRouteRule("", newObject("action", "sniff", "inbound", append([]any{tagTProxyInbound, tagDNSInbound}, b.bitTorrentSniffed()...)))
 	b.addRouteRule("", newObject("action", "hijack-dns", "protocol", "dns"))
 	if settings.DisableQUIC {
 		b.addRouteRule("", newObject("action", "reject", "inbound", tagTProxyInbound, "protocol", "quic"))
@@ -896,7 +899,7 @@ func (b *builder) buildRoute() (*object, error) {
 		}
 	}
 	if len(settings.RoutingExcludedIPs) > 0 {
-		entry := b.addRouteRule("", newObject("action", "route", "inbound", tagTProxyInbound, "outbound", tagDirectOutbound))
+		entry := b.addRouteRule("", newObject("action", "route", "inbound", b.proxyInbounds(), "outbound", tagDirectOutbound))
 		for _, address := range settings.RoutingExcludedIPs {
 			patch(entry.fields, "source_ip_cidr", argument(address))
 		}
@@ -906,7 +909,7 @@ func (b *builder) buildRoute() (*object, error) {
 		if len(section.FullyRoutedIPs) == 0 || !b.routes(section) {
 			continue
 		}
-		entry := b.addRouteRule("", b.sectionRoute(section, tagTProxyInbound))
+		entry := b.addRouteRule("", b.sectionRoute(section, b.proxyInbounds()))
 		for _, address := range section.FullyRoutedIPs {
 			patch(entry.fields, "source_ip_cidr", argument(address))
 		}

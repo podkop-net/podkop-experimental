@@ -68,51 +68,107 @@ func hasInbound(config bitTorrentConfig, tag string) map[string]any {
 	return nil
 }
 
+type bitTorrentServices struct {
+	Services []map[string]any `json:"services"`
+}
+
+func services(t *testing.T, result *Result) []map[string]any {
+	var document bitTorrentServices
+	require.NoError(t, json.Unmarshal(result.Config, &document))
+	return document.Services
+}
+
+var (
+	proxyInbounds = []any{tagTProxyInbound, tagBitTorrentCheckInbound}
+	allInbounds   = []any{tagTProxyInbound, tagBitTorrentCheckInbound, tagBitTorrentLANInbound}
+)
+
 // Off by default: nothing of BitTorrent in the configuration or the firewall.
 func TestBitTorrentOff(t *testing.T) {
 	for _, options := range []string{"", "\toption bittorrent 'off'\n"} {
 		result, config := bitTorrentBuild(t, options, "")
 		require.Empty(t, result.Dataplane.BitTorrent)
-		require.Nil(t, hasInbound(config, tagBitTorrentInbound))
+		for _, tag := range []string{tagBitTorrentInbound, tagBitTorrentLANInbound, tagBitTorrentCheckInbound} {
+			require.Nil(t, hasInbound(config, tag))
+		}
 		require.Equal(t, -1, ruleIndex(config, map[string]any{"protocol": "bittorrent"}))
+		require.Empty(t, services(t, result))
+		// the devices routed whole come in through the transparent proxy alone
+		require.True(t, jsonEqual(config.Route.Rules[firstWith(config, "source_ip_cidr")]["inbound"], tagTProxyInbound))
 	}
 }
 
-// Each mode: what the firewall is told, and the route rules of what the proxy had taken before it
-// was told, before the devices routed whole.
+// Each mode: what the firewall is told, the inbounds and the module, the route rules of BitTorrent
+// before the devices routed whole, and podkop's rules on the inspection inbound too.
 func TestBitTorrentModes(t *testing.T) {
+	inbounds := func(config bitTorrentConfig, in bool) {
+		require.Equal(t, in, hasInbound(config, tagBitTorrentInbound) != nil)
+		for tag, port := range map[string]int{tagBitTorrentLANInbound: dataplane.BitTorrentLANTProxyPort, tagBitTorrentCheckInbound: dataplane.BitTorrentCheckTProxyPort} {
+			inbound := hasInbound(config, tag)
+			require.NotNil(t, inbound, tag)
+			require.Equal(t, "tproxy", inbound["type"])
+			require.EqualValues(t, port, inbound["listen_port"])
+		}
+		// podkop's rules take the inspected connections too
+		require.True(t, jsonEqual(config.Route.Rules[firstWith(config, "source_ip_cidr")]["inbound"], proxyInbounds))
+		require.GreaterOrEqual(t, ruleIndex(config, map[string]any{"action": "sniff", "inbound": []any{tagTProxyInbound, tagDNSInbound, tagBitTorrentCheckInbound, tagBitTorrentLANInbound}}), 0)
+		lan := ruleIndex(config, map[string]any{"inbound": tagBitTorrentLANInbound, "outbound": tagDirectOutbound})
+		require.GreaterOrEqual(t, lan, 0)
+		require.Less(t, lan, firstWith(config, "source_ip_cidr"))
+	}
+	module := func(result *Result, confirmed string) {
+		list := services(t, result)
+		require.Len(t, list, 1)
+		require.Equal(t, bitTorrentServiceType, list[0]["type"])
+		require.Equal(t, "bt_learned", list[0]["set"])
+		require.True(t, jsonEqual(list[0]["inspect"], []any{
+			map[string]any{"inbound": tagBitTorrentCheckInbound, "confirmed": confirmed},
+			map[string]any{"inbound": tagBitTorrentLANInbound, "confirmed": confirmed},
+		}), "%v", list[0]["inspect"])
+	}
+
 	result, config := bitTorrentBuild(t, "\toption bittorrent 'bypass'\n", "")
 	require.Equal(t, "bypass", result.Dataplane.BitTorrent)
-	require.False(t, result.Dataplane.BitTorrentBlockLAN)
-	require.Nil(t, hasInbound(config, tagBitTorrentInbound))
-	sniffed := ruleIndex(config, map[string]any{"inbound": tagTProxyInbound, "protocol": "bittorrent", "outbound": tagDirectOutbound})
+	require.False(t, result.Dataplane.BitTorrentLAN)
+	inbounds(config, true)
+	module(result, bitTorrentLearn)
+	require.GreaterOrEqual(t, ruleIndex(config, map[string]any{"inbound": tagBitTorrentInbound, "outbound": tagDirectOutbound}), 0)
+	sniffed := ruleIndex(config, map[string]any{"inbound": allInbounds, "protocol": "bittorrent", "outbound": tagDirectOutbound})
 	require.GreaterOrEqual(t, sniffed, 0)
 	require.Less(t, sniffed, firstWith(config, "source_ip_cidr"))
 
 	result, config = bitTorrentBuild(t, "\toption bittorrent 'block'\n", "")
 	require.Equal(t, "block", result.Dataplane.BitTorrent)
-	require.False(t, result.Dataplane.BitTorrentBlockLAN)
-	require.GreaterOrEqual(t, ruleIndex(config, map[string]any{"action": "reject", "protocol": "bittorrent"}), 0)
+	require.False(t, result.Dataplane.BitTorrentLAN)
+	inbounds(config, false)
+	module(result, bitTorrentReject)
+	require.GreaterOrEqual(t, ruleIndex(config, map[string]any{"action": "reject", "inbound": allInbounds, "protocol": "bittorrent"}), 0)
 
 	result, _ = bitTorrentBuild(t, "\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n", "")
-	require.True(t, result.Dataplane.BitTorrentBlockLAN)
-	// the scope is of the block only
-	result, _ = bitTorrentBuild(t, "\toption bittorrent 'bypass'\n\toption bittorrent_block_scope 'lan'\n", "")
-	require.False(t, result.Dataplane.BitTorrentBlockLAN)
+	require.True(t, result.Dataplane.BitTorrentLAN)
+	// each scope is of its mode only
+	result, _ = bitTorrentBuild(t, "\toption bittorrent 'bypass'\n\toption bittorrent_block_scope 'lan'\n\toption bittorrent_section_scope 'lan'\n", "")
+	require.False(t, result.Dataplane.BitTorrentLAN)
+	result, _ = bitTorrentBuild(t, "\toption bittorrent 'block'\n\toption bittorrent_section_scope 'lan'\n", "")
+	require.False(t, result.Dataplane.BitTorrentLAN)
 
 	const torrents = "\nconfig section 'torrents'\n\toption connection_type 'proxy'\n\toption proxy_config_type 'url'\n\toption proxy_string 'socks5://203.0.113.16:1080'\n"
 	result, config = bitTorrentBuild(t, "\toption bittorrent 'section'\n\toption bittorrent_section 'torrents'\n", torrents)
 	require.Equal(t, "section", result.Dataplane.BitTorrent)
-	inbound := hasInbound(config, tagBitTorrentInbound)
-	require.NotNil(t, inbound)
-	require.Equal(t, "tproxy", inbound["type"])
-	require.EqualValues(t, dataplane.BitTorrentTProxyPort, inbound["listen_port"])
+	require.False(t, result.Dataplane.BitTorrentLAN)
+	inbounds(config, true)
+	module(result, bitTorrentLearn)
+	require.EqualValues(t, dataplane.BitTorrentTProxyPort, hasInbound(config, tagBitTorrentInbound)["listen_port"])
 	routed := ruleIndex(config, map[string]any{"inbound": tagBitTorrentInbound, "outbound": "torrents-out"})
 	require.GreaterOrEqual(t, routed, 0)
-	sniffed = ruleIndex(config, map[string]any{"inbound": tagTProxyInbound, "protocol": "bittorrent", "outbound": "torrents-out"})
+	sniffed = ruleIndex(config, map[string]any{"inbound": proxyInbounds, "protocol": "bittorrent", "outbound": "torrents-out"})
 	require.GreaterOrEqual(t, sniffed, 0)
 	require.Less(t, sniffed, firstWith(config, "source_ip_cidr"))
 	require.Empty(t, result.Warnings)
+
+	result, config = bitTorrentBuild(t, "\toption bittorrent 'section'\n\toption bittorrent_section 'torrents'\n\toption bittorrent_section_scope 'lan'\n", torrents)
+	require.True(t, result.Dataplane.BitTorrentLAN)
+	require.GreaterOrEqual(t, ruleIndex(config, map[string]any{"inbound": allInbounds, "protocol": "bittorrent", "outbound": "torrents-out"}), 0)
 }
 
 // A mode the backend does not know, or a rule that is not there or is off: as the other traffic,
@@ -127,6 +183,7 @@ func TestBitTorrentWrongSettings(t *testing.T) {
 		result, config := bitTorrentBuild(t, settings[0], settings[1])
 		require.Empty(t, result.Dataplane.BitTorrent, name)
 		require.Nil(t, hasInbound(config, tagBitTorrentInbound), name)
+		require.Nil(t, hasInbound(config, tagBitTorrentCheckInbound), name)
 		require.Equal(t, -1, ruleIndex(config, map[string]any{"protocol": "bittorrent"}), name)
 		found := false
 		for _, warning := range result.Warnings {
@@ -137,7 +194,11 @@ func TestBitTorrentWrongSettings(t *testing.T) {
 }
 
 // The inbound of BitTorrent listens where nothing else of the backend does: the transparent proxy,
-// the dead end of the check names (probe), the DNS inbound, the Clash API.
+// the dead end of the check names (probe), the DNS inbound, the Clash API, and each other.
 func TestBitTorrentPortIsItsOwn(t *testing.T) {
-	require.NotContains(t, []int{dataplane.TProxyPort, probe.DeadEndPort, dataplane.DNSPort, dataplane.ClashAPIPort}, dataplane.BitTorrentTProxyPort)
+	ports := []int{dataplane.TProxyPort, probe.DeadEndPort, dataplane.DNSPort, dataplane.ClashAPIPort}
+	for _, port := range []int{dataplane.BitTorrentTProxyPort, dataplane.BitTorrentLANTProxyPort, dataplane.BitTorrentCheckTProxyPort} {
+		require.NotContains(t, ports, port)
+		ports = append(ports, port)
+	}
 }

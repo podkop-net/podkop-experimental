@@ -12,15 +12,19 @@ import (
 func bitTorrentTable(t *testing.T, plan *Plan) {
 	shellBackendTable(t, plan)
 	table := "inet " + tableName
-	mode := plan.BitTorrent.Mode
+	detector := plan.BitTorrent
+	mode := detector.Mode
 	ports := "{ 22, 25, 53, 80, 110, 123, 143, 443, 465, 587, 853, 993, 995, 3478, 5222, 5223, 5228, 8080, 8443 }"
 	rule := func(chain string, text string) string { return "add rule " + table + " " + chain + " " + text }
 	lines := []string{
 		"add set " + table + " bt_sockets { type ipv4_addr . inet_service; flags dynamic,timeout; timeout 30m; }",
 		"add set " + table + " bt_hosts { type ipv4_addr; flags dynamic,timeout; timeout 30m; }",
 		"add set " + table + " bt_peers { type ipv4_addr . inet_service; flags dynamic,timeout; timeout 30m; }",
+		"add set " + table + " bt_utp { type ipv4_addr . inet_service; flags dynamic,timeout; timeout 30m; }",
+		"add set " + table + " bt_learned { type ipv4_addr . ipv4_addr . inet_service; flags dynamic,timeout; timeout 30m; }",
 		"add chain " + table + " bt_detect { type filter hook prerouting priority -160; policy accept; }",
 		"add chain " + table + " bt_udp",
+		"add chain " + table + " bt_discovery",
 		"add chain " + table + " bt_socket",
 		"add chain " + table + " bt_flow",
 		"add chain " + table + " bt_tcp",
@@ -28,6 +32,12 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		"add chain " + table + " bt_handshake",
 		"add chain " + table + " bt_decided",
 		"add chain " + table + " bt_act { type filter hook prerouting priority -149; policy accept; }",
+		"add chain " + table + " bt_free",
+	}
+	if mode == BitTorrentBlock {
+		lines = append(lines, "add chain "+table+" bt_incoming { type filter hook forward priority -1; policy accept; }")
+	}
+	lines = append(lines,
 		rule("bt_detect", "iifname != @interfaces return"),
 		rule("bt_detect", "meta nfproto != ipv4 return"),
 		rule("bt_detect", "ct mark & 0x000f0000 != 0 goto bt_decided"),
@@ -35,14 +45,18 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_detect", "meta l4proto tcp goto bt_tcp"),
 		rule("bt_udp", "ip daddr 239.192.152.143 udp dport 6771 update @bt_hosts { ip saddr } counter return"),
 		rule("bt_udp", "ip daddr @localv4 return"),
+		rule("bt_udp", "@ih,0,8 0x41 @ih,8,8 < 0x3 @ih,64,32 0x0 update @bt_utp { ip saddr . udp sport } counter goto bt_socket"),
+		rule("bt_udp", "@ih,0,56 0x64313a6164323a counter goto bt_discovery"),
+		rule("bt_udp", "@ih,0,56 0x64313a7264323a counter goto bt_discovery"),
+		rule("bt_udp", "@ih,0,56 0x64323a6970363a counter goto bt_discovery"),
+		rule("bt_udp", "@ih,0,48 0x64313a656c69 counter goto bt_discovery"),
+		rule("bt_udp", "@ih,0,96 0x000004172710198000000000 counter goto bt_discovery"),
 		rule("bt_udp", "ip saddr . udp sport @bt_sockets goto bt_flow"),
-		rule("bt_udp", "@ih,0,56 0x64313a6164323a counter goto bt_socket"),
-		rule("bt_udp", "@ih,0,56 0x64313a7264323a counter goto bt_socket"),
-		rule("bt_udp", "@ih,0,56 0x64323a6970363a counter goto bt_socket"),
-		rule("bt_udp", "@ih,0,48 0x64313a656c69 counter goto bt_socket"),
-		rule("bt_udp", "@ih,0,96 0x000004172710198000000000 counter goto bt_socket"),
-		rule("bt_udp", "@ih,0,8 0x41 @ih,8,8 < 0x3 @ih,64,32 0x0 counter goto bt_socket"),
 		rule("bt_udp", "ct mark set ct mark | 0x00040000"),
+		rule("bt_discovery", "update @bt_sockets { ip saddr . udp sport }"),
+		rule("bt_discovery", "update @bt_hosts { ip saddr }"),
+		rule("bt_discovery", "ip saddr . udp sport @bt_utp goto bt_flow"),
+		rule("bt_discovery", "ct mark set ct mark | 0x00004000 counter goto bt_flow"),
 		rule("bt_socket", "update @bt_sockets { ip saddr . udp sport }"),
 		rule("bt_socket", "update @bt_hosts { ip saddr }"),
 		rule("bt_socket", "goto bt_flow"),
@@ -55,29 +69,12 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		// "GET /announce?", and "GET /announc" "e.php?"
 		rule("bt_tcp", "@ih,0,112 0x474554202f616e6e6f756e63653f update @bt_hosts { ip saddr } ct mark set ct mark | 0x00040000 counter return"),
 		rule("bt_tcp", "@ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f update @bt_hosts { ip saddr } ct mark set ct mark | 0x00040000 counter return"),
-	}
-	if mode == BitTorrentBlock {
-		for _, start := range notBitTorrentStarts {
-			lines = append(lines, rule("bt_tcp", fmt.Sprintf("@ih,0,%d 0x%x ct mark set ct mark | 0x00040000 return", len(start)*8, start)))
-		}
-		intercepted := " ct mark & 0x00008000 != 0"
-		if plan.BitTorrent.BlockLAN {
-			intercepted = ""
-		}
-		encrypted := "ip saddr @bt_hosts tcp dport != " + ports + " @ih,0,8 0x0-0xff ip length 136-668" + intercepted
-		lines = append(lines,
-			rule("bt_tcp", encrypted+" update @bt_peers { ip daddr . tcp dport }"),
-			rule("bt_tcp", encrypted+" ct mark set ct mark | 0x00010000 counter drop"))
-	}
-	lines = append(lines,
+		rule("bt_tcp", "ip saddr . ip daddr . tcp dport @bt_learned counter goto bt_handshake"),
 		rule("bt_tcp", "ip saddr @bt_hosts ip daddr . tcp dport @bt_peers counter goto bt_handshake"),
 		rule("bt_tcp", "@ih,0,8 0x0-0xff ct mark set ct mark | 0x00040000"),
+		rule("bt_syn", "ip saddr . ip daddr . tcp dport @bt_learned update @bt_learned { ip saddr . ip daddr . tcp dport } ct mark set ct mark | 0x00010000 counter goto bt_decided"),
 		rule("bt_syn", "ip saddr @bt_hosts ip daddr . tcp dport @bt_peers ct mark set ct mark | 0x00010000 counter goto bt_decided"),
-	)
-	if mode == BitTorrentSection {
-		lines = append(lines, rule("bt_syn", "ip saddr @bt_hosts tcp dport != "+ports+" ct mark set ct mark | 0x00080000 counter return"))
-	}
-	lines = append(lines,
+		rule("bt_syn", "ip saddr @bt_hosts tcp dport != "+ports+" ct mark set ct mark | 0x00080000 counter return"),
 		rule("bt_handshake", "update @bt_hosts { ip saddr }"),
 		rule("bt_handshake", "update @bt_peers { ip daddr . tcp dport }"),
 		rule("bt_handshake", "ct mark & 0x00008000 != 0 ct mark set ct mark | 0x00020000 counter return"),
@@ -88,26 +85,72 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_decided", "ip daddr . udp dport != @bt_peers update @bt_peers { ip daddr . udp dport }"),
 		rule("bt_decided", "ip daddr . tcp dport != @bt_peers update @bt_peers { ip daddr . tcp dport }"),
 	)
-	if mode == BitTorrentBlock && plan.BitTorrent.BlockLAN {
+	if mode == BitTorrentBlock && detector.LAN {
 		lines = append(lines, rule("bt_decided", "counter drop"))
 	}
 	lines = append(lines,
-		rule("bt_act", "meta mark & 0x00100000 == 0 return"),
+		rule("bt_act", "meta mark & 0x00100000 == 0 goto bt_free"),
 		rule("bt_act", "ct mark & 0x00008000 == 0 ct mark set ct mark | 0x00008000"),
+		rule("bt_act", "ct mark & 0x00080000 != 0 return"),
 		rule("bt_act", "ct mark & 0x00010000 == 0 return"),
 	)
 	switch mode {
 	case BitTorrentBypass:
 		lines = append(lines,
 			rule("bt_act", "ip daddr 198.18.0.0/15 return"),
+			rule("bt_act", "ct mark & 0x00004000 != 0 return"),
 			rule("bt_act", "meta mark set meta mark & 0xffefffff counter"))
 	case BitTorrentBlock:
 		lines = append(lines, rule("bt_act", "counter drop"))
-	case BitTorrentSection:
-		// before the rules of proxy: the last one inserted is the first
+	}
+	if detector.LAN {
+		lines = append(lines, rule("bt_free", "ct mark & 0x00080000 != 0 meta mark set meta mark | 0x00100000 counter return"))
+	}
+	lines = append(lines, rule("bt_free", "ct mark & 0x00010000 == 0 return"))
+	switch {
+	case mode == BitTorrentSection && detector.LAN:
+		lines = append(lines, rule("bt_free", "meta mark set meta mark | 0x00100000 counter"))
+	case mode != BitTorrentBlock:
+		lines = append(lines, rule("bt_free", "ct mark & 0x00004000 != 0 meta mark set meta mark | 0x00100000 counter"))
+	}
+	if mode == BitTorrentBlock {
+		lines = append(lines,
+			rule("bt_incoming", "iifname @interfaces return"),
+			rule("bt_incoming", "ct state & new == 0 return"))
+		devices := []string{""}
+		if !detector.LAN {
+			devices = nil
+			for _, device := range detector.Sources {
+				devices = append(devices, "ip daddr "+device.String()+" ")
+			}
+		}
+		for _, device := range devices {
+			device = strings.TrimSuffix(strings.Replace(device, "/32 ", " ", 1), "/32")
+			for _, transport := range []string{"tcp", "udp"} {
+				lines = append(lines, rule("bt_incoming", device+"ip daddr . "+transport+" dport @bt_sockets counter drop"))
+			}
+		}
+	}
+	// the first rules of proxy, before the transparent proxy's: the last one inserted is the first
+	type route struct {
+		marks string
+		port  int
+	}
+	routes := []route{{"ct mark & 0x00080000 != 0 ct mark & 0x00008000 != 0", 1606}}
+	if detector.LAN {
+		routes = append(routes, route{"ct mark & 0x00080000 != 0 ct mark & 0x00008000 == 0", 1605})
+	}
+	if mode != BitTorrentBlock {
+		free := 1605
+		if mode == BitTorrentSection && detector.LAN {
+			free = 1604
+		}
+		routes = append(routes, route{"ct mark & 0x00010000 != 0 ct mark & 0x00008000 != 0", 1604}, route{"ct mark & 0x00010000 != 0 ct mark & 0x00008000 == 0", free})
+	}
+	for index := len(routes) - 1; index >= 0; index-- {
 		for _, transport := range []string{"udp", "tcp"} {
-			lines = append(lines, "insert rule "+table+" proxy ct mark & 0x00090000 != 0 meta mark & 0x00100000 == 0x00100000 meta l4proto "+
-				transport+" tproxy ip to 127.0.0.1:1604 counter accept")
+			lines = append(lines, fmt.Sprintf("insert rule %s proxy %s meta mark & 0x00100000 == 0x00100000 meta l4proto %s tproxy ip to 127.0.0.1:%d counter accept",
+				table, routes[index].marks, transport, routes[index].port))
 		}
 	}
 	for _, line := range lines {
@@ -120,10 +163,11 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 func TestBitTorrentTable(t *testing.T) {
 	needNft(t)
 	for name, detector := range map[string]BitTorrent{
-		"bypass":         {Mode: BitTorrentBypass},
-		"block":          {Mode: BitTorrentBlock},
-		"block, the LAN": {Mode: BitTorrentBlock, BlockLAN: true},
-		"section":        {Mode: BitTorrentSection},
+		"bypass":           {Mode: BitTorrentBypass},
+		"block":            {Mode: BitTorrentBlock, Sources: prefixes("192.168.1.60/32", "192.168.1.64/30")},
+		"block, the LAN":   {Mode: BitTorrentBlock, LAN: true},
+		"section":          {Mode: BitTorrentSection},
+		"section, the LAN": {Mode: BitTorrentSection, LAN: true},
 	} {
 		plan := &Plan{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: detector}
 		_ = Remove()
@@ -156,13 +200,14 @@ func TestBitTorrentModeIsStructure(t *testing.T) {
 	off := &Plan{Interfaces: []string{"br-lan"}}
 	bypass := &Plan{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBypass}}
 	block := &Plan{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBlock}}
-	lan := &Plan{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBlock, BlockLAN: true}}
+	lan := &Plan{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBlock, LAN: true}}
+	sectionLAN := &Plan{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentSection, LAN: true}}
 	structures := map[string]bool{}
-	for _, plan := range []*Plan{off, bypass, block, lan} {
+	for _, plan := range []*Plan{off, bypass, block, lan, sectionLAN} {
 		structures[plan.structure()] = true
 	}
-	if len(structures) != 4 {
-		t.Errorf("modes share a structure: %d of 4", len(structures))
+	if len(structures) != 5 {
+		t.Errorf("modes share a structure: %d of 5", len(structures))
 	}
 }
 
@@ -172,7 +217,8 @@ func TestBitTorrentModeIsStructure(t *testing.T) {
 // them as they were.
 func TestForgetFor(t *testing.T) {
 	off, bypass, block, section := BitTorrent{}, BitTorrent{Mode: BitTorrentBypass}, BitTorrent{Mode: BitTorrentBlock}, BitTorrent{Mode: BitTorrentSection}
-	lan := BitTorrent{Mode: BitTorrentBlock, BlockLAN: true}
+	lan := BitTorrent{Mode: BitTorrentBlock, LAN: true}
+	sectionLAN := BitTorrent{Mode: BitTorrentSection, LAN: true}
 	for _, c := range []struct {
 		previous, next BitTorrent
 		forget         Forget
@@ -191,6 +237,14 @@ func TestForgetFor(t *testing.T) {
 		{section, bypass, ForgetNone},
 		{off, lan, ForgetNone},
 		{off, block, ForgetNone},
+		// the section of the whole LAN takes what went past podkop
+		{bypass, sectionLAN, ForgetAll},
+		{section, sectionLAN, ForgetAll},
+		{lan, sectionLAN, ForgetAll},
+		{sectionLAN, lan, ForgetAll},
+		{sectionLAN, sectionLAN, ForgetNone},
+		{sectionLAN, section, ForgetNone},
+		{sectionLAN, bypass, ForgetNone},
 	} {
 		if got := ForgetFor(c.previous, c.next); got != c.forget {
 			t.Errorf("from %+v to %+v: %v, not %v", c.previous, c.next, got, c.forget)
@@ -211,7 +265,8 @@ func TestBitTorrentKept(t *testing.T) {
 	if err := Apply(bypass); err != nil {
 		t.Fatal(err)
 	}
-	learned := map[string]string{"bt_hosts": "192.168.1.60", "bt_sockets": "192.168.1.60 . 6881", "bt_peers": "203.0.113.7 . 51413"}
+	learned := map[string]string{"bt_hosts": "192.168.1.60", "bt_sockets": "192.168.1.60 . 6881", "bt_peers": "203.0.113.7 . 51413",
+		"bt_utp": "192.168.1.60 . 6881", "bt_learned": "192.168.1.60 . 203.0.113.8 . 51413"}
 	for set, element := range learned {
 		nft(t, "add element inet "+tableName+" "+set+" { "+element+" timeout 10m }")
 	}

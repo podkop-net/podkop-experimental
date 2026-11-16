@@ -29,7 +29,7 @@ func (b *builder) buildSectionLists(section *model.Section) error {
 		}
 		return nil
 	}
-	target := b.addRouteRule("section "+section.Name, b.sectionRoute(section, tagTProxyInbound))
+	target := b.addRouteRule("section "+section.Name, b.sectionRoute(section, b.proxyInbounds()))
 
 	for _, list := range section.CommunityLists {
 		if !slices.Contains(communityLists, list) {

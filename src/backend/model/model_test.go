@@ -194,4 +194,7 @@ func TestBitTorrentSettings(t *testing.T) {
 	require.True(t, settings.BitTorrentBlockLAN)
 	require.Equal(t, "torrents", settings.BitTorrentSection)
 	require.False(t, load("\toption bittorrent 'block'\n\toption bittorrent_block_scope 'podkop'\n").BitTorrentBlockLAN)
+	require.False(t, settings.BitTorrentSectionLAN)
+	require.True(t, load("\toption bittorrent 'section'\n\toption bittorrent_section_scope 'lan'\n").BitTorrentSectionLAN)
+	require.False(t, load("\toption bittorrent 'section'\n\toption bittorrent_section_scope 'podkop'\n").BitTorrentSectionLAN)
 }

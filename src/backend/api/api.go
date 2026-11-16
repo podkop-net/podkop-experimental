@@ -288,6 +288,9 @@ type Backend interface {
 	CancelLoad(ctx context.Context, id string) (LoadJob, bool)
 	// CheckGroup tells which servers a group would choose.
 	CheckGroup(ctx context.Context, check GroupCheck) GroupPreview
+	// BitTorrent is what the BitTorrent module of the running sing-box has counted, by name;
+	// nil when none runs.
+	BitTorrent() map[string]int64
 }
 
 // Serve listens on the socket until the context ends. The socket is for root only: who
@@ -350,6 +353,9 @@ func Serve(ctx context.Context, path string, backend Backend, logs *logbuf.Buffe
 	})
 	mux.HandleFunc("GET /probe/self", func(writer http.ResponseWriter, request *http.Request) {
 		answer(writer, backend.ProbeSelf(request.Context()))
+	})
+	mux.HandleFunc("GET /bittorrent", func(writer http.ResponseWriter, request *http.Request) {
+		answer(writer, backend.BitTorrent())
 	})
 	mux.HandleFunc("GET /subscriptions", func(writer http.ResponseWriter, request *http.Request) {
 		answer(writer, backend.Subscriptions(request.Context()))
@@ -555,6 +561,16 @@ func (c Client) ProbeSelf() (*ProbeResult, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// BitTorrent returns what the BitTorrent module has counted (nil when it does not run).
+func (c Client) BitTorrent() (map[string]int64, error) {
+	var counters map[string]int64
+	err := c.call(http.MethodGet, "/bittorrent", 5*time.Second, &counters)
+	if err != nil {
+		return nil, err
+	}
+	return counters, nil
 }
 
 // Subscriptions returns what the backend knows of each subscription.

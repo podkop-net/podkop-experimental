@@ -871,7 +871,7 @@ func (b *builder) isRefused(section *model.Section) bool {
 
 // sectionRoute is the route rule of a rule from the inbound: to its outbound, or the route
 // of a rule whose one row is direct or block.
-func (b *builder) sectionRoute(section *model.Section, inbound string) *object {
+func (b *builder) sectionRoute(section *model.Section, inbound any) *object {
 	switch b.config.Exit(section) {
 	case model.ExitBlock:
 		return newObject("action", "reject", "inbound", inbound)

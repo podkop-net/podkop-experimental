@@ -27,8 +27,8 @@ const (
 	ForgetNone Forget = iota
 	// ForgetIntercepted: those podkop takes, which the mode bypass let past it
 	ForgetIntercepted
-	// ForgetAll: every one, which the block of the whole LAN drops; those podkop does not take
-	// went past it in every other mode
+	// ForgetAll: every one, which the block of the whole LAN drops and the section of the whole LAN
+	// sends to the section; those podkop does not take went past it in every other mode
 	ForgetAll
 )
 
@@ -44,18 +44,18 @@ func (f Forget) String() string {
 
 // ForgetFor tells which connections of BitTorrent a change of the mode from previous (the
 // detector of the table the backend put in the kernel last) to next ends. The router forwards a
-// connection of BitTorrent podkop does not take in every mode but the block of the whole LAN, and
-// one podkop takes in the mode bypass; it may offload what it forwards, and an offloaded
+// connection of BitTorrent podkop does not take in every mode but those of the whole LAN, and one
+// podkop takes in the mode bypass; it may offload what it forwards, and an offloaded
 // connection passes no rule of nftables: the new mode reaches it only once ForgetBitTorrentFlows
 // ended its entry. A detector made when there was none leaves the connections alone: its sets are
 // empty, the new entries of the connections it ended could not be told, and the marks of those
 // entries tell them as they are (bt_decided).
 func ForgetFor(previous, next BitTorrent) Forget {
-	lan := func(detector BitTorrent) bool { return detector.Mode == BitTorrentBlock && detector.BlockLAN }
 	switch {
 	case previous.Mode == "":
 		return ForgetNone
-	case lan(next) && !lan(previous):
+	case next.Mode != "" && next.LAN && (next.Mode != previous.Mode || !previous.LAN):
+		// the block or the section of the whole LAN takes what the router forwarded past podkop
 		return ForgetAll
 	case previous.Mode == BitTorrentBypass && next.Mode != BitTorrentBypass:
 		return ForgetIntercepted

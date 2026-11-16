@@ -47,6 +47,7 @@ func (b *backend) Probe(_ context.Context, label string, wait time.Duration) api
 	return b.probe
 }
 func (b *backend) ProbeSelf(context.Context) api.ProbeResult { return b.probe }
+func (b *backend) BitTorrent() map[string]int64              { return nil }
 
 func (b *backend) Subscriptions(context.Context) []api.SubscriptionState { return b.subscriptions }
 func (b *backend) UpdateSubscriptions(_ context.Context, name string) []api.SubscriptionState {
