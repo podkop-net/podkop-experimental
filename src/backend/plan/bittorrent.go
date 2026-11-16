@@ -110,8 +110,9 @@ func (b *builder) buildBitTorrentInbound() {
 	b.buildBitTorrentService()
 }
 
-// buildBitTorrentService adds the module: it learns from the discovery of the three inbounds and
-// of the transparent proxy (an announce to an HTTP tracker of a device podkop takes), and inspects
+// buildBitTorrentService adds the module: it learns from the discovery of the three inbounds and,
+// of the transparent proxy, from what sing-box names BitTorrent or HTTP (an announce to an HTTP
+// tracker of a device podkop takes), and inspects
 // the connections of bt-check and bt-lan. What it does with a confirmed connection: closes it in
 // block; else learns its far end for the device, so that the device's next connection to it is
 // BitTorrent at its SYN.
@@ -129,7 +130,8 @@ func (b *builder) buildBitTorrentService() {
 	}
 	b.services = append(b.services, newObject("type", bitTorrentServiceType, "tag", tagBitTorrentService,
 		"table", dataplane.FirewallTable, "set", "bt_learned",
-		"learn", []any{tagTProxyInbound, tagBitTorrentInbound, tagBitTorrentLANInbound, tagBitTorrentCheckInbound},
+		"learn", []any{tagBitTorrentInbound, tagBitTorrentLANInbound, tagBitTorrentCheckInbound},
+		"learn_sniffed", []any{tagTProxyInbound},
 		"inspect", []any{
 			newObject("inbound", tagBitTorrentCheckInbound, "confirmed", confirmed),
 			newObject("inbound", tagBitTorrentLANInbound, "confirmed", confirmed),

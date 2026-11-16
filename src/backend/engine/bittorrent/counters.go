@@ -16,10 +16,14 @@ type counters struct {
 	writeFailed  atomic.Int64 // replies whose write failed
 	setFull      atomic.Int64 // writes the kernel refused for a full set
 	utpSessions  atomic.Int64 // sessions stood aside for uTP
-	announces    atomic.Int64 // announces to HTTP trackers seen
+	// quietSessions: sessions stood aside after quietMost packets of the device without a request
+	quietSessions atomic.Int64
+	announces     atomic.Int64 // announces to HTTP trackers seen
 	// announceUnread: tracker replies that could not be read (not 200, not bencode, too long)
 	announceUnread atomic.Int64
 	// inspection
+	watched    atomic.Int64 // connections of an inspected inbound (its first data may never come: a dial that failed)
+	farFirst   atomic.Int64 // watched connections whose far side spoke first
 	inspected  atomic.Int64 // connections whose first data was shaped like MSE
 	notShaped  atomic.Int64 // inspected connections whose first data was not
 	confirmed  atomic.Int64 // confirmed by the three steps (or a plaintext handshake)
@@ -44,8 +48,11 @@ func (c *counters) snapshot() Counters {
 		"write_failed":    c.writeFailed.Load(),
 		"set_full":        c.setFull.Load(),
 		"utp_sessions":    c.utpSessions.Load(),
+		"quiet_sessions":  c.quietSessions.Load(),
 		"announces":       c.announces.Load(),
 		"announce_unread": c.announceUnread.Load(),
+		"watched":         c.watched.Load(),
+		"far_first":       c.farFirst.Load(),
 		"inspected":       c.inspected.Load(),
 		"not_shaped":      c.notShaped.Load(),
 		"confirmed":       c.confirmed.Load(),

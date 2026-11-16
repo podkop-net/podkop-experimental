@@ -196,3 +196,25 @@ func TestWriterNoSet(t *testing.T) {
 		t.Errorf("%v after %v", err, time.Since(start))
 	}
 }
+
+// A session whose device sends no request in quietMost packets stands aside; one that did keeps
+// reading.
+func TestLearnQuiet(t *testing.T) {
+	s, _ := testService()
+	var packets []fakePacket
+	for range quietMost {
+		packets = append(packets, fakePacket{[]byte{0x17, 0x03, 0x03, 0, 1, 2}, trackerFar})
+	}
+	c, _ := session(s, packets...)
+	sendAll(t, c)
+	if !c.ReaderReplaceable() || s.counters.quietSessions.Load() != 1 {
+		t.Errorf("a quiet session did not stand aside")
+	}
+	s, sink := testService()
+	c, _ = session(s, append([]fakePacket{{trackerAnnounceRequest(4), trackerFar}}, packets...)...)
+	sendAll(t, c)
+	reply(t, c, trackerAnnounceReply(4, testPeers), trackerFar)
+	if c.ReaderReplaceable() || sink.count() != 3 {
+		t.Errorf("a session that asked stood aside: learned %d", sink.count())
+	}
+}

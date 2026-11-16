@@ -193,6 +193,9 @@ func (c *conn) answers(data []byte, now time.Time) (verdict int) {
 	switch c.step {
 	case stepFirst:
 		// the far side spoke first
+		if c.inspect {
+			c.service.counters.farFirst.Add(1)
+		}
 		c.finish()
 	case stepAnswer:
 		c.answered = now

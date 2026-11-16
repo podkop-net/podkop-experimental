@@ -49,8 +49,12 @@ type Options struct {
 	// Wait is the longest a reply is held for the set write (default 100ms: oracle's p99 for a
 	// write of 200 peers is 1.1 ms, a client's retry of a request is seconds away).
 	Wait badoption.Duration `json:"wait,omitempty"`
-	// Learn are the inbounds whose discovery is read.
+	// Learn are the inbounds whose discovery is read: every UDP session (they carry what the
+	// firewall told as BitTorrent), and the TCP connections sing-box's sniffer named HTTP.
 	Learn badoption.Listable[string] `json:"learn,omitempty"`
+	// LearnSniffed are inbounds of other traffic whose discovery is read too: only the UDP
+	// sessions sing-box's sniffers named BitTorrent, and the TCP connections named HTTP.
+	LearnSniffed badoption.Listable[string] `json:"learn_sniffed,omitempty"`
 	// Inspect are the inbounds whose TCP connections are inspected, with what is done with a
 	// confirmed one.
 	Inspect []InspectOptions `json:"inspect,omitempty"`
@@ -84,6 +88,7 @@ type Service struct {
 	tag        string
 	options    Options
 	learnOn    map[string]bool
+	sniffedOn  map[string]bool
 	inspectOn  map[string]Confirmed
 	neverPorts map[uint16]struct{}
 	wait       time.Duration
@@ -105,9 +110,12 @@ var running atomic.Pointer[Service]
 // New makes the service of the options; nothing opens before Start.
 func New(ctx context.Context, logger log.ContextLogger, tag string, options Options) (adapter.Service, error) {
 	s := &Service{ctx: ctx, logger: logger, tag: tag, options: options,
-		learnOn: make(map[string]bool), inspectOn: make(map[string]Confirmed), neverPorts: make(map[uint16]struct{})}
+		learnOn: make(map[string]bool), sniffedOn: make(map[string]bool), inspectOn: make(map[string]Confirmed), neverPorts: make(map[uint16]struct{})}
 	for _, inbound := range options.Learn {
 		s.learnOn[inbound] = true
+	}
+	for _, inbound := range options.LearnSniffed {
+		s.sniffedOn[inbound] = true
 	}
 	for _, inspected := range options.Inspect {
 		s.inspectOn[inspected.Inbound] = inspected.Confirmed
@@ -180,7 +188,7 @@ func Snapshot() Counters {
 func (s *Service) RoutedConnection(ctx context.Context, connection net.Conn, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) net.Conn {
 	confirmed, inspect := s.inspectOn[metadata.Inbound]
 	// an announce to an HTTP tracker on an inbound of discovery: sing-box's sniffer named it HTTP
-	announce := s.sink != nil && s.learnOn[metadata.Inbound] && metadata.Protocol == C.ProtocolHTTP
+	announce := s.sink != nil && (s.learnOn[metadata.Inbound] || s.sniffedOn[metadata.Inbound]) && metadata.Protocol == C.ProtocolHTTP
 	if !inspect && !announce {
 		return connection
 	}
@@ -189,11 +197,19 @@ func (s *Service) RoutedConnection(ctx context.Context, connection net.Conn, met
 	if metadata.Destination.IsFqdn() {
 		far = metadata.OriginDestination.Unwrap().AddrPort()
 	}
+	if inspect {
+		s.counters.watched.Add(1)
+	}
 	return &conn{Conn: connection, service: s, device: device, far: far, inspect: inspect, confirmed: confirmed}
 }
 
 func (s *Service) RoutedPacketConnection(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) N.PacketConn {
-	if !s.learnOn[metadata.Inbound] || s.sink == nil {
+	switch {
+	case s.sink == nil:
+		return conn
+	case s.learnOn[metadata.Inbound]:
+	case s.sniffedOn[metadata.Inbound] && metadata.Protocol == C.ProtocolBitTorrent:
+	default:
 		return conn
 	}
 	return &packetConn{PacketConn: conn, service: s, device: metadata.Source.Addr.Unmap()}

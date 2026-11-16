@@ -27,6 +27,10 @@ const pendingLife = 15 * time.Second
 // pendingMost is the most requests a session keeps; the oldest goes first.
 const pendingMost = 512
 
+// quietMost is how many packets of the device a session reads with no request among them before it
+// stands aside: a session of discovery has its first request at once.
+const quietMost = 64
+
 type pendingKey struct {
 	far netip.AddrPort
 	id  string
@@ -39,6 +43,8 @@ type packetConn struct {
 
 	access  sync.Mutex
 	pending map[pendingKey]time.Time
+	asked   bool
+	quiet   int
 	done    atomic.Bool
 }
 
@@ -77,9 +83,15 @@ func (c *packetConn) request(payload []byte, far netip.AddrPort, now time.Time) 
 		if isUTP(payload) {
 			c.service.counters.utpSessions.Add(1)
 			c.stand()
+			return
+		}
+		if c.quiet++; !c.asked && c.quiet >= quietMost {
+			c.service.counters.quietSessions.Add(1)
+			c.stand()
 		}
 		return
 	}
+	c.asked = true
 	if c.pending == nil {
 		c.pending = make(map[pendingKey]time.Time)
 	}

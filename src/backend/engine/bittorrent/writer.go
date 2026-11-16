@@ -58,10 +58,17 @@ func (w *writer) start() error {
 	return nil
 }
 
+// close stops the writer; a write the kernel never answers is left behind after closeWait, so that
+// the box closes (sagernet/nftables waits for its acknowledgements with no deadline).
 func (w *writer) close() {
 	close(w.stop)
-	<-w.stopped
+	select {
+	case <-w.stopped:
+	case <-time.After(closeWait):
+	}
 }
+
+const closeWait = time.Second
 
 // add hands the writer keys and waits for them to be in the set, at most wait in all.
 func (w *writer) add(keys [][]byte, wait time.Duration) error {
