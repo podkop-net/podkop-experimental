@@ -26,6 +26,7 @@ const (
 	bitTorrentServiceType = "podkop-bittorrent"
 	bitTorrentReject      = "reject"
 	bitTorrentLearn       = "learn"
+	bitTorrentLearnReset  = "learn_reset"
 )
 
 const (
@@ -116,8 +117,11 @@ func (b *builder) buildBitTorrentInbound() {
 // BitTorrent at its SYN.
 func (b *builder) buildBitTorrentService() {
 	confirmed := bitTorrentLearn
-	if b.bitTorrentMode == model.BitTorrentBlock {
+	switch {
+	case b.bitTorrentMode == model.BitTorrentBlock:
 		confirmed = bitTorrentReject
+	case b.config.Settings.BitTorrentConfirmed == bitTorrentLearnReset:
+		confirmed = bitTorrentLearnReset
 	}
 	var never []any
 	for _, port := range dataplane.BitTorrentCommonPorts {

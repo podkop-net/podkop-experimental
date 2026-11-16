@@ -247,6 +247,10 @@ type Settings struct {
 	BitTorrentBlockLAN   bool
 	BitTorrentSection    string
 	BitTorrentSectionLAN bool
+	// BitTorrentConfirmed is what the module does with a connection it confirms outside block
+	// ("bittorrent_confirmed", not on the page: a measurement of the owner's choice (ii) of
+	// 2026-11-16): "" or "learn" learns its far end, "learn_reset" also closes it.
+	BitTorrentConfirmed string
 	// MaskLists are the public lists of names "Find a mask" tries beside the built-in ones
 	// (maskLists); none when the settings turn them off
 	MaskLists []string
@@ -344,6 +348,7 @@ func Load(parsed *uci.Package) (*Config, error) {
 		BitTorrentBlockLAN:      settings.Get("bittorrent_block_scope") == "lan",
 		BitTorrentSection:       settings.Get("bittorrent_section"),
 		BitTorrentSectionLAN:    settings.Get("bittorrent_section_scope") == "lan",
+		BitTorrentConfirmed:     settings.Get("bittorrent_confirmed"),
 		MaskLists:               maskLists(settings),
 		UpdateInterval:          get(settings, "update_interval", "1d"),
 		DontTouchDHCP:           settings.Bool("dont_touch_dhcp", false),

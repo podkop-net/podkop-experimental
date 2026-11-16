@@ -168,6 +168,12 @@ func TestBitTorrentModes(t *testing.T) {
 
 	result, config = bitTorrentBuild(t, "\toption bittorrent 'section'\n\toption bittorrent_section 'torrents'\n\toption bittorrent_section_scope 'lan'\n", torrents)
 	require.True(t, result.Dataplane.BitTorrentLAN)
+
+	// the measurement's setting: learn and close a confirmed connection; block rejects it whatever
+	result, _ = bitTorrentBuild(t, "\toption bittorrent 'bypass'\n\toption bittorrent_confirmed 'learn_reset'\n", "")
+	module(result, bitTorrentLearnReset)
+	result, _ = bitTorrentBuild(t, "\toption bittorrent 'block'\n\toption bittorrent_confirmed 'learn_reset'\n", "")
+	module(result, bitTorrentReject)
 	require.GreaterOrEqual(t, ruleIndex(config, map[string]any{"inbound": allInbounds, "protocol": "bittorrent", "outbound": "torrents-out"}), 0)
 }
 
