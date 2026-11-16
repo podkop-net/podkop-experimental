@@ -15,7 +15,6 @@ import (
 	"github.com/sagernet/sing-box/common/trafficcontrol"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/experimental/deprecated"
-	"github.com/sagernet/sing-box/include"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -121,7 +120,7 @@ func sinkLevel(options *option.LogOptions) log.Level {
 // instance routes. The instances share the urltest history of the process (history).
 func BuildLogged(configuration []byte, sink LogSink, hooks ...ConnectionHook) (*Instance, error) {
 	collected := &notes{tell: true}
-	ctx, cancel := context.WithCancel(withHistory(service.ExtendContext(include.Context(service.ContextWith[deprecated.Manager](context.Background(), collected)))))
+	ctx, cancel := context.WithCancel(withHistory(service.ExtendContext(boxContext(service.ContextWith[deprecated.Manager](context.Background(), collected)))))
 	type built struct {
 		box *box.Box
 		err error

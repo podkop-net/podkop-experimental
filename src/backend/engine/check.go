@@ -10,7 +10,6 @@ import (
 
 	"github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/experimental/deprecated"
-	"github.com/sagernet/sing-box/include"
 	"github.com/sagernet/sing-box/option"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/common/json"
@@ -111,7 +110,7 @@ func CheckOutbound(outbound []byte) ([]string, error) {
 
 func build(configuration []byte, tell bool) ([]string, error) {
 	collected := &notes{tell: tell}
-	ctx, cancel := context.WithCancel(service.ExtendContext(include.Context(service.ContextWith[deprecated.Manager](context.Background(), collected))))
+	ctx, cancel := context.WithCancel(service.ExtendContext(boxContext(service.ContextWith[deprecated.Manager](context.Background(), collected))))
 	defer cancel()
 	options, err := json.UnmarshalExtendedContext[option.Options](ctx, configuration)
 	if err != nil {
