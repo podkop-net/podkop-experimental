@@ -7,7 +7,7 @@ What changed in each release of podkop-exp, newest first. The engine is the sing
 notes, with the measurements and the limits, are on the
 [releases page](https://github.com/podkop-net/podkop-experimental/releases).
 
-## 0.8.18 — 2026-11-18
+## 0.8.18 — 2026-11-17
 
 Engine r27.
 
