@@ -705,3 +705,48 @@ func TestEarlySelf(t *testing.T) {
 		}
 	}
 }
+
+// A device told by its own peers that does not connect again within earlyRetry: its other
+// confirmed connections are learned and left open, not closed; one that does connect again (it is
+// in the set) has them closed.
+func TestEarlyNoRetry(t *testing.T) {
+	for _, retries := range []bool{false, true} {
+		s, sink := testService()
+		s.pending = make(map[netip.Addr][]*conn)
+		known := false
+		s.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{testDevice: known}, nil }
+		var conns []*conn
+		add := func(first int, n int) {
+			for i := 0; i < n; i++ {
+				device, other := net.Pipe()
+				t.Cleanup(func() { other.Close() })
+				far := netip.AddrPortFrom(netip.AddrFrom4([4]byte{203, 0, 113, byte(first + i)}), 51413)
+				c := &conn{Conn: device, service: s, cnt: &s.early, early: true, device: testDevice, far: far, inspect: true,
+					confirmed: ConfirmedLearnReset, pendingSince: time.Now()}
+				c.done.Store(true)
+				conns = append(conns, c)
+				s.pend(c)
+			}
+		}
+		start := time.Now()
+		add(10, 3)
+		s.actOnKnown(start)
+		if s.early.reset.Load() != 3 || s.earlySelfTold.Load() != 1 {
+			t.Fatalf("the first three: reset %d, told %d", s.early.reset.Load(), s.earlySelfTold.Load())
+		}
+		add(20, 2)
+		s.actOnKnown(start.Add(10 * time.Second))
+		if s.early.reset.Load() != 3 || len(s.pending[testDevice]) != 2 {
+			t.Fatalf("acted while watched for its retry: reset %d, pending %d", s.early.reset.Load(), len(s.pending[testDevice]))
+		}
+		known = retries
+		s.actOnKnown(start.Add(earlyRetry + time.Second))
+		s.actOnKnown(start.Add(earlyRetry + 2*time.Second))
+		if retries && (s.early.reset.Load() != 5 || s.earlyKept.Load() != 0) {
+			t.Errorf("a device that connected again: reset %d, kept %d", s.early.reset.Load(), s.earlyKept.Load())
+		}
+		if !retries && (s.early.reset.Load() != 3 || s.earlyKept.Load() != 2 || s.earlyNoRetry.Load() != 1 || sink.count() != 5) {
+			t.Errorf("a device that did not: reset %d, kept %d, no retry %d, learned %d", s.early.reset.Load(), s.earlyKept.Load(), s.earlyNoRetry.Load(), sink.count())
+		}
+	}
+}

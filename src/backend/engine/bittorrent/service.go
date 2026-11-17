@@ -25,7 +25,13 @@
 //     F7 of the workspace's notes/2026-11-16-bittorrent-architecture.md): its connections are done
 //     with, and their retries, decided at the SYN, put the device in the firewall's set. A device
 //     that never runs a client is never touched (proxy clients: 3 confirmed of 10473 connections
-//     of six of them, Phase C; a client opens tens of peer connections a minute, A1).
+//     of six of them, Phase C; a client opens tens of peer connections a minute, A1). Closed, a
+//     connection helps only a client that connects again: a device told so is watched for
+//     earlyRetry, its other confirmed connections waiting meanwhile; one that did not reconnect
+//     (it is still not in the set: its retries, decided at the SYN by the learned peer, would have
+//     put it there) has its confirmed connections learned and left open for earlyFor (rTorrent
+//     and aria2 with encryption required: 3 of 169 and 3 of 104 ended connections tried again, on
+//     the stand of 0.8.18; closing each starved their downloads to a fifth and less).
 //
 // It uses sing-box's public API only: a connection tracker, appended before the inbounds start.
 // It fails open: when it cannot write the set, the replies and the connections go on as sing-box
@@ -134,8 +140,16 @@ type Service struct {
 	earlyExpired atomic.Int64
 	// earlySelfTold: devices taken as running a client by their own confirmed connections
 	earlySelfTold atomic.Int64
-	pendingMu     sync.Mutex
-	pending       map[netip.Addr][]*conn
+	// earlyNoRetry: of those, the devices that did not connect again within earlyRetry;
+	// earlyKept: the connections of such devices learned and left open
+	earlyNoRetry atomic.Int64
+	earlyKept    atomic.Int64
+	// selfTold: when a device was told by its own peers (watched for earlyRetry); noRetry: until
+	// when a device that did not connect again keeps its connections (under pendingMu)
+	selfTold  map[netip.Addr]time.Time
+	noRetry   map[netip.Addr]time.Time
+	pendingMu sync.Mutex
+	pending   map[netip.Addr][]*conn
 	// known tells whether a device is in the set Hosts (the poller's netlink read; a test's)
 	known       func() (map[netip.Addr]bool, error)
 	stopPolling chan struct{}
@@ -150,6 +164,10 @@ const (
 	earlyFor  = 30 * time.Minute
 	earlyMost = 256
 	earlySelf = 3
+	// earlyRetry: how long a device told by its own peers has to connect again (the stand of
+	// 0.8.18, the delay from a connection's end to the client's next SYN to the same peer:
+	// qBittorrent 60-68 s, Transmission 8-119 s with a median of 10 s)
+	earlyRetry = 90 * time.Second
 )
 
 type adder interface {
@@ -257,6 +275,8 @@ func Snapshot() Counters {
 	}
 	snapshot["early_acted"] = s.earlyActed.Load()
 	snapshot["early_self"] = s.earlySelfTold.Load()
+	snapshot["early_no_retry"] = s.earlyNoRetry.Load()
+	snapshot["early_kept"] = s.earlyKept.Load()
 	snapshot["early_expired"] = s.earlyExpired.Load()
 	return snapshot
 }
@@ -340,8 +360,35 @@ func (s *Service) actOnKnown(now time.Time) {
 		return
 	}
 	s.pendingMu.Lock()
+	if s.selfTold == nil {
+		s.selfTold, s.noRetry = make(map[netip.Addr]time.Time), make(map[netip.Addr]time.Time)
+	}
+	// a device told by its own peers: known since (it connected again), or not within earlyRetry
+	for device, at := range s.selfTold {
+		switch {
+		case known[device]:
+			delete(s.selfTold, device)
+		case now.Sub(at) > earlyRetry:
+			delete(s.selfTold, device)
+			s.noRetry[device] = now.Add(earlyFor)
+			s.earlyNoRetry.Add(1)
+			if s.logger != nil {
+				s.logger.Info("BitTorrent: ", device, " did not connect again to the peers whose connections were closed: its connections are left open from now on")
+			}
+		}
+	}
+	for device, until := range s.noRetry {
+		if now.After(until) {
+			delete(s.noRetry, device)
+		}
+	}
+	keep := make(map[*conn]bool)
 	var due []*conn
 	for device, list := range s.pending {
+		if _, watched := s.selfTold[device]; watched {
+			// waiting for the verdict of earlyRetry
+			continue
+		}
 		kept := list[:0]
 		distinct := make(map[netip.Addr]struct{})
 		for _, c := range list {
@@ -352,9 +399,15 @@ func (s *Service) actOnKnown(now time.Time) {
 			kept = append(kept, c)
 			distinct[c.far.Addr()] = struct{}{}
 		}
-		self := !known[device] && len(distinct) >= earlySelf
+		_, noRetry := s.noRetry[device]
+		self := !known[device] && (noRetry || len(distinct) >= earlySelf)
 		if known[device] || self {
-			if self {
+			if noRetry && !known[device] {
+				for _, c := range kept {
+					keep[c] = true
+				}
+			} else if self {
+				s.selfTold[device] = now
 				s.earlySelfTold.Add(1)
 				if s.logger != nil {
 					s.logger.Info("BitTorrent: ", device, " made the encrypted handshake of BitTorrent with ", len(distinct), " peers: taken as running a client")
@@ -377,6 +430,10 @@ func (s *Service) actOnKnown(now time.Time) {
 			s.logger.Info("BitTorrent: the connection of ", c.device, " to ", c.far, ", confirmed before the device was known to run a client, is taken as BitTorrent now")
 		}
 		c.access.Lock()
+		if keep[c] && c.confirmed == ConfirmedLearnReset {
+			c.confirmed = ConfirmedLearn
+			s.earlyKept.Add(1)
+		}
 		c.act()
 		c.access.Unlock()
 	}
