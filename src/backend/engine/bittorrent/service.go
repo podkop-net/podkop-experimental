@@ -22,6 +22,7 @@ package bittorrent
 import (
 	"context"
 	"net"
+	"net/netip"
 	"sync/atomic"
 	"time"
 
@@ -203,6 +204,17 @@ func (s *Service) RoutedConnection(ctx context.Context, connection net.Conn, met
 	}
 	return &conn{Conn: connection, service: s, device: device, far: far, inspect: inspect, confirmed: confirmed,
 		routed: metadata.Protocol == C.ProtocolBitTorrent}
+}
+
+// logConfirmed tells a confirmed connection in the log: the device, the far end, what was done. A
+// connection of another program taken for BitTorrent (3 of 10473 on the stand, the workspace's
+// notes/2026-11-16-bt-phaseBC.md) is closed, and in bypass and section its far end is learned: the
+// device's next connections to it go the mode's way until 30 minutes after the last of them. The
+// line names that server.
+func (s *Service) logConfirmed(device netip.Addr, far netip.AddrPort, done string) {
+	if s.logger != nil {
+		s.logger.Info("BitTorrent: the connection of ", device, " to ", far, " confirmed as BitTorrent: ", done)
+	}
 }
 
 func (s *Service) RoutedPacketConnection(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) N.PacketConn {

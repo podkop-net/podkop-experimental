@@ -2,7 +2,8 @@ import { onMount, preserveScrollForPage } from '../../../helpers';
 import { prettyBytes } from '../../../helpers/prettyBytes';
 import { CustomPodkopMethods, PodkopShellMethods } from '../../methods';
 import { logger, store, StoreType } from '../../services';
-import { renderSections, renderWidget } from './partials';
+import { renderBitTorrent, renderSections, renderWidget } from './partials';
+import { bitTorrentTable } from './helpers/bitTorrentTable';
 import { fetchServicesInfo } from '../../fetchers';
 import { servicesStale, statsWidgets } from './helpers/statsWidgets';
 import {
@@ -113,9 +114,11 @@ async function fetchStats() {
 function startStats() {
   stopStats();
   fetchStats();
+  fetchBitTorrent();
   statsTimers = [
     setTimeout(fetchStats, 1000),
     setInterval(fetchStats, STATS_MS),
+    setInterval(fetchBitTorrent, BITTORRENT_MS),
   ];
 }
 
@@ -123,6 +126,42 @@ function stopStats() {
   statsTimers.forEach((timer) => clearTimeout(timer));
   statsTimers = [];
   lastStats = undefined;
+}
+
+// The table of BitTorrent comes from the method bittorrent of the backend, which reads the
+// router's counters of the connections every 5 s (btstats.PollEvery): asked as often.
+const BITTORRENT_MS = 5000;
+let backendBitTorrent:
+  | (() => Promise<Podkop.BitTorrentReport | number>)
+  | undefined;
+
+async function fetchBitTorrent() {
+  if (document.hidden) return;
+  backendBitTorrent ??= rpc.declare<Podkop.BitTorrentReport | number>({
+    object: 'podkop',
+    method: 'bittorrent',
+    nobatch: true,
+  });
+  let report: Podkop.BitTorrentReport | undefined;
+  try {
+    const reply = await backendBitTorrent();
+    report = typeof reply === 'object' && reply !== null ? reply : undefined;
+  } catch {
+    // no object podkop, or a backend before the method: no card
+  }
+  if (!mounted) return;
+  store.set({
+    bitTorrentWidget: { loading: false, failed: !report, data: report },
+  });
+}
+
+function renderBitTorrentWidget() {
+  const container = document.getElementById('dashboard-bittorrent');
+  if (!container) return;
+  const widget = store.get().bitTorrentWidget;
+  container.replaceChildren(
+    renderBitTorrent(widget.failed ? undefined : bitTorrentTable(widget.data)),
+  );
 }
 
 // The verdicts of the block detector come from the method detect of the backend, on a timer of
@@ -1074,6 +1113,10 @@ async function onStoreUpdate(
   if (diff.servicesInfoWidget) {
     renderServicesInfoWidget();
   }
+
+  if (diff.bitTorrentWidget) {
+    renderBitTorrentWidget();
+  }
 }
 
 // The controller starts once a page: LuCI asks the value of the dummy field that starts it
@@ -1118,6 +1161,7 @@ function onPageUnmount() {
     'sectionsWidget',
     'latencyNow',
     'detectWidget',
+    'bitTorrentWidget',
   ]);
   stopStats();
   stopDetect();

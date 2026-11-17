@@ -1,0 +1,154 @@
+package firewall
+
+import (
+	"encoding/binary"
+	"net"
+	"os"
+	"os/exec"
+	"strings"
+	"testing"
+
+	"github.com/mdlayher/netlink"
+	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
+	"github.com/sagernet/nftables"
+	"golang.org/x/sys/unix"
+)
+
+// An entry of a dump of ctnetlink as the kernel sends it: the tuple (its protocol), the status (a
+// rewritten destination: a port forward), the counters each way, the mark, the id.
+func TestParseFlow(t *testing.T) {
+	encoder := netlink.NewAttributeEncoder()
+	encoder.ByteOrder = binary.BigEndian
+	encoder.Nested(ctaTupleOrig, func(tuple *netlink.AttributeEncoder) error {
+		tuple.Nested(1, func(ip *netlink.AttributeEncoder) error {
+			ip.Bytes(1, []byte{203, 0, 113, 7})
+			ip.Bytes(2, []byte{192, 168, 1, 10})
+			return nil
+		})
+		tuple.Nested(ctaTupleProto, func(proto *netlink.AttributeEncoder) error {
+			proto.Uint8(ctaProtoNum, unix.IPPROTO_UDP)
+			proto.Uint16(2, 51413)
+			proto.Uint16(3, 6881)
+			return nil
+		})
+		return nil
+	})
+	encoder.Uint32(ctaStatus, statusDNAT|1<<3)
+	encoder.Nested(ctaCountersOrig, func(counters *netlink.AttributeEncoder) error {
+		counters.Uint64(ctaCountersPackets, 10)
+		counters.Uint64(ctaCountersBytes, 1000)
+		return nil
+	})
+	encoder.Nested(ctaCountersReply, func(counters *netlink.AttributeEncoder) error {
+		counters.Uint64(ctaCountersPackets, 20)
+		counters.Uint64(ctaCountersBytes, 30000)
+		return nil
+	})
+	encoder.Uint32(ctaMark, ctBitTorrent|ctIntercepted)
+	encoder.Uint32(ctaID, 77)
+	data, err := encoder.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	flow, ok := parseFlow(append([]byte{unix.AF_INET, 0, 0, 0}, data...))
+	if !ok || flow.ID != 77 || !flow.UDP || !flow.Incoming || !flow.Counted || flow.Mark != ctBitTorrent|ctIntercepted ||
+		flow.Original != (btstats.Count{Packets: 10, Bytes: 1000}) || flow.Reply != (btstats.Count{Packets: 20, Bytes: 30000}) || flow.Key == "" {
+		t.Errorf("%v %+v", ok, flow)
+	}
+	// without the counters (accounting off): not counted
+	encoder = netlink.NewAttributeEncoder()
+	encoder.ByteOrder = binary.BigEndian
+	encoder.Nested(ctaTupleOrig, func(tuple *netlink.AttributeEncoder) error {
+		tuple.Nested(ctaTupleProto, func(proto *netlink.AttributeEncoder) error {
+			proto.Uint8(ctaProtoNum, unix.IPPROTO_TCP)
+			return nil
+		})
+		return nil
+	})
+	encoder.Uint32(ctaMark, ctInspect)
+	data, _ = encoder.Encode()
+	flow, ok = parseFlow(append([]byte{unix.AF_INET, 0, 0, 0}, data...))
+	if !ok || flow.UDP || flow.Counted || flow.Incoming {
+		t.Errorf("%v %+v", ok, flow)
+	}
+}
+
+// The kernel's entries with a mark of the detector, and none other: a UDP flow over loopback that
+// a rule marks as BitTorrent, beside one it does not mark. Root and nft (the container of
+// lab/bth/bhfw.sh: a network namespace of its own).
+func TestBitTorrentFlowsFromKernel(t *testing.T) {
+	needNft(t)
+	nft(t, "add table inet pdk_cttest")
+	t.Cleanup(func() { _ = exec.Command("nft", "delete table inet pdk_cttest").Run() })
+	nft(t, "add chain inet pdk_cttest out { type filter hook output priority 0; policy accept; }")
+	nft(t, "add rule inet pdk_cttest out udp dport 39001 ct mark set 0x00018000")
+	for _, port := range []string{"39001", "39002"} {
+		// a socket that takes them: without one the second write would fail (ICMP unreachable)
+		listener, err := net.ListenPacket("udp4", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer listener.Close()
+		conn, err := net.Dial("udp4", "127.0.0.1:"+port)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = conn.Write([]byte("d1:ad2:id20:abcdefghij0123456789e1:q4:ping1:t2:aa1:y1:qe"))
+		_, _ = conn.Write([]byte("again"))
+		conn.Close()
+	}
+	flows, err := BitTorrentFlows()
+	if err != nil {
+		t.Fatal(err)
+	}
+	acct, _ := os.ReadFile("/proc/sys/net/netfilter/nf_conntrack_acct")
+	counting := strings.TrimSpace(string(acct)) == "1"
+	found := 0
+	for _, flow := range flows {
+		if flow.Mark&ctBitTorrent == 0 {
+			t.Errorf("an entry without the mark: %+v", flow)
+		}
+		if flow.Mark == ctBitTorrent|ctIntercepted && flow.UDP {
+			found++
+			if counting && (flow.Original.Packets != 2 || !flow.Counted) {
+				t.Errorf("counted %+v", flow)
+			}
+		}
+	}
+	if found != 1 {
+		t.Errorf("%d marked flows of %d: %+v", found, len(flows), flows)
+	}
+	t.Logf("accounting %v, %d entries", counting, len(flows))
+}
+
+// The rules BitTorrentDrops reads are there in each mode: bt_block's three in block, bt_incoming's
+// two a device, bt_decided's drop of a uTP SYN outside block.
+func TestBitTorrentDropRules(t *testing.T) {
+	needNft(t)
+	_ = Remove()
+	t.Cleanup(func() { _ = Remove() })
+	for name, c := range map[string]struct {
+		detector                 BitTorrent
+		block, incoming, decided int
+	}{
+		"bypass":         {BitTorrent{Mode: BitTorrentBypass}, 0, 0, 1},
+		"block":          {BitTorrent{Mode: BitTorrentBlock, Sources: prefixes("192.168.1.60/32")}, 3, 2, 0},
+		"block, the LAN": {BitTorrent{Mode: BitTorrentBlock, LAN: true}, 3, 2, 0},
+	} {
+		if err := Apply(&Plan{Interfaces: []string{"br-lan"}, BitTorrent: c.detector}); err != nil {
+			t.Fatal(name, err)
+		}
+		conn, err := newConn()
+		if err != nil {
+			t.Fatal(err)
+		}
+		table := &nftables.Table{Name: tableName, Family: nftables.TableFamilyINet}
+		got := [3]int{len(dropCounts(conn, table, ChainBitTorrentBlock)), len(dropCounts(conn, table, ChainBitTorrentIncoming)), len(dropCounts(conn, table, ChainBitTorrentDecided))}
+		if got != [3]int{c.block, c.incoming, c.decided} {
+			t.Errorf("%s: bt_block %d, bt_incoming %d, bt_decided %d", name, got[0], got[1], got[2])
+		}
+		if _, err := BitTorrentDrops(); err != nil {
+			t.Error(name, err)
+		}
+	}
+}

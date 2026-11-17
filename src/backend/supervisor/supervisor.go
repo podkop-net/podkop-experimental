@@ -26,9 +26,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
+	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/podkop-net/podkop-experimental/src/backend/engine"
@@ -78,6 +80,11 @@ type System interface {
 	// ForgetBitTorrentFlows ends the conntrack entries of the connections the detector of
 	// BitTorrent decided were its, those podkop takes or all (firewall.ForgetBitTorrentFlows).
 	ForgetBitTorrentFlows(which firewall.Forget) error
+	// BitTorrentFlows reads the conntrack entries the detector of BitTorrent marked, with what the
+	// kernel counted of them (firewall.BitTorrentFlows); BitTorrentDrops the counters of its rules
+	// that drop (firewall.BitTorrentDrops).
+	BitTorrentFlows() ([]btstats.Flow, error)
+	BitTorrentDrops() (btstats.Drops, error)
 	RemoveFirewall() error
 	// TakeOverDNS points the resolver of the LAN at the backend, RestoreDNS gives it back
 	// what it had. Each tells whether it changed anything.
@@ -402,6 +409,12 @@ type Supervisor struct {
 	// its mode is told against (updateFirewall). Not the plan of current: that is nil after an
 	// update that failed, which left the table before it in the kernel.
 	bitTorrentApplied *firewall.BitTorrent
+	// bitTorrentRule is the name the page shows of the rule of the mode section of the table made
+	// last (firewallPlan); bitTorrentSetup what the reads of BitTorrent's traffic take as the mode
+	// (nil while no table with the detector is there), bitTorrentStats what they came to
+	bitTorrentRule  string
+	bitTorrentSetup atomic.Pointer[btstats.Setup]
+	bitTorrentStats btstats.Stats
 }
 
 // running is a state of the router that was brought up.
@@ -1041,6 +1054,7 @@ func (s *Supervisor) answerProbe(request probeRequest) {
 // taken back.
 func (s *Supervisor) Run(ctx context.Context, reload <-chan struct{}) error {
 	s.Begin()
+	go s.pollBitTorrent(ctx)
 	// a download brings several rule sets one after another: the firewall is refilled
 	// once, deriveMerge after the last of them (deriveMergeLimit after the first at the
 	// latest), and nothing else waits meanwhile
@@ -1650,6 +1664,14 @@ func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
 	wanted := &current.result.Dataplane
 	result := &firewall.Plan{Interfaces: wanted.Interfaces, ExcludeNTP: wanted.ExcludeNTP, Sources: wanted.Sources, ClashAPIInterfaces: wanted.ClashAPIInterfaces,
 		BitTorrent: firewall.BitTorrent{Mode: wanted.BitTorrent, LAN: wanted.BitTorrentLAN, Sources: wanted.Sources}}
+	s.bitTorrentRule = ""
+	if wanted.BitTorrent == model.BitTorrentSection && current.settings != nil {
+		name := current.settings.Settings.BitTorrentSection
+		s.bitTorrentRule = name
+		if section := current.settings.Section(name); section != nil && section.Label != "" {
+			s.bitTorrentRule = section.Label
+		}
+	}
 	var sources []keyedSource
 	known := make(map[string]knownSource, len(current.result.RuleSets))
 	for _, ruleSet := range current.result.RuleSets {
@@ -1850,7 +1872,51 @@ func (s *Supervisor) updateFirewall(previous, next *firewall.Plan) error {
 	}
 	applied := next.BitTorrent
 	s.bitTorrentApplied = &applied
+	if applied.Mode == "" {
+		s.bitTorrentSetup.Store(nil)
+	} else {
+		s.bitTorrentSetup.Store(&btstats.Setup{Mode: applied.Mode, LAN: applied.LAN, Rule: s.bitTorrentRule})
+	}
 	return nil
+}
+
+// pollBitTorrent reads what the BitTorrent traffic of the LAN came to every btstats.PollEvery
+// while a table with the detector is there (bitTorrentSetup), until ctx ends; it forgets it all
+// when the detector goes. Its own goroutine: a read of the entries is a dump of conntrack.
+func (s *Supervisor) pollBitTorrent(ctx context.Context) {
+	ticker := time.NewTicker(btstats.PollEvery)
+	defer ticker.Stop()
+	on := false
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-ticker.C:
+			setup := s.bitTorrentSetup.Load()
+			if setup == nil {
+				if on {
+					s.bitTorrentStats.Reset()
+					on = false
+				}
+				continue
+			}
+			on = true
+			flows, err := s.options.System.BitTorrentFlows()
+			drops, dropsErr := s.options.System.BitTorrentDrops()
+			s.bitTorrentStats.Observe(*setup, flows, drops, errors.Join(err, dropsErr), now)
+		}
+	}
+}
+
+// BitTorrentStats is what the BitTorrent traffic of the LAN came to (btstats.Report), with the
+// counters of the module of the sing-box that runs. It may be called from any goroutine.
+func (s *Supervisor) BitTorrentStats() btstats.Report {
+	report := s.bitTorrentStats.Report(time.Now())
+	if s.bitTorrentSetup.Load() == nil {
+		report = btstats.Report{Rows: []btstats.Row{}, Blocked: []btstats.Blocked{}}
+	}
+	report.Module = engine.BitTorrentCounters()
+	return report
 }
 
 // forgetBitTorrent ends the connections of BitTorrent past podkop that the mode next takes
@@ -2091,6 +2157,7 @@ func (s *Supervisor) release() {
 		s.log("error", "remove the firewall table: ", err)
 	} else {
 		s.bitTorrentApplied = nil
+		s.bitTorrentSetup.Store(nil)
 	}
 	err = s.options.System.RemoveRouting()
 	if err != nil {

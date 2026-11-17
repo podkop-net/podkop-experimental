@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-16 17:52+0000\n"
-"PO-Revision-Date: 2026-11-16 17:52+0000\n"
+"POT-Creation-Date: 2026-11-17 02:01+0000\n"
+"PO-Revision-Date: 2026-11-17 02:01+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -29,6 +29,12 @@ msgstr "(данные на %s)"
 msgid "%: the loss its checks counted"
 msgstr "%: потери, насчитанные проверками сервера"
 
+msgid "%d h %d min"
+msgstr "%d ч %d мин"
+
+msgid "%d min"
+msgstr "%d мин"
+
 msgid "%d of %d"
 msgstr "%d из %d"
 
@@ -37,6 +43,9 @@ msgstr "%d из %d, первые %d из %d"
 
 msgid "%d probes"
 msgstr "проб: %d"
+
+msgid "%d s"
+msgstr "%d с"
 
 msgid "%d servers, %d can be used"
 msgstr "Серверов: %d, годных: %d"
@@ -70,6 +79,9 @@ msgstr "%s с"
 
 msgid "%s via %s"
 msgstr "%s через %s"
+
+msgid "%s: %d packets (%s) dropped"
+msgstr "%s: отброшено пакетов — %d (%s)"
 
 msgid "⇄N: devices in the balance on the server"
 msgstr "⇄N: устройств на сервере в балансировке"
@@ -245,6 +257,9 @@ msgstr "BitTorrent"
 msgid "Block"
 msgstr "Блокировать"
 
+msgid "Blocked"
+msgstr "Заблокировано"
+
 msgid "blocked on the way (HTTP 451)"
 msgstr "заблокировано по пути (HTTP 451)"
 
@@ -265,6 +280,9 @@ msgstr "Браузер не использует FakeIP"
 
 msgid "Browser is using FakeIP correctly"
 msgstr "Браузер использует FakeIP"
+
+msgid "By podkop's rules"
+msgstr "По правилам podkop"
 
 msgid "bypass: record fragment"
 msgstr "обход: дробление записи"
@@ -344,6 +362,9 @@ msgstr "Подключаться через %s"
 msgid "connecting…"
 msgstr "соединение…"
 
+msgid "Connections"
+msgstr "Соединений"
+
 msgid "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. A disguise as a whitelisted site cannot act on this server: its protocol has no TLS handshake over TCP. Another server, one with TLS (VLESS, Trojan), may help."
 msgstr "Соединения обрываются около %d КБ — это лимит ТСПУ. Сайты открываются частично. Маскировка под сайт из белого списка на этот сервер не действует: у его протокола нет TLS-рукопожатия по TCP. Может помочь другой сервер, с TLS (VLESS, Trojan)."
 
@@ -352,6 +373,9 @@ msgstr "Соединения обрываются около %d КБ — это 
 
 msgid "connections are refused"
 msgstr "соединения отклоняются"
+
+msgid "Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d"
+msgstr "Проверено соединений: %d; подтверждено как BitTorrent: %d (закрыто: %d, оставлено открытыми: %d); не BitTorrent: %d"
 
 msgid "Connections to this server will go through %s, whose operator will see the address of this server."
 msgstr "Подключения к этому серверу пойдут через %s, и его владелец увидит адрес этого сервера."
@@ -394,6 +418,9 @@ msgstr "Определить: тип выбирается по вставлен�
 
 msgid "DHCP has DNS server"
 msgstr "DHCP содержит DNS сервер"
+
+msgid "DHT and UDP trackers"
+msgstr "DHT и UDP-трекеры"
 
 msgid "Diagnostics"
 msgstr "Диагностика"
@@ -668,6 +695,9 @@ msgstr "По порядку: сервер спрашивают, только к�
 msgid "In this order, while no server of the rule answers. Directly here: blocked sites do not open, and the provider sees the addresses."
 msgstr "По порядку, пока ни один сервер правила не отвечает. «Напрямую» здесь: заблокированные сайты не откроются, а провайдер увидит адреса."
 
+msgid "Incoming through a port forward"
+msgstr "Входящие через проброс порта"
+
 msgid "Interface"
 msgstr "Интерфейс"
 
@@ -869,6 +899,9 @@ msgstr "нет ответа"
 msgid "no answer in %d s"
 msgstr "нет ответа за %d с"
 
+msgid "No BitTorrent traffic seen yet"
+msgstr "Трафика BitTorrent пока не было"
+
 msgid "no connection in %d s"
 msgstr "нет соединения за %d с"
 
@@ -947,6 +980,9 @@ msgstr "Не отвечает"
 msgid "Not running"
 msgstr "Не запущено"
 
+msgid "Not through podkop"
+msgstr "Не через podkop"
+
 msgid "Note"
 msgstr "Примечание"
 
@@ -995,6 +1031,9 @@ msgstr "Её открывает только Happ. Вставьте обычны
 msgid "Only what podkop takes"
 msgstr "Только то, что берёт podkop"
 
+msgid "Open"
+msgstr "Открыто"
+
 msgid "Operation timed out"
 msgstr "Время ожидания истекло"
 
@@ -1022,6 +1061,9 @@ msgstr "свои домены"
 msgid "own subnets"
 msgstr "свои подсети"
 
+msgid "Packets: received %d, sent %d"
+msgstr "Пакетов: получено %d, отправлено %d"
+
 msgid "Past podkop"
 msgstr "Мимо podkop"
 
@@ -1036,6 +1078,9 @@ msgstr "Путь должен содержать хотя бы одну дире
 
 msgid "Path must end with cache.db"
 msgstr "Путь должен заканчиваться на cache.db"
+
+msgid "Peers learned: %d from %d replies and %d announces"
+msgstr "Узнано пиров: %d из %d ответов и %d анонсов"
 
 msgid "Pending"
 msgstr "Ожидает запуска"
@@ -1078,6 +1123,9 @@ msgstr "В очереди: %d"
 
 msgid "Ready"
 msgstr "Готов"
+
+msgid "Received"
+msgstr "Получено"
 
 msgid "Recognized: %s"
 msgstr "Распознано: %s"
@@ -1187,6 +1235,9 @@ msgstr "Выберите уровень логов для sing-box"
 msgid "Select the network interface from which the traffic will originate"
 msgstr "Выберите сетевой интерфейс, с которого будет исходить трафик"
 
+msgid "Sent"
+msgstr "Отправлено"
+
 msgid "Server"
 msgstr "Сервер"
 
@@ -1265,6 +1316,9 @@ msgstr "Показать sing-box конфигурацию"
 msgid "simplest"
 msgstr "проще всего"
 
+msgid "since %s"
+msgstr "за %s"
+
 msgid "Some of the test connections were lost, the rest passed."
 msgstr "Часть проверочных подключений потерялась, остальные прошли."
 
@@ -1339,6 +1393,15 @@ msgstr "TCP отсюда подключается, но и через друго
 
 msgid "TCP connects, but TLS or the WebSocket/HTTP upgrade gets no answer."
 msgstr "TCP подключается, но TLS или обновление до WebSocket/HTTP остаётся без ответа."
+
+msgid "TCP to peers"
+msgstr "TCP к пирам"
+
+msgid "TCP to uncommon ports, checked"
+msgstr "TCP на необычные порты, на проверке"
+
+msgid "TCP told by its handshake in podkop"
+msgstr "TCP, узнанный по рукопожатию уже в podkop"
 
 msgid "test failed"
 msgstr "тест не прошёл"
@@ -1454,6 +1517,9 @@ msgstr "Последняя проверка не удалась"
 msgid "The last probe could not count"
 msgstr "Последняя проба не смогла посчитать потери"
 
+msgid "The last read of the connections failed: %s"
+msgstr "Последнее чтение соединений не удалось: %s"
+
 msgid "The links appear here after Save & Apply"
 msgstr "Ссылки появятся здесь после «Сохранить и применить»"
 
@@ -1546,6 +1612,9 @@ msgstr "Настоящий IP сайта узнаётся через DNS-сер�
 
 msgid "The router did not answer"
 msgstr "Роутер не ответил"
+
+msgid "The router does not count the bytes of connections (net.netfilter.nf_conntrack_acct is 0)"
+msgstr "Роутер не считает байты соединений (net.netfilter.nf_conntrack_acct = 0)"
 
 msgid "The router downloads the list of the address above to show it here, first directly, then through the working servers. It is taken after Save & Apply"
 msgstr "Роутер загружает список по адресу выше, чтобы показать его здесь: сначала напрямую, затем через работающие серверы. Применяется после «Сохранить и применить»"
@@ -1697,6 +1766,12 @@ msgstr "Через"
 msgid "through %s"
 msgstr "через %s"
 
+msgid "Through sing-box, straight out"
+msgstr "Через sing-box, напрямую"
+
+msgid "Through the rule %s"
+msgstr "Через правило %s"
+
 msgid "Through the servers of a rule"
 msgstr "Через серверы правила"
 
@@ -1811,6 +1886,12 @@ msgstr "Список пользовательских подсетей"
 msgid "uTLS-fallback"
 msgstr "uTLS-fallback"
 
+msgid "uTP"
+msgstr "uTP"
+
+msgid "uTP connects turned to TCP (on a flow of the DHT): %d"
+msgstr "Подключения uTP, переведённые на TCP (в потоке DHT): %d"
+
 msgid "Valid"
 msgstr "Валидно"
 
@@ -1843,6 +1924,9 @@ msgstr "Предупреждение: %s нельзя использовать �
 
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr "Предупреждение: Russia inside может быть использован только с %s. %s уже есть в Russia inside и будет удален из выбранных."
+
+msgid "Way"
+msgstr "Путь"
 
 msgid "What changed: renamed %d, other server under the name %d, removed %d, added %d"
 msgstr "Что изменилось: переименовано %d, другой сервер под тем же именем %d, удалено %d, добавлено %d"

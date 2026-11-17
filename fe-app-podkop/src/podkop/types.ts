@@ -593,6 +593,52 @@ export namespace Podkop {
   }
 
   // the answer of the method stats of the backend's object on ubus
+  // what the BitTorrent traffic of the LAN came to (btstats.Report of the backend)
+  export interface BitTorrentCount {
+    packets: number;
+    bytes: number;
+  }
+
+  export type BitTorrentKind =
+    | 'discovery'
+    | 'utp'
+    | 'tcp'
+    | 'late'
+    | 'checked'
+    | 'incoming';
+
+  export type BitTorrentWay =
+    | 'relay'
+    | 'past'
+    | 'untouched'
+    | 'rule'
+    | 'rules'
+    | 'blocked';
+
+  export interface BitTorrentRow {
+    kind: BitTorrentKind;
+    way: BitTorrentWay;
+    open: number;
+    connections: number;
+    received: BitTorrentCount;
+    sent: BitTorrentCount;
+  }
+
+  export interface BitTorrentReport {
+    // "" when BitTorrent goes as the other traffic
+    mode: string;
+    lan: boolean;
+    rule?: string;
+    since: number;
+    read: number;
+    counted: boolean;
+    error?: string;
+    rows: BitTorrentRow[];
+    blocked: Array<{ kind: BitTorrentKind; dropped: BitTorrentCount }>;
+    utp_to_tcp: BitTorrentCount;
+    module?: Record<string, number>;
+  }
+
   export interface Stats {
     running: boolean;
     // milliseconds of a clock of the backend

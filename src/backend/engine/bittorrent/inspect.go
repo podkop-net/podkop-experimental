@@ -195,7 +195,9 @@ func (c *conn) sent(data []byte, now time.Time) (verdict int) {
 			if c.routed && c.confirmed != ConfirmedReject {
 				// on the mode's way already: learned, not closed
 				c.service.counters.confirmed.Add(1)
-				c.service.learnFar(c.device, c.far)
+				if c.service.learnFar(c.device, c.far) {
+					c.service.logConfirmed(c.device, c.far, "a plaintext handshake, its far end learned")
+				}
 				c.finish()
 				return verdictNone
 			}
@@ -271,16 +273,24 @@ func (c *conn) confirm() int {
 	c.service.counters.confirmed.Add(1)
 	switch c.confirmed {
 	case ConfirmedLearn:
-		c.service.learnFar(c.device, c.far)
+		if c.service.learnFar(c.device, c.far) {
+			c.service.logConfirmed(c.device, c.far, "its far end learned")
+		} else {
+			c.service.logConfirmed(c.device, c.far, "its far end not learned")
+		}
 	case ConfirmedLearnReset:
 		if !c.service.learnFar(c.device, c.far) {
 			c.service.counters.keptOpen.Add(1)
+			c.service.logConfirmed(c.device, c.far, "left open: its far end not learned")
 			break
 		}
+		c.service.counters.reset.Add(1)
+		c.service.logConfirmed(c.device, c.far, "its far end learned, the connection closed")
 		c.close()
 		return verdictClosed
 	case ConfirmedReject:
 		c.service.counters.rejected.Add(1)
+		c.service.logConfirmed(c.device, c.far, "closed")
 		c.close()
 		return verdictClosed
 	}

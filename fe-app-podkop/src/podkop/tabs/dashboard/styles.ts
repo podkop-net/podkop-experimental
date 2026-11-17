@@ -48,6 +48,67 @@ export const styles = `
 
 .pdk_dashboard-page__widgets-section__item__row__value {}
 
+.pdk_dashboard-page__bittorrent {
+    margin-top: 10px;
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.pdk_dashboard-page__bittorrent.hidden {
+    display: none;
+}
+
+.pdk_dashboard-page__bittorrent__title {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    align-items: baseline;
+    margin-bottom: 6px;
+}
+
+.pdk_dashboard-page__bittorrent__mode {
+    opacity: 0.8;
+}
+
+.pdk_dashboard-page__bittorrent__scroll {
+    overflow-x: auto;
+}
+
+.pdk_dashboard-page__bittorrent__table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.pdk_dashboard-page__bittorrent__table th,
+.pdk_dashboard-page__bittorrent__table td {
+    padding: 3px 8px;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px var(--background-color-low, lightgray) solid;
+}
+
+.pdk_dashboard-page__bittorrent__table td.number,
+.pdk_dashboard-page__bittorrent__table th:nth-child(n+3) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.pdk_dashboard-page__bittorrent__table td.empty {
+    text-align: center;
+    opacity: 0.7;
+}
+
+.pdk_dashboard-page__bittorrent__blocked {
+    margin-top: 6px;
+    color: var(--error-color-medium, red);
+}
+
+.pdk_dashboard-page__bittorrent__note {
+    margin-top: 4px;
+    opacity: 0.85;
+}
+
 .pdk_dashboard-page__outbound-section {
     margin-top: 10px;
     border: 2px var(--background-color-low, lightgray) solid;

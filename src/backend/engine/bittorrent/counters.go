@@ -33,6 +33,7 @@ type counters struct {
 	keptOpen   atomic.Int64
 	refuted    atomic.Int64 // refuted at the second or the third step
 	rejected   atomic.Int64 // confirmed and closed in the mode block
+	reset      atomic.Int64 // confirmed, learned and closed (learn_reset)
 	plaintext  atomic.Int64 // plaintext handshakes
 	handedBack atomic.Int64 // connections given back to sing-box's own copy
 	panics     atomic.Int64 // panics on network input, ended by the module
@@ -64,6 +65,7 @@ func (c *counters) snapshot() Counters {
 		"kept_open":       c.keptOpen.Load(),
 		"refuted":         c.refuted.Load(),
 		"rejected":        c.rejected.Load(),
+		"reset":           c.reset.Load(),
 		"plaintext":       c.plaintext.Load(),
 		"handed_back":     c.handedBack.Load(),
 		"panics":          c.panics.Load(),

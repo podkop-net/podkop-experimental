@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
+	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/podkop-net/podkop-experimental/src/backend/diag"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
@@ -104,6 +105,7 @@ var Commands = [][2]string{
 	{"show_system_info", "The version of OpenWrt and the model of the device"},
 	{"check_nft", "The firewall table of the backend as nft prints it"},
 	{"bittorrent_counters", "What the BitTorrent module has counted since sing-box started, as JSON (empty when BitTorrent is off)"},
+	{"bittorrent_stats", "What the BitTorrent traffic of the LAN came to since the detector was on, by its kind and the way the mode sent it, as JSON: {mode, lan, rule, since, read, counted, rows: [{kind, way, open, connections, received, sent}], blocked, utp_to_tcp, module}"},
 	{"list_update", "Download every list now instead of at the update interval"},
 	{"restore_routing", "Put back the routing rule and route, the firewall table and the DNS of the LAN when the network took them, apply the settings again when the network changed under them, try a start that failed again (the hotplug script of the package runs it at every ifup)"},
 	{"list_status", "Each list of what runs, as JSON: who fills it, its URL or file, when it was last downloaded, the last error of each plain list's URL"},
@@ -295,6 +297,13 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 			return 1
 		}
 		return pretty(result)
+	case "bittorrent_stats":
+		// what the BitTorrent traffic of the LAN came to, by its kind and its way
+		report, err := client.BitTorrentStats()
+		if err != nil {
+			return 1
+		}
+		return pretty(report)
 	case "bittorrent_counters":
 		// what the BitTorrent module has counted since sing-box started (none when it is off)
 		counters, err := client.BitTorrent()
@@ -326,6 +335,12 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 					return nil
 				}
 				return subscriptionLines(states, config.Names(), time.Now())
+			}, func() []string {
+				report, err := client.BitTorrentStats()
+				if err != nil {
+					return []string{"❌ What BitTorrent's traffic came to was not read: " + err.Error()}
+				}
+				return btstats.Lines(report)
 			}, device))
 		return 0
 	case "check_logs":

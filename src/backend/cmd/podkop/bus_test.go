@@ -10,6 +10,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/ctl"
 	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/podkop-net/podkop-experimental/src/backend/engine"
@@ -60,6 +61,21 @@ func (f fixedTraffic) DropStaleCures(context.Context) supervisor.CureResult {
 
 func (f fixedTraffic) SuggestMask(context.Context, string) supervisor.SuggestResult {
 	return supervisor.SuggestResult{State: supervisor.SuggestNone}
+}
+
+func (f fixedTraffic) BitTorrentStats() btstats.Report {
+	return btstats.Report{Mode: "bypass", Counted: true, Rows: []btstats.Row{{Kind: btstats.KindUTP, Way: btstats.WayPast, Open: 2, Connections: 3,
+		Received: btstats.Count{Packets: 10, Bytes: 12000}, Sent: btstats.Count{Packets: 5, Bytes: 600}}}, Blocked: []btstats.Blocked{}}
+}
+
+// The method bittorrent answers the report as the page reads it.
+func TestBusBitTorrent(t *testing.T) {
+	answer, status := busObject(ctl.Environment{}, fixedTraffic{}).Methods["bittorrent"].Call(context.Background(), nil)
+	require.Equal(t, ubus.StatusOK, status)
+	encoded, err := json.Marshal(answer)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"mode":"bypass","lan":false,"since":0,"read":0,"counted":true,"rows":[{"kind":"utp","way":"past","open":2,"connections":3,`+
+		`"received":{"packets":10,"bytes":12000},"sent":{"packets":5,"bytes":600}}],"blocked":[],"utp_to_tcp":{"packets":0,"bytes":0}}`, string(encoded))
 }
 
 func TestBusStats(t *testing.T) {

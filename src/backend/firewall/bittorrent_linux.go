@@ -93,6 +93,13 @@ const (
 	SetBitTorrentLearned = dataplane.BitTorrentLearnedSet
 )
 
+// The chains of the detector whose rules' counters BitTorrentDrops reads.
+const (
+	ChainBitTorrentBlock    = "bt_block"
+	ChainBitTorrentIncoming = "bt_incoming"
+	ChainBitTorrentDecided  = "bt_decided"
+)
+
 // bitTorrentTimeout is how long a socket, a device and a peer are kept after their last packet of
 // BitTorrent: the prototype's value, with which all four clients of the stand were told whole.
 const bitTorrentTimeout = 30 * time.Minute
@@ -358,10 +365,16 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		return conn.AddChain(&nftables.Chain{Name: name, Table: table})
 	}
 	udp, discovery, socket, flow := chain("bt_udp"), chain("bt_discovery"), chain("bt_socket"), chain("bt_flow")
-	tcp, syn, handshake, decided := chain("bt_tcp"), chain("bt_syn"), chain("bt_handshake"), chain("bt_decided")
+	tcp, syn, handshake, decided := chain("bt_tcp"), chain("bt_syn"), chain("bt_handshake"), chain(ChainBitTorrentDecided)
 	act := conn.AddChain(&nftables.Chain{Name: "bt_act", Table: table, Type: nftables.ChainTypeFilter,
 		Hooknum: nftables.ChainHookPrerouting, Priority: nftables.ChainPriorityRef(bitTorrentActPriority), Policy: &accept})
 	free := chain("bt_free")
+	// bt_block: what the mode block drops, counted by its kind (the dashboard's table of
+	// BitTorrent: a connection blocked at its first packet makes no conntrack entry to count)
+	var block *nftables.Chain
+	if mode == BitTorrentBlock {
+		block = chain(ChainBitTorrentBlock)
+	}
 	returns := verdict(expr.VerdictReturn, "")
 	counter := []expr.Any{&expr.Counter{}}
 
@@ -506,7 +519,7 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 			utpSyn(udp4(), endpoint(offsetSource, 0), []expr.Any{update(utp)}, counter, verdict(expr.VerdictDrop, ""))...)...)
 	}
 	if mode == BitTorrentBlock && detector.LAN {
-		add(decided, counter, verdict(expr.VerdictDrop, ""))
+		add(decided, verdict(expr.VerdictGoto, block.Name))
 	}
 
 	// bt_act: what mangle marked for the proxy is podkop's; the rest goes to bt_free
@@ -527,7 +540,7 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		add(act, ctMarkTest(ctDiscovery, expr.CmpOpNeq), returns)
 		add(act, setMark(false), counter)
 	case BitTorrentBlock:
-		add(act, counter, verdict(expr.VerdictDrop, ""))
+		add(act, verdict(expr.VerdictGoto, block.Name))
 	}
 
 	// bt_free: of the traffic podkop does not take, what goes to sing-box all the same (marked for
@@ -556,10 +569,19 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		add(free, ctMarkTest(ctDiscovery, expr.CmpOpNeq), setMark(true), counter)
 	}
 
+	// bt_block: the discovery, the other UDP (uTP), the rest (TCP), in this order
+	// (BitTorrentDrops reads them so)
+	if mode == BitTorrentBlock {
+		drop := verdict(expr.VerdictDrop, "")
+		add(block, protocol(unix.IPPROTO_UDP), ctMarkTest(ctDiscovery, expr.CmpOpNeq), counter, drop)
+		add(block, protocol(unix.IPPROTO_UDP), counter, drop)
+		add(block, counter, drop)
+	}
+
 	// bt_incoming: in block, a new connection from outside (a port forward) to a client's socket,
 	// of every device (LAN) or of the devices routed whole
 	if mode == BitTorrentBlock {
-		incoming := conn.AddChain(&nftables.Chain{Name: "bt_incoming", Table: table, Type: nftables.ChainTypeFilter,
+		incoming := conn.AddChain(&nftables.Chain{Name: ChainBitTorrentIncoming, Table: table, Type: nftables.ChainTypeFilter,
 			Hooknum: nftables.ChainHookForward, Priority: nftables.ChainPriorityRef(bitTorrentIncomingPriority), Policy: &accept})
 		add(incoming, []expr.Any{
 			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},

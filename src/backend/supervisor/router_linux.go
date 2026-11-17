@@ -8,6 +8,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/clock"
 	"github.com/podkop-net/podkop-experimental/src/backend/dnsmasq"
 	"github.com/podkop-net/podkop-experimental/src/backend/firewall"
@@ -62,6 +63,10 @@ func (Router) UpdateFirewall(previous *firewall.Plan, next *firewall.Plan) error
 func (Router) ForgetBitTorrentFlows(which firewall.Forget) error {
 	return firewall.ForgetBitTorrentFlows(which)
 }
+
+func (Router) BitTorrentFlows() ([]btstats.Flow, error) { return firewall.BitTorrentFlows() }
+
+func (Router) BitTorrentDrops() (btstats.Drops, error) { return firewall.BitTorrentDrops() }
 
 func (Router) RemoveFirewall() error { return firewall.Remove() }
 

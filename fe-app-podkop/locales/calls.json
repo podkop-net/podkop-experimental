@@ -3,7 +3,7 @@
     "call": "“%s” is not a host name, such as packagist.org.",
     "key": "“%s” is not a host name, such as packagist.org.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:644"
+      "src/podkop/tabs/dashboard/initController.ts:683"
     ]
   },
   {
@@ -28,6 +28,20 @@
     ]
   },
   {
+    "call": "%d h %d min",
+    "key": "%d h %d min",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:86"
+    ]
+  },
+  {
+    "call": "%d min",
+    "key": "%d min",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:85"
+    ]
+  },
+  {
     "call": "%d of %d",
     "key": "%d of %d",
     "places": [
@@ -47,6 +61,13 @@
     "key": "%d probes",
     "places": [
       "src/podkop/methods/custom/ruleTiles.ts:92"
+    ]
+  },
+  {
+    "call": "%d s",
+    "key": "%d s",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:84"
     ]
   },
   {
@@ -132,6 +153,13 @@
     ]
   },
   {
+    "call": "%s: %d packets (%s) dropped",
+    "key": "%s: %d packets (%s) dropped",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:111"
+    ]
+  },
+  {
     "call": "⇄N: devices in the balance on the server",
     "key": "⇄N: devices in the balance on the server",
     "places": [
@@ -149,28 +177,28 @@
     "call": "✔ Enabled",
     "key": "✔ Enabled",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:1032"
+      "src/podkop/tabs/dashboard/initController.ts:1071"
     ]
   },
   {
     "call": "✔ Running",
     "key": "✔ Running",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:1021"
+      "src/podkop/tabs/dashboard/initController.ts:1060"
     ]
   },
   {
     "call": "✘ Disabled",
     "key": "✘ Disabled",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:1033"
+      "src/podkop/tabs/dashboard/initController.ts:1072"
     ]
   },
   {
     "call": "✘ Stopped",
     "key": "✘ Stopped",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:1022"
+      "src/podkop/tabs/dashboard/initController.ts:1061"
     ]
   },
   {
@@ -296,7 +324,7 @@
     "call": "Active Connections",
     "key": "Active Connections",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:982"
+      "src/podkop/tabs/dashboard/initController.ts:1021"
     ]
   },
   {
@@ -413,15 +441,16 @@
     "call": "Apply",
     "key": "Apply",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:370",
-      "src/podkop/tabs/dashboard/initController.ts:698"
+      "src/podkop/tabs/dashboard/initController.ts:409",
+      "src/podkop/tabs/dashboard/initController.ts:737"
     ]
   },
   {
     "call": "As the other traffic",
     "key": "As the other traffic",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:390"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:390",
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:79"
     ]
   },
   {
@@ -479,7 +508,7 @@
     "call": "Autostart",
     "key": "Autostart",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:1030"
+      "src/podkop/tabs/dashboard/initController.ts:1069"
     ]
   },
   {
@@ -545,7 +574,15 @@
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:52",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:338",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:392",
-      "src/podkop/methods/custom/ruleTiles.ts:146"
+      "src/podkop/methods/custom/ruleTiles.ts:146",
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:75"
+    ]
+  },
+  {
+    "call": "Blocked",
+    "key": "Blocked",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:62"
     ]
   },
   {
@@ -598,6 +635,13 @@
     ]
   },
   {
+    "call": "By podkop's rules",
+    "key": "By podkop's rules",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:60"
+    ]
+  },
+  {
     "call": "bypass: record fragment",
     "key": "bypass: record fragment",
     "places": [
@@ -623,7 +667,7 @@
     "key": "Cancel",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:843",
-      "src/podkop/tabs/dashboard/initController.ts:263",
+      "src/podkop/tabs/dashboard/initController.ts:302",
       "src/podkop/tabs/dashboard/partials/renderSections.ts:311"
     ]
   },
@@ -662,8 +706,8 @@
     "call": "Check server",
     "key": "Check server",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:275",
-      "src/podkop/tabs/dashboard/initController.ts:714",
+      "src/podkop/tabs/dashboard/initController.ts:314",
+      "src/podkop/tabs/dashboard/initController.ts:753",
       "src/podkop/tabs/dashboard/partials/renderSections.ts:156"
     ]
   },
@@ -693,7 +737,7 @@
     "key": "Checking now…",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:449",
-      "src/podkop/tabs/dashboard/initController.ts:664"
+      "src/podkop/tabs/dashboard/initController.ts:703"
     ]
   },
   {
@@ -762,7 +806,7 @@
     "places": [
       "src/podkop/linkCheck.ts:195",
       "src/partials/modal/renderModal.ts:26",
-      "src/podkop/tabs/dashboard/initController.ts:687"
+      "src/podkop/tabs/dashboard/initController.ts:726"
     ]
   },
   {
@@ -794,6 +838,13 @@
     ]
   },
   {
+    "call": "Connections",
+    "key": "Connections",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:14"
+    ]
+  },
+  {
     "call": "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. A disguise as a whitelisted site cannot act on this server: its protocol has no TLS handshake over TCP. Another server, one with TLS (VLESS, Trojan), may help.",
     "key": "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. A disguise as a whitelisted site cannot act on this server: its protocol has no TLS handshake over TCP. Another server, one with TLS (VLESS, Trojan), may help.",
     "places": [
@@ -815,10 +866,17 @@
     ]
   },
   {
+    "call": "Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d",
+    "key": "Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:148"
+    ]
+  },
+  {
     "call": "Connections to this server will go through %s, whose operator will see the address of this server.",
     "key": "Connections to this server will go through %s, whose operator will see the address of this server.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:321"
+      "src/podkop/tabs/dashboard/initController.ts:360"
     ]
   },
   {
@@ -912,6 +970,13 @@
     "key": "DHCP has DNS server",
     "places": [
       "src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:134"
+    ]
+  },
+  {
+    "call": "DHT and UDP trackers",
+    "key": "DHT and UDP trackers",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:31"
     ]
   },
   {
@@ -1094,8 +1159,8 @@
     "call": "Downlink",
     "key": "Downlink",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:916",
-      "src/podkop/tabs/dashboard/initController.ts:950"
+      "src/podkop/tabs/dashboard/initController.ts:955",
+      "src/podkop/tabs/dashboard/initController.ts:989"
     ]
   },
   {
@@ -1187,7 +1252,7 @@
     "call": "Enter a whitelisted name, or press “Find a mask”.",
     "key": "Enter a whitelisted name, or press “Find a mask”.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:636"
+      "src/podkop/tabs/dashboard/initController.ts:675"
     ]
   },
   {
@@ -1348,10 +1413,10 @@
     "call": "Failed to execute!",
     "key": "Failed to execute!",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:350",
-      "src/podkop/tabs/dashboard/initController.ts:383",
-      "src/podkop/tabs/dashboard/initController.ts:418",
-      "src/podkop/tabs/dashboard/initController.ts:433",
+      "src/podkop/tabs/dashboard/initController.ts:389",
+      "src/podkop/tabs/dashboard/initController.ts:422",
+      "src/podkop/tabs/dashboard/initController.ts:457",
+      "src/podkop/tabs/dashboard/initController.ts:472",
       "src/podkop/tabs/diagnostic/initController.ts:239",
       "src/podkop/tabs/diagnostic/initController.ts:243",
       "src/podkop/tabs/diagnostic/initController.ts:274",
@@ -1416,7 +1481,7 @@
     "call": "Find a mask",
     "key": "Find a mask",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:606"
+      "src/podkop/tabs/dashboard/initController.ts:645"
     ]
   },
   {
@@ -1444,7 +1509,7 @@
     "call": "Found a mask: %s",
     "key": "Found a mask: %s",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:415"
+      "src/podkop/tabs/dashboard/initController.ts:454"
     ]
   },
   {
@@ -1581,6 +1646,13 @@
     ]
   },
   {
+    "call": "Incoming through a port forward",
+    "key": "Incoming through a port forward",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:41"
+    ]
+  },
+  {
     "call": "Interface",
     "key": "Interface",
     "places": [
@@ -1628,8 +1700,8 @@
     "call": "Invalid JSON format",
     "key": "Invalid JSON format",
     "places": [
-      "src/validators/validateOutboundJson.ts:9",
-      "src/podkop/sources.ts:323"
+      "src/podkop/sources.ts:323",
+      "src/validators/validateOutboundJson.ts:9"
     ]
   },
   {
@@ -1912,7 +1984,7 @@
     "call": "Memory Usage",
     "key": "Memory Usage",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:986"
+      "src/podkop/tabs/dashboard/initController.ts:1025"
     ]
   },
   {
@@ -2038,7 +2110,7 @@
     "call": "New connections through this server may hang for a couple of minutes after the check starts.",
     "key": "New connections through this server may hang for a couple of minutes after the check starts.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:310"
+      "src/podkop/tabs/dashboard/initController.ts:349"
     ]
   },
   {
@@ -2070,6 +2142,13 @@
     "key": "no answer in %d s",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:162"
+    ]
+  },
+  {
+    "call": "No BitTorrent traffic seen yet",
+    "key": "No BitTorrent traffic seen yet",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:34"
     ]
   },
   {
@@ -2182,7 +2261,7 @@
     "call": "No treatment",
     "key": "No treatment",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:577"
+      "src/podkop/tabs/dashboard/initController.ts:616"
     ]
   },
   {
@@ -2234,7 +2313,7 @@
     "call": "Not queued: %d of %d. Their addresses were checked recently or are already in the queue, or they are gone.",
     "key": "Not queued: %d of %d. Their addresses were checked recently or are already in the queue, or they are gone.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:235"
+      "src/podkop/tabs/dashboard/initController.ts:274"
     ]
   },
   {
@@ -2264,6 +2343,13 @@
       "src/podkop/tabs/diagnostic/diagnostic.store.ts:71",
       "src/podkop/tabs/diagnostic/diagnostic.store.ts:79",
       "src/podkop/tabs/diagnostic/diagnostic.store.ts:87"
+    ]
+  },
+  {
+    "call": "Not through podkop",
+    "key": "Not through podkop",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:56"
     ]
   },
   {
@@ -2314,7 +2400,8 @@
     "key": "On the whole LAN",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:403",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:440"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:440",
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:69"
     ]
   },
   {
@@ -2349,7 +2436,7 @@
     "call": "One of these servers is in use. New connections through it may hang for a couple of minutes after its check starts.",
     "key": "One of these servers is in use. New connections through it may hang for a couple of minutes after its check starts.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:473"
+      "src/podkop/tabs/dashboard/initController.ts:512"
     ]
   },
   {
@@ -2379,7 +2466,15 @@
     "key": "Only what podkop takes",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:402",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:439"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:439",
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:70"
+    ]
+  },
+  {
+    "call": "Open",
+    "key": "Open",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:13"
     ]
   },
   {
@@ -2447,10 +2542,19 @@
     ]
   },
   {
+    "call": "Packets: received %d, sent %d",
+    "key": "Packets: received %d, sent %d",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:105"
+    ]
+  },
+  {
     "call": "Past podkop",
     "key": "Past podkop",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:391"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:391",
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:54",
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:73"
     ]
   },
   {
@@ -2482,6 +2586,13 @@
     ]
   },
   {
+    "call": "Peers learned: %d from %d replies and %d announces",
+    "key": "Peers learned: %d from %d replies and %d announces",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:140"
+    ]
+  },
+  {
     "call": "Pending",
     "key": "Pending",
     "places": [
@@ -2496,7 +2607,7 @@
     "call": "Podkop",
     "key": "Podkop",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:1019"
+      "src/podkop/tabs/dashboard/initController.ts:1058"
     ]
   },
   {
@@ -2588,6 +2699,13 @@
     ]
   },
   {
+    "call": "Received",
+    "key": "Received",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:15"
+    ]
+  },
+  {
     "call": "Recognized: %s",
     "key": "Recognized: %s",
     "places": [
@@ -2626,14 +2744,14 @@
     "call": "Remove them",
     "key": "Remove them",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:448"
+      "src/podkop/tabs/dashboard/initController.ts:487"
     ]
   },
   {
     "call": "Remove treatment",
     "key": "Remove treatment",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:532"
+      "src/podkop/tabs/dashboard/initController.ts:571"
     ]
   },
   {
@@ -2760,14 +2878,14 @@
     "call": "Saved treatments for servers not in use now: %d. A server changed, was removed, or its subscription is not loaded yet.",
     "key": "Saved treatments for servers not in use now: %d. A server changed, was removed, or its subscription is not loaded yet.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:442"
+      "src/podkop/tabs/dashboard/initController.ts:481"
     ]
   },
   {
     "call": "Searching…",
     "key": "Searching…",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:403"
+      "src/podkop/tabs/dashboard/initController.ts:442"
     ]
   },
   {
@@ -2841,6 +2959,13 @@
     ]
   },
   {
+    "call": "Sent",
+    "key": "Sent",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:16"
+    ]
+  },
+  {
     "call": "Server",
     "key": "Server",
     "places": [
@@ -2852,7 +2977,7 @@
     "call": "Server check",
     "key": "Server check",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:253"
+      "src/podkop/tabs/dashboard/initController.ts:292"
     ]
   },
   {
@@ -2964,7 +3089,7 @@
     "call": "Services info",
     "key": "Services info",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:1015"
+      "src/podkop/tabs/dashboard/initController.ts:1054"
     ]
   },
   {
@@ -3030,6 +3155,13 @@
     "key": "simplest",
     "places": [
       "src/podkop/tabs/dashboard/helpers/verdictText.ts:497"
+    ]
+  },
+  {
+    "call": "since %s",
+    "key": "since %s",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:42"
     ]
   },
   {
@@ -3173,7 +3305,7 @@
     "call": "System info",
     "key": "System info",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:979"
+      "src/podkop/tabs/dashboard/initController.ts:1018"
     ]
   },
   {
@@ -3209,6 +3341,27 @@
     "key": "TCP connects, but TLS or the WebSocket/HTTP upgrade gets no answer.",
     "places": [
       "src/podkop/tabs/dashboard/helpers/verdictText.ts:164"
+    ]
+  },
+  {
+    "call": "TCP to peers",
+    "key": "TCP to peers",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:35"
+    ]
+  },
+  {
+    "call": "TCP to uncommon ports, checked",
+    "key": "TCP to uncommon ports, checked",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:39"
+    ]
+  },
+  {
+    "call": "TCP told by its handshake in podkop",
+    "key": "TCP told by its handshake in podkop",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:37"
     ]
   },
   {
@@ -3480,6 +3633,13 @@
     ]
   },
   {
+    "call": "The last read of the connections failed: %s",
+    "key": "The last read of the connections failed: %s",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:120"
+    ]
+  },
+  {
     "call": "The links appear here after Save & Apply",
     "key": "The links appear here after Save & Apply",
     "places": [
@@ -3700,6 +3860,13 @@
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:868",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:876",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:888"
+    ]
+  },
+  {
+    "call": "The router does not count the bytes of connections (net.netfilter.nf_conntrack_acct is 0)",
+    "key": "The router does not count the bytes of connections (net.netfilter.nf_conntrack_acct is 0)",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:125"
     ]
   },
   {
@@ -4022,7 +4189,7 @@
     "call": "This server will be masked as a whitelisted site on the wire.",
     "key": "This server will be masked as a whitelisted site on the wire.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:325"
+      "src/podkop/tabs/dashboard/initController.ts:364"
     ]
   },
   {
@@ -4036,7 +4203,7 @@
     "call": "This server's TLS hello will be split into two records.",
     "key": "This server's TLS hello will be split into two records.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:327"
+      "src/podkop/tabs/dashboard/initController.ts:366"
     ]
   },
   {
@@ -4054,10 +4221,25 @@
     ]
   },
   {
+    "call": "Through sing-box, straight out",
+    "key": "Through sing-box, straight out",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:52"
+    ]
+  },
+  {
+    "call": "Through the rule %s",
+    "key": "Through the rule %s",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:58"
+    ]
+  },
+  {
     "call": "Through the servers of a rule",
     "key": "Through the servers of a rule",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:393"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:393",
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:77"
     ]
   },
   {
@@ -4078,7 +4260,8 @@
     "call": "Traffic",
     "key": "Traffic",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:913"
+      "src/podkop/tabs/dashboard/initController.ts:952",
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:11"
     ]
   },
   {
@@ -4092,7 +4275,7 @@
     "call": "Traffic Total",
     "key": "Traffic Total",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:943"
+      "src/podkop/tabs/dashboard/initController.ts:982"
     ]
   },
   {
@@ -4120,15 +4303,15 @@
     "call": "Treatment applied.",
     "key": "Treatment applied.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:346"
+      "src/podkop/tabs/dashboard/initController.ts:385"
     ]
   },
   {
     "call": "Treatment for this server",
     "key": "Treatment for this server",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:522",
-      "src/podkop/tabs/dashboard/initController.ts:614",
+      "src/podkop/tabs/dashboard/initController.ts:561",
+      "src/podkop/tabs/dashboard/initController.ts:653",
       "src/podkop/tabs/dashboard/partials/renderSections.ts:178"
     ]
   },
@@ -4136,14 +4319,14 @@
     "call": "Treatment removed.",
     "key": "Treatment removed.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:380"
+      "src/podkop/tabs/dashboard/initController.ts:419"
     ]
   },
   {
     "call": "Treatments removed.",
     "key": "Treatments removed.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:430"
+      "src/podkop/tabs/dashboard/initController.ts:469"
     ]
   },
   {
@@ -4178,7 +4361,7 @@
     "call": "Turn on the uTLS fallback in Settings; it switches the fingerprint for every server, not just this one.",
     "key": "Turn on the uTLS fallback in Settings; it switches the fingerprint for every server, not just this one.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:458"
+      "src/podkop/tabs/dashboard/initController.ts:497"
     ]
   },
   {
@@ -4273,8 +4456,8 @@
     "call": "Uplink",
     "key": "Uplink",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:915",
-      "src/podkop/tabs/dashboard/initController.ts:946"
+      "src/podkop/tabs/dashboard/initController.ts:954",
+      "src/podkop/tabs/dashboard/initController.ts:985"
     ]
   },
   {
@@ -4331,6 +4514,20 @@
     "key": "uTLS-fallback",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:357"
+    ]
+  },
+  {
+    "call": "uTP",
+    "key": "uTP",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:33"
+    ]
+  },
+  {
+    "call": "uTP connects turned to TCP (on a flow of the DHT): %d",
+    "key": "uTP connects turned to TCP (on a flow of the DHT): %d",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:132"
     ]
   },
   {
@@ -4397,7 +4594,7 @@
     "call": "Waiting for its turn.",
     "key": "Waiting for its turn.",
     "places": [
-      "src/podkop/tabs/dashboard/initController.ts:666"
+      "src/podkop/tabs/dashboard/initController.ts:705"
     ]
   },
   {
@@ -4419,6 +4616,13 @@
     "key": "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection.",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:656"
+    ]
+  },
+  {
+    "call": "Way",
+    "key": "Way",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:12"
     ]
   },
   {

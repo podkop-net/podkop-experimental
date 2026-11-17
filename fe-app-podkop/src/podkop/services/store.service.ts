@@ -192,6 +192,13 @@ export interface StoreType {
   // which a one-off test leaves alone
   latencyNow: Record<string, number>;
   detectWidget: IDetectWidget;
+  // what the BitTorrent traffic of the LAN came to (the method bittorrent of the backend); data
+  // undefined while it was not read
+  bitTorrentWidget: {
+    loading: boolean;
+    failed: boolean;
+    data?: Podkop.BitTorrentReport;
+  };
   diagnosticsRunAction: {
     loading: boolean;
   };
@@ -249,6 +256,10 @@ const initialStore: StoreType = {
     data: [],
   },
   latencyNow: {},
+  bitTorrentWidget: {
+    loading: true,
+    failed: false,
+  },
   detectWidget: {
     verdicts: {},
     servers: {},

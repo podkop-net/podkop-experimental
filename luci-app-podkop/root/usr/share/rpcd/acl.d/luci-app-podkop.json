@@ -20,7 +20,8 @@
         "podkop": [
           "run",
           "stats",
-          "detect"
+          "detect",
+          "bittorrent"
         ]
       },
       "uci": [

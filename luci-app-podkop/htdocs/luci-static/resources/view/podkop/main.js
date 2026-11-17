@@ -2069,6 +2069,10 @@ var initialStore = {
     data: []
   },
   latencyNow: {},
+  bitTorrentWidget: {
+    loading: true,
+    failed: false
+  },
   detectWidget: {
     verdicts: {},
     servers: {},
@@ -3179,6 +3183,67 @@ function renderWidget(props) {
   return renderDefaultState2(props);
 }
 
+// src/podkop/tabs/dashboard/partials/renderBitTorrent.ts
+function renderBitTorrent(table) {
+  if (!table) {
+    return E("div", { class: "pdk_dashboard-page__bittorrent hidden" }, []);
+  }
+  const head = [
+    _("Traffic"),
+    _("Way"),
+    _("Open"),
+    _("Connections"),
+    _("Received"),
+    _("Sent")
+  ];
+  const renderedRows = table.rows.length ? table.rows.map(
+    (row) => E("tr", { title: row.packets }, [
+      E("td", {}, [row.kind]),
+      E("td", {}, [row.way]),
+      E("td", { class: "number" }, [row.open]),
+      E("td", { class: "number" }, [row.connections]),
+      E("td", { class: "number" }, [row.received]),
+      E("td", { class: "number" }, [row.sent])
+    ])
+  ) : [
+    E("tr", {}, [
+      E(
+        "td",
+        { colspan: String(head.length), class: "empty" },
+        _("No BitTorrent traffic seen yet")
+      )
+    ])
+  ];
+  return E("div", { class: "pdk_dashboard-page__bittorrent" }, [
+    E("div", { class: "pdk_dashboard-page__bittorrent__title" }, [
+      E("b", {}, "BitTorrent"),
+      E("span", { class: "pdk_dashboard-page__bittorrent__mode" }, [
+        `${table.mode} \xB7 ${_("since %s").format(table.since)}`
+      ])
+    ]),
+    E("div", { class: "pdk_dashboard-page__bittorrent__scroll" }, [
+      E("table", { class: "pdk_dashboard-page__bittorrent__table" }, [
+        E(
+          "thead",
+          {},
+          E(
+            "tr",
+            {},
+            head.map((text) => E("th", {}, [text]))
+          )
+        ),
+        E("tbody", {}, renderedRows)
+      ])
+    ]),
+    ...table.blocked.map(
+      (line) => E("div", { class: "pdk_dashboard-page__bittorrent__blocked" }, [line])
+    ),
+    ...table.notes.map(
+      (line) => E("div", { class: "pdk_dashboard-page__bittorrent__note" }, [line])
+    )
+  ]);
+}
+
 // src/podkop/tabs/dashboard/render.ts
 function render() {
   return E(
@@ -3211,6 +3276,8 @@ function render() {
           renderWidget({ loading: true, failed: false, title: "", items: [] })
         )
       ]),
+      // BitTorrent, while it does not go as the other traffic
+      E("div", { id: "dashboard-bittorrent" }, renderBitTorrent(void 0)),
       // All outbounds
       E(
         "div",
@@ -3245,6 +3312,134 @@ function prettyBytes(n) {
   n = Number((n / Math.pow(1e3, exponent)).toPrecision(3));
   const unit = UNITS[exponent];
   return n + " " + unit;
+}
+
+// src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts
+function bitTorrentKindName(kind) {
+  switch (kind) {
+    case "discovery":
+      return _("DHT and UDP trackers");
+    case "utp":
+      return _("uTP");
+    case "tcp":
+      return _("TCP to peers");
+    case "late":
+      return _("TCP told by its handshake in podkop");
+    case "checked":
+      return _("TCP to uncommon ports, checked");
+    case "incoming":
+      return _("Incoming through a port forward");
+  }
+  return kind;
+}
+function bitTorrentWayName(way, rule) {
+  switch (way) {
+    case "relay":
+      return _("Through sing-box, straight out");
+    case "past":
+      return _("Past podkop");
+    case "untouched":
+      return _("Not through podkop");
+    case "rule":
+      return _("Through the rule %s").format(rule || "");
+    case "rules":
+      return _("By podkop's rules");
+    case "blocked":
+      return _("Blocked");
+  }
+  return way;
+}
+function bitTorrentModeName(report) {
+  const scope = report.lan ? _("On the whole LAN") : _("Only what podkop takes");
+  switch (report.mode) {
+    case "bypass":
+      return _("Past podkop");
+    case "block":
+      return `${_("Block")} \xB7 ${scope}`;
+    case "section":
+      return `${_("Through the servers of a rule")} \xAB${report.rule || ""}\xBB \xB7 ${scope}`;
+  }
+  return _("As the other traffic");
+}
+function spanText(seconds) {
+  if (seconds < 60) return _("%d s").format(seconds);
+  if (seconds < 3600) return _("%d min").format(Math.floor(seconds / 60));
+  return _("%d h %d min").format(
+    Math.floor(seconds / 3600),
+    Math.floor(seconds / 60) % 60
+  );
+}
+function bitTorrentTable(report) {
+  if (!report || !report.mode || report.mode === "off") return void 0;
+  const rows = (report.rows || []).map((row) => ({
+    kind: bitTorrentKindName(row.kind),
+    way: bitTorrentWayName(row.way, report.rule),
+    open: String(row.open),
+    connections: String(row.connections),
+    received: report.counted ? prettyBytes(row.received.bytes) : "\u2014",
+    sent: report.counted ? prettyBytes(row.sent.bytes) : "\u2014",
+    packets: _("Packets: received %d, sent %d").format(
+      row.received.packets,
+      row.sent.packets
+    )
+  }));
+  const blocked = (report.blocked || []).map(
+    (item) => _("%s: %d packets (%s) dropped").format(
+      bitTorrentKindName(item.kind),
+      item.dropped.packets,
+      prettyBytes(item.dropped.bytes)
+    )
+  );
+  const notes = [];
+  if (report.error) {
+    notes.push(
+      _("The last read of the connections failed: %s").format(report.error)
+    );
+  }
+  if (!report.counted && rows.length > 0) {
+    notes.push(
+      _(
+        "The router does not count the bytes of connections (net.netfilter.nf_conntrack_acct is 0)"
+      )
+    );
+  }
+  if (report.utp_to_tcp?.packets > 0) {
+    notes.push(
+      _("uTP connects turned to TCP (on a flow of the DHT): %d").format(
+        report.utp_to_tcp.packets
+      )
+    );
+  }
+  const module = report.module;
+  if (module) {
+    notes.push(
+      _("Peers learned: %d from %d replies and %d announces").format(
+        module.learned ?? 0,
+        module.replies ?? 0,
+        module.announces ?? 0
+      )
+    );
+    if ((module.watched ?? 0) > 0) {
+      notes.push(
+        _(
+          "Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d"
+        ).format(
+          module.watched ?? 0,
+          module.confirmed ?? 0,
+          (module.rejected ?? 0) + (module.reset ?? 0),
+          module.kept_open ?? 0,
+          (module.not_shaped ?? 0) + (module.refuted ?? 0) + (module.far_first ?? 0)
+        )
+      );
+    }
+  }
+  return {
+    mode: bitTorrentModeName(report),
+    since: spanText(report.since),
+    rows,
+    blocked,
+    notes
+  };
 }
 
 // src/podkop/fetchers/fetchServicesInfo.ts
@@ -3430,15 +3625,45 @@ async function fetchStats() {
 function startStats() {
   stopStats();
   fetchStats();
+  fetchBitTorrent();
   statsTimers = [
     setTimeout(fetchStats, 1e3),
-    setInterval(fetchStats, STATS_MS)
+    setInterval(fetchStats, STATS_MS),
+    setInterval(fetchBitTorrent, BITTORRENT_MS)
   ];
 }
 function stopStats() {
   statsTimers.forEach((timer) => clearTimeout(timer));
   statsTimers = [];
   lastStats = void 0;
+}
+var BITTORRENT_MS = 5e3;
+var backendBitTorrent;
+async function fetchBitTorrent() {
+  if (document.hidden) return;
+  backendBitTorrent ?? (backendBitTorrent = rpc.declare({
+    object: "podkop",
+    method: "bittorrent",
+    nobatch: true
+  }));
+  let report;
+  try {
+    const reply = await backendBitTorrent();
+    report = typeof reply === "object" && reply !== null ? reply : void 0;
+  } catch {
+  }
+  if (!mounted) return;
+  store.set({
+    bitTorrentWidget: { loading: false, failed: !report, data: report }
+  });
+}
+function renderBitTorrentWidget() {
+  const container = document.getElementById("dashboard-bittorrent");
+  if (!container) return;
+  const widget = store.get().bitTorrentWidget;
+  container.replaceChildren(
+    renderBitTorrent(widget.failed ? void 0 : bitTorrentTable(widget.data))
+  );
 }
 var DETECT_IDLE_MS = 15e3;
 var DETECT_BUSY_MS = 2e3;
@@ -4188,6 +4413,9 @@ async function onStoreUpdate(next, prev, diff) {
   if (diff.servicesInfoWidget) {
     renderServicesInfoWidget();
   }
+  if (diff.bitTorrentWidget) {
+    renderBitTorrentWidget();
+  }
 }
 var started = false;
 var mounted = false;
@@ -4213,7 +4441,8 @@ function onPageUnmount() {
     "servicesInfoWidget",
     "sectionsWidget",
     "latencyNow",
-    "detectWidget"
+    "detectWidget",
+    "bitTorrentWidget"
   ]);
   stopStats();
   stopDetect();
@@ -4303,6 +4532,67 @@ var styles = `
 .pdk_dashboard-page__widgets-section__item__row__key {}
 
 .pdk_dashboard-page__widgets-section__item__row__value {}
+
+.pdk_dashboard-page__bittorrent {
+    margin-top: 10px;
+    border: 2px var(--background-color-low, lightgray) solid;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.pdk_dashboard-page__bittorrent.hidden {
+    display: none;
+}
+
+.pdk_dashboard-page__bittorrent__title {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    align-items: baseline;
+    margin-bottom: 6px;
+}
+
+.pdk_dashboard-page__bittorrent__mode {
+    opacity: 0.8;
+}
+
+.pdk_dashboard-page__bittorrent__scroll {
+    overflow-x: auto;
+}
+
+.pdk_dashboard-page__bittorrent__table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.pdk_dashboard-page__bittorrent__table th,
+.pdk_dashboard-page__bittorrent__table td {
+    padding: 3px 8px;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px var(--background-color-low, lightgray) solid;
+}
+
+.pdk_dashboard-page__bittorrent__table td.number,
+.pdk_dashboard-page__bittorrent__table th:nth-child(n+3) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.pdk_dashboard-page__bittorrent__table td.empty {
+    text-align: center;
+    opacity: 0.7;
+}
+
+.pdk_dashboard-page__bittorrent__blocked {
+    margin-top: 6px;
+    color: var(--error-color-medium, red);
+}
+
+.pdk_dashboard-page__bittorrent__note {
+    margin-top: 4px;
+    opacity: 0.85;
+}
 
 .pdk_dashboard-page__outbound-section {
     margin-top: 10px;

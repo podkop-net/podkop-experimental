@@ -1,4 +1,4 @@
-import { renderSections, renderWidget } from './partials';
+import { renderBitTorrent, renderSections, renderWidget } from './partials';
 
 export function render() {
   return E(
@@ -31,6 +31,8 @@ export function render() {
           renderWidget({ loading: true, failed: false, title: '', items: [] }),
         ),
       ]),
+      // BitTorrent, while it does not go as the other traffic
+      E('div', { id: 'dashboard-bittorrent' }, renderBitTorrent(undefined)),
       // All outbounds
       E(
         'div',

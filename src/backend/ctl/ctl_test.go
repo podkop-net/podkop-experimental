@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
+	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/diag"
 	"github.com/podkop-net/podkop-experimental/src/backend/logbuf"
 
@@ -36,6 +37,7 @@ type backend struct {
 	group         api.GroupPreview
 	updated       []string
 	loaded        []string
+	bitTorrent    btstats.Report
 	checked       []api.GroupCheck
 }
 
@@ -48,6 +50,7 @@ func (b *backend) Probe(_ context.Context, label string, wait time.Duration) api
 }
 func (b *backend) ProbeSelf(context.Context) api.ProbeResult { return b.probe }
 func (b *backend) BitTorrent() map[string]int64              { return nil }
+func (b *backend) BitTorrentStats() btstats.Report           { return b.bitTorrent }
 
 func (b *backend) Subscriptions(context.Context) []api.SubscriptionState { return b.subscriptions }
 func (b *backend) UpdateSubscriptions(_ context.Context, name string) []api.SubscriptionState {

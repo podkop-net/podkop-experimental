@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
+	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/podkop-net/podkop-experimental/src/backend/firewall"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
@@ -123,6 +124,9 @@ func (r *recorder) ForgetBitTorrentFlows(which firewall.Forget) error {
 	r.calls = append(r.calls, "forget bittorrent "+which.String())
 	return nil
 }
+
+func (r *recorder) BitTorrentFlows() ([]btstats.Flow, error) { return nil, nil }
+func (r *recorder) BitTorrentDrops() (btstats.Drops, error)  { return btstats.Drops{}, nil }
 
 func (r *recorder) UpdateFirewall(previous *firewall.Plan, next *firewall.Plan) error {
 	if previous == nil {

@@ -41,6 +41,8 @@ var inProcess = map[string]bool{
 	"group_check":              true,
 	"subscription_status":      true,
 	"hwid":                     true,
+	"bittorrent_counters":      true,
+	"bittorrent_stats":         true,
 }
 
 // ExecResult is the answer of "run", in the form of the answer of rpcd's file.exec, so that

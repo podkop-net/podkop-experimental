@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/ctl"
 	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/podkop-net/podkop-experimental/src/backend/engine"
@@ -43,6 +44,8 @@ type trafficSource interface {
 	ClearCure(ctx context.Context, tag string) supervisor.CureResult
 	DropStaleCures(ctx context.Context) supervisor.CureResult
 	SuggestMask(ctx context.Context, tag string) supervisor.SuggestResult
+	// BitTorrentStats is what the BitTorrent traffic of the LAN came to (btstats.Report).
+	BitTorrentStats() btstats.Report
 }
 
 var processStart = time.Now()
@@ -65,6 +68,12 @@ func busObject(env ctl.Environment, source trafficSource) ubus.Object {
 				Connections: traffic.Connections,
 				Memory:      memory.StackInuse + memory.HeapInuse + memory.HeapIdle - memory.HeapReleased,
 			}, ubus.StatusOK
+		},
+	}
+	// bittorrent: the dashboard's table of BitTorrent, asked with the stats while BitTorrent is on
+	object.Methods["bittorrent"] = ubus.Method{
+		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
+			return source.BitTorrentStats(), ubus.StatusOK
 		},
 	}
 	object.Methods["detect"] = ubus.Method{

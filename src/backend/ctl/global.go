@@ -59,7 +59,7 @@ func counted(value bool, text string) string {
 //
 // engine tells what the sing-box inside is (podkop.Engine); outbounds tests the outbound of
 // every section and the direct one (outboundLines).
-func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, version string, singBoxVersion string, engine string, running bool, routerFakeIP func() (works bool, answered bool), outbounds func() []string, choices func() []string, subscriptions func() []string, device *deviceCheck) string {
+func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, version string, singBoxVersion string, engine string, running bool, routerFakeIP func() (works bool, answered bool), outbounds func() []string, choices func() []string, subscriptions func() []string, bitTorrent func() []string, device *deviceCheck) string {
 	settings := &config.Settings
 	var lines []string
 	add := func(text ...string) { lines = append(lines, text...) }
@@ -93,6 +93,7 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 		outboundResults []string
 		choiceResults   []string
 		subscriptionAt  []string
+		bitTorrentLines []string
 		deviceLines     []string
 		clockReport     []string
 		client          netip.Addr
@@ -131,6 +132,11 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 		func() {
 			if running && subscriptions != nil {
 				subscriptionAt = subscriptions()
+			}
+		},
+		func() {
+			if running && bitTorrent != nil && settings.BitTorrent != "" && settings.BitTorrent != model.BitTorrentOff {
+				bitTorrentLines = bitTorrent()
 			}
 		},
 	}
@@ -230,6 +236,11 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 				add(mark(value == "0", "✅ ", "❌ ") + name + " = " + value + " (br_netfilter)")
 			}
 		}
+	}
+
+	if len(bitTorrentLines) > 0 {
+		add(rule, "🧲 BitTorrent")
+		add(bitTorrentLines...)
 	}
 
 	add(rule, "📄 Podkop config")

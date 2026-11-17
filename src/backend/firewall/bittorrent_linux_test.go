@@ -35,7 +35,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		"add chain " + table + " bt_free",
 	}
 	if mode == BitTorrentBlock {
-		lines = append(lines, "add chain "+table+" bt_incoming { type filter hook forward priority -1; policy accept; }")
+		lines = append(lines, "add chain "+table+" bt_block", "add chain "+table+" bt_incoming { type filter hook forward priority -1; policy accept; }")
 	}
 	lines = append(lines,
 		rule("bt_detect", "iifname != @interfaces return"),
@@ -89,7 +89,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		lines = append(lines, rule("bt_decided", "ct mark & 0x00004000 != 0 @ih,0,8 0x41 @ih,8,8 < 0x3 @ih,64,32 0x0 update @bt_utp { ip saddr . udp sport } counter drop"))
 	}
 	if mode == BitTorrentBlock && detector.LAN {
-		lines = append(lines, rule("bt_decided", "counter drop"))
+		lines = append(lines, rule("bt_decided", "goto bt_block"))
 	}
 	lines = append(lines,
 		rule("bt_act", "meta mark & 0x00100000 == 0 goto bt_free"),
@@ -104,7 +104,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 			rule("bt_act", "ct mark & 0x00004000 != 0 return"),
 			rule("bt_act", "meta mark set meta mark & 0xffefffff counter"))
 	case BitTorrentBlock:
-		lines = append(lines, rule("bt_act", "counter drop"))
+		lines = append(lines, rule("bt_act", "goto bt_block"))
 	}
 	lines = append(lines, rule("bt_free", "iifname != @interfaces return"), rule("bt_free", "ct direction reply return"))
 	if detector.LAN {
@@ -119,6 +119,9 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 	}
 	if mode == BitTorrentBlock {
 		lines = append(lines,
+			rule("bt_block", "meta l4proto udp ct mark & 0x00004000 != 0 counter drop"),
+			rule("bt_block", "meta l4proto udp counter drop"),
+			rule("bt_block", "counter drop"),
 			rule("bt_incoming", "iifname @interfaces return"),
 			rule("bt_incoming", "ct state & new == 0 return"))
 		devices := []string{""}
@@ -283,7 +286,7 @@ func TestBitTorrentKept(t *testing.T) {
 			t.Errorf("%s of the new table has not %s:\n%s", set, element, listed)
 		}
 	}
-	if listed := nft(t, "list", "chain", "inet", tableName, "bt_act"); !strings.Contains(listed, "drop") {
+	if listed := nft(t, "list", "chain", "inet", tableName, "bt_act"); !strings.Contains(listed, "goto bt_block") {
 		t.Errorf("the new table is not of the mode block:\n%s", listed)
 	}
 }
