@@ -52,6 +52,21 @@ func trackerAnnounceRequest(transaction uint32) []byte {
 
 func bstring(data []byte) string { return fmt.Sprintf("%d:%s", len(data), data) }
 
+// dhtFindNode is a find_node query, as a client's bootstrap sends them.
+func dhtFindNode(transaction string) []byte {
+	return []byte("d1:ad2:id20:" + strings.Repeat("a", 20) + "6:target20:" + strings.Repeat("b", 20) + "e1:q9:find_node1:t" +
+		bstring([]byte(transaction)) + "1:y1:qe")
+}
+
+// scrapeRequest is a scrape of BEP 15 with a connection id that begins with first.
+func scrapeRequest(first byte) []byte {
+	payload := make([]byte, 36)
+	payload[0] = first
+	binary.BigEndian.PutUint32(payload[8:], trackerScrape)
+	binary.BigEndian.PutUint32(payload[12:], 77)
+	return payload
+}
+
 func dhtGetPeers(transaction string) []byte {
 	return []byte("d1:ad2:id20:abcdefghij01234567899:info_hash20:mnopqrstuvwxyz123456e1:q9:get_peers1:t" + bstring([]byte(transaction)) + "1:y1:qe")
 }

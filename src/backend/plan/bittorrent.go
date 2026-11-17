@@ -133,7 +133,7 @@ func (b *builder) buildBitTorrentService() {
 		never = append(never, port)
 	}
 	b.services = append(b.services, newObject("type", bitTorrentServiceType, "tag", tagBitTorrentService,
-		"table", dataplane.FirewallTable, "set", "bt_learned",
+		"table", dataplane.FirewallTable, "set", dataplane.BitTorrentLearnedSet,
 		"learn", []any{tagBitTorrentInbound, tagBitTorrentLANInbound, tagBitTorrentCheckInbound},
 		"learn_sniffed", []any{tagTProxyInbound},
 		"inspect", []any{

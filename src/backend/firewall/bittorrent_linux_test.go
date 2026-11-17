@@ -106,6 +106,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 	case BitTorrentBlock:
 		lines = append(lines, rule("bt_act", "counter drop"))
 	}
+	lines = append(lines, rule("bt_free", "iifname != @interfaces return"), rule("bt_free", "ct direction reply return"))
 	if detector.LAN {
 		lines = append(lines, rule("bt_free", "ct mark & 0x00080000 != 0 meta mark set meta mark | 0x00100000 counter return"))
 	}

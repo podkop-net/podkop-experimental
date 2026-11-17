@@ -292,6 +292,90 @@ func TestInspectLearnReset(t *testing.T) {
 	}
 }
 
+// learn_reset leaves a confirmed connection open when its far end cannot be put in the set: closed,
+// its retry would be inspected and closed again, for good.
+func TestInspectLearnResetUnlearned(t *testing.T) {
+	for name, c := range map[string]struct {
+		far   netip.AddrPort
+		setup func(*Service)
+	}{
+		"a port under 1024": {netip.MustParseAddrPort("203.0.113.7:1000"), nil},
+		"CGNAT":             {netip.MustParseAddrPort("100.64.1.1:51413"), nil},
+		"the device's cap":  {testFar, func(s *Service) { s.devices.cap = 0 }},
+		"no netlink":        {testFar, func(s *Service) { s.sink = nil }},
+		"a failed write":    {testFar, func(s *Service) { s.sink = failingSink{} }},
+	} {
+		farAddress, stop := farServer(t, mse)
+		s, _ := testService()
+		if c.setup != nil {
+			c.setup(s)
+		}
+		r := newRelay(t, farAddress, func(inbound net.Conn) net.Conn {
+			return &conn{Conn: inbound, service: s, device: testDevice, far: c.far, inspect: true, confirmed: ConfirmedLearnReset}
+		})
+		got, err := runDevice(r.address(), mse, nil)
+		<-r.wrapped
+		r.close()
+		stop()
+		if err != nil || got != mse.bulk || s.counters.confirmed.Load() != 1 || s.counters.keptOpen.Load() != 1 {
+			t.Errorf("%s: bulk %d of %d (%v), confirmed %d, kept open %d", name, got, mse.bulk, err,
+				s.counters.confirmed.Load(), s.counters.keptOpen.Load())
+		}
+	}
+}
+
+// A plaintext handshake: sing-box's sniffer routed it as BitTorrent already, so learn_reset learns
+// it and leaves it open; not routed so, it is closed.
+func TestInspectPlaintext(t *testing.T) {
+	e := exchange{first: 68, answer: 68, third: 100, bulk: 1 << 20}
+	first := append(append([]byte{}, plaintextHandshake...), make([]byte, 48)...)
+	for _, routed := range []bool{true, false} {
+		farAddress, stop := farServer(t, e)
+		s, sink := testService()
+		r := newRelay(t, farAddress, func(inbound net.Conn) net.Conn {
+			return &conn{Conn: inbound, service: s, device: testDevice, far: testFar, inspect: true, confirmed: ConfirmedLearnReset, routed: routed}
+		})
+		got, _ := runDevice(r.address(), e, first)
+		<-r.wrapped
+		r.close()
+		stop()
+		if (routed && got != e.bulk) || (!routed && got != 0) || sink.count() != 1 || s.counters.plaintext.Load() != 1 {
+			t.Errorf("routed %v: bulk %d, learned %d, plaintext %d", routed, got, sink.count(), s.counters.plaintext.Load())
+		}
+	}
+}
+
+// ReadCached gives sing-box what its sniffer read ahead, through the conn: the conn takes it as the
+// device's first data, the counters under it count it, and it is given once.
+func TestInspectReadCached(t *testing.T) {
+	s, _ := testService()
+	device, other := net.Pipe()
+	defer device.Close()
+	defer other.Close()
+	first := bytes.Repeat([]byte{0xa5}, 200)
+	sniffed := buf.New()
+	_, _ = sniffed.Write(first)
+	var counted int64
+	counter := sbufio.NewCounterConn(sbufio.NewCachedConn(device, sniffed), []N.CountFunc{func(n int64) { counted += n }}, nil)
+	c := &conn{Conn: counter, service: s, device: testDevice, far: testFar, inspect: true, confirmed: ConfirmedLearnReset}
+	given := c.ReadCached()
+	if given == nil || !bytes.Equal(given.Bytes(), first) {
+		t.Fatalf("not the sniffer's read: %v", given)
+	}
+	given.Release()
+	if c.step != stepAnswer || s.counters.inspected.Load() != 1 || counted != int64(len(first)) {
+		t.Errorf("step %d, inspected %d, counted %d", c.step, s.counters.inspected.Load(), counted)
+	}
+	if c.ReadCached() != nil {
+		t.Error("given twice")
+	}
+	// nothing cached under it: none
+	plain := &conn{Conn: device, service: s, device: testDevice, far: testFar, inspect: true}
+	if plain.ReadCached() != nil {
+		t.Error("a read of nothing")
+	}
+}
+
 // Refuted: the far side's answer too long, the third message too late, the device speaking again
 // before any answer, a first data not shaped like MSE. Each goes on whole, nothing learned.
 func TestInspectRefuted(t *testing.T) {

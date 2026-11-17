@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net"
 	"net/netip"
+	"strconv"
 	"testing"
 	"time"
 
@@ -76,7 +77,7 @@ func TestLearnPaired(t *testing.T) {
 	c, fake := session(s, fakePacket{trackerAnnounceRequest(41), trackerFar}, fakePacket{dhtGetPeers("q1"), dhtNodeFar})
 	sendAll(t, c)
 	reply(t, c, trackerAnnounceReply(41, testPeers), trackerFar)
-	reply(t, c, dhtValues("q1", testPeers[:2]), dhtNodeFar)
+	reply(t, c, dhtValues("q1", []netip.AddrPort{netip.MustParseAddrPort("203.0.113.50:6881"), netip.MustParseAddrPort("203.0.113.51:6881")}), dhtNodeFar)
 	if sink.count() != 5 || s.counters.replies.Load() != 2 {
 		t.Errorf("learned %d of 5, replies %d", sink.count(), s.counters.replies.Load())
 	}
@@ -149,18 +150,52 @@ func TestLearnUTP(t *testing.T) {
 	}
 }
 
-// The cap per device.
+// The cap per device counts a peer once: a reply that names peers written already writes none of
+// them again; new ones past the cap are left.
 func TestLearnCap(t *testing.T) {
 	s, sink := testService()
 	s.devices.cap = 4
-	c, _ := session(s, fakePacket{trackerAnnounceRequest(1), trackerFar}, fakePacket{trackerAnnounceRequest(2), trackerFar})
+	more := []netip.AddrPort{netip.MustParseAddrPort("203.0.113.9:51413"), netip.MustParseAddrPort("203.0.113.10:51413")}
+	c, _ := session(s, fakePacket{trackerAnnounceRequest(1), trackerFar}, fakePacket{trackerAnnounceRequest(2), trackerFar},
+		fakePacket{trackerAnnounceRequest(3), trackerFar})
 	sendAll(t, c)
 	reply(t, c, trackerAnnounceReply(1, testPeers), trackerFar)
 	reply(t, c, trackerAnnounceReply(2, testPeers), trackerFar)
-	if sink.count() != 3 || s.counters.capped.Load() != 3 {
-		t.Errorf("learned %d of 3, capped %d", sink.count(), s.counters.capped.Load())
+	reply(t, c, trackerAnnounceReply(3, more), trackerFar)
+	if sink.count() != 4 || s.counters.known.Load() != 3 || s.counters.capped.Load() != 1 {
+		t.Errorf("learned %d of 4, known %d of 3, capped %d of 1", sink.count(), s.counters.known.Load(), s.counters.capped.Load())
 	}
 }
+
+// A peer written for the device is written again after the window (its element has gone), and a
+// write that failed is no write.
+func TestLearnAgain(t *testing.T) {
+	s, sink := testService()
+	s.devices.window = 20 * time.Millisecond
+	c, _ := session(s, fakePacket{trackerAnnounceRequest(1), trackerFar}, fakePacket{trackerAnnounceRequest(2), trackerFar})
+	sendAll(t, c)
+	reply(t, c, trackerAnnounceReply(1, testPeers), trackerFar)
+	time.Sleep(40 * time.Millisecond)
+	reply(t, c, trackerAnnounceReply(2, testPeers), trackerFar)
+	if sink.count() != 6 {
+		t.Errorf("learned %d of 6", sink.count())
+	}
+	s, _ = testService()
+	s.sink = failingSink{}
+	c, _ = session(s, fakePacket{trackerAnnounceRequest(1), trackerFar}, fakePacket{trackerAnnounceRequest(2), trackerFar})
+	sendAll(t, c)
+	reply(t, c, trackerAnnounceReply(1, testPeers), trackerFar)
+	recorded := &recordSink{}
+	s.sink = recorded
+	reply(t, c, trackerAnnounceReply(2, testPeers), trackerFar)
+	if recorded.count() != 3 || s.counters.writeFailed.Load() != 1 {
+		t.Errorf("after a failed write: learned %d of 3, failed %d", recorded.count(), s.counters.writeFailed.Load())
+	}
+}
+
+type failingSink struct{}
+
+func (failingSink) add(keys [][]byte, wait time.Duration) error { return errNoSet }
 
 // A sink that does not answer in time lets the reply go: the reply is held at most the wait.
 type slowSink struct{}
@@ -185,7 +220,7 @@ func TestLearnLateWrite(t *testing.T) {
 
 // The writer with no set to write: every request answered, none waits past its bound.
 func TestWriterNoSet(t *testing.T) {
-	w := newWriter("NoSuchTable", "no_set", time.Minute, &counters{})
+	w := newWriter("NoSuchTable", "no_set", time.Minute, 100*time.Millisecond, &counters{})
 	if err := w.start(); err != nil {
 		t.Skip("no netlink here: ", err)
 	}
@@ -197,24 +232,56 @@ func TestWriterNoSet(t *testing.T) {
 	}
 }
 
-// A session whose device sends no request in quietMost packets stands aside; one that did keeps
-// reading.
+// A session whose device sends something that is no discovery before any request stands aside.
+// The DHT's messages that ask for no peers (a bootstrap's find_node, a ping) and a tracker's scrape
+// (whose connection id may begin as uTP does) keep it, and so does a request before.
 func TestLearnQuiet(t *testing.T) {
+	other := fakePacket{[]byte{0x17, 0x03, 0x03, 0, 1, 2}, trackerFar}
 	s, _ := testService()
-	var packets []fakePacket
-	for range quietMost {
-		packets = append(packets, fakePacket{[]byte{0x17, 0x03, 0x03, 0, 1, 2}, trackerFar})
-	}
-	c, _ := session(s, packets...)
+	c, _ := session(s, other)
 	sendAll(t, c)
 	if !c.ReaderReplaceable() || s.counters.quietSessions.Load() != 1 {
-		t.Errorf("a quiet session did not stand aside")
+		t.Errorf("a session of another protocol did not stand aside")
 	}
 	s, sink := testService()
-	c, _ = session(s, append([]fakePacket{{trackerAnnounceRequest(4), trackerFar}}, packets...)...)
+	var packets []fakePacket
+	for i := range 100 {
+		packets = append(packets, fakePacket{dhtFindNode(strconv.Itoa(i)), dhtNodeFar})
+	}
+	packets = append(packets, fakePacket{scrapeRequest(0x41), trackerFar}, fakePacket{dhtGetPeers("q9"), dhtNodeFar})
+	c, _ = session(s, packets...)
+	sendAll(t, c)
+	reply(t, c, dhtValues("q9", testPeers), dhtNodeFar)
+	if c.ReaderReplaceable() || sink.count() != 3 || s.counters.quietSessions.Load() != 0 || s.counters.utpSessions.Load() != 0 {
+		t.Errorf("a session of discovery stood aside: learned %d, quiet %d, uTP %d", sink.count(),
+			s.counters.quietSessions.Load(), s.counters.utpSessions.Load())
+	}
+	s, sink = testService()
+	c, _ = session(s, fakePacket{trackerAnnounceRequest(4), trackerFar}, other)
 	sendAll(t, c)
 	reply(t, c, trackerAnnounceReply(4, testPeers), trackerFar)
 	if c.ReaderReplaceable() || sink.count() != 3 {
 		t.Errorf("a session that asked stood aside: learned %d", sink.count())
 	}
+}
+
+// The device's packets are not held while a reply waits for the set.
+func TestLearnReplyUnlocked(t *testing.T) {
+	s, _ := testService()
+	s.sink = slowSink{}
+	s.wait = 300 * time.Millisecond
+	c, _ := session(s, fakePacket{trackerAnnounceRequest(3), trackerFar})
+	sendAll(t, c)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = c.WritePacket(buf.As(trackerAnnounceReply(3, testPeers)), trackerFar)
+	}()
+	time.Sleep(50 * time.Millisecond)
+	start := time.Now()
+	c.request(dhtGetPeers("q2"), dhtNodeFar.AddrPort(), time.Now())
+	if held := time.Since(start); held > 100*time.Millisecond {
+		t.Errorf("a request of the device waited %v for a reply's write", held)
+	}
+	<-done
 }

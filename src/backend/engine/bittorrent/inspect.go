@@ -8,6 +8,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/sagernet/sing/common/buf"
+	N "github.com/sagernet/sing/common/network"
 )
 
 // A TCP connection the module watches (Service.RoutedConnection) is wrapped in a conn, which sees
@@ -76,7 +79,10 @@ const (
 	// it is BitTorrent at its SYN; this one goes on where it was routed (the tentative route of
 	// the owner's choice (ii), 2026-11-16).
 	ConfirmedLearn Confirmed = "learn"
-	// ConfirmedLearnReset learns it and closes it: the device's retry is BitTorrent at its SYN
+	// ConfirmedLearnReset learns it and closes it: the device's retry is BitTorrent at its SYN.
+	// One whose far end cannot be put in the set (not learnable, the device's cap, a write that
+	// failed) is left open as ConfirmedLearn leaves it: closed, its retry would be inspected and
+	// closed again
 	// (podkop's choice outside block since 2026-11-17: (ii) alone left 0 to 39 % of rTorrent's
 	// bytes on the tentative route in bypass, and all of them in the section for the whole LAN; the
 	// workspace's notes/2026-11-16-bt-phaseBC.md).
@@ -102,6 +108,9 @@ type conn struct {
 	far       netip.AddrPort
 	inspect   bool
 	confirmed Confirmed
+	// routed: sing-box's sniffer named the connection BitTorrent, and its route rule of the
+	// protocol routed it as the mode says
+	routed bool
 
 	access   sync.Mutex
 	step     int
@@ -128,6 +137,31 @@ func (c *conn) Read(p []byte) (int, error) {
 		return 0, net.ErrClosed
 	}
 	return n, err
+}
+
+// ReadCached gives sing-box what its sniffer read of the connection ahead, for the outbound's
+// handshake to carry (kickWriteHandshake of the engine's route/conn.go), after the conn saw it as
+// the device's first data. The copy looks for it on the conn only: without this, the outbound's
+// handshake went alone and the data after it (a separate write, another packet), for every
+// connection the module wraps. The counters under the conn count it, as the copy would.
+func (c *conn) ReadCached() *buf.Buffer {
+	reader, counts := N.UnwrapCountReader(c.Conn, nil)
+	cached, ok := reader.(N.CachedReader)
+	if !ok {
+		return nil
+	}
+	buffer := cached.ReadCached()
+	if buffer == nil {
+		return nil
+	}
+	for _, count := range counts {
+		count(int64(buffer.Len()))
+	}
+	if !c.done.Load() && !buffer.IsEmpty() && c.sent(buffer.Bytes(), time.Now()) == verdictClosed {
+		buffer.Release()
+		return nil
+	}
+	return buffer
 }
 
 func (c *conn) Write(p []byte) (int, error) {
@@ -158,6 +192,13 @@ func (c *conn) sent(data []byte, now time.Time) (verdict int) {
 		switch {
 		case bytes.HasPrefix(data, plaintextHandshake):
 			c.service.counters.plaintext.Add(1)
+			if c.routed && c.confirmed != ConfirmedReject {
+				// on the mode's way already: learned, not closed
+				c.service.counters.confirmed.Add(1)
+				c.service.learnFar(c.device, c.far)
+				c.finish()
+				return verdictNone
+			}
 			return c.confirm()
 		case httpAnnounce(data):
 			c.service.counters.announces.Add(1)
@@ -230,9 +271,12 @@ func (c *conn) confirm() int {
 	c.service.counters.confirmed.Add(1)
 	switch c.confirmed {
 	case ConfirmedLearn:
-		c.service.learn(c.device, []netip.AddrPort{c.far})
+		c.service.learnFar(c.device, c.far)
 	case ConfirmedLearnReset:
-		c.service.learn(c.device, []netip.AddrPort{c.far})
+		if !c.service.learnFar(c.device, c.far) {
+			c.service.counters.keptOpen.Add(1)
+			break
+		}
 		c.close()
 		return verdictClosed
 	case ConfirmedReject:

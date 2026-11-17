@@ -33,20 +33,22 @@ type writeRequest struct {
 }
 
 type writer struct {
-	family   nftables.TableFamily
-	table    string
-	name     string
-	timeout  time.Duration
-	counters *counters
+	family  nftables.TableFamily
+	table   string
+	name    string
+	timeout time.Duration
+	// closeWait is how long close waits for a write under way: the bound of the replies (wait)
+	closeWait time.Duration
+	counters  *counters
 
 	requests chan *writeRequest
 	stop     chan struct{}
 	stopped  chan struct{}
 }
 
-func newWriter(table string, name string, timeout time.Duration, counters *counters) *writer {
-	return &writer{family: nftables.TableFamilyINet, table: table, name: name, timeout: timeout, counters: counters,
-		requests: make(chan *writeRequest, batchMost), stop: make(chan struct{}), stopped: make(chan struct{})}
+func newWriter(table string, name string, timeout time.Duration, closeWait time.Duration, counters *counters) *writer {
+	return &writer{family: nftables.TableFamilyINet, table: table, name: name, timeout: timeout, closeWait: closeWait,
+		counters: counters, requests: make(chan *writeRequest, batchMost), stop: make(chan struct{}), stopped: make(chan struct{})}
 }
 
 func (w *writer) start() error {
@@ -58,17 +60,16 @@ func (w *writer) start() error {
 	return nil
 }
 
-// close stops the writer; a write the kernel never answers is left behind after closeWait, so that
+// close stops the writer; a write the kernel never answers is left behind after closeWait (the
+// replies' own bound, Options.Wait: a write of 200 peers takes 1.1 ms at p99 on oracle), so that
 // the box closes (sagernet/nftables waits for its acknowledgements with no deadline).
 func (w *writer) close() {
 	close(w.stop)
 	select {
 	case <-w.stopped:
-	case <-time.After(closeWait):
+	case <-time.After(w.closeWait):
 	}
 }
-
-const closeWait = time.Second
 
 // add hands the writer keys and waits for them to be in the set, at most wait in all.
 func (w *writer) add(keys [][]byte, wait time.Duration) error {
@@ -121,12 +122,13 @@ func (w *writer) run(conn *nftables.Conn) {
 			set = found
 		}
 		err := w.write(conn, set, batch)
-		if err == nil {
-			w.answer(batch, nil)
+		if err == nil || full(err) {
+			// a full set refuses each request as it refuses the batch
+			w.answer(batch, err)
 			continue
 		}
-		// a batch fails whole: the set may have gone with its table (look it up again), or be
-		// full; a fresh socket, then each request on its own
+		// a batch fails whole: the set may have gone with its table (look it up again); a fresh
+		// socket, then each request on its own
 		set = nil
 		_ = conn.CloseLasting()
 		fresh, openErr := nftables.New(nftables.AsLasting())
@@ -162,10 +164,15 @@ func (w *writer) write(conn *nftables.Conn, set *nftables.Set, batch []*writeReq
 		elements = elements[count:]
 	}
 	err := conn.Flush()
-	if err != nil && (errors.Is(err, syscall.ENFILE) || errors.Is(err, syscall.ENOSPC)) {
+	if full(err) {
 		w.counters.setFull.Add(1)
 	}
 	return err
+}
+
+// full tells the kernel's answer to elements a set has no room for.
+func full(err error) bool {
+	return err != nil && (errors.Is(err, syscall.ENFILE) || errors.Is(err, syscall.ENOSPC))
 }
 
 func (w *writer) answer(batch []*writeRequest, err error) {

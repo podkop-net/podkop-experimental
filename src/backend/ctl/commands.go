@@ -103,6 +103,7 @@ var Commands = [][2]string{
 	{"show_version", "The version of the backend"},
 	{"show_system_info", "The version of OpenWrt and the model of the device"},
 	{"check_nft", "The firewall table of the backend as nft prints it"},
+	{"bittorrent_counters", "What the BitTorrent module has counted since sing-box started, as JSON (empty when BitTorrent is off)"},
 	{"list_update", "Download every list now instead of at the update interval"},
 	{"restore_routing", "Put back the routing rule and route, the firewall table and the DNS of the LAN when the network took them, apply the settings again when the network changed under them, try a start that failed again (the hotplug script of the package runs it at every ifup)"},
 	{"list_status", "Each list of what runs, as JSON: who fills it, its URL or file, when it was last downloaded, the last error of each plain list's URL"},

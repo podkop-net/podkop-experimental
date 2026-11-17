@@ -963,14 +963,14 @@ func (s *Supervisor) Probe(ctx context.Context, label string, wait time.Duration
 	return s.probe(ctx, probeRequest{label: label, wait: wait})
 }
 
-// ProbeSelf checks the router itself: the backend opens a connection to a fresh check
-// name with the resolver and the routing a program of the router has, and tells what
-// came of it.
 // BitTorrent is what the BitTorrent module of the running sing-box has counted (api.Backend).
 func (s *Supervisor) BitTorrent() map[string]int64 {
 	return engine.BitTorrentCounters()
 }
 
+// ProbeSelf checks the router itself: the backend opens a connection to a fresh check
+// name with the resolver and the routing a program of the router has, and tells what
+// came of it.
 func (s *Supervisor) ProbeSelf(ctx context.Context) ProbeResult {
 	return s.probe(ctx, probeRequest{})
 }

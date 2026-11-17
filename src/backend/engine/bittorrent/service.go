@@ -133,7 +133,7 @@ func New(ctx context.Context, logger log.ContextLogger, tag string, options Opti
 	}
 	s.devices = devices{cap: perDevice, window: timeout}
 	if options.Table != "" && options.Set != "" {
-		s.writer = newWriter(options.Table, options.Set, timeout, &s.counters)
+		s.writer = newWriter(options.Table, options.Set, timeout, s.wait, &s.counters)
 	}
 	return s, nil
 }
@@ -201,7 +201,8 @@ func (s *Service) RoutedConnection(ctx context.Context, connection net.Conn, met
 	if inspect {
 		s.counters.watched.Add(1)
 	}
-	return &conn{Conn: connection, service: s, device: device, far: far, inspect: inspect, confirmed: confirmed}
+	return &conn{Conn: connection, service: s, device: device, far: far, inspect: inspect, confirmed: confirmed,
+		routed: metadata.Protocol == C.ProtocolBitTorrent}
 }
 
 func (s *Service) RoutedPacketConnection(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) N.PacketConn {

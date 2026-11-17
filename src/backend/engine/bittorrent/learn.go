@@ -18,7 +18,8 @@ import (
 // written to the device (WritePacket) is a reply when it comes from such a far end with such a
 // transaction id: its peers are learned before it is written. A session that shows uTP (a uTP
 // client learns its peers from its own writes: the firewall's bt_peers) is stood aside, as a conn
-// is (R13 of the A5 review).
+// is (R13 of the A5 review), and so is one whose device sends something that is no discovery
+// before its first request (the session is of another protocol of the socket).
 
 // pendingLife is how long a request waits for its reply: BEP 15 retransmits after 15 s, the DHT's
 // clients give up within seconds.
@@ -26,10 +27,6 @@ const pendingLife = 15 * time.Second
 
 // pendingMost is the most requests a session keeps; the oldest goes first.
 const pendingMost = 512
-
-// quietMost is how many packets of the device a session reads with no request among them before it
-// stands aside: a session of discovery has its first request at once.
-const quietMost = 64
 
 type pendingKey struct {
 	far netip.AddrPort
@@ -44,7 +41,6 @@ type packetConn struct {
 	access  sync.Mutex
 	pending map[pendingKey]time.Time
 	asked   bool
-	quiet   int
 	done    atomic.Bool
 }
 
@@ -64,9 +60,11 @@ func (c *packetConn) WritePacket(buffer *buf.Buffer, destination M.Socksaddr) er
 }
 
 // isUTP tells a uTP packet (BEP 29): version 1 in the low nibble of the first byte, a type of 0 to
-// 4 in the high one. A DHT message begins with 'd' (0x64), a tracker's request with 0.
+// 4 in the high one, an extension of a known type or none (as the firewall's signature of a uTP
+// SYN). A DHT message begins with 'd' (0x64), a tracker's connect with 0; a tracker's request
+// with a connection id of any bytes is told before (trackerRequest, discoveryMessage).
 func isUTP(payload []byte) bool {
-	return len(payload) >= 20 && payload[0]&0x0f == 1 && payload[0]>>4 <= 4
+	return len(payload) >= 20 && payload[0]&0x0f == 1 && payload[0]>>4 <= 4 && payload[1] < 3
 }
 
 func (c *packetConn) request(payload []byte, far netip.AddrPort, now time.Time) {
@@ -79,13 +77,16 @@ func (c *packetConn) request(payload []byte, far netip.AddrPort, now time.Time) 
 	} else if transaction, ok := dhtQuery(payload); ok {
 		id = "d" + transaction
 	} else {
-		// after the requests: an announce begins with a connection id of any bytes
-		if isUTP(payload) {
+		// after the requests and the other discovery: an announce or a scrape begins with a
+		// connection id of any bytes
+		switch {
+		case discoveryMessage(payload):
+			// a message of the DHT that asks for no peers (a bootstrap's find_node, a ping, an
+			// answer to a query of the far side) or a tracker's scrape: the session goes on
+		case isUTP(payload):
 			c.service.counters.utpSessions.Add(1)
 			c.stand()
-			return
-		}
-		if c.quiet++; !c.asked && c.quiet >= quietMost {
+		case !c.asked:
 			c.service.counters.quietSessions.Add(1)
 			c.stand()
 		}
@@ -103,12 +104,21 @@ func (c *packetConn) request(payload []byte, far netip.AddrPort, now time.Time) 
 	}
 }
 
+// reply learns the peers of a reply to a request of the device; the session's lock is not held
+// while the set is written, so the device's packets go on meanwhile.
 func (c *packetConn) reply(payload []byte, far netip.AddrPort, now time.Time) {
+	if peers := c.paired(payload, far, now); len(peers) > 0 {
+		c.service.learn(c.device, peers)
+	}
+}
+
+// paired reads a reply and gives its peers when it answers a request of the device.
+func (c *packetConn) paired(payload []byte, far netip.AddrPort, now time.Time) []netip.AddrPort {
 	c.access.Lock()
 	defer c.access.Unlock()
 	defer c.recover()
 	if len(c.pending) == 0 {
-		return
+		return nil
 	}
 	var id string
 	var peers []netip.AddrPort
@@ -117,7 +127,7 @@ func (c *packetConn) reply(payload []byte, far netip.AddrPort, now time.Time) {
 	} else if transaction, found, ok := dhtReply(payload); ok {
 		id, peers = "d"+transaction, found
 	} else {
-		return
+		return nil
 	}
 	key := pendingKey{far, id}
 	asked, ok := c.pending[key]
@@ -126,13 +136,11 @@ func (c *packetConn) reply(payload []byte, far netip.AddrPort, now time.Time) {
 		if len(peers) > 0 {
 			c.service.counters.unpaired.Add(1)
 		}
-		return
+		return nil
 	}
 	delete(c.pending, key)
 	c.service.counters.replies.Add(1)
-	if len(peers) > 0 {
-		c.service.learn(c.device, peers)
-	}
+	return peers
 }
 
 func trackerID(transaction uint32) string {
@@ -199,13 +207,28 @@ var (
 	sharedRange = netip.MustParsePrefix("100.64.0.0/10")
 )
 
-// learn puts the learnable peers of a reply (or the far end of a confirmed connection) in the set
-// for the device, and waits for the kernel's answer, at most wait: the reply is held until then,
-// so the device's connection to a peer finds it (the race of F2: rTorrent connects 0.3-40 ms after
-// a reply). Past wait, or on any error, the reply goes on unlearned, counted.
+// learn puts the learnable peers of a reply in the set for the device, and waits for the kernel's
+// answer, at most wait: the reply is held until then, so the device's connection to a peer finds
+// it (the race of F2: rTorrent connects 0.3-40 ms after a reply). Past wait, or on any error, the
+// reply goes on unlearned, counted. A peer written for the device within the set's timeout is not
+// written again: the element is there (a lookup of the firewall refreshes it, an add of userspace
+// does not on kernel 6.6).
 func (s *Service) learn(device netip.Addr, peers []netip.AddrPort) {
+	s.write(device, peers, false)
+}
+
+// learnFar learns the far end of a confirmed connection and tells whether it is in the set now, so
+// that the device's retry finds it at its SYN. It is written even when it was written for the
+// device within the timeout: the firewall did not find it at this connection's SYN.
+func (s *Service) learnFar(device netip.Addr, far netip.AddrPort) bool {
+	return s.write(device, []netip.AddrPort{far}, true)
+}
+
+// write writes the peers for the device (all of them again) and tells whether every one is in the
+// set.
+func (s *Service) write(device netip.Addr, peers []netip.AddrPort, again bool) bool {
 	if s.sink == nil || !device.Is4() {
-		return
+		return false
 	}
 	keys := make([][]byte, 0, len(peers))
 	for _, peer := range peers {
@@ -215,21 +238,30 @@ func (s *Service) learn(device netip.Addr, peers []netip.AddrPort) {
 		}
 		keys = append(keys, elementKey(device, peer))
 	}
+	whole := len(keys) == len(peers)
 	if len(keys) == 0 {
-		return
+		return false
 	}
-	if !s.devices.take(device, len(keys), time.Now()) {
-		s.counters.capped.Add(int64(len(keys)))
-		return
+	now := time.Now()
+	fresh, known, capped := s.devices.take(device, keys, now, again)
+	s.counters.known.Add(int64(known))
+	s.counters.capped.Add(int64(capped))
+	whole = whole && capped == 0
+	if len(fresh) == 0 {
+		return whole
 	}
-	switch s.sink.add(keys, s.wait) {
+	err := s.sink.add(fresh, s.wait)
+	switch err {
 	case nil:
-		s.counters.learned.Add(int64(len(keys)))
+		s.counters.learned.Add(int64(len(fresh)))
+		return whole
 	case errLate:
 		s.counters.late.Add(1)
 	default:
 		s.counters.writeFailed.Add(1)
 	}
+	s.devices.unwrite(device, fresh)
+	return false
 }
 
 // elementKey is the key of an element of the set, ipv4_addr . ipv4_addr . inet_service: each part
@@ -243,41 +275,87 @@ func elementKey(device netip.Addr, peer netip.AddrPort) []byte {
 	return key
 }
 
-// devices counts the peers learned for each device within the set's timeout, against the cap per
-// device (R7 of the A5 review: one device's discovery must not fill the set for all).
+// devices keeps the peers written for each device within the set's timeout, against the cap per
+// device (R7 of the A5 review: one device's discovery must not fill the set for all). A peer is
+// counted once: replies name the same peers again and again (on the stand of 2026-11-16, aria2's
+// 1204 peers learned in five minutes were 785 elements of the set).
 type devices struct {
 	access  sync.Mutex
 	cap     int
 	window  time.Duration
-	counted map[netip.Addr]*deviceCount
+	base    time.Time
+	written map[netip.Addr]*deviceKeys
 }
 
-type deviceCount struct {
-	since time.Time
-	count int
+// deviceKeys are the keys written for a device, each with the time it was written (from base, by
+// the monotonic clock: the router's clock may jump at its first NTP answer).
+type deviceKeys struct {
+	last time.Duration
+	keys map[[12]byte]time.Duration
 }
 
-func (d *devices) take(device netip.Addr, n int, now time.Time) bool {
+// devicesMost is how many devices devices keeps before it forgets those with nothing written
+// within the window.
+const devicesMost = 4096
+
+// take gives the keys to write for the device: those not written for it within the window (with
+// again, all), as many new ones as its cap leaves room for. They count as written from now on;
+// unwrite takes them back when the write fails. known and capped are the keys left out.
+func (d *devices) take(device netip.Addr, keys [][]byte, now time.Time, again bool) (fresh [][]byte, known int, capped int) {
 	d.access.Lock()
 	defer d.access.Unlock()
-	if d.counted == nil {
-		d.counted = make(map[netip.Addr]*deviceCount)
+	if d.written == nil {
+		d.written = make(map[netip.Addr]*deviceKeys)
 	}
-	count := d.counted[device]
-	if count == nil || now.Sub(count.since) > d.window {
-		if len(d.counted) > 4096 {
-			for address, old := range d.counted {
-				if now.Sub(old.since) > d.window {
-					delete(d.counted, address)
+	if d.base.IsZero() {
+		d.base = now
+	}
+	at := now.Sub(d.base)
+	entry := d.written[device]
+	if entry == nil {
+		if len(d.written) >= devicesMost {
+			for address, old := range d.written {
+				if at-old.last > d.window {
+					delete(d.written, address)
 				}
 			}
 		}
-		count = &deviceCount{since: now}
-		d.counted[device] = count
+		entry = &deviceKeys{keys: make(map[[12]byte]time.Duration)}
+		d.written[device] = entry
 	}
-	if count.count+n > d.cap {
-		return false
+	entry.last = at
+	if len(entry.keys) >= d.cap {
+		for key, written := range entry.keys {
+			if at-written > d.window {
+				delete(entry.keys, key)
+			}
+		}
 	}
-	count.count += n
-	return true
+	for _, key := range keys {
+		id := [12]byte(key)
+		written, ok := entry.keys[id]
+		switch {
+		case ok && !again && at-written <= d.window:
+			known++
+			continue
+		case !ok && len(entry.keys) >= d.cap:
+			capped++
+			continue
+		}
+		entry.keys[id] = at
+		fresh = append(fresh, key)
+	}
+	return fresh, known, capped
+}
+
+// unwrite takes back keys take gave whose write failed: they are written again with the next reply
+// that names them.
+func (d *devices) unwrite(device netip.Addr, keys [][]byte) {
+	d.access.Lock()
+	defer d.access.Unlock()
+	if entry := d.written[device]; entry != nil {
+		for _, key := range keys {
+			delete(entry.keys, [12]byte(key))
+		}
+	}
 }

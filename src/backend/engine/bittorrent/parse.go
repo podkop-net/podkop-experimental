@@ -24,6 +24,7 @@ const (
 	trackerProtocolID = 0x41727101980
 	trackerConnect    = 0
 	trackerAnnounce   = 1
+	trackerScrape     = 2
 	// trackerAnnounceLength is the length of an announce request of BEP 15, extensions after it
 	trackerAnnounceLength = 98
 )
@@ -42,6 +43,17 @@ func trackerRequest(payload []byte) (uint32, bool) {
 		return 0, false
 	}
 	return binary.BigEndian.Uint32(payload[12:16]), true
+}
+
+// discoveryMessage tells a packet of the device that is discovery but asks for no peers: a message
+// of the DHT (KRPC, BEP 5: a bencoded dictionary with its type, "y"; a client may not sort its
+// keys) or a scrape of a UDP tracker (BEP 15: a connection id, the action 2, a transaction id,
+// then info hashes of 20 bytes each).
+func discoveryMessage(payload []byte) bool {
+	if len(payload) > 0 && payload[0] == 'd' {
+		return bytes.Contains(payload, []byte("1:y1:"))
+	}
+	return len(payload) >= 36 && (len(payload)-16)%20 == 0 && binary.BigEndian.Uint32(payload[8:12]) == trackerScrape
 }
 
 // trackerReply is the transaction id and the peers of an announce reply of BEP 15: action 1, the
@@ -277,8 +289,13 @@ func httpReply(data []byte) (peers []netip.AddrPort, done bool, err error) {
 		}
 	}
 	body := data[end+4:]
+	// the reply is read again at each write that brings more of it: a part that cannot be its end
+	// is let go at once (a chunked body ends with a line, a bencoded one with "e")
 	switch {
 	case chunked:
+		if !bytes.HasSuffix(body, []byte("\r\n")) {
+			return nil, false, nil
+		}
 		var whole bool
 		body, whole = dechunk(body)
 		if !whole {
@@ -292,6 +309,9 @@ func httpReply(data []byte) (peers []netip.AddrPort, done bool, err error) {
 	}
 	switch encoding {
 	case "", "identity":
+		if !chunked && length < 0 && !bytes.HasSuffix(bytes.TrimRight(body, " \t\r\n"), []byte("e")) {
+			return nil, false, nil
+		}
 	case "gzip", "x-gzip", "deflate":
 		decoded, err := inflate(body, encoding)
 		if err != nil {

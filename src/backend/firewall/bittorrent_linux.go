@@ -44,13 +44,17 @@ import (
 //     BitTorrent inbound, whose route rule sends it to the servers of the rule. An inspected
 //     connection goes to the inspection inbound, where sing-box routes it as podkop's rules say
 //     (the tentative route (ii) of the owner's choice of 2026-11-16) and the module confirms or
-//     refutes it: confirmed, it is closed in block, its far end learned in bypass and section.
+//     refutes it: confirmed, it is closed in block; in bypass and section its far end is learned
+//     and it is closed, so that the device's retry is decided at its SYN (the owner's choice of
+//     2026-11-17).
 //   - of the traffic podkop does not take: its discovery goes to the inbound of the LAN (out
 //     directly, the peers learned), but in the section for the whole LAN everything told goes to
 //     the BitTorrent inbound. With the scope of the whole LAN (LAN), an inspected connection goes
 //     to the inbound of the LAN: out directly, closed in block once confirmed, its far end learned
-//     in section. The block of the whole LAN drops in bt_decided what is told, for every device.
-// In block, a new connection from outside (a port forward) to a client's socket is dropped too.
+//     and the connection closed in section. The block of the whole LAN drops in bt_decided what is
+//     told, for every device.
+// In block, a new connection from outside (a port forward) to a client's socket is dropped too;
+// in bypass and section, such a connection goes on as forwarded (sing-box cannot take it).
 //
 // A change of the mode: a connection decided before goes on by its mark, and the new mode takes
 // its next packet. The sets go into the table made anew (bitTorrentKept), and a decided connection
@@ -86,7 +90,7 @@ const (
 	SetBitTorrentUTP     = "bt_utp"
 	// SetBitTorrentLearned is the set podkop's module writes (package bittorrent): device . peer .
 	// port.
-	SetBitTorrentLearned = "bt_learned"
+	SetBitTorrentLearned = dataplane.BitTorrentLearnedSet
 )
 
 // bitTorrentTimeout is how long a socket, a device and a peer are kept after their last packet of
@@ -527,7 +531,20 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	}
 
 	// bt_free: of the traffic podkop does not take, what goes to sing-box all the same (marked for
-	// the proxy here; proxy sends it to an inbound of BitTorrent by its conntrack mark)
+	// the proxy here; proxy sends it to an inbound of BitTorrent by its conntrack mark). Only what
+	// the device sends on a connection it began, as mangle takes: bt_act sees every packet, and a
+	// connection that began outside (a port forward, UPnP) is decided by the device's answers too
+	// (its answer to a DHT query is discovery, to a peer's plaintext handshake BitTorrent). Sent to
+	// sing-box, its answer would leave from another port and the next packets from outside would
+	// meet an inbound with no connection for them; it goes on as forwarded.
+	add(free, []expr.Any{
+		&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
+		&expr.Lookup{SourceRegister: 1, SetName: SetInterfaces, SetID: idInterfaces, Invert: true},
+	}, returns)
+	add(free, []expr.Any{
+		&expr.Ct{Register: 1, Key: expr.CtKeyDIRECTION},
+		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{ctDirectionReply}},
+	}, returns)
 	if detector.LAN {
 		add(free, ctMarkTest(ctInspect, expr.CmpOpNeq), setMark(true), counter, returns)
 	}

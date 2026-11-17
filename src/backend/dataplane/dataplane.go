@@ -117,6 +117,10 @@ const (
 	DataDir = "/usr/share/podkop"
 )
 
+// BitTorrentLearnedSet is the set of the firewall's table that podkop's BitTorrent module writes:
+// device . peer . port.
+const BitTorrentLearnedSet = "bt_learned"
+
 // BitTorrentCommonPorts are the ports a BitTorrent client does not listen on in practice and other
 // programs use: the firewall inspects the TCP of a device running a client to any other port, and
 // the module never learns a peer on them.
