@@ -26,7 +26,8 @@
 //     with, and their retries, decided at the SYN, put the device in the firewall's set. A device
 //     that never runs a client is never touched (proxy clients: 3 confirmed of 10473 connections
 //     of six of them, Phase C; a client opens tens of peer connections a minute, A1). Closed, a
-//     connection helps only a client that connects again: a device told so is watched for
+//     connection helps only a client that connects again (learn_reset; block closes it anyway, at
+//     once): a device told so is watched for
 //     earlyRetry, its other confirmed connections waiting meanwhile; one that did not reconnect
 //     (it is still not in the set: its retries, decided at the SYN by the learned peer, would have
 //     put it there) has its confirmed connections learned and left open for earlyFor (rTorrent
@@ -385,7 +386,10 @@ func (s *Service) actOnKnown(now time.Time) {
 	keep := make(map[*conn]bool)
 	var due []*conn
 	for device, list := range s.pending {
-		if _, watched := s.selfTold[device]; watched {
+		// a connection of the transparent proxy is done with as the mode says: all of a
+		// device's waiting ones alike; only learn_reset waits for a device to connect again
+		resets := len(list) > 0 && list[0].confirmed == ConfirmedLearnReset
+		if _, watched := s.selfTold[device]; watched && resets {
 			// waiting for the verdict of earlyRetry
 			continue
 		}
@@ -407,7 +411,9 @@ func (s *Service) actOnKnown(now time.Time) {
 					keep[c] = true
 				}
 			} else if self {
-				s.selfTold[device] = now
+				if resets {
+					s.selfTold[device] = now
+				}
 				s.earlySelfTold.Add(1)
 				if s.logger != nil {
 					s.logger.Info("BitTorrent: ", device, " made the encrypted handshake of BitTorrent with ", len(distinct), " peers: taken as running a client")

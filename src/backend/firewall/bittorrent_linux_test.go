@@ -9,6 +9,10 @@ import (
 	"time"
 )
 
+// The tests save no sets at a Remove and take none at an Apply (TestBitTorrentSaved sets a file
+// of its own): the tables of one test must not carry what another left.
+func init() { bitTorrentSaved = "" }
+
 // bitTorrentTable makes the table of a plan with the BitTorrent detector with the nft program: the
 // table of the shell backend (shellBackendTable), then the sets and the chains of the detector as
 // they read written by hand, the rules of each mode with them.
@@ -314,6 +318,10 @@ func TestBitTorrentSaved(t *testing.T) {
 	}
 	nft(t, "add element inet "+tableName+" bt_hosts { 192.168.1.60 timeout 10m }")
 	nft(t, "add element inet "+tableName+" bt_learned { 192.168.1.60 . 203.0.113.8 . 51413 timeout 20s }")
+	if err := Remove(); err != nil {
+		t.Fatal(err)
+	}
+	// the second removal of a stop (`podkop release`): no table, the file stays
 	if err := Remove(); err != nil {
 		t.Fatal(err)
 	}

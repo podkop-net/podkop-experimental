@@ -267,9 +267,15 @@ type savedElement struct {
 	Left time.Duration `json:"left"`
 }
 
-// saveBitTorrentSets writes what the sets of the table there now hold to bitTorrentSaved; with no
-// table or nothing in the sets, a file of an earlier stop goes and none is written.
+// saveBitTorrentSets writes what the sets of the table there now hold to bitTorrentSaved; with
+// sets that hold nothing, a file of an earlier stop goes and none is written. With no table, the
+// file is left as it is: a stop removes the table twice (the backend, then `podkop release` of
+// the init script), and the second must not take what the first saved. An empty bitTorrentSaved
+// (the firewall's tests) saves nothing.
 func saveBitTorrentSets(now time.Time) {
+	if bitTorrentSaved == "" || !bitTorrentSetsThere() {
+		return
+	}
 	kept := bitTorrentKept()
 	saved := savedSets{Saved: now, Sets: make(map[string][]savedElement)}
 	for name, elements := range kept {
@@ -291,6 +297,9 @@ func saveBitTorrentSets(now time.Time) {
 // time it had left less the time since it was saved; an element that ran out is left out, and a
 // file from the future (the clock went back) gives nothing.
 func loadBitTorrentSets(now time.Time) map[string][]nftables.SetElement {
+	if bitTorrentSaved == "" {
+		return nil
+	}
 	data, err := os.ReadFile(bitTorrentSaved)
 	if err != nil {
 		return nil
@@ -313,6 +322,16 @@ func loadBitTorrentSets(now time.Time) map[string][]nftables.SetElement {
 		}
 	}
 	return kept
+}
+
+// bitTorrentSetsThere tells whether the table there now has the detector's set of devices.
+func bitTorrentSetsThere() bool {
+	conn, err := newConn()
+	if err != nil {
+		return false
+	}
+	_, err = conn.GetSetByName(&nftables.Table{Name: tableName, Family: nftables.TableFamilyINet}, SetBitTorrentHosts)
+	return err == nil
 }
 
 // bitTorrentSets are the sets of the detector.

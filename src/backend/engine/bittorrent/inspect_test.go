@@ -750,3 +750,30 @@ func TestEarlyNoRetry(t *testing.T) {
 		}
 	}
 }
+
+// In block, a device told by its own peers has its confirmed connections closed at once, the
+// first and the later ones: the wait for a retry is learn_reset's.
+func TestEarlySelfBlock(t *testing.T) {
+	s, sink := testService()
+	s.pending = make(map[netip.Addr][]*conn)
+	s.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{}, nil }
+	add := func(first int, n int) {
+		for i := 0; i < n; i++ {
+			device, other := net.Pipe()
+			t.Cleanup(func() { other.Close() })
+			far := netip.AddrPortFrom(netip.AddrFrom4([4]byte{203, 0, 113, byte(first + i)}), 51413)
+			c := &conn{Conn: device, service: s, cnt: &s.early, early: true, device: testDevice, far: far, inspect: true,
+				confirmed: ConfirmedReject, pendingSince: time.Now()}
+			c.done.Store(true)
+			s.pend(c)
+		}
+	}
+	start := time.Now()
+	add(10, 3)
+	s.actOnKnown(start)
+	add(20, 3)
+	s.actOnKnown(start.Add(10 * time.Second))
+	if s.early.rejected.Load() != 6 || sink.count() != 0 || len(s.selfTold) != 0 {
+		t.Errorf("rejected %d of 6, learned %d, watched %d", s.early.rejected.Load(), sink.count(), len(s.selfTold))
+	}
+}
