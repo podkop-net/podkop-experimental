@@ -16,12 +16,15 @@ import (
 //     inspected for the whole LAN: out directly;
 //   - bt-check: the connections of the traffic podkop takes that the firewall could not decide at
 //     their SYN: inspected, and routed by podkop's rules as tproxy-in is (the tentative route of
-//     the owner's choice (ii), 2026-11-16).
+//     the owner's choice (ii), 2026-11-16) until the module confirms one: it learns the far end
+//     and closes the connection, so that the device's retry is BitTorrent at its SYN (the owner's
+//     choice of 2026-11-17, after the measurement of (ii) alone).
 // A connection the proxy had taken before it was told (a plaintext handshake to a peer not known
 // yet) is led by the route rule of the protocol, after the sniffer of the engine named it.
 
 // The module's type and what it does with a confirmed connection (package bittorrent: Type,
-// ConfirmedReject, ConfirmedLearn; the engine's tests build a configuration of each mode with it).
+// ConfirmedReject, ConfirmedLearn, ConfirmedLearnReset; the engine's tests build a configuration of
+// each mode with it).
 const (
 	bitTorrentServiceType = "podkop-bittorrent"
 	bitTorrentReject      = "reject"
@@ -114,15 +117,16 @@ func (b *builder) buildBitTorrentInbound() {
 // of the transparent proxy, from what sing-box names BitTorrent or HTTP (an announce to an HTTP
 // tracker of a device podkop takes), and inspects
 // the connections of bt-check and bt-lan. What it does with a confirmed connection: closes it in
-// block; else learns its far end for the device, so that the device's next connection to it is
-// BitTorrent at its SYN.
+// block; else learns its far end for the device and closes it, so that the device's retry is
+// BitTorrent at its SYN (the setting "learn" keeps it open on its tentative route, for the
+// measurements of (ii) alone).
 func (b *builder) buildBitTorrentService() {
-	confirmed := bitTorrentLearn
+	confirmed := bitTorrentLearnReset
 	switch {
 	case b.bitTorrentMode == model.BitTorrentBlock:
 		confirmed = bitTorrentReject
-	case b.config.Settings.BitTorrentConfirmed == bitTorrentLearnReset:
-		confirmed = bitTorrentLearnReset
+	case b.config.Settings.BitTorrentConfirmed == bitTorrentLearn:
+		confirmed = bitTorrentLearn
 	}
 	var never []any
 	for _, port := range dataplane.BitTorrentCommonPorts {

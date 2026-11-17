@@ -19,6 +19,7 @@ func TestBitTorrentModuleBuilds(t *testing.T) {
 		"\nconfig section 'torrents'\n\toption connection_type 'proxy'\n\toption proxy_config_type 'url'\n\toption proxy_string 'socks5://203.0.113.16:1080'\n"
 	for name, options := range map[string]string{
 		"bypass":           "\toption bittorrent 'bypass'\n",
+		"bypass, learn":    "\toption bittorrent 'bypass'\n\toption bittorrent_confirmed 'learn'\n",
 		"block":            "\toption bittorrent 'block'\n",
 		"block, the LAN":   "\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n",
 		"section":          "\toption bittorrent 'section'\n\toption bittorrent_section 'torrents'\n",
@@ -44,7 +45,8 @@ func TestBitTorrentModuleBuilds(t *testing.T) {
 		require.Len(t, document.Services, 1, name)
 		require.Equal(t, bittorrent.Type, document.Services[0].Type, name)
 		for _, inspected := range document.Services[0].Inspect {
-			require.Contains(t, []bittorrent.Confirmed{bittorrent.ConfirmedReject, bittorrent.ConfirmedLearn}, bittorrent.Confirmed(inspected.Confirmed), name)
+			require.Contains(t, []bittorrent.Confirmed{bittorrent.ConfirmedReject, bittorrent.ConfirmedLearn, bittorrent.ConfirmedLearnReset},
+				bittorrent.Confirmed(inspected.Confirmed), name)
 		}
 		_, err = Check(result.Config)
 		require.NoError(t, err, name)

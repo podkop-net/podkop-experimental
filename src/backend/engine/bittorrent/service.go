@@ -10,8 +10,9 @@
 //     the firewall decides the device's connection to a peer at its SYN.
 //   - The inspection (R3): on the inbounds of "inspect", the TCP connections the firewall could not
 //     decide at their first packet (a device running a client, to a port no other program uses).
-//     The three steps of MSE confirm or refute each one; a confirmed one is closed (block) or its
-//     far end learned (bypass, section).
+//     The three steps of MSE confirm or refute each one; a confirmed one is closed (block), or its
+//     far end learned and the connection closed, so that the device's retry is decided at its SYN
+//     (bypass, section; "learn" leaves it open where sing-box routed it).
 //
 // It uses sing-box's public API only: a connection tracker, appended before the inbounds start.
 // It fails open: when it cannot write the set, the replies and the connections go on as sing-box

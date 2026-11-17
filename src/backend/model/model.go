@@ -248,8 +248,9 @@ type Settings struct {
 	BitTorrentSection    string
 	BitTorrentSectionLAN bool
 	// BitTorrentConfirmed is what the module does with a connection it confirms outside block
-	// ("bittorrent_confirmed", not on the page: a measurement of the owner's choice (ii) of
-	// 2026-11-16): "" or "learn" learns its far end, "learn_reset" also closes it.
+	// ("bittorrent_confirmed", not on the page, for the measurements of the tentative route):
+	// "" or "learn_reset" learns its far end and closes it (the owner's choice of 2026-11-17),
+	// "learn" only learns it (the owner's choice (ii) of 2026-11-16 alone).
 	BitTorrentConfirmed string
 	// MaskLists are the public lists of names "Find a mask" tries beside the built-in ones
 	// (maskLists); none when the settings turn them off

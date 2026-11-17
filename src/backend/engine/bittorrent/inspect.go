@@ -76,7 +76,10 @@ const (
 	// it is BitTorrent at its SYN; this one goes on where it was routed (the tentative route of
 	// the owner's choice (ii), 2026-11-16).
 	ConfirmedLearn Confirmed = "learn"
-	// ConfirmedLearnReset learns it and closes it: the device's retry is BitTorrent at its SYN.
+	// ConfirmedLearnReset learns it and closes it: the device's retry is BitTorrent at its SYN
+	// (podkop's choice outside block since 2026-11-17: (ii) alone left 0 to 39 % of rTorrent's
+	// bytes on the tentative route in bypass, and all of them in the section for the whole LAN; the
+	// workspace's notes/2026-11-16-bt-phaseBC.md).
 	ConfirmedLearnReset Confirmed = "learn_reset"
 )
 

@@ -131,7 +131,7 @@ func TestBitTorrentModes(t *testing.T) {
 	require.Equal(t, "bypass", result.Dataplane.BitTorrent)
 	require.False(t, result.Dataplane.BitTorrentLAN)
 	inbounds(config, true)
-	module(result, bitTorrentLearn)
+	module(result, bitTorrentLearnReset)
 	require.GreaterOrEqual(t, ruleIndex(config, map[string]any{"inbound": tagBitTorrentInbound, "outbound": tagDirectOutbound}), 0)
 	sniffed := ruleIndex(config, map[string]any{"inbound": allInbounds, "protocol": "bittorrent", "outbound": tagDirectOutbound})
 	require.GreaterOrEqual(t, sniffed, 0)
@@ -157,7 +157,7 @@ func TestBitTorrentModes(t *testing.T) {
 	require.Equal(t, "section", result.Dataplane.BitTorrent)
 	require.False(t, result.Dataplane.BitTorrentLAN)
 	inbounds(config, true)
-	module(result, bitTorrentLearn)
+	module(result, bitTorrentLearnReset)
 	require.EqualValues(t, dataplane.BitTorrentTProxyPort, hasInbound(config, tagBitTorrentInbound)["listen_port"])
 	routed := ruleIndex(config, map[string]any{"inbound": tagBitTorrentInbound, "outbound": "torrents-out"})
 	require.GreaterOrEqual(t, routed, 0)
@@ -169,10 +169,15 @@ func TestBitTorrentModes(t *testing.T) {
 	result, config = bitTorrentBuild(t, "\toption bittorrent 'section'\n\toption bittorrent_section 'torrents'\n\toption bittorrent_section_scope 'lan'\n", torrents)
 	require.True(t, result.Dataplane.BitTorrentLAN)
 
-	// the measurement's setting: learn and close a confirmed connection; block rejects it whatever
+	// the measurements' setting: learn a confirmed connection and leave it open ((ii) alone), or
+	// close it as well (the default); block rejects it whatever
+	result, _ = bitTorrentBuild(t, "\toption bittorrent 'bypass'\n\toption bittorrent_confirmed 'learn'\n", "")
+	module(result, bitTorrentLearn)
+	result, _ = bitTorrentBuild(t, "\toption bittorrent 'section'\n\toption bittorrent_section 'torrents'\n\toption bittorrent_confirmed 'learn'\n", torrents)
+	module(result, bitTorrentLearn)
 	result, _ = bitTorrentBuild(t, "\toption bittorrent 'bypass'\n\toption bittorrent_confirmed 'learn_reset'\n", "")
 	module(result, bitTorrentLearnReset)
-	result, _ = bitTorrentBuild(t, "\toption bittorrent 'block'\n\toption bittorrent_confirmed 'learn_reset'\n", "")
+	result, _ = bitTorrentBuild(t, "\toption bittorrent 'block'\n\toption bittorrent_confirmed 'learn'\n", "")
 	module(result, bitTorrentReject)
 	require.GreaterOrEqual(t, ruleIndex(config, map[string]any{"inbound": allInbounds, "protocol": "bittorrent", "outbound": "torrents-out"}), 0)
 }
