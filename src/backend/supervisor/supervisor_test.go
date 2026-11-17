@@ -480,6 +480,32 @@ func TestBitTorrentModeChangeForgets(t *testing.T) {
 	require.Equal(t, []string{"routing", "firewall update", "dns"}, f.system.take())
 }
 
+// The statistics of BitTorrent tell the mode the firewall has, from its update on (their first read
+// comes later), and nothing once BitTorrent is off or the table is gone.
+func TestBitTorrentStatsMode(t *testing.T) {
+	f := newFixture(t)
+	s := f.supervisor
+	f.settings("\toption bittorrent 'bypass'\n", oneName)
+	s.Boot()
+	require.True(t, s.Running(), "%v", f.lines())
+	report := s.BitTorrentStats()
+	require.Equal(t, "bypass", report.Mode)
+	require.NotNil(t, report.Rows)
+	f.settings("\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n", oneName)
+	s.Apply()
+	report = s.BitTorrentStats()
+	require.Equal(t, "block", report.Mode)
+	require.True(t, report.LAN)
+	f.settings("\toption bittorrent 'off'\n", oneName)
+	s.Apply()
+	require.Empty(t, s.BitTorrentStats().Mode)
+	f.settings("\toption bittorrent 'bypass'\n", oneName)
+	s.Apply()
+	require.Equal(t, "bypass", s.BitTorrentStats().Mode)
+	s.Stop()
+	require.Empty(t, s.BitTorrentStats().Mode)
+}
+
 // An update of the firewall that failed left the table of bypass in the kernel: the update after
 // it, from no plan, still ends the connections bypass let past podkop.
 func TestBitTorrentForgetsAfterAFailedUpdate(t *testing.T) {

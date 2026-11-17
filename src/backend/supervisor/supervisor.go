@@ -1881,26 +1881,26 @@ func (s *Supervisor) updateFirewall(previous, next *firewall.Plan) error {
 }
 
 // pollBitTorrent reads what the BitTorrent traffic of the LAN came to every btstats.PollEvery
-// while a table with the detector is there (bitTorrentSetup), until ctx ends; it forgets it all
-// when the detector goes. Its own goroutine: a read of the entries is a dump of conntrack.
+// while a table with the detector is there (bitTorrentSetup), until ctx ends; it starts again from
+// nothing when the detector goes or its mode changes (the ways of the rows are of a mode). Its own
+// goroutine: a read of the entries is a dump of conntrack.
 func (s *Supervisor) pollBitTorrent(ctx context.Context) {
 	ticker := time.NewTicker(btstats.PollEvery)
 	defer ticker.Stop()
-	on := false
+	var last *btstats.Setup
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case now := <-ticker.C:
 			setup := s.bitTorrentSetup.Load()
+			if last != nil && (setup == nil || setup.Mode != last.Mode || setup.LAN != last.LAN) {
+				s.bitTorrentStats.Reset()
+			}
+			last = setup
 			if setup == nil {
-				if on {
-					s.bitTorrentStats.Reset()
-					on = false
-				}
 				continue
 			}
-			on = true
 			flows, err := s.options.System.BitTorrentFlows()
 			drops, dropsErr := s.options.System.BitTorrentDrops()
 			s.bitTorrentStats.Observe(*setup, flows, drops, errors.Join(err, dropsErr), now)
@@ -1911,10 +1911,13 @@ func (s *Supervisor) pollBitTorrent(ctx context.Context) {
 // BitTorrentStats is what the BitTorrent traffic of the LAN came to (btstats.Report), with the
 // counters of the module of the sing-box that runs. It may be called from any goroutine.
 func (s *Supervisor) BitTorrentStats() btstats.Report {
-	report := s.bitTorrentStats.Report(time.Now())
-	if s.bitTorrentSetup.Load() == nil {
-		report = btstats.Report{Rows: []btstats.Row{}, Blocked: []btstats.Blocked{}}
+	setup := s.bitTorrentSetup.Load()
+	if setup == nil {
+		return btstats.Report{Rows: []btstats.Row{}, Blocked: []btstats.Blocked{}, Module: engine.BitTorrentCounters()}
 	}
+	report := s.bitTorrentStats.Report(time.Now())
+	// the mode the firewall has now: the first read comes btstats.PollEvery after it
+	report.Mode, report.LAN, report.Rule = setup.Mode, setup.LAN, setup.Rule
 	report.Module = engine.BitTorrentCounters()
 	return report
 }
