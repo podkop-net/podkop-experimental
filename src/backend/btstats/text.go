@@ -38,8 +38,8 @@ func WayName(way Way, rule string) string {
 		return "not through podkop"
 	case WayRule:
 		return "through the rule " + rule
-	case WayRules:
-		return "by podkop's rules"
+	case WayChecked:
+		return "through sing-box, being checked"
 	case WayBlocked:
 		return "blocked"
 	}

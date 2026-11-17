@@ -56,8 +56,8 @@ export function bitTorrentWayName(
       return _('Not through podkop');
     case 'rule':
       return _('Through the rule %s').format(rule || '');
-    case 'rules':
-      return _("By podkop's rules");
+    case 'checked':
+      return _('Through sing-box, being checked');
     case 'blocked':
       return _('Blocked');
   }

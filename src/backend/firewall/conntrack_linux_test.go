@@ -5,8 +5,10 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mdlayher/netlink"
 	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
@@ -151,4 +153,67 @@ func TestBitTorrentDropRules(t *testing.T) {
 			t.Error(name, err)
 		}
 	}
+}
+
+// What a read of the statistics costs (BitTorrentFlows and BitTorrentDrops, every
+// btstats.PollEvery): the table of a mode with the detector, FLOWS marked flows over loopback (200
+// by default), the wall time and the CPU of the process per read. Run by hand:
+// POLLCOST=1 go test -run TestBitTorrentPollCost -v.
+func TestBitTorrentPollCost(t *testing.T) {
+	needNft(t)
+	if os.Getenv("POLLCOST") == "" {
+		t.Skip("POLLCOST not set")
+	}
+	_ = Remove()
+	t.Cleanup(func() { _ = Remove() })
+	if err := Apply(&Plan{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBypass}}); err != nil {
+		t.Fatal(err)
+	}
+	nft(t, "add table inet pdk_cttest")
+	t.Cleanup(func() { _ = exec.Command("nft", "delete table inet pdk_cttest").Run() })
+	nft(t, "add chain inet pdk_cttest out { type filter hook output priority 0; policy accept; }")
+	nft(t, "add rule inet pdk_cttest out udp dport 40000-49999 ct mark set 0x00018000")
+	count := 200
+	if n, err := strconv.Atoi(os.Getenv("FLOWS")); err == nil {
+		count = n
+	}
+	listener, err := net.ListenPacket("udp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	for i := range count {
+		conn, err := net.Dial("udp4", "127.0.0.1:"+strconv.Itoa(40000+i%10000))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = conn.Write([]byte("x"))
+		conn.Close()
+	}
+	cpu := func() time.Duration {
+		var usage unix.Rusage
+		_ = unix.Getrusage(unix.RUSAGE_SELF, &usage)
+		return time.Duration(usage.Utime.Nano() + usage.Stime.Nano())
+	}
+	const reads = 100
+	flows := 0
+	measure := func(name string, read func() error) {
+		start, startCPU := time.Now(), cpu()
+		for range reads {
+			if err := read(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		t.Logf("%s, %d flows: %.2f ms a read, %.2f ms of CPU a read", name, flows,
+			float64(time.Since(start).Microseconds())/1000/reads, float64((cpu()-startCPU).Microseconds())/1000/reads)
+	}
+	measure("flows", func() error {
+		got, err := BitTorrentFlows()
+		flows = len(got)
+		return err
+	})
+	measure("drops", func() error {
+		_, err := BitTorrentDrops()
+		return err
+	})
 }

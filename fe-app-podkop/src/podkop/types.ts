@@ -612,7 +612,7 @@ export namespace Podkop {
     | 'past'
     | 'untouched'
     | 'rule'
-    | 'rules'
+    | 'checked'
     | 'blocked';
 
   export interface BitTorrentRow {

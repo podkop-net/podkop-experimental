@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-17 02:01+0000\n"
-"PO-Revision-Date: 2026-11-17 02:01+0000\n"
+"POT-Creation-Date: 2026-11-17 02:48+0000\n"
+"PO-Revision-Date: 2026-11-17 02:48+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -280,9 +280,6 @@ msgstr "Браузер не использует FakeIP"
 
 msgid "Browser is using FakeIP correctly"
 msgstr "Браузер использует FakeIP"
-
-msgid "By podkop's rules"
-msgstr "По правилам podkop"
 
 msgid "bypass: record fragment"
 msgstr "обход: дробление записи"
@@ -1765,6 +1762,9 @@ msgstr "Через"
 
 msgid "through %s"
 msgstr "через %s"
+
+msgid "Through sing-box, being checked"
+msgstr "Через sing-box, на проверке"
 
 msgid "Through sing-box, straight out"
 msgstr "Через sing-box, напрямую"

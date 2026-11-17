@@ -62,8 +62,11 @@ const (
 	WayUntouched Way = "untouched"
 	// WayRule: through the servers of the rule of the mode section (Report.Rule)
 	WayRule Way = "rule"
-	// WayRules: by podkop's rules, as the other traffic, while the module checks it
-	WayRules Way = "rules"
+	// WayChecked: through sing-box while the module checks it: by podkop's rules (in the scope of
+	// the whole LAN, straight out), but what sing-box's sniffer names BitTorrent the mode's way.
+	// The entry does not tell which: the stand's aria2 retried its closed connections in
+	// plaintext, which went straight, while the rest went to the rule's proxy
+	WayChecked Way = "checked"
 	// WayBlocked: dropped (of a connection decided before the mode block came, or one sing-box
 	// rejects)
 	WayBlocked Way = "blocked"
@@ -338,12 +341,7 @@ func Classify(setup Setup, flow Flow) (Kind, Way) {
 		}
 		return kind, WayUntouched
 	case KindChecked:
-		// of the traffic podkop takes: its rules while the module checks; of the whole LAN: the
-		// inbound of the LAN, straight out
-		if taken {
-			return kind, WayRules
-		}
-		return kind, WayRelay
+		return kind, WayChecked
 	case KindLate:
 		// sing-box routes it by the protocol its sniffer named: the mode's way
 		switch {

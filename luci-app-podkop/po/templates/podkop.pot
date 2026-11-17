@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-17 02:01+0000\n"
-"PO-Revision-Date: 2026-11-17 02:01+0000\n"
+"POT-Creation-Date: 2026-11-17 02:48+0000\n"
+"PO-Revision-Date: 2026-11-17 02:48+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -385,10 +385,6 @@ msgstr ""
 
 #: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:59
 msgid "Browser is using FakeIP correctly"
-msgstr ""
-
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:60
-msgid "By podkop's rules"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:521
@@ -2486,6 +2482,10 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:153
 msgid "through %s"
+msgstr ""
+
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:60
+msgid "Through sing-box, being checked"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:52

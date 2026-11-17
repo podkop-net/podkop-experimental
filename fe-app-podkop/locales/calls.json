@@ -635,13 +635,6 @@
     ]
   },
   {
-    "call": "By podkop's rules",
-    "key": "By podkop's rules",
-    "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:60"
-    ]
-  },
-  {
     "call": "bypass: record fragment",
     "key": "bypass: record fragment",
     "places": [
@@ -4218,6 +4211,13 @@
     "key": "through %s",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:153"
+    ]
+  },
+  {
+    "call": "Through sing-box, being checked",
+    "key": "Through sing-box, being checked",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:60"
     ]
   },
   {
