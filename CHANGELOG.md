@@ -7,6 +7,29 @@ What changed in each release of podkop-exp, newest first. The engine is the sing
 notes, with the measurements and the limits, are on the
 [releases page](https://github.com/podkop-net/podkop-experimental/releases).
 
+## 0.8.18 — 2026-11-18
+
+Engine r27.
+
+- **BitTorrent, clients set up by hand** (uTP off, encryption required, no DHT, an HTTPS
+  tracker): their connections to peers in your lists went through the rule's server in "Past
+  podkop". Fixed in three places:
+  - the encrypted handshake is confirmed even when the client sends its third message late, as
+    Transmission and qBittorrent do;
+  - a connection opened before podkop knew the device runs a client is checked as well, and is
+    taken as BitTorrent once it knows;
+  - three confirmed handshakes with different peers are enough to tell such a device.
+- **BitTorrent, trackers:** an HTTP tracker on an uncommon port is BitTorrent from the device's next
+  announce on, as UDP trackers are. A connection to the router's own address is never taken for
+  a peer.
+- **BitTorrent statistics:** connections podkop does not handle are no longer shown as "through
+  sing-box". The dashboard tells checks with no answer from the other side, and has **Reset**.
+  The global check warns when the DHT and the UDP trackers get no answer at all.
+- **For testers:** `podkop bittorrent_record [minutes] --reset` writes a report of the router, CPU,
+  memory and BitTorrent traffic with no addresses in it. The debug log gives the reason of every
+  check. A restart of podkop keeps the devices, peers and trackers it knew.
+- **Issue form:** fields for the global check and the BitTorrent report.
+
 ## 0.8.17 — 2026-11-17
 
 Engine r27.

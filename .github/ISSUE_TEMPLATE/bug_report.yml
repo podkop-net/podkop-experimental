@@ -61,6 +61,26 @@ body:
       required: true
 
   - type: textarea
+    id: global_check
+    attributes:
+      label: 🩺 Глобальная проверка
+      description: |
+        «Диагностика» → «Получить глобальную проверку» (или `podkop global_check` в консоли роутера). Ключи и пароли в ней уже скрыты.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: bittorrent_record
+    attributes:
+      label: 🧲 Отчёт о BitTorrent (если вопрос о BitTorrent)
+      description: |
+        `podkop bittorrent_record 10 --reset` в консоли роутера, затем загрузка в клиенте; через 10 минут — содержимое файла, который назовёт команда. В нём только числа, без адресов.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
     id: config
     attributes:
       label: ⚙️ Конфигурация

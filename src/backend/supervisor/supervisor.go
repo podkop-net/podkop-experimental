@@ -1918,8 +1918,16 @@ func (s *Supervisor) BitTorrentStats() btstats.Report {
 	report := s.bitTorrentStats.Report(time.Now())
 	// the mode the firewall has now: the first read comes btstats.PollEvery after it
 	report.Mode, report.LAN, report.Rule = setup.Mode, setup.LAN, setup.Rule
-	report.Module = engine.BitTorrentCounters()
+	report.Module = s.bitTorrentStats.ModuleSince(engine.BitTorrentCounters())
 	return report
+}
+
+// ResetBitTorrentStats starts the statistics of BitTorrent again from now, the mode kept (the
+// page's button, `podkop bittorrent_reset`), and answers them: a test needs no restart of podkop,
+// which also forgot the devices the detector knew.
+func (s *Supervisor) ResetBitTorrentStats() btstats.Report {
+	s.bitTorrentStats.ResetCounts(engine.BitTorrentCounters(), time.Now())
+	return s.BitTorrentStats()
 }
 
 // forgetBitTorrent ends the connections of BitTorrent past podkop that the mode next takes

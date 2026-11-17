@@ -1,9 +1,12 @@
 import type { BitTorrentTable } from '../helpers/bitTorrentTable';
 
 // renderBitTorrent draws the card of BitTorrent of the dashboard: the mode, a table of the kinds of
-// its traffic and their ways, what was blocked, the notes; nothing when BitTorrent goes as the
-// other traffic.
-export function renderBitTorrent(table: BitTorrentTable | undefined) {
+// its traffic and their ways, what was blocked, the notes, and the button that starts the
+// statistics again (onReset; none without it); nothing when BitTorrent goes as the other traffic.
+export function renderBitTorrent(
+  table: BitTorrentTable | undefined,
+  onReset?: () => void,
+) {
   if (!table) {
     return E('div', { class: 'pdk_dashboard-page__bittorrent hidden' }, []);
   }
@@ -39,8 +42,21 @@ export function renderBitTorrent(table: BitTorrentTable | undefined) {
     E('div', { class: 'pdk_dashboard-page__bittorrent__title' }, [
       E('b', {}, 'BitTorrent'),
       E('span', { class: 'pdk_dashboard-page__bittorrent__mode' }, [
-        `${table.mode} · ${_('since %s').format(table.since)}`,
+        `${table.mode} · ${(table.reset ? _('%s since the reset') : _('since %s')).format(table.since)}`,
       ]),
+      ...(onReset
+        ? [
+            E(
+              'button',
+              {
+                class: 'btn cbi-button pdk_dashboard-page__bittorrent__reset',
+                title: _('Start the statistics again from now'),
+                click: onReset,
+              },
+              [_('Reset')],
+            ),
+          ]
+        : []),
     ]),
     E('div', { class: 'pdk_dashboard-page__bittorrent__scroll' }, [
       E('table', { class: 'pdk_dashboard-page__bittorrent__table' }, [

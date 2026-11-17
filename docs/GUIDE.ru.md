@@ -106,6 +106,7 @@
   обход можно убрать.
 - Карточка **BitTorrent** (если BitTorrent не «Как остальной трафик») показывает трафик
   BitTorrent-клиентов: по видам (DHT и UDP-трекеры, uTP, TCP, входящие) и по путям.
+  **«Сбросить»** начинает счёт заново, без перезапуска podkop.
 
 ## Диагностика
 
@@ -127,6 +128,8 @@
    Для списков `podkop list_status` показывает последнюю ошибку каждого.
 5. Всё ещё не работает: откройте [issue](https://github.com/podkop-net/podkop-experimental/issues)
    с глобальной проверкой и описанием того, что вы делали. Журнал — `logread -e podkop`.
+6. BitTorrent идёт не тем путём: запустите `podkop bittorrent_record 10 --reset`, начните загрузку
+   и через 10 минут приложите файл, который команда назовёт. В нём только числа: ни адресов, ни имён.
 
 ## Командная строка
 
@@ -139,6 +142,8 @@
 | `podkop list_update` | скачать все списки сейчас |
 | `podkop subscription_update [имя]` | скачать подписку (или все) сейчас |
 | `podkop bittorrent_stats` | статистика BitTorrent в JSON |
+| `podkop bittorrent_reset` | начать статистику BitTorrent заново |
+| `podkop bittorrent_record [минуты] [--reset]` | отчёт о BitTorrent для проверки: снимок раз в 10 с (по умолчанию 10 минут), без адресов |
 | `service podkop restart` | перезапустить службу |
 
 `podkop` без аргументов перечисляет все команды.

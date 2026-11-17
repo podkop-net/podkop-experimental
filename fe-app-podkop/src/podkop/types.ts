@@ -637,6 +637,8 @@ export namespace Podkop {
     blocked: Array<{ kind: BitTorrentKind; dropped: BitTorrentCount }>;
     utp_to_tcp: BitTorrentCount;
     module?: Record<string, number>;
+    // seconds since the statistics were reset (bittorrent_reset), absent when they were not
+    reset_at?: number;
   }
 
   export interface Stats {

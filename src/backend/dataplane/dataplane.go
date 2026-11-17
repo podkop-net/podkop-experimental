@@ -121,6 +121,10 @@ const (
 // device . peer . port.
 const BitTorrentLearnedSet = "bt_learned"
 
+// BitTorrentHostsSet is the set of the firewall's table of the devices running a BitTorrent client
+// (the module reads it for its early check).
+const BitTorrentHostsSet = "bt_hosts"
+
 // BitTorrentCommonPorts are the ports a BitTorrent client does not listen on in practice and other
 // programs use: the firewall inspects the TCP of a device running a client to any other port, and
 // the module never learns a peer on them.

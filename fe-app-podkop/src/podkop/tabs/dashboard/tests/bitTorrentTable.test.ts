@@ -111,7 +111,7 @@ describe('bitTorrentTable', () => {
       'The router does not count the bytes of connections (net.netfilter.nf_conntrack_acct is 0)',
       'uTP connects turned to TCP (on a flow of the DHT): 3',
       'Peers learned: 50 from 4 replies and 1 announces',
-      'Connections checked: 6; confirmed as BitTorrent: 2 (closed: 2, left open: 0); not BitTorrent: 4',
+      'Connections checked: 6; confirmed as BitTorrent: 2 (closed: 2, left open: 0); not BitTorrent: 4; no answer from the other side: 0',
     ]);
   });
 

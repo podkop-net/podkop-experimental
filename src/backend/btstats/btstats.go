@@ -40,8 +40,10 @@ const (
 	// KindLate: a TCP connection the proxy had taken before its plaintext handshake told it: it
 	// stays with sing-box, routed by the protocol
 	KindLate Kind = "late"
-	// KindChecked: TCP of a device running a client to an uncommon port, which the module checks
-	// (the three steps of MSE): a confirmed one is closed, the rest is no BitTorrent
+	// KindChecked: TCP of a device running a client to an uncommon port, to a peer not known: the
+	// module checks it (the three steps of MSE) when it goes through sing-box (WayChecked); one of
+	// the traffic podkop does not take, outside the scope of the whole LAN, is forwarded untouched
+	// (WayUntouched)
 	KindChecked Kind = "checked"
 	// KindIncoming: a connection from outside through a port forward to a client
 	KindIncoming Kind = "incoming"
@@ -150,8 +152,11 @@ type Report struct {
 	// UTPToTCP: uTP SYNs the firewall dropped on a flow of discovery (the client tries TCP)
 	UTPToTCP Count `json:"utp_to_tcp"`
 	// Module is what the BitTorrent module of the sing-box that runs counted
-	// (engine.BitTorrentCounters), since that sing-box started
+	// (engine.BitTorrentCounters), since that sing-box started or, after a reset, since the reset
 	Module map[string]int64 `json:"module,omitempty"`
+	// ResetAt is the seconds since the statistics were reset (Stats.ResetCounts), 0 when they
+	// were not
+	ResetAt int64 `json:"reset_at,omitempty"`
 }
 
 type rowKey struct {
@@ -183,6 +188,11 @@ type Stats struct {
 	drops   Drops
 	dropped Drops
 	module  map[string]int64
+	// reset is when ResetCounts ran; dropsBase what the rules had counted then; moduleBase what
+	// the module had counted then (its counters keep counting in the sing-box that runs)
+	reset      time.Time
+	dropsBase  Drops
+	moduleBase map[string]int64
 }
 
 // Observe takes a read made at now: the entries with a mark of the detector and the counters of
@@ -283,6 +293,10 @@ func (s *Stats) Report(now time.Time) Report {
 	})
 	total := s.dropped
 	total.addAll(s.drops)
+	total.subtract(s.dropsBase)
+	if !s.reset.IsZero() {
+		report.ResetAt = int64(now.Sub(s.reset) / time.Second)
+	}
 	for _, blocked := range []Blocked{{KindDiscovery, total.Discovery}, {KindUTP, total.UTP}, {KindTCP, total.TCP}, {KindIncoming, total.Incoming}} {
 		if blocked.Dropped.Packets > 0 {
 			report.Blocked = append(report.Blocked, blocked)
@@ -298,11 +312,61 @@ func (s *Stats) Reset() {
 	defer s.access.Unlock()
 	s.setup, s.first, s.last, s.counted, s.err = Setup{}, time.Time{}, time.Time{}, false, ""
 	s.flows, s.rows, s.drops, s.dropped, s.module = nil, nil, Drops{}, Drops{}, nil
+	s.reset, s.dropsBase, s.moduleBase = time.Time{}, Drops{}, nil
+}
+
+// ResetCounts starts the statistics again at now, the mode kept (the page's button, `podkop
+// bittorrent_reset`): the rows from nothing, the connections open now counted from what they have
+// now on, the drops and the module's counters from what they are now (module, read by the caller).
+func (s *Stats) ResetCounts(module map[string]int64, now time.Time) {
+	s.access.Lock()
+	defer s.access.Unlock()
+	if !s.first.IsZero() {
+		s.first = now
+	}
+	s.rows = make(map[rowKey]*Row)
+	s.dropsBase = s.dropped
+	s.dropsBase.addAll(s.drops)
+	s.moduleBase = module
+	s.reset = now
+}
+
+// ModuleSince is the module's counters less what they were at the last ResetCounts; a counter
+// that went down (another sing-box, started since) is taken whole, and the base goes.
+func (s *Stats) ModuleSince(module map[string]int64) map[string]int64 {
+	s.access.Lock()
+	defer s.access.Unlock()
+	if module == nil || s.moduleBase == nil {
+		return module
+	}
+	since := make(map[string]int64, len(module))
+	for name, value := range module {
+		if value < s.moduleBase[name] {
+			s.moduleBase = nil
+			return module
+		}
+		since[name] = value - s.moduleBase[name]
+	}
+	return since
 }
 
 func (d Drops) less(other Drops) bool {
 	return d.Discovery.Packets < other.Discovery.Packets || d.UTP.Packets < other.UTP.Packets || d.TCP.Packets < other.TCP.Packets ||
 		d.Incoming.Packets < other.Incoming.Packets || d.UTPToTCP.Packets < other.UTPToTCP.Packets
+}
+
+func (d *Drops) subtract(other Drops) {
+	sub := func(c *Count, o Count) {
+		if c.Packets >= o.Packets && c.Bytes >= o.Bytes {
+			c.Packets -= o.Packets
+			c.Bytes -= o.Bytes
+		}
+	}
+	sub(&d.Discovery, other.Discovery)
+	sub(&d.UTP, other.UTP)
+	sub(&d.TCP, other.TCP)
+	sub(&d.Incoming, other.Incoming)
+	sub(&d.UTPToTCP, other.UTPToTCP)
 }
 
 func (d *Drops) addAll(other Drops) {
@@ -341,6 +405,12 @@ func Classify(setup Setup, flow Flow) (Kind, Way) {
 		}
 		return kind, WayUntouched
 	case KindChecked:
+		// bt_free leaves one of the traffic podkop does not take forwarded, unless the scope is
+		// the whole LAN (0.8.17 showed every such connection as checked: the field's report of
+		// 595 MB "through sing-box" that the module never saw)
+		if !taken && !setup.LAN {
+			return kind, WayUntouched
+		}
 		return kind, WayChecked
 	case KindLate:
 		// sing-box routes it by the protocol its sniffer named: the mode's way

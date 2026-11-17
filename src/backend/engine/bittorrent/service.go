@@ -13,6 +13,19 @@
 //     The three steps of MSE confirm or refute each one; a confirmed one is closed (block), or its
 //     far end learned and the connection closed, so that the device's retry is decided at its SYN
 //     (bypass, section; "learn" leaves it open where sing-box routed it).
+//   - The early check (0.8.18): on the inbounds of "early" (the transparent proxy), a TCP connection
+//     to a port no other program uses is checked as an inspected one, whatever its device. A
+//     confirmed one waits until its device is in the firewall's set of devices running a client
+//     ("hosts", read every earlyPoll), then it is done with as "confirmed" says. A client's first
+//     connections, opened before the firewall knew the device (a client with no DHT and no uTP is
+//     told only by its local peer discovery, a minute after its start on the stand of 0.8.18), went
+//     by the lists for their whole life. A device with earlySelf confirmed connections to distinct
+//     far addresses waiting is taken as running a client too (a client with no DHT, no uTP, no
+//     local discovery and encryption required, fed by an HTTPS tracker, sends nothing in plaintext:
+//     F7 of the workspace's notes/2026-11-16-bittorrent-architecture.md): its connections are done
+//     with, and their retries, decided at the SYN, put the device in the firewall's set. A device
+//     that never runs a client is never touched (proxy clients: 3 confirmed of 10473 connections
+//     of six of them, Phase C; a client opens tens of peer connections a minute, A1).
 //
 // It uses sing-box's public API only: a connection tracker, appended before the inbounds start.
 // It fails open: when it cannot write the set, the replies and the connections go on as sing-box
@@ -23,6 +36,7 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -60,10 +74,20 @@ type Options struct {
 	// Inspect are the inbounds whose TCP connections are inspected, with what is done with a
 	// confirmed one.
 	Inspect []InspectOptions `json:"inspect,omitempty"`
+	// Early are the inbounds whose TCP connections to an uncommon port are checked early (see
+	// the top), with what is done with a confirmed one once its device is known; Hosts is the set
+	// of the table that tells those devices (ipv4_addr).
+	Early []InspectOptions `json:"early,omitempty"`
+	Hosts string           `json:"hosts,omitempty"`
 	// ThirdStep is the longest from the far side's answer to the device's next data, for the
 	// third step (default 50ms: A1b, aria2 and rTorrent p99 1.0-2.0 ms; the two false
 	// confirmations of all A1b's data, V2Ray's, came at 59-60 ms).
 	ThirdStep badoption.Duration `json:"third_step,omitempty"`
+	// ThirdStepLate is the longest for a third step of 96 to 636 bytes, MSE's third message with
+	// the handshake as its initial payload (default 20s: A1c of 0.8.18, Transmission's p99 9.9 s,
+	// its longest 15.5 s; no answered connection of a proxy client in A1 and A1b sent such data
+	// later than 50 ms).
+	ThirdStepLate badoption.Duration `json:"third_step_late,omitempty"`
 	// NeverPorts are ports never learned, besides those under 1024: podkop's common ports, whose
 	// connections the firewall never takes for BitTorrent.
 	NeverPorts badoption.Listable[uint16] `json:"never_ports,omitempty"`
@@ -92,15 +116,41 @@ type Service struct {
 	learnOn    map[string]bool
 	sniffedOn  map[string]bool
 	inspectOn  map[string]Confirmed
+	earlyOn    map[string]Confirmed
 	neverPorts map[uint16]struct{}
 	wait       time.Duration
 	thirdStep  time.Duration
-	devices    devices
-	writer     *writer
+	// thirdStepLate: see Options.ThirdStepLate
+	thirdStepLate time.Duration
+	devices       devices
+	writer        *writer
 	// sink takes the keys learned: the writer, or a test's
 	sink     adder
 	counters counters
+	// early: the counters of the early check; pending its confirmed connections by device, until
+	// the device is known (or earlyFor passed)
+	early        counters
+	earlyActed   atomic.Int64
+	earlyExpired atomic.Int64
+	// earlySelfTold: devices taken as running a client by their own confirmed connections
+	earlySelfTold atomic.Int64
+	pendingMu    sync.Mutex
+	pending      map[netip.Addr][]*conn
+	// known tells whether a device is in the set Hosts (the poller's netlink read; a test's)
+	known       func() (map[netip.Addr]bool, error)
+	stopPolling chan struct{}
 }
+
+// earlyPoll is how often the devices of pending connections are looked up in the set Hosts: a
+// dump of a set of a few devices, under a millisecond; a connection found early is acted on within
+// it once its device is known. earlyFor is the longest a confirmed connection waits (the
+// firewall's timeout of a device), earlyMost the most that wait for one device.
+const (
+	earlyPoll = 2 * time.Second
+	earlyFor  = 30 * time.Minute
+	earlyMost = 256
+	earlySelf = 3
+)
 
 type adder interface {
 	add(keys [][]byte, wait time.Duration) error
@@ -112,7 +162,8 @@ var running atomic.Pointer[Service]
 // New makes the service of the options; nothing opens before Start.
 func New(ctx context.Context, logger log.ContextLogger, tag string, options Options) (adapter.Service, error) {
 	s := &Service{ctx: ctx, logger: logger, tag: tag, options: options,
-		learnOn: make(map[string]bool), sniffedOn: make(map[string]bool), inspectOn: make(map[string]Confirmed), neverPorts: make(map[uint16]struct{})}
+		learnOn: make(map[string]bool), sniffedOn: make(map[string]bool), inspectOn: make(map[string]Confirmed), neverPorts: make(map[uint16]struct{}),
+		earlyOn: make(map[string]Confirmed), pending: make(map[netip.Addr][]*conn), stopPolling: make(chan struct{})}
 	for _, inbound := range options.Learn {
 		s.learnOn[inbound] = true
 	}
@@ -122,12 +173,19 @@ func New(ctx context.Context, logger log.ContextLogger, tag string, options Opti
 	for _, inspected := range options.Inspect {
 		s.inspectOn[inspected.Inbound] = inspected.Confirmed
 	}
+	if options.Table != "" && options.Hosts != "" {
+		for _, early := range options.Early {
+			s.earlyOn[early.Inbound] = early.Confirmed
+		}
+		s.known = func() (map[netip.Addr]bool, error) { return readHosts(options.Table, options.Hosts) }
+	}
 	for _, port := range options.NeverPorts {
 		s.neverPorts[port] = struct{}{}
 	}
 	timeout := orDefault(options.Timeout.Build(), 30*time.Minute)
 	s.wait = orDefault(options.Wait.Build(), 100*time.Millisecond)
 	s.thirdStep = orDefault(options.ThirdStep.Build(), 50*time.Millisecond)
+	s.thirdStepLate = orDefault(options.ThirdStepLate.Build(), 20*time.Second)
 	perDevice := options.PerDevice
 	if perDevice <= 0 {
 		perDevice = 16384
@@ -167,11 +225,19 @@ func (s *Service) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 	}
 	service.FromContext[adapter.Router](s.ctx).AppendTracker(s)
 	running.Store(s)
+	if len(s.earlyOn) > 0 {
+		go s.pollPending()
+	}
 	return nil
 }
 
 func (s *Service) close() error {
 	running.CompareAndSwap(s, nil)
+	select {
+	case <-s.stopPolling:
+	default:
+		close(s.stopPolling)
+	}
 	if s.writer != nil {
 		s.writer.close()
 	}
@@ -184,25 +250,41 @@ func Snapshot() Counters {
 	if s == nil {
 		return nil
 	}
-	return s.counters.snapshot()
+	snapshot := s.counters.snapshot()
+	early := s.early.snapshot()
+	for _, name := range []string{"watched", "inspected", "confirmed", "confirmed_late", "refuted", "unanswered", "no_data", "not_shaped"} {
+		snapshot["early_"+name] = early[name]
+	}
+	snapshot["early_acted"] = s.earlyActed.Load()
+	snapshot["early_self"] = s.earlySelfTold.Load()
+	snapshot["early_expired"] = s.earlyExpired.Load()
+	return snapshot
 }
 
 func (s *Service) RoutedConnection(ctx context.Context, connection net.Conn, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) net.Conn {
 	confirmed, inspect := s.inspectOn[metadata.Inbound]
 	// an announce to an HTTP tracker on an inbound of discovery: sing-box's sniffer named it HTTP
 	announce := s.sink != nil && (s.learnOn[metadata.Inbound] || s.sniffedOn[metadata.Inbound]) && metadata.Protocol == C.ProtocolHTTP
-	if !inspect && !announce {
-		return connection
-	}
 	device := metadata.Source.Addr.Unmap()
 	far := metadata.Destination.Unwrap().AddrPort()
 	if metadata.Destination.IsFqdn() {
 		far = metadata.OriginDestination.Unwrap().AddrPort()
 	}
-	if inspect {
-		s.counters.watched.Add(1)
+	// the early check: of the transparent proxy, to a far end that could be a peer (learnable:
+	// a public address, a port of 1024 and over that no other program uses)
+	earlyConfirmed, early := s.earlyOn[metadata.Inbound]
+	early = early && !inspect && device.Is4() && s.learnable(far)
+	if !inspect && !announce && !early {
+		return connection
 	}
-	return &conn{Conn: connection, service: s, device: device, far: far, inspect: inspect, confirmed: confirmed,
+	counted := &s.counters
+	if early {
+		counted, inspect, confirmed = &s.early, true, earlyConfirmed
+	}
+	if inspect {
+		counted.watched.Add(1)
+	}
+	return &conn{Conn: connection, service: s, cnt: counted, early: early, device: device, far: far, inspect: inspect, confirmed: confirmed,
 		routed: metadata.Protocol == C.ProtocolBitTorrent}
 }
 
@@ -214,6 +296,89 @@ func (s *Service) RoutedConnection(ctx context.Context, connection net.Conn, met
 func (s *Service) logConfirmed(device netip.Addr, far netip.AddrPort, done string) {
 	if s.logger != nil {
 		s.logger.Info("BitTorrent: the connection of ", device, " to ", far, " confirmed as BitTorrent: ", done)
+	}
+}
+
+// pend keeps a connection confirmed early until its device is known (pollPending).
+func (s *Service) pend(c *conn) {
+	s.pendingMu.Lock()
+	defer s.pendingMu.Unlock()
+	list := s.pending[c.device]
+	if len(list) >= earlyMost {
+		list = list[1:]
+		s.earlyExpired.Add(1)
+	}
+	s.pending[c.device] = append(list, c)
+}
+
+// pollPending looks the devices of pending connections up in the set every earlyPoll, and acts on
+// the connections of a device that is there; one that waited earlyFor goes.
+func (s *Service) pollPending() {
+	ticker := time.NewTicker(earlyPoll)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-s.stopPolling:
+			return
+		case now := <-ticker.C:
+			s.actOnKnown(now)
+		}
+	}
+}
+
+// actOnKnown is a round of pollPending at now.
+func (s *Service) actOnKnown(now time.Time) {
+	s.pendingMu.Lock()
+	if len(s.pending) == 0 {
+		s.pendingMu.Unlock()
+		return
+	}
+	s.pendingMu.Unlock()
+	known, err := s.known()
+	if err != nil {
+		// fail open: the connections go on as they were routed
+		return
+	}
+	s.pendingMu.Lock()
+	var due []*conn
+	for device, list := range s.pending {
+		kept := list[:0]
+		distinct := make(map[netip.Addr]struct{})
+		for _, c := range list {
+			if now.Sub(c.pendingSince) > earlyFor {
+				s.earlyExpired.Add(1)
+				continue
+			}
+			kept = append(kept, c)
+			distinct[c.far.Addr()] = struct{}{}
+		}
+		self := !known[device] && len(distinct) >= earlySelf
+		if known[device] || self {
+			if self {
+				s.earlySelfTold.Add(1)
+				if s.logger != nil {
+					s.logger.Info("BitTorrent: ", device, " made the encrypted handshake of BitTorrent with ", len(distinct), " peers: taken as running a client")
+				}
+			}
+			due = append(due, kept...)
+			delete(s.pending, device)
+			continue
+		}
+		if len(kept) == 0 {
+			delete(s.pending, device)
+		} else {
+			s.pending[device] = kept
+		}
+	}
+	s.pendingMu.Unlock()
+	for _, c := range due {
+		s.earlyActed.Add(1)
+		if s.logger != nil {
+			s.logger.Info("BitTorrent: the connection of ", c.device, " to ", c.far, ", confirmed before the device was known to run a client, is taken as BitTorrent now")
+		}
+		c.access.Lock()
+		c.act()
+		c.access.Unlock()
 	}
 }
 

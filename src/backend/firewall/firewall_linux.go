@@ -291,6 +291,10 @@ func Apply(plan *Plan) error {
 	var kept map[string][]nftables.SetElement
 	if plan.BitTorrent.Mode != "" {
 		kept = bitTorrentKept()
+		// no table (a start): what the last stop saved
+		if len(kept) == 0 {
+			kept = loadBitTorrentSets(time.Now())
+		}
 	}
 	conn, err := newConn()
 	if err != nil {
@@ -524,8 +528,10 @@ func Apply(plan *Plan) error {
 	return nil
 }
 
-// Remove deletes the table; one that is not there is no error.
+// Remove deletes the table; one that is not there is no error. What the sets of the detector of
+// BitTorrent hold is saved first (saveBitTorrentSets), for the next start.
 func Remove() error {
+	saveBitTorrentSets(time.Now())
 	conn, err := newConn()
 	if err != nil {
 		return E.Cause(err, "open netlink")

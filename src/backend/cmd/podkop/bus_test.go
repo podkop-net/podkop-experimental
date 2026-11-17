@@ -68,6 +68,11 @@ func (f fixedTraffic) BitTorrentStats() btstats.Report {
 		Received: btstats.Count{Packets: 10, Bytes: 12000}, Sent: btstats.Count{Packets: 5, Bytes: 600}}}, Blocked: []btstats.Blocked{}}
 }
 
+func (f fixedTraffic) ResetBitTorrentStats() btstats.Report {
+	return btstats.Report{Mode: "bypass", Counted: true, Rows: []btstats.Row{{Kind: btstats.KindUTP, Way: btstats.WayPast, Open: 2, Connections: 3,
+		Received: btstats.Count{Packets: 10, Bytes: 12000}, Sent: btstats.Count{Packets: 5, Bytes: 600}}}, Blocked: []btstats.Blocked{}}
+}
+
 // The method bittorrent answers the report as the page reads it.
 func TestBusBitTorrent(t *testing.T) {
 	answer, status := busObject(ctl.Environment{}, fixedTraffic{}).Methods["bittorrent"].Call(context.Background(), nil)

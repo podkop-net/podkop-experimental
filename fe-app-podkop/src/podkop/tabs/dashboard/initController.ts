@@ -155,12 +155,39 @@ async function fetchBitTorrent() {
   });
 }
 
+// resetBitTorrent starts the statistics of BitTorrent again (the method bittorrent_reset, which
+// answers them) and shows them.
+let backendBitTorrentReset:
+  | (() => Promise<Podkop.BitTorrentReport | number>)
+  | undefined;
+
+async function resetBitTorrent() {
+  backendBitTorrentReset ??= rpc.declare<Podkop.BitTorrentReport | number>({
+    object: 'podkop',
+    method: 'bittorrent_reset',
+    nobatch: true,
+  });
+  try {
+    const reply = await backendBitTorrentReset();
+    if (typeof reply === 'object' && reply !== null) {
+      store.set({
+        bitTorrentWidget: { loading: false, failed: false, data: reply },
+      });
+    }
+  } catch {
+    // a backend before the method: the button does nothing
+  }
+}
+
 function renderBitTorrentWidget() {
   const container = document.getElementById('dashboard-bittorrent');
   if (!container) return;
   const widget = store.get().bitTorrentWidget;
   container.replaceChildren(
-    renderBitTorrent(widget.failed ? undefined : bitTorrentTable(widget.data)),
+    renderBitTorrent(
+      widget.failed ? undefined : bitTorrentTable(widget.data),
+      resetBitTorrent,
+    ),
   );
 }
 

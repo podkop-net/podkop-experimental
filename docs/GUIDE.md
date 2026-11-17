@@ -105,6 +105,7 @@ The tab is one list; here its fields are grouped by topic.
   where the treatment can be removed.
 - The **BitTorrent** card (when BitTorrent is not "As the other traffic") shows the traffic of
   BitTorrent clients: by kind (DHT and UDP trackers, uTP, TCP, incoming) and by the way it went.
+  **Reset** starts the counts again, without a restart of podkop.
 
 ## Diagnostics
 
@@ -125,6 +126,8 @@ The tab is one list; here its fields are grouped by topic.
    the lists, `podkop list_status` shows the last error of each.
 5. Still not working: open an [issue](https://github.com/podkop-net/podkop-experimental/issues)
    with the global check and what you did. The log is `logread -e podkop`.
+6. BitTorrent goes the wrong way: run `podkop bittorrent_record 10 --reset`, start the download,
+   and attach the file it names after 10 minutes. It holds counts only: no addresses or names.
 
 ## Command line
 
@@ -137,6 +140,8 @@ The tab is one list; here its fields are grouped by topic.
 | `podkop list_update` | download every list now |
 | `podkop subscription_update [name]` | download a subscription (or all) now |
 | `podkop bittorrent_stats` | the BitTorrent statistics as JSON |
+| `podkop bittorrent_reset` | start the BitTorrent statistics again |
+| `podkop bittorrent_record [minutes] [--reset]` | a report of BitTorrent for a test: a sample every 10 s (default 10 minutes), no addresses |
 | `service podkop restart` | restart the service |
 
 `podkop` without arguments lists every command.

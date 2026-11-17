@@ -46,6 +46,8 @@ type trafficSource interface {
 	SuggestMask(ctx context.Context, tag string) supervisor.SuggestResult
 	// BitTorrentStats is what the BitTorrent traffic of the LAN came to (btstats.Report).
 	BitTorrentStats() btstats.Report
+	// ResetBitTorrentStats starts them again from now and answers them.
+	ResetBitTorrentStats() btstats.Report
 }
 
 var processStart = time.Now()
@@ -74,6 +76,13 @@ func busObject(env ctl.Environment, source trafficSource) ubus.Object {
 	object.Methods["bittorrent"] = ubus.Method{
 		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
 			return source.BitTorrentStats(), ubus.StatusOK
+		},
+	}
+	// bittorrent_reset: the button of the dashboard's table of BitTorrent (an action: the ACL
+	// grants it under write)
+	object.Methods["bittorrent_reset"] = ubus.Method{
+		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
+			return source.ResetBitTorrentStats(), ubus.StatusOK
 		},
 	}
 	object.Methods["detect"] = ubus.Method{

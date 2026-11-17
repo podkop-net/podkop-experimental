@@ -37,6 +37,7 @@
           "set_cure",
           "clear_cure",
           "drop_stale_cures",
+          "bittorrent_reset",
           "suggest_mask"
         ]
       },

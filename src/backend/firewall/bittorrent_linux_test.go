@@ -2,8 +2,11 @@ package firewall
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // bitTorrentTable makes the table of a plan with the BitTorrent detector with the nft program: the
@@ -40,6 +43,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 	lines = append(lines,
 		rule("bt_detect", "iifname != @interfaces return"),
 		rule("bt_detect", "meta nfproto != ipv4 return"),
+		rule("bt_detect", "fib daddr type local return"),
 		rule("bt_detect", "ct mark & 0x000f0000 != 0 goto bt_decided"),
 		rule("bt_detect", "meta l4proto udp goto bt_udp"),
 		rule("bt_detect", "meta l4proto tcp goto bt_tcp"),
@@ -67,7 +71,9 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_tcp", "tcp flags & (syn | ack) == syn goto bt_syn"),
 		rule("bt_tcp", "@ih,0,96 0x13426974546f7272656e7420 @ih,96,64 0x70726f746f636f6c counter goto bt_handshake"),
 		// "GET /announce?", and "GET /announc" "e.php?"
+		rule("bt_tcp", "@ih,0,112 0x474554202f616e6e6f756e63653f tcp dport != "+ports+" update @bt_peers { ip daddr . tcp dport timeout 2h }"),
 		rule("bt_tcp", "@ih,0,112 0x474554202f616e6e6f756e63653f update @bt_hosts { ip saddr } ct mark set ct mark | 0x00040000 counter return"),
+		rule("bt_tcp", "@ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f tcp dport != "+ports+" update @bt_peers { ip daddr . tcp dport timeout 2h }"),
 		rule("bt_tcp", "@ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f update @bt_hosts { ip saddr } ct mark set ct mark | 0x00040000 counter return"),
 		rule("bt_tcp", "ip saddr . ip daddr . tcp dport @bt_learned counter goto bt_handshake"),
 		rule("bt_tcp", "ip saddr @bt_hosts ip daddr . tcp dport @bt_peers counter goto bt_handshake"),
@@ -288,6 +294,43 @@ func TestBitTorrentKept(t *testing.T) {
 	}
 	if listed := nft(t, "list", "chain", "inet", tableName, "bt_act"); !strings.Contains(listed, "goto bt_block") {
 		t.Errorf("the new table is not of the mode block:\n%s", listed)
+	}
+}
+
+// A stop saves what the sets hold (Remove), and the next start takes it back (Apply with no table),
+// each element with the time it had left less the time between; a file older than an element's
+// time has nothing of it.
+func TestBitTorrentSaved(t *testing.T) {
+	needNft(t)
+	saved := bitTorrentSaved
+	bitTorrentSaved = filepath.Join(t.TempDir(), "sets.json")
+	t.Cleanup(func() { _ = Remove(); bitTorrentSaved = saved })
+	_ = Remove()
+	plan := &Plan{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: BitTorrent{Mode: BitTorrentBypass}}
+	if err := Apply(plan); err != nil {
+		t.Fatal(err)
+	}
+	nft(t, "add element inet "+tableName+" bt_hosts { 192.168.1.60 timeout 10m }")
+	nft(t, "add element inet "+tableName+" bt_learned { 192.168.1.60 . 203.0.113.8 . 51413 timeout 20s }")
+	if err := Remove(); err != nil {
+		t.Fatal(err)
+	}
+	if err := Apply(plan); err != nil {
+		t.Fatal(err)
+	}
+	if listed := nft(t, "list", "set", "inet", tableName, "bt_hosts"); !strings.Contains(listed, "192.168.1.60 timeout") {
+		t.Errorf("the device is not back after a restart:\n%s", listed)
+	}
+	if _, err := os.Stat(bitTorrentSaved); !os.IsNotExist(err) {
+		t.Error("the file stays after the start took it")
+	}
+	// an element whose time ran out meanwhile is left out
+	if err := Remove(); err != nil {
+		t.Fatal(err)
+	}
+	kept := loadBitTorrentSets(time.Now().Add(time.Minute))
+	if len(kept["bt_learned"]) != 0 || len(kept["bt_hosts"]) != 1 {
+		t.Errorf("after a minute: %v", kept)
 	}
 }
 

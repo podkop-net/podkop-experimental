@@ -71,6 +71,10 @@ export const styles = `
     opacity: 0.8;
 }
 
+.pdk_dashboard-page__bittorrent__reset {
+    margin-left: auto;
+}
+
 .pdk_dashboard-page__bittorrent__scroll {
     overflow-x: auto;
 }

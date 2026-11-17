@@ -20,6 +20,8 @@ export interface BitTorrentTableRow {
 export interface BitTorrentTable {
   mode: string;
   since: string;
+  // the statistics were reset (the button), not counted from the start of the mode
+  reset: boolean;
   rows: BitTorrentTableRow[];
   blocked: string[];
   notes: string[];
@@ -36,7 +38,7 @@ export function bitTorrentKindName(kind: Podkop.BitTorrentKind): string {
     case 'late':
       return _('TCP told by its handshake in podkop');
     case 'checked':
-      return _('TCP to uncommon ports, checked');
+      return _('TCP to uncommon ports');
     case 'incoming':
       return _('Incoming through a port forward');
   }
@@ -146,7 +148,7 @@ export function bitTorrentTable(
     if ((module.watched ?? 0) > 0) {
       notes.push(
         _(
-          'Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d',
+          'Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d; no answer from the other side: %d',
         ).format(
           module.watched ?? 0,
           module.confirmed ?? 0,
@@ -155,6 +157,7 @@ export function bitTorrentTable(
           (module.not_shaped ?? 0) +
             (module.refuted ?? 0) +
             (module.far_first ?? 0),
+          (module.no_data ?? 0) + (module.unanswered ?? 0),
         ),
       );
     }
@@ -162,6 +165,7 @@ export function bitTorrentTable(
   return {
     mode: bitTorrentModeName(report),
     since: spanText(report.since),
+    reset: (report.reset_at ?? 0) > 0,
     rows,
     blocked,
     notes,

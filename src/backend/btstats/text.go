@@ -19,7 +19,7 @@ func KindName(kind Kind) string {
 	case KindLate:
 		return "TCP told by its handshake in podkop"
 	case KindChecked:
-		return "TCP to uncommon ports, checked"
+		return "TCP to uncommon ports"
 	case KindIncoming:
 		return "Incoming through a port forward"
 	}
@@ -127,12 +127,54 @@ func Lines(report Report) []string {
 	if report.UTPToTCP.Packets > 0 {
 		lines = append(lines, fmt.Sprintf("  uTP SYNs on a flow of discovery dropped, so that the client goes over TCP: %d", report.UTPToTCP.Packets))
 	}
+	if quiet := QuietDiscovery(report); quiet != "" {
+		lines = append(lines, "  ⚠️ "+quiet)
+	}
 	if module := report.Module; module != nil {
-		lines = append(lines, fmt.Sprintf("  the module, since sing-box started: %d peers learned from %d replies and %d announces (%d known already, %d not learnable, %d over the cap); "+
-			"%d connections checked: %d confirmed (%d closed, %d left open), %d refuted, %d plaintext handshakes",
-			module["learned"], module["replies"], module["announces"], module["known"], module["not_learnable"], module["capped"],
-			module["watched"], module["confirmed"], module["rejected"]+module["reset"], module["kept_open"],
-			module["refuted"], module["plaintext"]))
+		lines = append(lines, fmt.Sprintf("  the module, since %s: %d peers learned from %d replies and %d announces (%d known already, %d not learnable, %d over the cap); "+
+			"%d connections checked: %d confirmed (%d of them by a late third step; %d closed, %d left open), %d not BitTorrent "+
+			"(%d not shaped like MSE, %d the far side first, %d refuted: %d the device again, %d the answer too long, %d too short, %d the third step late or short), "+
+			"%d undecided (%d no data, %d no answer, %d no third step), %d plaintext handshakes",
+			ModuleSince(report), module["learned"], module["replies"], module["announces"], module["known"], module["not_learnable"], module["capped"],
+			module["watched"], module["confirmed"], module["confirmed_late"], module["rejected"]+module["reset"], module["kept_open"],
+			module["not_shaped"]+module["far_first"]+module["refuted"], module["not_shaped"], module["far_first"], module["refuted"],
+			module["refuted_again"], module["refuted_long"], module["refuted_short"], module["refuted_third"],
+			module["no_data"]+module["unanswered"]+module["no_third"], module["no_data"], module["unanswered"], module["no_third"],
+			module["plaintext"]))
 	}
 	return lines
+}
+
+// ModuleSince says from when the module's counters of a report count.
+func ModuleSince(report Report) string {
+	if report.ResetAt > 0 {
+		return "the statistics were reset"
+	}
+	return "sing-box started"
+}
+
+// quietMin is the fewest flows of discovery that QuietDiscovery judges: a client starts with tens of
+// DHT queries and tracker connects (the field's reports of 0.8.17: 220-2428 in 13-160 min).
+const quietMin = 50
+
+// QuietDiscovery is a warning when the DHT and the UDP trackers got no answer at all: sent, and not
+// a byte received in quietMin flows or more. The router counts what came back to the devices; a
+// line that filters BitTorrent's discovery (the field's report 1 of 0.8.17: 220 tracker connects, 0
+// bytes back) looks so. Empty otherwise, or when the router does not count bytes.
+func QuietDiscovery(report Report) string {
+	if !report.Counted {
+		return ""
+	}
+	var flows uint64
+	var received Count
+	for _, row := range report.Rows {
+		if row.Kind == KindDiscovery {
+			flows += row.Connections
+			received.add(row.Received)
+		}
+	}
+	if flows < quietMin || received.Bytes > 0 {
+		return ""
+	}
+	return fmt.Sprintf("the DHT and the UDP trackers got no answer in %d flows: the provider may filter them, or the trackers are gone", flows)
 }

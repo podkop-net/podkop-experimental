@@ -1,15 +1,15 @@
 # RU translations for PODKOP package.
 # Copyright (C) 2026 THE PODKOP'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PODKOP package.
-# FiyeroT, 2026.
+# Automatically generated, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-17 02:48+0000\n"
-"PO-Revision-Date: 2026-11-17 02:48+0000\n"
-"Last-Translator: FiyeroT\n"
+"POT-Creation-Date: 2026-11-17 17:32+0000\n"
+"PO-Revision-Date: 2026-11-17 17:32+0000\n"
+"Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -76,6 +76,9 @@ msgstr "получено %s"
 
 msgid "%s s"
 msgstr "%s с"
+
+msgid "%s since the reset"
+msgstr "за %s после сброса"
 
 msgid "%s via %s"
 msgstr "%s через %s"
@@ -371,8 +374,8 @@ msgstr "Соединения обрываются около %d КБ — это 
 msgid "connections are refused"
 msgstr "соединения отклоняются"
 
-msgid "Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d"
-msgstr "Проверено соединений: %d; подтверждено как BitTorrent: %d (закрыто: %d, оставлено открытыми: %d); не BitTorrent: %d"
+msgid "Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d; no answer from the other side: %d"
+msgstr "Проверено соединений: %d; подтверждено как BitTorrent: %d (закрыто: %d, оставлено открытыми: %d); не BitTorrent: %d; без ответа другой стороны: %d"
 
 msgid "Connections to this server will go through %s, whose operator will see the address of this server."
 msgstr "Подключения к этому серверу пойдут через %s, и его владелец увидит адрес этого сервера."
@@ -1148,6 +1151,9 @@ msgstr "Убрать обход"
 msgid "replies %s"
 msgstr "отвечает %s"
 
+msgid "Reset"
+msgstr "Сбросить"
+
 msgid "Resolve real IP for routing"
 msgstr "Разрешение реальных IP-адресов"
 
@@ -1340,6 +1346,9 @@ msgstr "Укажите локальный IP-адрес, который след
 msgid "Start podkop"
 msgstr "Запустить podkop"
 
+msgid "Start the statistics again from now"
+msgstr "Начать статистику заново с этого момента"
+
 msgid "State"
 msgstr "Состояние"
 
@@ -1394,8 +1403,8 @@ msgstr "TCP подключается, но TLS или обновление до 
 msgid "TCP to peers"
 msgstr "TCP к пирам"
 
-msgid "TCP to uncommon ports, checked"
-msgstr "TCP на необычные порты, на проверке"
+msgid "TCP to uncommon ports"
+msgstr "TCP на необычные порты"
 
 msgid "TCP told by its handshake in podkop"
 msgstr "TCP, узнанный по рукопожатию уже в podkop"

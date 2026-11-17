@@ -29,14 +29,24 @@ type counters struct {
 	inspected atomic.Int64 // connections whose first data was shaped like MSE
 	notShaped atomic.Int64 // inspected connections whose first data was not
 	confirmed atomic.Int64 // confirmed by the three steps (or a plaintext handshake)
+	// confirmedLate: of confirmed, by a third step later than thirdStep (96-636 bytes within
+	// thirdStepLate)
+	confirmedLate atomic.Int64
 	// keptOpen: confirmed connections left open (learn_reset), as their far end is not in the set
-	keptOpen   atomic.Int64
-	refuted    atomic.Int64 // refuted at the second or the third step
-	rejected   atomic.Int64 // confirmed and closed in the mode block
-	reset      atomic.Int64 // confirmed, learned and closed (learn_reset)
-	plaintext  atomic.Int64 // plaintext handshakes
-	handedBack atomic.Int64 // connections given back to sing-box's own copy
-	panics     atomic.Int64 // panics on network input, ended by the module
+	keptOpen atomic.Int64
+	refuted  atomic.Int64 // refuted at the second or the third step: the four below
+	// refutedAgain: the device sent again before the answer; refutedLong, refutedShort: the
+	// answer over 608 or under 96 bytes; refutedThird: the third step late or short
+	refutedAgain, refutedLong, refutedShort, refutedThird atomic.Int64
+	// the verdict of an inspected connection that closed undecided: noData before the device's
+	// first data (a dial that failed), unanswered before the far side's answer, noThird before the
+	// device's third step
+	noData, unanswered, noThird atomic.Int64
+	rejected                    atomic.Int64 // confirmed and closed in the mode block
+	reset                       atomic.Int64 // confirmed, learned and closed (learn_reset)
+	plaintext                   atomic.Int64 // plaintext handshakes
+	handedBack                  atomic.Int64 // connections given back to sing-box's own copy
+	panics                      atomic.Int64 // panics on network input, ended by the module
 }
 
 // Counters is a snapshot of the module's counters, by name.
@@ -62,6 +72,14 @@ func (c *counters) snapshot() Counters {
 		"inspected":       c.inspected.Load(),
 		"not_shaped":      c.notShaped.Load(),
 		"confirmed":       c.confirmed.Load(),
+		"confirmed_late":  c.confirmedLate.Load(),
+		"refuted_again":   c.refutedAgain.Load(),
+		"refuted_long":    c.refutedLong.Load(),
+		"refuted_short":   c.refutedShort.Load(),
+		"refuted_third":   c.refutedThird.Load(),
+		"no_data":         c.noData.Load(),
+		"unanswered":      c.unanswered.Load(),
+		"no_third":        c.noThird.Load(),
 		"kept_open":       c.keptOpen.Load(),
 		"refuted":         c.refuted.Load(),
 		"rejected":        c.rejected.Load(),

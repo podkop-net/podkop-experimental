@@ -105,7 +105,9 @@ var Commands = [][2]string{
 	{"show_system_info", "The version of OpenWrt and the model of the device"},
 	{"check_nft", "The firewall table of the backend as nft prints it"},
 	{"bittorrent_counters", "What the BitTorrent module has counted since sing-box started, as JSON (empty when BitTorrent is off)"},
-	{"bittorrent_stats", "What the BitTorrent traffic of the LAN came to since the detector was on, by its kind and the way the mode sent it, as JSON: {mode, lan, rule, since, read, counted, rows: [{kind, way, open, connections, received, sent}], blocked, utp_to_tcp, module}"},
+	{"bittorrent_stats", "What the BitTorrent traffic of the LAN came to since the detector was on (or the last bittorrent_reset), by its kind and the way the mode sent it, as JSON: {mode, lan, rule, since, read, counted, rows: [{kind, way, open, connections, received, sent}], blocked, utp_to_tcp, module, reset_at}"},
+	{"bittorrent_reset", "Start the BitTorrent statistics again from now (the dashboard's Reset), without a restart of podkop"},
+	{"bittorrent_record", "[minutes] [--reset]: write a report of BitTorrent for a test, a sample every 10 s for the minutes (default 10): the router, the settings, CPU, memory, connections and the BitTorrent statistics, without any address or name; --reset starts the statistics first. It prints the file it wrote"},
 	{"list_update", "Download every list now instead of at the update interval"},
 	{"restore_routing", "Put back the routing rule and route, the firewall table and the DNS of the LAN when the network took them, apply the settings again when the network changed under them, try a start that failed again (the hotplug script of the package runs it at every ifup)"},
 	{"list_status", "Each list of what runs, as JSON: who fills it, its URL or file, when it was last downloaded, the last error of each plain list's URL"},
@@ -304,6 +306,14 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 			return 1
 		}
 		return pretty(report)
+	case "bittorrent_reset":
+		report, err := client.ResetBitTorrentStats()
+		if err != nil {
+			return 1
+		}
+		return pretty(report)
+	case "bittorrent_record":
+		return bitTorrentRecord(env, client, arguments[1:], output, errorOutput)
 	case "bittorrent_counters":
 		// what the BitTorrent module has counted since sing-box started (none when it is off)
 		counters, err := client.BitTorrent()

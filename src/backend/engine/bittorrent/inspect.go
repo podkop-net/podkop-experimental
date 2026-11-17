@@ -3,6 +3,7 @@ package bittorrent
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"net"
 	"net/netip"
 	"sync"
@@ -24,9 +25,17 @@ import (
 //     1. the first data of the device is 96 to 608 bytes and begins as no known protocol;
 //     2. the far side answers 96 to 608 bytes, and the device sends nothing before that answer
 //     (the initiator of MSE needs the far side's key for its next message);
-//     3. the device's next data, 56 bytes or more, follows the answer within thirdStep.
+//     3. the device's next data follows the answer: 56 bytes or more within thirdStep (aria2 and
+//     rTorrent, at once), or 96 to 636 bytes within thirdStepLate (MSE's third message with the
+//     BitTorrent handshake as its initial payload: 124 bytes and up to 512 of padding; Transmission
+//     and qBittorrent send it 0.1 to 15 s late, study A1c of 0.8.18).
 //     All three confirm the connection, any step that fails refutes it. A plaintext handshake of
 //     BitTorrent confirms it at once.
+//
+// Each inspected connection ends in one verdict, counted and told in the log at the level debug
+// (the device, the far end, the lengths and delays of the steps): confirmed, not shaped like MSE,
+// the far side first, the device again before the answer, the answer too long or too short, the
+// third step late or short, no first data (a dial that failed), no answer, no third step.
 //
 // Then the conn stands aside: it reports its handshake done (sing's copy asks NeedHandshakeFor*
 // after every transfer) and lets the copy unwrap it (ReaderReplaceable, WriterReplaceable,
@@ -37,6 +46,10 @@ const (
 	mseShortest      = 96
 	mseLongest       = 608
 	mseThirdShortest = 56
+	// the third message sent late: the handshake as its initial payload (20 + 20 + 8 + 4 + 2 + 2 +
+	// 68 = 124 bytes) and up to 512 bytes of padding (A1c: Transmission 124, M4's clients 124-428)
+	mseLateShortest = 96
+	mseLateLongest  = 636
 )
 
 // knownStarts are how TLS, HTTP and SSH begin: such a first data is not MSE (A1's PREFIXES, the
@@ -108,6 +121,13 @@ type conn struct {
 	far       netip.AddrPort
 	inspect   bool
 	confirmed Confirmed
+	// early: a connection of the transparent proxy (Options.Early), checked as an inspected one;
+	// confirmed, it waits for its device to be known as running a client (the poller of pending)
+	early bool
+	// cnt: the counters it counts in (the service's, or its early ones)
+	cnt *counters
+	// pendingSince: when it was confirmed early and began to wait
+	pendingSince time.Time
 	// routed: sing-box's sniffer named the connection BitTorrent, and its route rule of the
 	// protocol routed it as the mode says
 	routed bool
@@ -115,6 +135,8 @@ type conn struct {
 	access   sync.Mutex
 	step     int
 	flight   int
+	first    int       // the length of the device's first data
+	sentAt   time.Time // when it came
 	answered time.Time
 	reply    []byte
 	done     atomic.Bool
@@ -191,10 +213,10 @@ func (c *conn) sent(data []byte, now time.Time) (verdict int) {
 	case stepFirst:
 		switch {
 		case bytes.HasPrefix(data, plaintextHandshake):
-			c.service.counters.plaintext.Add(1)
+			c.cnt.plaintext.Add(1)
 			if c.routed && c.confirmed != ConfirmedReject {
 				// on the mode's way already: learned, not closed
-				c.service.counters.confirmed.Add(1)
+				c.cnt.confirmed.Add(1)
 				if c.service.learnFar(c.device, c.far) {
 					c.service.logConfirmed(c.device, c.far, "a plaintext handshake, its far end learned")
 				}
@@ -203,28 +225,38 @@ func (c *conn) sent(data []byte, now time.Time) (verdict int) {
 			}
 			return c.confirm()
 		case httpAnnounce(data):
-			c.service.counters.announces.Add(1)
+			c.cnt.announces.Add(1)
 			c.step = stepAnnounce
 			return verdictNone
 		case c.inspect && mseShaped(data):
-			c.service.counters.inspected.Add(1)
+			c.cnt.inspected.Add(1)
 			c.step = stepAnswer
+			c.first, c.sentAt = len(data), now
 			return verdictNone
 		}
 		if c.inspect {
-			c.service.counters.notShaped.Add(1)
+			c.cnt.notShaped.Add(1)
+			c.verdict("not shaped like MSE", len(data), now)
 		}
 		c.finish()
 	case stepAnswer:
 		// the device sent more before any answer
-		c.service.counters.refuted.Add(1)
-		c.finish()
+		c.refute(&c.cnt.refutedAgain, "the device sent again before an answer", len(data), now)
 	case stepThird:
-		if c.flight >= mseShortest && len(data) >= mseThirdShortest && now.Sub(c.answered) <= c.service.thirdStep {
+		delay := now.Sub(c.answered)
+		switch {
+		case c.flight < mseShortest:
+			c.refute(&c.cnt.refutedShort, "the answer too short", len(data), now)
+		case len(data) >= mseThirdShortest && delay <= c.service.thirdStep:
+			c.verdict("confirmed", len(data), now)
 			return c.confirm()
+		case len(data) >= mseLateShortest && len(data) <= mseLateLongest && delay <= c.service.thirdStepLate:
+			c.cnt.confirmedLate.Add(1)
+			c.verdict("confirmed by a late third step", len(data), now)
+			return c.confirm()
+		default:
+			c.refute(&c.cnt.refutedThird, "the third step late or short", len(data), now)
 		}
-		c.service.counters.refuted.Add(1)
-		c.finish()
 	case stepAnnounce:
 		// a request after the announce: the reply is read as it was
 	}
@@ -240,7 +272,8 @@ func (c *conn) answers(data []byte, now time.Time) (verdict int) {
 	case stepFirst:
 		// the far side spoke first
 		if c.inspect {
-			c.service.counters.farFirst.Add(1)
+			c.cnt.farFirst.Add(1)
+			c.verdict("the far side spoke first", 0, now)
 		}
 		c.finish()
 	case stepAnswer:
@@ -250,15 +283,14 @@ func (c *conn) answers(data []byte, now time.Time) (verdict int) {
 	case stepThird:
 		c.flight += len(data)
 		if c.flight > mseLongest {
-			c.service.counters.refuted.Add(1)
-			c.finish()
+			c.refute(&c.cnt.refutedLong, "the answer too long", 0, now)
 		}
 	case stepAnnounce:
 		c.reply = append(c.reply, data...)
 		peers, whole, err := httpReply(c.reply)
 		switch {
 		case err != nil:
-			c.service.counters.announceUnread.Add(1)
+			c.cnt.announceUnread.Add(1)
 			c.finish()
 		case whole:
 			c.service.learn(c.device, peers)
@@ -268,9 +300,21 @@ func (c *conn) answers(data []byte, now time.Time) (verdict int) {
 	return verdictNone
 }
 
-// confirm acts on a connection confirmed as BitTorrent.
+// confirm acts on a connection confirmed as BitTorrent; an early one waits for its device (pend).
 func (c *conn) confirm() int {
-	c.service.counters.confirmed.Add(1)
+	c.cnt.confirmed.Add(1)
+	if c.early {
+		c.pendingSince = time.Now()
+		c.service.pend(c)
+		c.finish()
+		return verdictNone
+	}
+	return c.act()
+}
+
+// act does with a confirmed connection what its inbound says: learn its far end (and close it), or
+// close it. The caller holds access, or (pending) the conn stood aside already.
+func (c *conn) act() int {
 	switch c.confirmed {
 	case ConfirmedLearn:
 		if c.service.learnFar(c.device, c.far) {
@@ -280,22 +324,80 @@ func (c *conn) confirm() int {
 		}
 	case ConfirmedLearnReset:
 		if !c.service.learnFar(c.device, c.far) {
-			c.service.counters.keptOpen.Add(1)
+			c.cnt.keptOpen.Add(1)
 			c.service.logConfirmed(c.device, c.far, "left open: its far end not learned")
 			break
 		}
-		c.service.counters.reset.Add(1)
+		c.cnt.reset.Add(1)
 		c.service.logConfirmed(c.device, c.far, "its far end learned, the connection closed")
 		c.close()
 		return verdictClosed
 	case ConfirmedReject:
-		c.service.counters.rejected.Add(1)
+		c.cnt.rejected.Add(1)
 		c.service.logConfirmed(c.device, c.far, "closed")
 		c.close()
 		return verdictClosed
 	}
 	c.finish()
 	return verdictNone
+}
+
+// refute counts a refutation of the kind and in the total, tells it and stands the conn aside.
+func (c *conn) refute(kind *atomic.Int64, why string, length int, now time.Time) {
+	kind.Add(1)
+	c.cnt.refuted.Add(1)
+	c.verdict(why, length, now)
+	c.finish()
+}
+
+// verdict tells the end of an inspection in the log at the level debug: the device, the far end,
+// the device's first data, the far side's answer after its delay, and length bytes of the device
+// at now (its next data, or a first data not shaped like MSE). The caller holds access.
+func (c *conn) verdict(why string, length int, now time.Time) {
+	if c.service.logger == nil {
+		return
+	}
+	line := fmt.Sprint("BitTorrent check of ", c.device, " to ", c.far, ": ", why)
+	switch {
+	case c.first == 0 && length > 0:
+		line += fmt.Sprint("; first data ", length, " B")
+	case c.first > 0:
+		line += fmt.Sprint("; first data ", c.first, " B")
+		if !c.answered.IsZero() {
+			line += fmt.Sprint(", answer ", c.flight, " B after ", c.answered.Sub(c.sentAt).Round(time.Millisecond))
+			if length > 0 {
+				line += fmt.Sprint(", next data ", length, " B after ", now.Sub(c.answered).Round(time.Millisecond))
+			}
+		} else if length > 0 {
+			line += fmt.Sprint(", next data ", length, " B after ", now.Sub(c.sentAt).Round(time.Millisecond))
+		}
+	}
+	c.service.logger.Debug(line)
+}
+
+// Close ends the connection; an inspected one not decided yet gets its verdict from the step it
+// was at: no first data (a dial that failed, a device that sent nothing), no answer from the far
+// side, or no third step.
+func (c *conn) Close() error {
+	c.access.Lock()
+	if c.inspect && !c.done.Load() && c.step != stepDone && c.step != stepAnnounce {
+		now := time.Now()
+		switch c.step {
+		case stepFirst:
+			c.cnt.noData.Add(1)
+			c.verdict("closed before any data", 0, now)
+		case stepAnswer:
+			c.cnt.unanswered.Add(1)
+			c.verdict("closed with no answer", 0, now)
+		case stepThird:
+			c.cnt.noThird.Add(1)
+			c.verdict("closed before the third step", 0, now)
+		}
+		c.step = stepDone
+		c.reply = nil
+	}
+	c.access.Unlock()
+	return c.Conn.Close()
 }
 
 // close ends the connection: the copies of both ways end with it.
@@ -310,22 +412,25 @@ func (c *conn) close() {
 // would end the whole backend), counts it and stands the conn aside.
 func (c *conn) recover() {
 	if recover() != nil {
-		c.service.counters.panics.Add(1)
+		c.cnt.panics.Add(1)
 		c.step = stepDone
 		c.reply = nil
 		c.done.Store(true)
 	}
 }
 
-// finish stands the conn aside.
+// finish stands the conn aside (once).
 func (c *conn) finish() {
+	if c.done.Load() {
+		return
+	}
 	c.step = stepDone
 	c.reply = nil
 	if !handBack {
 		return
 	}
 	c.done.Store(true)
-	c.service.counters.handedBack.Add(1)
+	c.cnt.handedBack.Add(1)
 }
 
 // The hand-back (see the top): sing's copy reads these after each transfer.

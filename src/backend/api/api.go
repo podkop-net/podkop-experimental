@@ -294,6 +294,8 @@ type Backend interface {
 	BitTorrent() map[string]int64
 	// BitTorrentStats is what the BitTorrent traffic of the LAN came to, by its kind and its way.
 	BitTorrentStats() btstats.Report
+	// ResetBitTorrentStats starts those statistics again from now and answers them.
+	ResetBitTorrentStats() btstats.Report
 }
 
 // Serve listens on the socket until the context ends. The socket is for root only: who
@@ -362,6 +364,9 @@ func Serve(ctx context.Context, path string, backend Backend, logs *logbuf.Buffe
 	})
 	mux.HandleFunc("GET /bittorrent/stats", func(writer http.ResponseWriter, request *http.Request) {
 		answer(writer, backend.BitTorrentStats())
+	})
+	mux.HandleFunc("POST /bittorrent/stats/reset", func(writer http.ResponseWriter, request *http.Request) {
+		answer(writer, backend.ResetBitTorrentStats())
 	})
 	mux.HandleFunc("GET /subscriptions", func(writer http.ResponseWriter, request *http.Request) {
 		answer(writer, backend.Subscriptions(request.Context()))
@@ -573,6 +578,13 @@ func (c Client) ProbeSelf() (*ProbeResult, error) {
 func (c Client) BitTorrentStats() (btstats.Report, error) {
 	var report btstats.Report
 	err := c.call(http.MethodGet, "/bittorrent/stats", 5*time.Second, &report)
+	return report, err
+}
+
+// ResetBitTorrentStats starts the statistics of BitTorrent again and returns them.
+func (c Client) ResetBitTorrentStats() (btstats.Report, error) {
+	var report btstats.Report
+	err := c.call(http.MethodPost, "/bittorrent/stats/reset", 5*time.Second, &report)
 	return report, err
 }
 

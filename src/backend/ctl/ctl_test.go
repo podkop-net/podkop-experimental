@@ -51,6 +51,7 @@ func (b *backend) Probe(_ context.Context, label string, wait time.Duration) api
 func (b *backend) ProbeSelf(context.Context) api.ProbeResult { return b.probe }
 func (b *backend) BitTorrent() map[string]int64              { return nil }
 func (b *backend) BitTorrentStats() btstats.Report           { return b.bitTorrent }
+func (b *backend) ResetBitTorrentStats() btstats.Report      { return b.bitTorrent }
 
 func (b *backend) Subscriptions(context.Context) []api.SubscriptionState { return b.subscriptions }
 func (b *backend) UpdateSubscriptions(_ context.Context, name string) []api.SubscriptionState {
@@ -468,4 +469,33 @@ func TestSubscriptionCommands(t *testing.T) {
 	output, status = run(none, "hwid")
 	require.Zero(t, status)
 	require.Contains(t, output, "source: ")
+}
+
+// bittorrent_record writes a report of samples with no address in it; it refuses bad minutes and a
+// mode that is off.
+func TestBitTorrentRecord(t *testing.T) {
+	recordDir, recordEvery, recordMinute = t.TempDir(), 20*time.Millisecond, 60*time.Millisecond
+	defer func() { recordDir, recordEvery, recordMinute = "/tmp", 10*time.Second, time.Minute }()
+	b := &backend{status: api.Status{Running: true}}
+	env := Environment{Socket: serve(t, b, logbuf.New(1<<10)), Version: "0.8.18-test"}
+	_, status := run(env, "bittorrent_record", "0")
+	require.Equal(t, 2, status)
+	_, status = run(env, "bittorrent_record")
+	require.Equal(t, 1, status, "BitTorrent off")
+	b.bitTorrent = btstats.Report{Mode: "bypass", Counted: true,
+		Rows:   []btstats.Row{{Kind: btstats.KindTCP, Way: btstats.WayPast, Open: 3, Connections: 9, Received: btstats.Count{Bytes: 2_000_000}, Sent: btstats.Count{Bytes: 30_000}}},
+		Module: map[string]int64{"watched": 4, "confirmed": 1, "learned": 12}}
+	output, status := run(env, "bittorrent_record", "1", "--reset")
+	require.Equal(t, 0, status, output)
+	files, err := filepath.Glob(filepath.Join(recordDir, "podkop-bittorrent-*.txt"))
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+	content, err := os.ReadFile(files[0])
+	require.NoError(t, err)
+	text := string(content)
+	require.Contains(t, text, "podkop 0.8.18-test")
+	require.Contains(t, text, "past podkop 2 MB / 30 KB")
+	require.Contains(t, text, "module: 4 checked, 1 confirmed, 12 learned")
+	require.Contains(t, text, "# at the end")
+	require.NotRegexp(t, `[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+`, text, "an address in the report")
 }

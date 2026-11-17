@@ -3184,7 +3184,7 @@ function renderWidget(props) {
 }
 
 // src/podkop/tabs/dashboard/partials/renderBitTorrent.ts
-function renderBitTorrent(table) {
+function renderBitTorrent(table, onReset) {
   if (!table) {
     return E("div", { class: "pdk_dashboard-page__bittorrent hidden" }, []);
   }
@@ -3218,8 +3218,19 @@ function renderBitTorrent(table) {
     E("div", { class: "pdk_dashboard-page__bittorrent__title" }, [
       E("b", {}, "BitTorrent"),
       E("span", { class: "pdk_dashboard-page__bittorrent__mode" }, [
-        `${table.mode} \xB7 ${_("since %s").format(table.since)}`
-      ])
+        `${table.mode} \xB7 ${(table.reset ? _("%s since the reset") : _("since %s")).format(table.since)}`
+      ]),
+      ...onReset ? [
+        E(
+          "button",
+          {
+            class: "btn cbi-button pdk_dashboard-page__bittorrent__reset",
+            title: _("Start the statistics again from now"),
+            click: onReset
+          },
+          [_("Reset")]
+        )
+      ] : []
     ]),
     E("div", { class: "pdk_dashboard-page__bittorrent__scroll" }, [
       E("table", { class: "pdk_dashboard-page__bittorrent__table" }, [
@@ -3326,7 +3337,7 @@ function bitTorrentKindName(kind) {
     case "late":
       return _("TCP told by its handshake in podkop");
     case "checked":
-      return _("TCP to uncommon ports, checked");
+      return _("TCP to uncommon ports");
     case "incoming":
       return _("Incoming through a port forward");
   }
@@ -3422,13 +3433,14 @@ function bitTorrentTable(report) {
     if ((module.watched ?? 0) > 0) {
       notes.push(
         _(
-          "Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d"
+          "Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d; no answer from the other side: %d"
         ).format(
           module.watched ?? 0,
           module.confirmed ?? 0,
           (module.rejected ?? 0) + (module.reset ?? 0),
           module.kept_open ?? 0,
-          (module.not_shaped ?? 0) + (module.refuted ?? 0) + (module.far_first ?? 0)
+          (module.not_shaped ?? 0) + (module.refuted ?? 0) + (module.far_first ?? 0),
+          (module.no_data ?? 0) + (module.unanswered ?? 0)
         )
       );
     }
@@ -3436,6 +3448,7 @@ function bitTorrentTable(report) {
   return {
     mode: bitTorrentModeName(report),
     since: spanText(report.since),
+    reset: (report.reset_at ?? 0) > 0,
     rows,
     blocked,
     notes
@@ -3657,12 +3670,32 @@ async function fetchBitTorrent() {
     bitTorrentWidget: { loading: false, failed: !report, data: report }
   });
 }
+var backendBitTorrentReset;
+async function resetBitTorrent() {
+  backendBitTorrentReset ?? (backendBitTorrentReset = rpc.declare({
+    object: "podkop",
+    method: "bittorrent_reset",
+    nobatch: true
+  }));
+  try {
+    const reply = await backendBitTorrentReset();
+    if (typeof reply === "object" && reply !== null) {
+      store.set({
+        bitTorrentWidget: { loading: false, failed: false, data: reply }
+      });
+    }
+  } catch {
+  }
+}
 function renderBitTorrentWidget() {
   const container = document.getElementById("dashboard-bittorrent");
   if (!container) return;
   const widget = store.get().bitTorrentWidget;
   container.replaceChildren(
-    renderBitTorrent(widget.failed ? void 0 : bitTorrentTable(widget.data))
+    renderBitTorrent(
+      widget.failed ? void 0 : bitTorrentTable(widget.data),
+      resetBitTorrent
+    )
   );
 }
 var DETECT_IDLE_MS = 15e3;
@@ -4554,6 +4587,10 @@ var styles = `
 
 .pdk_dashboard-page__bittorrent__mode {
     opacity: 0.8;
+}
+
+.pdk_dashboard-page__bittorrent__reset {
+    margin-left: auto;
 }
 
 .pdk_dashboard-page__bittorrent__scroll {

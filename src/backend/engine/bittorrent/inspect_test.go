@@ -44,7 +44,7 @@ func (r *recordSink) count() int {
 
 func testService() (*Service, *recordSink) {
 	sink := &recordSink{}
-	s := &Service{thirdStep: 50 * time.Millisecond, wait: 100 * time.Millisecond, neverPorts: map[uint16]struct{}{443: {}},
+	s := &Service{thirdStep: 50 * time.Millisecond, thirdStepLate: 300 * time.Millisecond, wait: 100 * time.Millisecond, neverPorts: map[uint16]struct{}{443: {}},
 		devices: devices{cap: 16384, window: 30 * time.Minute}, sink: sink}
 	return s, sink
 }
@@ -224,7 +224,7 @@ func runDevice(address string, e exchange, first []byte) (int64, error) {
 
 func inspectWith(s *Service, confirmed Confirmed) func(net.Conn) net.Conn {
 	return func(inbound net.Conn) net.Conn {
-		return &conn{Conn: inbound, service: s, device: netip.MustParseAddr("192.168.80.10"), far: testFar, inspect: true, confirmed: confirmed}
+		return &conn{Conn: inbound, service: s, cnt: &s.counters, device: netip.MustParseAddr("192.168.80.10"), far: testFar, inspect: true, confirmed: confirmed}
 	}
 }
 
@@ -311,7 +311,7 @@ func TestInspectLearnResetUnlearned(t *testing.T) {
 			c.setup(s)
 		}
 		r := newRelay(t, farAddress, func(inbound net.Conn) net.Conn {
-			return &conn{Conn: inbound, service: s, device: testDevice, far: c.far, inspect: true, confirmed: ConfirmedLearnReset}
+			return &conn{Conn: inbound, service: s, cnt: &s.counters, device: testDevice, far: c.far, inspect: true, confirmed: ConfirmedLearnReset}
 		})
 		got, err := runDevice(r.address(), mse, nil)
 		<-r.wrapped
@@ -333,7 +333,7 @@ func TestInspectPlaintext(t *testing.T) {
 		farAddress, stop := farServer(t, e)
 		s, sink := testService()
 		r := newRelay(t, farAddress, func(inbound net.Conn) net.Conn {
-			return &conn{Conn: inbound, service: s, device: testDevice, far: testFar, inspect: true, confirmed: ConfirmedLearnReset, routed: routed}
+			return &conn{Conn: inbound, service: s, cnt: &s.counters, device: testDevice, far: testFar, inspect: true, confirmed: ConfirmedLearnReset, routed: routed}
 		})
 		got, _ := runDevice(r.address(), e, first)
 		<-r.wrapped
@@ -357,7 +357,7 @@ func TestInspectReadCached(t *testing.T) {
 	_, _ = sniffed.Write(first)
 	var counted int64
 	counter := sbufio.NewCounterConn(sbufio.NewCachedConn(device, sniffed), []N.CountFunc{func(n int64) { counted += n }}, nil)
-	c := &conn{Conn: counter, service: s, device: testDevice, far: testFar, inspect: true, confirmed: ConfirmedLearnReset}
+	c := &conn{Conn: counter, service: s, cnt: &s.counters, device: testDevice, far: testFar, inspect: true, confirmed: ConfirmedLearnReset}
 	given := c.ReadCached()
 	if given == nil || !bytes.Equal(given.Bytes(), first) {
 		t.Fatalf("not the sniffer's read: %v", given)
@@ -370,26 +370,29 @@ func TestInspectReadCached(t *testing.T) {
 		t.Error("given twice")
 	}
 	// nothing cached under it: none
-	plain := &conn{Conn: device, service: s, device: testDevice, far: testFar, inspect: true}
+	plain := &conn{Conn: device, service: s, cnt: &s.counters, device: testDevice, far: testFar, inspect: true}
 	if plain.ReadCached() != nil {
 		t.Error("a read of nothing")
 	}
 }
 
-// Refuted: the far side's answer too long, the third message too late, the device speaking again
-// before any answer, a first data not shaped like MSE. Each goes on whole, nothing learned.
+// Refuted: the far side's answer too long or too short, the third message too late (past
+// thirdStepLate) or late and short, the device speaking again before any answer, a first data not
+// shaped like MSE. Each goes on whole, nothing learned, counted by its kind.
 func TestInspectRefuted(t *testing.T) {
 	for name, c := range map[string]struct {
 		e     exchange
 		first []byte
+		kind  func(*counters) int64
 	}{
-		"answer too long":  {exchange{first: 200, answer: 700, third: 100, bulk: 1 << 20}, nil},
-		"answer too short": {exchange{first: 200, answer: 60, third: 100, bulk: 1 << 20}, nil},
-		"third too late":   {exchange{first: 200, answer: 300, third: 100, pause: 120 * time.Millisecond, bulk: 1 << 20}, nil},
-		"third too short":  {exchange{first: 200, answer: 300, third: 40, bulk: 1 << 20}, nil},
-		"device again":     {exchange{first: 200, answer: 300, third: 100, again: true, bulk: 1 << 20}, nil},
-		"not shaped":       {exchange{first: 700, answer: 300, third: 100, bulk: 1 << 20}, nil},
-		"TLS":              {exchange{first: 200, answer: 300, third: 100, bulk: 1 << 20}, append([]byte{0x16, 0x03, 0x01}, randomBytes(197)...)},
+		"answer too long":      {exchange{first: 200, answer: 700, third: 100, bulk: 1 << 20}, nil, func(c *counters) int64 { return c.refutedLong.Load() }},
+		"answer too short":     {exchange{first: 200, answer: 60, third: 100, bulk: 1 << 20}, nil, func(c *counters) int64 { return c.refutedShort.Load() }},
+		"third too late":       {exchange{first: 200, answer: 300, third: 124, pause: 400 * time.Millisecond, bulk: 1 << 20}, nil, func(c *counters) int64 { return c.refutedThird.Load() }},
+		"third late and short": {exchange{first: 200, answer: 300, third: 60, pause: 120 * time.Millisecond, bulk: 1 << 20}, nil, func(c *counters) int64 { return c.refutedThird.Load() }},
+		"third too short":      {exchange{first: 200, answer: 300, third: 40, bulk: 1 << 20}, nil, func(c *counters) int64 { return c.refutedThird.Load() }},
+		"device again":         {exchange{first: 200, answer: 300, third: 100, again: true, bulk: 1 << 20}, nil, func(c *counters) int64 { return c.refutedAgain.Load() }},
+		"not shaped":           {exchange{first: 700, answer: 300, third: 100, bulk: 1 << 20}, nil, func(c *counters) int64 { return c.notShaped.Load() }},
+		"TLS":                  {exchange{first: 200, answer: 300, third: 100, bulk: 1 << 20}, append([]byte{0x16, 0x03, 0x01}, randomBytes(197)...), func(c *counters) int64 { return c.notShaped.Load() }},
 	} {
 		s, sink, wrapped, got, err := run(t, c.e, ConfirmedReject, c.first)
 		if err != nil || got != c.e.bulk {
@@ -398,8 +401,68 @@ func TestInspectRefuted(t *testing.T) {
 		if s.counters.confirmed.Load() != 0 || sink.count() != 0 {
 			t.Errorf("%s: confirmed %d, learned %d", name, s.counters.confirmed.Load(), sink.count())
 		}
+		if c.kind(&s.counters) != 1 {
+			t.Errorf("%s: not counted by its kind: %v", name, s.counters.snapshot())
+		}
 		if wrapped.NeedHandshakeForRead() {
 			t.Errorf("%s: not stood aside", name)
+		}
+	}
+}
+
+// A third message of 96 to 636 bytes later than thirdStep but within thirdStepLate (Transmission's
+// 124 bytes, 2 s late at the median: A1c) confirms the connection.
+func TestInspectLateThird(t *testing.T) {
+	e := exchange{first: 200, answer: 300, third: 124, pause: 150 * time.Millisecond, bulk: 1 << 20}
+	s, sink, _, got, _ := run(t, e, ConfirmedLearnReset, nil)
+	if got != 0 || sink.count() != 1 || s.counters.confirmed.Load() != 1 || s.counters.confirmedLate.Load() != 1 {
+		t.Errorf("bulk %d, learned %d, confirmed %d, of them late %d", got, sink.count(), s.counters.confirmed.Load(), s.counters.confirmedLate.Load())
+	}
+}
+
+// A connection that closes undecided gets the verdict of its step: the far side never answered
+// (a peer that is gone, a server that cannot reach it), or the device sent nothing.
+func TestInspectClosedUndecided(t *testing.T) {
+	silent, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer silent.Close()
+	go func() {
+		for {
+			c, err := silent.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				_, _ = io.ReadFull(c, make([]byte, 200))
+				time.Sleep(50 * time.Millisecond)
+				_ = c.Close()
+			}()
+		}
+	}()
+	for name, sends := range map[string]bool{"no answer": true, "no data": false} {
+		s, _ := testService()
+		r := newRelay(t, silent.Addr().String(), inspectWith(s, ConfirmedReject))
+		c, err := net.Dial("tcp4", r.address())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if sends {
+			_, _ = c.Write(randomBytes(200))
+			_, _ = io.ReadAll(c)
+		} else {
+			time.Sleep(400 * time.Millisecond)
+		}
+		_ = c.Close()
+		<-r.wrapped
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) && s.counters.unanswered.Load()+s.counters.noData.Load() == 0 {
+			time.Sleep(10 * time.Millisecond)
+		}
+		r.close()
+		if sends && s.counters.unanswered.Load() != 1 || !sends && s.counters.noData.Load() != 1 {
+			t.Errorf("%s: %v", name, s.counters.snapshot())
 		}
 	}
 }
@@ -557,4 +620,88 @@ func TestA6Endpoints(t *testing.T) {
 		fmt.Fprintln(os.Stderr, "device:", err)
 	}
 	fmt.Println("DONE " + strconv.FormatInt(got, 10))
+}
+
+// The early check: a connection of the transparent proxy confirmed before its device was known
+// waits (it goes on as routed); once the device is in the set, it is learned and closed, and the
+// counters of the early check, not those of the inspection, count it.
+func TestInspectEarly(t *testing.T) {
+	e := mse
+	e.bulk = 1 << 30
+	far, stop := farServer(t, e)
+	defer stop()
+	s, sink := testService()
+	s.pending = make(map[netip.Addr][]*conn)
+	known := false
+	s.known = func() (map[netip.Addr]bool, error) {
+		return map[netip.Addr]bool{testDevice: known}, nil
+	}
+	r := newRelay(t, far, func(inbound net.Conn) net.Conn {
+		return &conn{Conn: inbound, service: s, cnt: &s.early, early: true, device: testDevice, far: testFar, inspect: true, confirmed: ConfirmedLearnReset}
+	})
+	defer r.close()
+	type result struct {
+		got int64
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		got, err := runDevice(r.address(), e, nil)
+		done <- result{got, err}
+	}()
+	<-r.wrapped
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && s.early.confirmed.Load() == 0 {
+		time.Sleep(5 * time.Millisecond)
+	}
+	if s.early.confirmed.Load() != 1 || s.counters.confirmed.Load() != 0 || sink.count() != 0 {
+		t.Fatalf("early confirmed %d, inspection confirmed %d, learned %d", s.early.confirmed.Load(), s.counters.confirmed.Load(), sink.count())
+	}
+	s.actOnKnown(time.Now())
+	if sink.count() != 0 || s.earlyActed.Load() != 0 {
+		t.Fatalf("acted on a device not known: learned %d", sink.count())
+	}
+	known = true
+	s.actOnKnown(time.Now())
+	if sink.count() != 1 || s.earlyActed.Load() != 1 || s.early.reset.Load() != 1 {
+		t.Errorf("learned %d, acted %d, reset %d", sink.count(), s.earlyActed.Load(), s.early.reset.Load())
+	}
+	select {
+	case res := <-done:
+		if res.got >= e.bulk {
+			t.Errorf("the connection went on whole (%d bytes): not closed", res.got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Error("the connection was not closed")
+	}
+	if len(s.pending) != 0 {
+		t.Errorf("%d devices still pending", len(s.pending))
+	}
+}
+
+// A device not known to run a client, with confirmed connections waiting to earlySelf distinct far
+// addresses, is taken as running one: its connections are done with. With fewer, they wait.
+func TestEarlySelf(t *testing.T) {
+	for _, distinct := range []int{2, 3} {
+		s, sink := testService()
+		s.pending = make(map[netip.Addr][]*conn)
+		s.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{}, nil }
+		for i := 0; i < distinct; i++ {
+			device, other := net.Pipe()
+			defer other.Close()
+			far := netip.AddrPortFrom(netip.AddrFrom4([4]byte{203, 0, 113, byte(10 + i)}), 51413)
+			c := &conn{Conn: device, service: s, cnt: &s.early, early: true, device: testDevice, far: far, inspect: true,
+				confirmed: ConfirmedLearn, pendingSince: time.Now()}
+			c.done.Store(true)
+			s.pend(c)
+		}
+		s.actOnKnown(time.Now())
+		acted := int(s.earlyActed.Load())
+		if distinct >= earlySelf && (acted != distinct || sink.count() != distinct || s.earlySelfTold.Load() != 1) {
+			t.Errorf("%d distinct: acted %d, learned %d, told %d", distinct, acted, sink.count(), s.earlySelfTold.Load())
+		}
+		if distinct < earlySelf && (acted != 0 || len(s.pending[testDevice]) != distinct) {
+			t.Errorf("%d distinct: acted %d, pending %d", distinct, acted, len(s.pending[testDevice]))
+		}
+	}
 }

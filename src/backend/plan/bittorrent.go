@@ -140,6 +140,11 @@ func (b *builder) buildBitTorrentService() {
 			newObject("inbound", tagBitTorrentCheckInbound, "confirmed", confirmed),
 			newObject("inbound", tagBitTorrentLANInbound, "confirmed", confirmed),
 		},
+		// the early check (0.8.18): a connection of the transparent proxy to an uncommon port,
+		// confirmed before the firewall knew its device runs a client, is done with as those of
+		// bt-check once it knows
+		"early", []any{newObject("inbound", tagTProxyInbound, "confirmed", confirmed)},
+		"hosts", dataplane.BitTorrentHostsSet,
 		"never_ports", never))
 }
 

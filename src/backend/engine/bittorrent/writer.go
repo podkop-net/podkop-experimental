@@ -2,6 +2,7 @@ package bittorrent
 
 import (
 	"errors"
+	"net/netip"
 	"syscall"
 	"time"
 
@@ -179,4 +180,28 @@ func (w *writer) answer(batch []*writeRequest, err error) {
 	for _, request := range batch {
 		request.done <- err
 	}
+}
+
+// readHosts reads the set of devices (ipv4_addr) of the table of the family inet: the early check's
+// look-up of the devices known to run a client.
+func readHosts(table string, name string) (map[netip.Addr]bool, error) {
+	conn, err := nftables.New()
+	if err != nil {
+		return nil, err
+	}
+	set, err := conn.GetSetByName(&nftables.Table{Name: table, Family: nftables.TableFamilyINet}, name)
+	if err != nil {
+		return nil, err
+	}
+	elements, err := conn.GetSetElements(set)
+	if err != nil {
+		return nil, err
+	}
+	known := make(map[netip.Addr]bool, len(elements))
+	for _, element := range elements {
+		if address, ok := netip.AddrFromSlice(element.Key); ok {
+			known[address.Unmap()] = true
+		}
+	}
+	return known, nil
 }
