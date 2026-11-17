@@ -304,7 +304,13 @@ func (c *conn) answers(data []byte, now time.Time) (verdict int) {
 func (c *conn) confirm() int {
 	c.cnt.confirmed.Add(1)
 	if c.early {
-		c.pendingSince = time.Now()
+		now := time.Now()
+		// a device told by its own peers in block: closed at once, not at the next poll
+		if c.confirmed == ConfirmedReject && c.service.selfKnownNow(c.device, now) {
+			c.service.earlyActed.Add(1)
+			return c.act()
+		}
+		c.pendingSince = now
 		c.service.pend(c)
 		c.finish()
 		return verdictNone

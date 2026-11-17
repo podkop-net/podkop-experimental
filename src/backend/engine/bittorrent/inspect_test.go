@@ -776,4 +776,11 @@ func TestEarlySelfBlock(t *testing.T) {
 	if s.early.rejected.Load() != 6 || sink.count() != 0 || len(s.selfTold) != 0 {
 		t.Errorf("rejected %d of 6, learned %d, watched %d", s.early.rejected.Load(), sink.count(), len(s.selfTold))
 	}
+	// told once, the device is known in block for earlyFor: one more connection (one peer, not
+	// three) is closed at the next round, and it was told once only
+	add(30, 1)
+	s.actOnKnown(start.Add(20 * time.Second))
+	if s.early.rejected.Load() != 7 || s.earlySelfTold.Load() != 1 || !s.selfKnownNow(testDevice, start.Add(20*time.Second)) {
+		t.Errorf("a later one: rejected %d of 7, told %d", s.early.rejected.Load(), s.earlySelfTold.Load())
+	}
 }

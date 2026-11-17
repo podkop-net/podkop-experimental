@@ -146,9 +146,12 @@ type Service struct {
 	earlyNoRetry atomic.Int64
 	earlyKept    atomic.Int64
 	// selfTold: when a device was told by its own peers (watched for earlyRetry); noRetry: until
-	// when a device that did not connect again keeps its connections (under pendingMu)
+	// when a device that did not connect again keeps its connections; selfKnown: until when a
+	// device told by its own peers in block is taken as running a client (its closed connections
+	// learn nothing, so their retries never put it in the set) (all under pendingMu)
 	selfTold  map[netip.Addr]time.Time
 	noRetry   map[netip.Addr]time.Time
+	selfKnown map[netip.Addr]time.Time
 	pendingMu sync.Mutex
 	pending   map[netip.Addr][]*conn
 	// known tells whether a device is in the set Hosts (the poller's netlink read; a test's)
@@ -320,6 +323,21 @@ func (s *Service) logConfirmed(device netip.Addr, far netip.AddrPort, done strin
 	}
 }
 
+func (s *Service) initEarly() {
+	if s.selfTold == nil {
+		s.selfTold, s.noRetry, s.selfKnown = make(map[netip.Addr]time.Time), make(map[netip.Addr]time.Time), make(map[netip.Addr]time.Time)
+	}
+}
+
+// selfKnownNow tells whether a device was told by its own peers in block (selfKnown): a connection
+// of it confirmed early is closed at once.
+func (s *Service) selfKnownNow(device netip.Addr, now time.Time) bool {
+	s.pendingMu.Lock()
+	defer s.pendingMu.Unlock()
+	until, ok := s.selfKnown[device]
+	return ok && now.Before(until)
+}
+
 // pend keeps a connection confirmed early until its device is known (pollPending).
 func (s *Service) pend(c *conn) {
 	s.pendingMu.Lock()
@@ -361,9 +379,7 @@ func (s *Service) actOnKnown(now time.Time) {
 		return
 	}
 	s.pendingMu.Lock()
-	if s.selfTold == nil {
-		s.selfTold, s.noRetry = make(map[netip.Addr]time.Time), make(map[netip.Addr]time.Time)
-	}
+	s.initEarly()
 	// a device told by its own peers: known since (it connected again), or not within earlyRetry
 	for device, at := range s.selfTold {
 		switch {
@@ -378,9 +394,11 @@ func (s *Service) actOnKnown(now time.Time) {
 			}
 		}
 	}
-	for device, until := range s.noRetry {
-		if now.After(until) {
-			delete(s.noRetry, device)
+	for _, states := range []map[netip.Addr]time.Time{s.noRetry, s.selfKnown} {
+		for device, until := range states {
+			if now.After(until) {
+				delete(states, device)
+			}
 		}
 	}
 	keep := make(map[*conn]bool)
@@ -404,15 +422,18 @@ func (s *Service) actOnKnown(now time.Time) {
 			distinct[c.far.Addr()] = struct{}{}
 		}
 		_, noRetry := s.noRetry[device]
-		self := !known[device] && (noRetry || len(distinct) >= earlySelf)
+		_, selfKnown := s.selfKnown[device]
+		self := !known[device] && (noRetry || selfKnown || len(distinct) >= earlySelf)
 		if known[device] || self {
 			if noRetry && !known[device] {
 				for _, c := range kept {
 					keep[c] = true
 				}
-			} else if self {
+			} else if self && !selfKnown {
 				if resets {
 					s.selfTold[device] = now
+				} else {
+					s.selfKnown[device] = now.Add(earlyFor)
 				}
 				s.earlySelfTold.Add(1)
 				if s.logger != nil {
