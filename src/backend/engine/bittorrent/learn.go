@@ -108,6 +108,12 @@ func (c *packetConn) request(payload []byte, far netip.AddrPort, now time.Time) 
 // while the set is written, so the device's packets go on meanwhile.
 func (c *packetConn) reply(payload []byte, far netip.AddrPort, now time.Time) {
 	if peers := c.paired(payload, far, now); len(peers) > 0 {
+		// a panic of the learning ends the learning of this reply (B2: not the backend)
+		defer func() {
+			if recover() != nil {
+				c.service.counters.panics.Add(1)
+			}
+		}()
 		c.service.learn(c.device, peers)
 	}
 }
@@ -210,23 +216,21 @@ var (
 // learn puts the learnable peers of a reply in the set for the device, and waits for the kernel's
 // answer, at most wait: the reply is held until then, so the device's connection to a peer finds
 // it (the race of F2: rTorrent connects 0.3-40 ms after a reply). Past wait, or on any error, the
-// reply goes on unlearned, counted. A peer written for the device within the set's timeout is not
-// written again: the element is there (a lookup of the firewall refreshes it, an add of userspace
-// does not on kernel 6.6).
+// reply goes on unlearned, counted. Every peer is written, those written before too: an add of
+// userspace neither moves an element's timer nor fails on one that is there (kernel 6.6), and makes
+// one that has gone, so the module cannot tell from its own writes what the set holds.
 func (s *Service) learn(device netip.Addr, peers []netip.AddrPort) {
-	s.write(device, peers, false)
+	s.write(device, peers)
 }
 
 // learnFar learns the far end of a confirmed connection and tells whether it is in the set now, so
-// that the device's retry finds it at its SYN. It is written even when it was written for the
-// device within the timeout: the firewall did not find it at this connection's SYN.
+// that the device's retry finds it at its SYN.
 func (s *Service) learnFar(device netip.Addr, far netip.AddrPort) bool {
-	return s.write(device, []netip.AddrPort{far}, true)
+	return s.write(device, []netip.AddrPort{far})
 }
 
-// write writes the peers for the device (all of them again) and tells whether every one is in the
-// set.
-func (s *Service) write(device netip.Addr, peers []netip.AddrPort, again bool) bool {
+// write writes the peers for the device and tells whether every one is in the set.
+func (s *Service) write(device netip.Addr, peers []netip.AddrPort) bool {
 	if s.sink == nil || !device.Is4() {
 		return false
 	}
@@ -242,25 +246,22 @@ func (s *Service) write(device netip.Addr, peers []netip.AddrPort, again bool) b
 	if len(keys) == 0 {
 		return false
 	}
-	now := time.Now()
-	fresh, known, capped := s.devices.take(device, keys, now, again)
+	taken, known, capped := s.devices.take(device, keys, time.Now())
 	s.counters.known.Add(int64(known))
 	s.counters.capped.Add(int64(capped))
 	whole = whole && capped == 0
-	if len(fresh) == 0 {
-		return whole
+	if len(taken) == 0 {
+		return false
 	}
-	err := s.sink.add(fresh, s.wait)
-	switch err {
+	switch s.sink.add(taken, s.wait) {
 	case nil:
-		s.counters.learned.Add(int64(len(fresh)))
+		s.counters.learned.Add(int64(len(taken)))
 		return whole
 	case errLate:
 		s.counters.late.Add(1)
 	default:
 		s.counters.writeFailed.Add(1)
 	}
-	s.devices.unwrite(device, fresh)
 	return false
 }
 
@@ -275,87 +276,87 @@ func elementKey(device netip.Addr, peer netip.AddrPort) []byte {
 	return key
 }
 
-// devices keeps the peers written for each device within the set's timeout, against the cap per
-// device (R7 of the A5 review: one device's discovery must not fill the set for all). A peer is
-// counted once: replies name the same peers again and again (on the stand of 2026-11-16, aria2's
-// 1204 peers learned in five minutes were 785 elements of the set).
+// devices counts the peers learned for each device within the set's timeout, against the cap per
+// device (R7 of the A5 review: one device's discovery must not fill the set for all). A peer counts
+// once in the window, from the reply that first named it: replies name the same peers again and
+// again (on the stand of 2026-11-16, aria2's 1204 peers learned in five minutes were 785 elements
+// of the set), and the cap is of the set's elements. What counts is not what is written: every
+// peer within the cap is written each time (Service.learn).
 type devices struct {
 	access  sync.Mutex
 	cap     int
 	window  time.Duration
 	base    time.Time
-	written map[netip.Addr]*deviceKeys
+	counted map[netip.Addr]*deviceKeys
 }
 
-// deviceKeys are the keys written for a device, each with the time it was written (from base, by
-// the monotonic clock: the router's clock may jump at its first NTP answer).
+// deviceKeys are the peers counted for a device, each with the time it was counted (from base, by
+// the monotonic clock: the router's clock may jump at its first NTP answer), and in that order, so
+// that those past the window go from the front.
 type deviceKeys struct {
 	last time.Duration
 	keys map[[12]byte]time.Duration
+	// order holds each key of keys once, from head on
+	order []countedKey
+	head  int
 }
 
-// devicesMost is how many devices devices keeps before it forgets those with nothing written
+type countedKey struct {
+	key [12]byte
+	at  time.Duration
+}
+
+// devicesMost is how many devices devices keeps before it forgets those with nothing counted
 // within the window.
 const devicesMost = 4096
 
-// take gives the keys to write for the device: those not written for it within the window (with
-// again, all), as many new ones as its cap leaves room for. They count as written from now on;
-// unwrite takes them back when the write fails. known and capped are the keys left out.
-func (d *devices) take(device netip.Addr, keys [][]byte, now time.Time, again bool) (fresh [][]byte, known int, capped int) {
+// take gives the keys of the device to write: those counted within the window, and new ones as
+// many as its cap leaves room for (counted from now). known are the keys counted before, capped
+// those left out.
+func (d *devices) take(device netip.Addr, keys [][]byte, now time.Time) (taken [][]byte, known int, capped int) {
 	d.access.Lock()
 	defer d.access.Unlock()
-	if d.written == nil {
-		d.written = make(map[netip.Addr]*deviceKeys)
+	if d.counted == nil {
+		d.counted = make(map[netip.Addr]*deviceKeys)
 	}
 	if d.base.IsZero() {
 		d.base = now
 	}
 	at := now.Sub(d.base)
-	entry := d.written[device]
+	entry := d.counted[device]
 	if entry == nil {
-		if len(d.written) >= devicesMost {
-			for address, old := range d.written {
+		if len(d.counted) >= devicesMost {
+			for address, old := range d.counted {
 				if at-old.last > d.window {
-					delete(d.written, address)
+					delete(d.counted, address)
 				}
 			}
 		}
 		entry = &deviceKeys{keys: make(map[[12]byte]time.Duration)}
-		d.written[device] = entry
+		d.counted[device] = entry
 	}
 	entry.last = at
-	if len(entry.keys) >= d.cap {
-		for key, written := range entry.keys {
-			if at-written > d.window {
-				delete(entry.keys, key)
-			}
-		}
+	// the keys past the window, from the front; the slice is made anew when most of it is behind
+	for entry.head < len(entry.order) && at-entry.order[entry.head].at > d.window {
+		delete(entry.keys, entry.order[entry.head].key)
+		entry.head++
+	}
+	if entry.head > 1024 && entry.head > len(entry.order)/2 {
+		entry.order = append([]countedKey(nil), entry.order[entry.head:]...)
+		entry.head = 0
 	}
 	for _, key := range keys {
 		id := [12]byte(key)
-		written, ok := entry.keys[id]
-		switch {
-		case ok && !again && at-written <= d.window:
+		if _, ok := entry.keys[id]; ok {
 			known++
-			continue
-		case !ok && len(entry.keys) >= d.cap:
+		} else if len(entry.keys) >= d.cap {
 			capped++
 			continue
+		} else {
+			entry.keys[id] = at
+			entry.order = append(entry.order, countedKey{id, at})
 		}
-		entry.keys[id] = at
-		fresh = append(fresh, key)
+		taken = append(taken, key)
 	}
-	return fresh, known, capped
-}
-
-// unwrite takes back keys take gave whose write failed: they are written again with the next reply
-// that names them.
-func (d *devices) unwrite(device netip.Addr, keys [][]byte) {
-	d.access.Lock()
-	defer d.access.Unlock()
-	if entry := d.written[device]; entry != nil {
-		for _, key := range keys {
-			delete(entry.keys, [12]byte(key))
-		}
-	}
+	return taken, known, capped
 }

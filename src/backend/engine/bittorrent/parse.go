@@ -50,10 +50,10 @@ func trackerRequest(payload []byte) (uint32, bool) {
 // keys) or a scrape of a UDP tracker (BEP 15: a connection id, the action 2, a transaction id,
 // then info hashes of 20 bytes each).
 func discoveryMessage(payload []byte) bool {
-	if len(payload) > 0 && payload[0] == 'd' {
-		return bytes.Contains(payload, []byte("1:y1:"))
+	if len(payload) >= 36 && (len(payload)-16)%20 == 0 && binary.BigEndian.Uint32(payload[8:12]) == trackerScrape {
+		return true
 	}
-	return len(payload) >= 36 && (len(payload)-16)%20 == 0 && binary.BigEndian.Uint32(payload[8:12]) == trackerScrape
+	return len(payload) > 0 && payload[0] == 'd' && bytes.Contains(payload, []byte("1:y1:"))
 }
 
 // trackerReply is the transaction id and the peers of an announce reply of BEP 15: action 1, the

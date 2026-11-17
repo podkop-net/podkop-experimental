@@ -150,8 +150,9 @@ func TestLearnUTP(t *testing.T) {
 	}
 }
 
-// The cap per device counts a peer once: a reply that names peers written already writes none of
-// them again; new ones past the cap are left.
+// The cap per device counts a peer once: a reply that names peers counted already writes them
+// again (an add of userspace cannot tell what the set holds) and they take no more of the cap; new
+// ones past the cap are left.
 func TestLearnCap(t *testing.T) {
 	s, sink := testService()
 	s.devices.cap = 4
@@ -162,23 +163,30 @@ func TestLearnCap(t *testing.T) {
 	reply(t, c, trackerAnnounceReply(1, testPeers), trackerFar)
 	reply(t, c, trackerAnnounceReply(2, testPeers), trackerFar)
 	reply(t, c, trackerAnnounceReply(3, more), trackerFar)
-	if sink.count() != 4 || s.counters.known.Load() != 3 || s.counters.capped.Load() != 1 {
-		t.Errorf("learned %d of 4, known %d of 3, capped %d of 1", sink.count(), s.counters.known.Load(), s.counters.capped.Load())
+	if sink.count() != 7 || s.counters.known.Load() != 3 || s.counters.capped.Load() != 1 {
+		t.Errorf("written %d of 7, known %d of 3, capped %d of 1", sink.count(), s.counters.known.Load(), s.counters.capped.Load())
 	}
 }
 
-// A peer written for the device is written again after the window (its element has gone), and a
-// write that failed is no write.
+// A peer counted for the device leaves the cap after the window; a write that failed leaves the
+// peer counted, and the next reply writes it.
 func TestLearnAgain(t *testing.T) {
 	s, sink := testService()
+	s.devices.cap = 3
 	s.devices.window = 20 * time.Millisecond
-	c, _ := session(s, fakePacket{trackerAnnounceRequest(1), trackerFar}, fakePacket{trackerAnnounceRequest(2), trackerFar})
+	other := []netip.AddrPort{netip.MustParseAddrPort("203.0.113.9:51413")}
+	c, _ := session(s, fakePacket{trackerAnnounceRequest(1), trackerFar}, fakePacket{trackerAnnounceRequest(2), trackerFar},
+		fakePacket{trackerAnnounceRequest(3), trackerFar})
 	sendAll(t, c)
 	reply(t, c, trackerAnnounceReply(1, testPeers), trackerFar)
+	reply(t, c, trackerAnnounceReply(2, other), trackerFar)
+	if sink.count() != 3 || s.counters.capped.Load() != 1 {
+		t.Errorf("within the window: written %d of 3, capped %d of 1", sink.count(), s.counters.capped.Load())
+	}
 	time.Sleep(40 * time.Millisecond)
-	reply(t, c, trackerAnnounceReply(2, testPeers), trackerFar)
-	if sink.count() != 6 {
-		t.Errorf("learned %d of 6", sink.count())
+	reply(t, c, trackerAnnounceReply(3, other), trackerFar)
+	if sink.count() != 4 || s.counters.capped.Load() != 1 {
+		t.Errorf("after the window: written %d of 4, capped %d", sink.count(), s.counters.capped.Load())
 	}
 	s, _ = testService()
 	s.sink = failingSink{}
@@ -189,7 +197,23 @@ func TestLearnAgain(t *testing.T) {
 	s.sink = recorded
 	reply(t, c, trackerAnnounceReply(2, testPeers), trackerFar)
 	if recorded.count() != 3 || s.counters.writeFailed.Load() != 1 {
-		t.Errorf("after a failed write: learned %d of 3, failed %d", recorded.count(), s.counters.writeFailed.Load())
+		t.Errorf("after a failed write: written %d of 3, failed %d", recorded.count(), s.counters.writeFailed.Load())
+	}
+}
+
+// The window's front goes as the keys age, and the queue is made anew when most of it is behind.
+func TestDevicesQueue(t *testing.T) {
+	d := devices{cap: 1 << 20, window: time.Minute}
+	start := time.Unix(1000, 0)
+	device := netip.MustParseAddr("192.168.80.10")
+	for i := range 3000 {
+		peer := netip.AddrPortFrom(netip.AddrFrom4([4]byte{203, 0, byte(i >> 8), byte(i)}), 51413)
+		d.take(device, [][]byte{elementKey(device, peer)}, start.Add(time.Duration(i)*100*time.Millisecond))
+	}
+	entry := d.counted[device]
+	// 3000 keys 0.1 s apart: those of the last minute stay
+	if len(entry.keys) != 601 || len(entry.order)-entry.head != 601 || entry.head > 1024 {
+		t.Errorf("keys %d, queue %d from %d", len(entry.keys), len(entry.order), entry.head)
 	}
 }
 
