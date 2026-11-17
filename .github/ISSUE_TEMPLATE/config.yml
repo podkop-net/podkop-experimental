@@ -3,6 +3,9 @@ contact_links:
   - name: 💬 Если у вас что-то не работает, прежде всего прочитайте README проекта
     url: https://github.com/podkop-net/podkop-experimental
     about: README проекта
-  - name: 📚 Если вы не нашли в README документацию, то вот ссылка на неё
+  - name: 📚 Руководство podkop-exp
+    url: https://github.com/podkop-net/podkop-experimental/blob/main/docs/GUIDE.ru.md
+    about: Вкладки страницы и что делать, если что-то не работает
+  - name: 📚 Документация podkop
     url: https://podkop.net
-    about: Официальная документация PodKop
+    about: Документация podkop, на котором основан podkop-exp
