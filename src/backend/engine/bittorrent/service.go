@@ -134,8 +134,8 @@ type Service struct {
 	earlyExpired atomic.Int64
 	// earlySelfTold: devices taken as running a client by their own confirmed connections
 	earlySelfTold atomic.Int64
-	pendingMu    sync.Mutex
-	pending      map[netip.Addr][]*conn
+	pendingMu     sync.Mutex
+	pending       map[netip.Addr][]*conn
 	// known tells whether a device is in the set Hosts (the poller's netlink read; a test's)
 	known       func() (map[netip.Addr]bool, error)
 	stopPolling chan struct{}

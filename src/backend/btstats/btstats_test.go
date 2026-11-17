@@ -188,3 +188,10 @@ func TestQuietDiscovery(t *testing.T) {
 	require.Empty(t, QuietDiscovery(quiet))
 	require.Contains(t, strings.Join(Lines(row(220, 0)), "\n"), "⚠️ the DHT and the UDP trackers got no answer")
 }
+
+// The early check has a line of its own once it watched something.
+func TestLinesEarly(t *testing.T) {
+	report := Report{Mode: "bypass", Counted: true, Module: map[string]int64{"early_watched": 78, "early_confirmed": 20, "early_acted": 20, "early_self": 1}}
+	require.Contains(t, strings.Join(Lines(report), "\n"),
+		"the early check: 78 connections of the transparent proxy watched, 20 confirmed before their device was known to run a client, 20 of them taken as BitTorrent since (1 devices told by their own peers), 0 waited too long")
+}

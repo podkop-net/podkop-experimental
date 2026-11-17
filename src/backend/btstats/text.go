@@ -141,6 +141,11 @@ func Lines(report Report) []string {
 			module["refuted_again"], module["refuted_long"], module["refuted_short"], module["refuted_third"],
 			module["no_data"]+module["unanswered"]+module["no_third"], module["no_data"], module["unanswered"], module["no_third"],
 			module["plaintext"]))
+		if module["early_watched"] > 0 {
+			lines = append(lines, fmt.Sprintf("  the early check: %d connections of the transparent proxy watched, %d confirmed before their device was known to run a client, "+
+				"%d of them taken as BitTorrent since (%d devices told by their own peers), %d waited too long",
+				module["early_watched"], module["early_confirmed"], module["early_acted"], module["early_self"], module["early_expired"]))
+		}
 	}
 	return lines
 }

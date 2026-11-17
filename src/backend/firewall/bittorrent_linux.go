@@ -589,6 +589,17 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	notIn := func(set *nftables.Set) []expr.Any {
 		return []expr.Any{&expr.Lookup{SourceRegister: 1, SetName: set.Name, SetID: set.ID, Invert: true}}
 	}
+	// an announce on a connection under inspection (a device known to run a client, to an HTTP
+	// tracker on an uncommon port: decided at its SYN, so bt_tcp never sees its first data): the
+	// tracker goes to bt_peers as bt_tcp puts it there for a device not known yet
+	for _, signature := range [][][]expr.Any{
+		{innerIs(0, signatureAnnounce)},
+		{innerIs(0, signatureAnnouncePHP[:12]), innerIs(12, signatureAnnouncePHP[12:])},
+	} {
+		tracker := append(append([][]expr.Any{ctMarkTest(ctInspect, expr.CmpOpNeq)}, signature...), tcp4(), endpoint(offsetDestination, 2),
+			[]expr.Any{&expr.Dynset{SrcRegKey: 1, SetName: peers.Name, SetID: peers.ID, Operation: unix.NFT_DYNSET_OP_UPDATE, Timeout: trackerTimeout}})
+		add(decided, tracker...)
+	}
 	add(decided, ctMarkTest(ctBitTorrent, expr.CmpOpEq), returns)
 	add(decided, ipv4(), []expr.Any{addressLoad(offsetSource)}, notIn(hosts), []expr.Any{addressLoad(offsetSource), update(hosts)})
 	add(decided, udp4(), endpoint(offsetSource, 0), notIn(sockets), endpoint(offsetSource, 0), []expr.Any{update(sockets)})

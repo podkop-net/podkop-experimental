@@ -85,6 +85,8 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_handshake", "update @bt_peers { ip daddr . tcp dport }"),
 		rule("bt_handshake", "ct mark & 0x00008000 != 0 ct mark set ct mark | 0x00020000 counter return"),
 		rule("bt_handshake", "ct mark set ct mark | 0x00010000 counter goto bt_decided"),
+		rule("bt_decided", "ct mark & 0x00080000 != 0 @ih,0,112 0x474554202f616e6e6f756e63653f update @bt_peers { ip daddr . tcp dport timeout 2h }"),
+		rule("bt_decided", "ct mark & 0x00080000 != 0 @ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f update @bt_peers { ip daddr . tcp dport timeout 2h }"),
 		rule("bt_decided", "ct mark & 0x00010000 == 0 return"),
 		rule("bt_decided", "ip saddr != @bt_hosts update @bt_hosts { ip saddr }"),
 		rule("bt_decided", "ip saddr . udp sport != @bt_sockets update @bt_sockets { ip saddr . udp sport }"),
