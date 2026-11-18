@@ -427,7 +427,12 @@ func (c *conn) confirm() int {
 // act does with a confirmed connection what its inbound says: learn its far end (and close it), or
 // close it. The caller holds access, or (pending) the conn stood aside already.
 func (c *conn) act() int {
-	c.service.keepKnown(c.device)
+	// (not for a connection of the transparent proxy's early check: its device is not in the
+	// firewall's set, and put there it would pass for one that connected again, where the early
+	// check must see for itself whether it does: sweep)
+	if !c.early || c.suspect {
+		c.service.keepKnown(c.device)
+	}
 	switch c.confirmed {
 	case ConfirmedLearn:
 		if c.service.learnFar(c.device, c.far) {

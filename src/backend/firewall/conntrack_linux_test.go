@@ -12,6 +12,7 @@ import (
 
 	"github.com/mdlayher/netlink"
 	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
+	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/sagernet/nftables"
 	"golang.org/x/sys/unix"
 )
@@ -73,6 +74,23 @@ func TestParseFlow(t *testing.T) {
 	if !ok || flow.UDP || flow.Counted || flow.Incoming {
 		t.Errorf("%v %+v", ok, flow)
 	}
+	// a connection from outside to a client on the router itself: no rewritten destination, told
+	// by bt_router's mark of it
+	encoder = netlink.NewAttributeEncoder()
+	encoder.ByteOrder = binary.BigEndian
+	encoder.Nested(ctaTupleOrig, func(tuple *netlink.AttributeEncoder) error {
+		tuple.Nested(ctaTupleProto, func(proto *netlink.AttributeEncoder) error {
+			proto.Uint8(ctaProtoNum, unix.IPPROTO_TCP)
+			return nil
+		})
+		return nil
+	})
+	encoder.Uint32(ctaMark, dataplane.BitTorrentInboundCt)
+	data, _ = encoder.Encode()
+	flow, ok = parseFlow(append([]byte{unix.AF_INET, 0, 0, 0}, data...))
+	if !ok || !flow.Incoming {
+		t.Errorf("to the router's client: %v %+v", ok, flow)
+	}
 }
 
 // The kernel's entries with a mark of the detector, and none other: a UDP flow over loopback that
@@ -130,14 +148,15 @@ func TestBitTorrentDropRules(t *testing.T) {
 	_ = Remove()
 	t.Cleanup(func() { _ = Remove() })
 	for name, c := range map[string]struct {
-		detector                 BitTorrent
-		block, incoming, decided int
+		detector                         BitTorrent
+		block, incoming, decided, router int
 	}{
-		"bypass":         {BitTorrent{Mode: BitTorrentBypass}, 0, 0, 2},
-		"block":          {BitTorrent{Mode: BitTorrentBlock, Sources: prefixes("192.168.1.60/32")}, 3, 2, 0},
-		"block, the LAN": {BitTorrent{Mode: BitTorrentBlock, LAN: true}, 3, 2, 0},
-		// (bt_router's two drops are read into the same counters: BitTorrentDrops must not fail)
-		"block, a user of the router": {BitTorrent{Mode: BitTorrentBlock, RouterUsers: []uint32{4321}}, 3, 0, 0},
+		"bypass":         {BitTorrent{Mode: BitTorrentBypass}, 0, 0, 2, 0},
+		"block":          {BitTorrent{Mode: BitTorrentBlock, Sources: prefixes("192.168.1.60/32")}, 3, 2, 0, 0},
+		"block, the LAN": {BitTorrent{Mode: BitTorrentBlock, LAN: true}, 3, 2, 0, 0},
+		// bt_router's two drops, which BitTorrentDrops adds to the block's; none outside block
+		"block, a user of the router":   {BitTorrent{Mode: BitTorrentBlock, RouterUsers: []uint32{4321}}, 3, 0, 0, 2},
+		"section, a user of the router": {BitTorrent{Mode: BitTorrentSection, RouterUsers: []uint32{4321}}, 0, 0, 2, 0},
 	} {
 		if err := Apply(&Plan{Interfaces: []string{"br-lan"}, BitTorrent: c.detector}); err != nil {
 			t.Fatal(name, err)
@@ -147,16 +166,16 @@ func TestBitTorrentDropRules(t *testing.T) {
 			t.Fatal(err)
 		}
 		table := &nftables.Table{Name: tableName, Family: nftables.TableFamilyINet}
-		var got [3]int
-		for index, chain := range []string{ChainBitTorrentBlock, ChainBitTorrentIncoming, ChainBitTorrentDecided} {
+		var got [4]int
+		for index, chain := range []string{ChainBitTorrentBlock, ChainBitTorrentIncoming, ChainBitTorrentDecided, ChainBitTorrentRouter} {
 			counts, err := dropCounts(conn, table, chain)
 			if err != nil {
 				t.Error(name, chain, err)
 			}
 			got[index] = len(counts)
 		}
-		if got != [3]int{c.block, c.incoming, c.decided} {
-			t.Errorf("%s: bt_block %d, bt_incoming %d, bt_decided %d", name, got[0], got[1], got[2])
+		if got != [4]int{c.block, c.incoming, c.decided, c.router} {
+			t.Errorf("%s: bt_block %d, bt_incoming %d, bt_decided %d, bt_router %d", name, got[0], got[1], got[2], got[3])
 		}
 		if _, err := BitTorrentDrops(); err != nil {
 			t.Error(name, err)

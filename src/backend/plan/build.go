@@ -83,7 +83,8 @@ type Facts struct {
 	// (ledger item 16).
 	NTPServerNames []string
 	// UserIDs are the numbers of the users of the router the settings name
-	// ("bittorrent_router_users": netcfg.UserIDs); a name that is not in it is no user there.
+	// ("bittorrent_router_users": the supervisor reads the router's user database); a name that
+	// is not in it is no user there.
 	UserIDs map[string]uint32
 }
 

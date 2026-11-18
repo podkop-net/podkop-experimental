@@ -105,8 +105,12 @@ func Duration(seconds int64) string {
 func Lines(report Report) []string {
 	if report.Mode == "" || report.Mode == model.BitTorrentOff {
 		if report.Problem == ProblemRule {
+			rule := "the rule " + report.Rule + ", which is not there, is switched off or has no servers"
+			if report.Rule == "" {
+				rule = "a rule, and none is chosen"
+			}
 			return []string{"BitTorrent: as the other traffic (the detector is off)",
-				"  ❌ the settings send BitTorrent through the servers of the rule " + report.Rule + ", which is not there, is switched off or has no servers"}
+				"  ❌ the settings send BitTorrent through the servers of " + rule}
 		}
 		return []string{"BitTorrent: as the other traffic (the detector is off)"}
 	}

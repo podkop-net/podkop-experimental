@@ -98,6 +98,12 @@ const (
 	BitTorrentInspectCt   = 0x00080000
 	BitTorrentDiscoveryCt = 0x00004000
 	InterceptedCt         = 0x00008000
+	// BitTorrentInboundCt: a connection from outside to a torrent client on the router itself
+	// (the firewall's bt_router marks it in the client's answers). The two bits together, which
+	// no other connection carries: BitTorrentNotCt goes only to a connection with none of the
+	// detector's marks. The statistics tell a connection from outside to a device by its
+	// rewritten destination (a port forward); this one has none.
+	BitTorrentInboundCt = BitTorrentCt | BitTorrentNotCt
 
 	// ReadinessName is the name the supervisor asks the DNS inbound for after a start: an
 	// answer from the FakeIP range tells that the DNS inbound, the DNS rules and the FakeIP

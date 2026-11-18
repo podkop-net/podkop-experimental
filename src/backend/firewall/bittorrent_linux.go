@@ -3,6 +3,7 @@ package firewall
 import (
 	"cmp"
 	"encoding/json"
+	"errors"
 	"net/netip"
 	"os"
 	"slices"
@@ -183,6 +184,9 @@ const (
 	SetBitTorrentSuspects = dataplane.BitTorrentSuspectsSet
 	setBitTorrentFanPairs = "bt_fan_pairs"
 	setBitTorrentFan      = "bt_fan"
+	// setBitTorrentEnded: the devices whose earlier connections EndUndecidedFlows ended, for
+	// bitTorrentEndedFor after: a packet of such a connection is reset
+	setBitTorrentEnded = "bt_ended"
 )
 
 // The sizes of the sets of the suspicion: the devices of a LAN (as bt_hosts), and the far
@@ -269,6 +273,11 @@ func ctMarkClear(bits uint32) []expr.Any {
 		&expr.Ct{Key: expr.CtKeyMARK, Register: 1, SourceRegister: true},
 	}
 }
+
+// bitTorrentEndedFor is how long after its earlier connections were ended a device's packets of
+// them are reset: over twice the two minutes a BitTorrent client leaves between its keep-alives,
+// so that the next packet of a connection that was idle then is still reset.
+const bitTorrentEndedFor = 5 * time.Minute
 
 // bitTorrentSuspicion tells whether the table has the suspicion by fan-out, and its allowance: the
 // setting is on, and the scope is the whole LAN (the traffic podkop takes passes the early check of
@@ -480,33 +489,48 @@ func loadBitTorrentSets(now time.Time) map[string][]nftables.SetElement {
 	return keepBitTorrent(kept)
 }
 
-// KnowBitTorrentHost keeps a device in bt_hosts for the set's whole timeout from now: the element
-// is taken out and put back, since one added again keeps the timer it had (kernel 6.6: R7 of the
-// A5 review). For a device the BitTorrent module told by its handshakes, which no packet of its own
-// keeps there: a client set to hide has no sign but its confirmed connections, and once out of the
-// set it would be free until suspected again, which the peers it keeps retrying do not count for.
-// A table or a set that is not there is an error; a device that was not in the set is added.
+// KnowBitTorrentHost keeps a device in bt_hosts for the set's whole timeout from now (renewElement).
+// For a device the BitTorrent module told by its handshakes, which no packet of its own keeps
+// there: a client set to hide has no sign but its confirmed connections, and once out of the set it
+// would be free until suspected again, which the peers it keeps retrying do not count for. A table
+// or a set that is not there is an error; a device that was not in the set is added.
 func KnowBitTorrentHost(device netip.Addr) error {
-	if !device.Is4() {
+	return renewElement(SetBitTorrentHosts, device, bitTorrentTimeout)
+}
+
+// renewElement puts an IPv4 address in a set of the table for the whole of timeout from now: the
+// element is taken out and put back, since one added again keeps the timer it had (kernel 6.6: R7
+// of the A5 review). Both in one transaction, so that the address is never out of the set; when
+// it was not there the transaction fails whole (ENOENT), and the address is added alone.
+func renewElement(name string, address netip.Addr, timeout time.Duration) error {
+	if !address.Is4() {
 		return nil
 	}
-	conn, err := newConn()
-	if err != nil {
-		return err
+	table := &nftables.Table{Name: tableName, Family: nftables.TableFamilyINet}
+	element := []nftables.SetElement{{Key: address.AsSlice(), Timeout: timeout}}
+	for _, renew := range []bool{true, false} {
+		conn, err := newConn()
+		if err != nil {
+			return err
+		}
+		set, err := conn.GetSetByName(table, name)
+		if err != nil {
+			return E.Cause(err, "find the set ", name)
+		}
+		if renew {
+			if err := conn.SetDeleteElements(set, element); err != nil {
+				return err
+			}
+		}
+		if err := conn.SetAddElements(set, element); err != nil {
+			return err
+		}
+		err = conn.Flush()
+		if err == nil || !renew || !errors.Is(err, unix.ENOENT) {
+			return err
+		}
 	}
-	set, err := conn.GetSetByName(&nftables.Table{Name: tableName, Family: nftables.TableFamilyINet}, SetBitTorrentHosts)
-	if err != nil {
-		return E.Cause(err, "find the set ", SetBitTorrentHosts)
-	}
-	element := []nftables.SetElement{{Key: device.AsSlice(), Timeout: bitTorrentTimeout}}
-	// (a delete of an element that is not there fails its batch: sent alone, its error left)
-	if err := conn.SetDeleteElements(set, element); err == nil {
-		_ = conn.Flush()
-	}
-	if err := conn.SetAddElements(set, element); err != nil {
-		return err
-	}
-	return conn.Flush()
+	return nil
 }
 
 // bitTorrentSetsThere tells whether the table there now has the detector's set of devices.
@@ -591,8 +615,10 @@ func markedForRouter() []expr.Any {
 //     connections from outside go as they came;
 //   - block: dropped, UDP then the rest (BitTorrentDrops reads the two).
 //
-// Every connection gets the mark of BitTorrent for the statistics. Nothing of the router is
-// offloaded: each packet passes here.
+// Every connection gets the mark of BitTorrent for the statistics; one from outside, which the
+// client answers, the mark of such a connection (dataplane.BitTorrentInboundCt: the statistics
+// count it as one from outside, what the client sent as sent), and it goes as it came, past the
+// rules of the lists too. Nothing of the router is offloaded: each packet passes here.
 func addBitTorrentRouter(conn *nftables.Conn, table *nftables.Table, add func(*nftables.Chain, ...[]expr.Any), detector BitTorrent) *nftables.Chain {
 	router := conn.AddChain(&nftables.Chain{Name: ChainBitTorrentRouter, Table: table})
 	counter := []expr.Any{&expr.Counter{}}
@@ -604,17 +630,23 @@ func addBitTorrentRouter(conn *nftables.Conn, table *nftables.Table, add func(*n
 		&expr.Immediate{Register: 1, Data: binaryutil.NativeEndian.PutUint32(markRouter)},
 		&expr.Meta{Key: expr.MetaKeyMARK, SourceRegister: true, Register: 1},
 	}
+	// (an address of the router itself that is not a private one, its WAN address: left alone)
+	add(router, []expr.Any{
+		&expr.Fib{Register: 1, FlagDADDR: true, ResultADDRTYPE: true},
+		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(unix.RTN_LOCAL)},
+	}, accept)
 	switch detector.Mode {
 	case BitTorrentBlock:
 		add(router, protocol(unix.IPPROTO_UDP), counter, verdict(expr.VerdictDrop, ""))
 		add(router, counter, verdict(expr.VerdictDrop, ""))
 	case BitTorrentSection:
-		add(router, direction(ctDirectionReply), ctMarkAdd(ctBitTorrent), accept)
+		add(router, direction(ctDirectionReply), ctMarkAdd(dataplane.BitTorrentInboundCt), accept)
 		add(router, ctMarkAdd(ctBitTorrent|ctIntercepted))
 		for _, transport := range []byte{unix.IPPROTO_TCP, unix.IPPROTO_UDP} {
 			add(router, protocol(transport), markRouterPath, counter, accept)
 		}
 	default:
+		add(router, direction(ctDirectionReply), ctMarkAdd(dataplane.BitTorrentInboundCt), accept)
 		add(router, ctMarkAdd(ctBitTorrent))
 		add(router, ipv4(), addressNotWithin(offsetDestination, rangeFakeIP), counter, accept)
 	}
@@ -710,7 +742,7 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		}
 	}
 	fan, suspicion := bitTorrentSuspicion(detector)
-	var suspects, fanPairs, fanMeter *nftables.Set
+	var suspects, fanPairs, fanMeter, ended *nftables.Set
 	if suspicion {
 		newSet := func(name string, keyType nftables.SetDatatype, concatenation bool, timeout time.Duration, size uint32) *nftables.Set {
 			*nextID++
@@ -724,6 +756,7 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		suspects = newSet(SetBitTorrentSuspects, nftables.TypeIPAddr, false, fan.Suspect, bitTorrentSuspectsSize)
 		fanPairs = newSet(setBitTorrentFanPairs, nftables.MustConcatSetType(nftables.TypeIPAddr, nftables.TypeIPAddr), true, fan.Pair, bitTorrentFanPairsSize)
 		fanMeter = newSet(setBitTorrentFan, nftables.TypeIPAddr, false, 2*fan.Refill(), bitTorrentSuspectsSize)
+		ended = newSet(setBitTorrentEnded, nftables.TypeIPAddr, false, bitTorrentEndedFor, bitTorrentSuspectsSize)
 	}
 	accept := nftables.ChainPolicyAccept
 	detect := conn.AddChain(&nftables.Chain{Name: chainBitTorrentDetect, Table: table, Type: nftables.ChainTypeFilter,
@@ -869,6 +902,21 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 1, Mask: []byte{0x12}, Xor: []byte{0}},
 		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{0x02}},
 	}, verdict(expr.VerdictGoto, syn.Name))
+	stateNew := func() []expr.Any {
+		return []expr.Any{
+			&expr.Ct{Key: expr.CtKeySTATE, Register: 1},
+			&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(expr.CtStateBitNEW), Xor: binaryutil.NativeEndian.PutUint32(0)},
+			&expr.Cmp{Op: expr.CmpOpNeq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(0)},
+		}
+	}
+	if mode == BitTorrentBlock && detector.LAN {
+		// the block of the whole LAN came while a connection from outside to a client's socket was
+		// open: its entry was ended (ForgetBitTorrentFlows), and what the device sends on it next
+		// has no SYN and no entry (ct state new), from the client's socket. bt_incoming drops what
+		// comes from outside; this is the device's side, which made a new entry the other way and
+		// went on as forwarded (the review of 0.8.19)
+		add(tcp, tcp4(), endpoint(offsetSource, 0), []expr.Any{inSet(sockets)}, stateNew(), counter, verdict(expr.VerdictGoto, block.Name))
+	}
 	add(tcp, innerIs(0, signatureHandshake[:12]), innerIs(12, signatureHandshake[12:20]), counter, verdict(expr.VerdictGoto, handshake.Name))
 	// an announce to an HTTP tracker: the device runs a client; the connection itself is the
 	// tracker's, not of the swarm. The tracker, on an uncommon port, is BitTorrent for the device
@@ -892,16 +940,14 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	add(tcp, append(append([][]expr.Any{ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID)}, freePort()...), endpoint(offsetDestination, 2),
 		[]expr.Any{inSet(peers)}, counter, verdict(expr.VerdictGoto, handshake.Name))...)
 	if suspicion {
-		// a packet that is no SYN and that conntrack has no entry for (ct state new), of a device
-		// running a client, to an uncommon port: a connection it opened before it was told, whose
-		// entry the module ended (EndUndecidedFlows). It is reset: the device opens it again, and
-		// its SYN is decided as those of a device running a client are
-		add(tcp, append(append([][]expr.Any{ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID)}, freePort()...),
-			[]expr.Any{
-				&expr.Ct{Key: expr.CtKeySTATE, Register: 1},
-				&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(expr.CtStateBitNEW), Xor: binaryutil.NativeEndian.PutUint32(0)},
-				&expr.Cmp{Op: expr.CmpOpNeq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(0)},
-			}, counter, []expr.Any{&expr.Reject{Type: unix.NFT_REJECT_TCP_RST}})...)
+		// a packet that is no SYN and that conntrack has no entry for (ct state new), to an
+		// uncommon port, of a device whose earlier connections the module just ended (bt_ended:
+		// EndUndecidedFlows puts it there for bitTorrentEndedFor). It is reset: the device opens
+		// the connection again, and its SYN is decided as those of a device running a client are.
+		// Not of every device of bt_hosts: a connection picked up after a flush of conntrack or a
+		// reconnect of the WAN would be reset where it goes on today (the review of 0.8.19)
+		add(tcp, append(append([][]expr.Any{ipv4(), addressIn(offsetSource, setBitTorrentEnded, ended.ID)}, freePort()...),
+			stateNew(), counter, []expr.Any{&expr.Reject{Type: unix.NFT_REJECT_TCP_RST}})...)
 	}
 	add(tcp, hasPayload(), ctMarkAdd(ctNot))
 
@@ -958,7 +1004,11 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 
 	// bt_handshake: the plaintext handshake; a connection the proxy has taken stays with sing-box
 	add(handshake, updateHost()...)
-	add(handshake, tcp4(), endpoint(offsetDestination, 2), []expr.Any{update(peers)})
+	// (the far end of a connection from outside is the port the peer connected from: no peer's)
+	add(handshake, []expr.Any{
+		&expr.Ct{Register: 1, Key: expr.CtKeyDIRECTION},
+		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{ctDirectionOriginal}},
+	}, tcp4(), endpoint(offsetDestination, 2), []expr.Any{update(peers)})
 	add(handshake, ctMarkTest(ctIntercepted, expr.CmpOpNeq), ctMarkAdd(ctLate), counter, returns)
 	add(handshake, ctMarkAdd(ctBitTorrent), counter, verdict(expr.VerdictGoto, decided.Name))
 
@@ -1097,14 +1147,16 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	// sockets that spoke DHT or uTP) is still told by its plaintext answers alone.
 	incoming := conn.AddChain(&nftables.Chain{Name: ChainBitTorrentIncoming, Table: table, Type: nftables.ChainTypeFilter,
 		Hooknum: nftables.ChainHookForward, Priority: nftables.ChainPriorityRef(bitTorrentIncomingPriority), Policy: &accept})
-	add(incoming, []expr.Any{
-		&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
-		&expr.Lookup{SourceRegister: 1, SetName: SetInterfaces, SetID: idInterfaces},
-	}, returns)
+	// (the state first: every forwarded packet that is not offloaded passes here, and all but the
+	// first of a connection leave at this rule)
 	add(incoming, []expr.Any{
 		&expr.Ct{Key: expr.CtKeySTATE, Register: 1},
 		&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(expr.CtStateBitNEW), Xor: binaryutil.NativeEndian.PutUint32(0)},
 		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(0)},
+	}, returns)
+	add(incoming, []expr.Any{
+		&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
+		&expr.Lookup{SourceRegister: 1, SetName: SetInterfaces, SetID: idInterfaces},
 	}, returns)
 	if mode == BitTorrentBlock {
 		devices := []netip.Prefix{{}}

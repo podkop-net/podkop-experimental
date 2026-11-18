@@ -417,6 +417,9 @@ function createSettingsContent(section, singBoxFeatures = []) {
   const ruleDescription = _(
     "Its servers carry the BitTorrent traffic podkop takes",
   );
+  const ruleWarning = _(
+    "⚠️ This rule is switched off or deleted: BitTorrent goes as the other traffic until the rule is on again or another one is chosen",
+  );
   o.renderWidget = function (section_id, option_index, cfgvalue) {
     this.keylist = [];
     this.vallist = [];
@@ -429,20 +432,27 @@ function createSettingsContent(section, singBoxFeatures = []) {
     });
     const gone = cfgvalue && !this.keylist.includes(cfgvalue);
     if (gone) {
-      this.value(cfgvalue, _("%s (deleted)").format(cfgvalue));
+      this.value(cfgvalue, _("%s (the rule is deleted)").format(cfgvalue));
     }
-    this.description =
-      off || gone
-        ? _(
-            "⚠️ This rule is switched off or deleted: BitTorrent goes as the other traffic until the rule is on again or another one is chosen",
-          )
-        : ruleDescription;
+    this.description = off || gone ? ruleWarning : ruleDescription;
     return form.ListValue.prototype.renderWidget.call(
       this,
       section_id,
       option_index,
       cfgvalue,
     );
+  };
+  // the line under the field follows the choice, before it is saved
+  o.onchange = function (ev, section_id, value) {
+    const rule = uci
+      .sections("podkop", "section")
+      .find((item) => item[".name"] === value);
+    const line = document.querySelector(
+      "#cbi-podkop-" + section_id + "-bittorrent_section .cbi-value-description",
+    );
+    if (line)
+      line.textContent =
+        !rule || rule.enabled === "0" ? ruleWarning : ruleDescription;
   };
   o.depends("bittorrent", "section");
 
@@ -463,7 +473,7 @@ function createSettingsContent(section, singBoxFeatures = []) {
     "bittorrent_lan_suspect",
     _("Find clients that hide"),
     _(
-      "A client set up without DHT, uTP and peer exchange, with encryption required, shows the router no sign of BitTorrent. With this on, a device that opens connections to many new addresses on uncommon ports at once has its new connections checked through sing-box; when three of them turn out to be BitTorrent, the device is taken as running a client and the connections it opened before are closed. Not found: a download with only a few peers. An I2P router is taken for BitTorrent. Connections under the check are not offloaded",
+      "A client set up without DHT, uTP and peer exchange, with encryption required, shows the router no sign of BitTorrent. With this on, a device that opens connections to many new addresses on uncommon ports at once has its new connections checked through sing-box; when three of them turn out to be BitTorrent, the device is taken as running a client and the connections it opened before are closed. Not found: a download whose tracker names about 20 peers or fewer. An I2P router is taken for BitTorrent. Connections under the check are not offloaded",
     ),
   );
   o.default = "0";
@@ -478,18 +488,21 @@ function createSettingsContent(section, singBoxFeatures = []) {
     "bittorrent_router_users",
     _("Torrent clients on the router itself"),
     _(
-      "The detector sees the devices of the LAN, not the programs of the router. Name the user a client on the router runs as (the packages of OpenWrt: transmission, aria2), and all the traffic of that user is treated as BitTorrent by the mode above: left alone past podkop (the addresses of the lists too), blocked, or sent through the rule. A client that runs as root cannot be told apart; a client in a container is a device of the LAN once its bridge is among the source interfaces",
+      "The detector sees the devices of the LAN, not the programs of the router. Name the user a client on the router runs as (the packages of OpenWrt: transmission, aria2), and all the traffic of that user is treated as BitTorrent by the mode above: left alone past podkop (the addresses of the lists too), blocked, or sent through the rule. A client that runs as root cannot be told apart",
     ),
   );
   o.placeholder = "transmission";
   o.rmempty = true;
+  // (kept in the settings while BitTorrent goes as the other traffic: the backend does not read
+  // it then)
+  o.retain = true;
   o.depends("bittorrent", "bypass");
   o.depends("bittorrent", "block");
   o.depends("bittorrent", "section");
   o.validate = function (section_id, value) {
     if (!value) return true;
-    if (!/^[a-z_][a-z0-9_-]*$/i.test(value))
-      return _("A user name: letters, digits, - and _");
+    if (!/^[a-z0-9_][a-z0-9_.-]*\$?$/i.test(value))
+      return _("A user name: letters, digits, ., - and _");
     if (value === "root")
       return _(
         "Nearly every program of the router runs as root: it cannot be told apart",

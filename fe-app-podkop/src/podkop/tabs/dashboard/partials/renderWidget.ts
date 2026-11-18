@@ -16,7 +16,7 @@ function renderFailedState() {
     'div',
     {
       id: '',
-      style: 'height: 78px',
+      style: 'min-height: 78px',
       class: 'pdk_dashboard-page__widgets-section__item centered',
     },
     _('Currently unavailable'),
@@ -28,7 +28,7 @@ function renderLoadingState() {
     'div',
     {
       id: '',
-      style: 'height: 78px',
+      style: 'min-height: 78px',
       class: 'pdk_dashboard-page__widgets-section__item skeleton',
     },
     '',

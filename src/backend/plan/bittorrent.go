@@ -83,8 +83,6 @@ func (b *builder) bitTorrentLAN() bool {
 	return false
 }
 
-// proxyInbounds are the inbounds of the traffic the firewall marks, which podkop's rules route:
-// the transparent proxy, and the inspection inbound of BitTorrent when it is on.
 // bitTorrentFan is the allowance of the suspicion by fan-out, nothing when it is off: the setting
 // is on and the scope is the whole LAN (firewall.bitTorrentSuspicion tells the table the same). An
 // allowance of the settings that cannot be read leaves the default, with a warning.
@@ -139,6 +137,8 @@ func (b *builder) bitTorrentLANInbounds() []any {
 	return []any{tagBitTorrentLANInbound}
 }
 
+// proxyInbounds are the inbounds of the traffic the firewall marks, which podkop's rules route:
+// the transparent proxy, and the inspection inbound of BitTorrent when it is on.
 func (b *builder) proxyInbounds() any {
 	if b.bitTorrentMode == model.BitTorrentOff {
 		return tagTProxyInbound

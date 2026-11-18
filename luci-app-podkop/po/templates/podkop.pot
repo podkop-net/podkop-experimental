@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-18 19:17+0000\n"
-"PO-Revision-Date: 2026-11-18 19:17+0000\n"
+"POT-Creation-Date: 2026-11-18 20:13+0000\n"
+"PO-Revision-Date: 2026-11-18 20:13+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -20,7 +20,7 @@ msgstr ""
 msgid "“%s” is not a host name, such as packagist.org."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:506
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:519
 msgid "“Find a mask” on the dashboard also tries the names of public whitelists, downloaded for each search directly or through your servers. Off: only the built-in names"
 msgstr ""
 
@@ -69,12 +69,15 @@ msgstr ""
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:82
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:341
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:406
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:432
 msgid "%s (deleted)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:427
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:430
 msgid "%s (off)"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:435
+msgid "%s (the rule is deleted)"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:91
@@ -97,7 +100,7 @@ msgstr ""
 msgid "%s of %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:55
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:49
 msgid "%s open"
 msgstr ""
 
@@ -109,7 +112,7 @@ msgstr ""
 msgid "%s s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:132
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:151
 msgid "%s since the reset"
 msgstr ""
 
@@ -130,7 +133,7 @@ msgstr ""
 msgid "~: too few checks yet"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:436
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:420
 msgid "⚠️ This rule is switched off or deleted: BitTorrent goes as the other traffic until the rule is on again or another one is chosen"
 msgstr ""
 
@@ -158,8 +161,8 @@ msgstr ""
 msgid "A check is not possible now: this address was checked recently or is waiting in the queue, or the queue is full. Try again in %d s."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:465
-msgid "A client set up without DHT, uTP and peer exchange, with encryption required, shows the router no sign of BitTorrent. With this on, a device that opens connections to many new addresses on uncommon ports at once has its new connections checked through sing-box; when three of them turn out to be BitTorrent, the device is taken as running a client and the connections it opened before are closed. Not found: a download with only a few peers. An I2P router is taken for BitTorrent. Connections under the check are not offloaded"
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:475
+msgid "A client set up without DHT, uTP and peer exchange, with encryption required, shows the router no sign of BitTorrent. With this on, a device that opens connections to many new addresses on uncommon ports at once has its new connections checked through sing-box; when three of them turn out to be BitTorrent, the device is taken as running a client and the connections it opened before are closed. Not found: a download whose tracker names about 20 peers or fewer. An I2P router is taken for BitTorrent. Connections under the check are not offloaded"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:938
@@ -210,8 +213,8 @@ msgstr ""
 msgid "A tunnel, a modem or a second WAN. Empty: the main route"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:492
-msgid "A user name: letters, digits, - and _"
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:505
+msgid "A user name: letters, digits, ., - and _"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:222
@@ -240,7 +243,7 @@ msgstr ""
 msgid "Address"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:517
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:530
 msgid "Addresses of the lists of masks"
 msgstr ""
 
@@ -360,7 +363,7 @@ msgstr ""
 msgid "Before a connection with the uTLS fingerprint of a link, that fingerprint without the X25519MLKEM768 key share is tried, then firefox; the first one the server and the network take is kept and checked again once a day. Disabled: the fingerprint of the link is sent as it is"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:652
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:665
 msgid "Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped"
 msgstr ""
 
@@ -416,11 +419,11 @@ msgstr ""
 msgid "bypass: record fragment"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:717
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:730
 msgid "Cache File Path"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:728
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:741
 msgid "Cache file path cannot be empty"
 msgstr ""
 
@@ -509,7 +512,7 @@ msgid "CIDR must be between 0 and 32"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:248
-msgid "Clients that hide: %d devices told by the burst of their connections, %d connections they had opened before closed"
+msgid "Clients that hide: devices told by the burst of their connections: %d, connections they had opened before, closed: %d"
 msgstr ""
 
 #: src/podkop/linkCheck.ts:195
@@ -534,7 +537,7 @@ msgstr ""
 msgid "connecting…"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:82
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:86
 msgid "Connections"
 msgstr ""
 
@@ -575,7 +578,7 @@ msgstr ""
 msgid "Currently unavailable"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:658
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:671
 msgid "Custom URL"
 msgstr ""
 
@@ -587,7 +590,7 @@ msgstr ""
 msgid "Dashboard currently unavailable"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:656
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:669
 msgid "Default"
 msgstr ""
 
@@ -609,7 +612,7 @@ msgid "Detect: the type follows the pasted text"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:240
-msgid "Devices with no other sign of a client: %d connections confirmed as BitTorrent, %d devices told by them"
+msgid "Devices with no other sign of a client: connections confirmed as BitTorrent: %d, devices told by them: %d"
 msgstr ""
 
 #: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:134
@@ -654,7 +657,7 @@ msgstr ""
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:712
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:793
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:364
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:657
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:670
 msgid "Disabled"
 msgstr ""
 
@@ -720,7 +723,7 @@ msgstr ""
 msgid "done in %s s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:708
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:721
 msgid "Dont Touch My DHCP!"
 msgstr ""
 
@@ -733,11 +736,11 @@ msgstr ""
 msgid "Download"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:651
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:664
 msgid "Download Check"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:664
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:677
 msgid "Download Check URL"
 msgstr ""
 
@@ -802,7 +805,7 @@ msgstr ""
 msgid "Enter subnets in CIDR notation or single IP addresses, separated by commas, spaces, or newlines. You can add comments using //"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:602
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:615
 msgid "Every 1 minute"
 msgstr ""
 
@@ -818,15 +821,15 @@ msgstr ""
 msgid "Every 3 hours"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:603
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:616
 msgid "Every 3 minutes"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:601
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:614
 msgid "Every 30 seconds"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:604
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:617
 msgid "Every 5 minutes"
 msgstr ""
 
@@ -850,11 +853,11 @@ msgstr ""
 msgid "Every hour"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:766
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:779
 msgid "Exclude NTP"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:767
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:780
 msgid "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN"
 msgstr ""
 
@@ -921,7 +924,7 @@ msgstr ""
 msgid "Find a mask"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:464
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:474
 msgid "Find clients that hide"
 msgstr ""
 
@@ -1146,7 +1149,7 @@ msgstr ""
 msgid "Link or subscription"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:694
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:707
 msgid "List Update Frequency"
 msgstr ""
 
@@ -1166,7 +1169,7 @@ msgstr ""
 msgid "Load"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:750
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:763
 msgid "Log Level"
 msgstr ""
 
@@ -1251,7 +1254,7 @@ msgstr ""
 msgid "Mixed Proxy Port"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:644
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:657
 msgid "Must be a number in the range of 50 - 1000"
 msgstr ""
 
@@ -1286,7 +1289,7 @@ msgstr ""
 msgid "Name does not contain"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:494
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:507
 msgid "Nearly every program of the router runs as root: it cannot be told apart"
 msgstr ""
 
@@ -1321,7 +1324,7 @@ msgstr ""
 msgid "no answer in %d s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:125
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:144
 msgid "No BitTorrent traffic seen yet"
 msgstr ""
 
@@ -1471,12 +1474,12 @@ msgid "On"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:403
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:455
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:465
 #: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:79
 msgid "On the whole LAN"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:546
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:559
 msgid "One check for the servers of every rule. Each round tests every server with the next URL of the list; the delay of a server is the median of a full cycle, so one slow URL or one stray test does not change the server in use. A server is unavailable when two URLs do not answer through it. URLs of different companies are best"
 msgstr ""
 
@@ -1484,7 +1487,7 @@ msgstr ""
 msgid "One DNS server is needed at least: change this one, or add another first."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:518
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:531
 msgid "One host name per line in each list; their names are tried in turn with the built-in ones. Empty: the lists of Runnin4ik/dpi-detector and cheburcheck.ru"
 msgstr ""
 
@@ -1510,7 +1513,7 @@ msgid "Only Happ opens it. Paste the plain subscription address https://… from
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:402
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:454
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:464
 #: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:80
 msgid "Only what podkop takes"
 msgstr ""
@@ -1558,7 +1561,7 @@ msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:130
 #: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:148
-msgid "Packets: received %d, sent %d"
+msgid "Packets: sent %d, received %d"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:391
@@ -1571,20 +1574,20 @@ msgstr ""
 msgid "Path cannot be empty"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:732
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:745
 msgid "Path must be absolute (start with /)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:741
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:754
 msgid "Path must contain at least one directory (like /tmp/cache.db)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:736
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:749
 msgid "Path must end with cache.db"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:211
-msgid "Peers learned from the replies of trackers and of the DHT: %d (replies read: %d, announces: %d)"
+msgid "Peers learned: %d (replies of trackers and the DHT read: %d, announces: %d)"
 msgstr ""
 
 #: src/podkop/tabs/diagnostic/diagnostic.store.ts:103
@@ -1621,7 +1624,7 @@ msgstr ""
 msgid "Podkop Settings"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:709
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:722
 msgid "Podkop will not modify your DHCP configuration"
 msgstr ""
 
@@ -1634,7 +1637,7 @@ msgstr ""
 msgid "Protocol"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:505
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:518
 msgid "Public lists of masks"
 msgstr ""
 
@@ -1651,7 +1654,7 @@ msgstr ""
 msgid "Ready"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:81
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:85
 msgid "Received"
 msgstr ""
 
@@ -1687,7 +1690,7 @@ msgstr ""
 msgid "replies %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:143
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:162
 msgid "Reset"
 msgstr ""
 
@@ -1707,7 +1710,7 @@ msgstr ""
 msgid "Router DNS is routed through podkop"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:777
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:790
 msgid "Routing Excluded IPs"
 msgstr ""
 
@@ -1772,7 +1775,7 @@ msgstr ""
 msgid "Select a predefined list for routing"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:695
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:708
 msgid "Select how often the domain or subnet lists are updated automatically. A list is downloaded directly first, then through the servers of the rules, those that brought it before first; a source marked “Do not use for downloading lists and subscriptions” never carries it"
 msgstr ""
 
@@ -1780,7 +1783,7 @@ msgstr ""
 msgid "Select or enter DNS server address"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:718
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:731
 msgid "Select or enter path for the cache file: FakeIP addresses and downloaded lists. Change this ONLY if you know what you are doing"
 msgstr ""
 
@@ -1796,7 +1799,7 @@ msgstr ""
 msgid "Select the list type for adding custom subnets"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:751
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:764
 msgid "Select the log level for sing-box"
 msgstr ""
 
@@ -1804,12 +1807,12 @@ msgstr ""
 msgid "Select the network interface from which the traffic will originate"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:80
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:84
 msgid "Sent"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:261
-msgid "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is not counted."
+msgid "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is counted only when its user is named in the settings."
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:774
@@ -1821,15 +1824,15 @@ msgstr ""
 msgid "Server check"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:595
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:608
 msgid "Server check interval"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:622
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:635
 msgid "Server check tolerance, ms"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:545
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:558
 msgid "Server check URLs"
 msgstr ""
 
@@ -1926,7 +1929,7 @@ msgstr ""
 msgid "simplest"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:132
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:151
 msgid "since %s"
 msgstr ""
 
@@ -1954,7 +1957,7 @@ msgstr ""
 msgid "Source Network Interface"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:778
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:791
 msgid "Specify a local IP address to be excluded from routing"
 msgstr ""
 
@@ -1962,7 +1965,7 @@ msgstr ""
 msgid "Start podkop"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:140
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:159
 msgid "Start the statistics again from now"
 msgstr ""
 
@@ -2128,8 +2131,8 @@ msgstr ""
 msgid "The deleted source was used by the rules: %s. Their rows show it as deleted: choose another source there"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:480
-msgid "The detector sees the devices of the LAN, not the programs of the router. Name the user a client on the router runs as (the packages of OpenWrt: transmission, aria2), and all the traffic of that user is treated as BitTorrent by the mode above: left alone past podkop (the addresses of the lists too), blocked, or sent through the rule. A client that runs as root cannot be told apart; a client in a container is a device of the LAN once its bridge is among the source interfaces"
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:490
+msgid "The detector sees the devices of the LAN, not the programs of the router. Name the user a client on the router runs as (the packages of OpenWrt: transmission, aria2), and all the traffic of that user is treated as BitTorrent by the mode above: left alone past podkop (the addresses of the lists too), blocked, or sent through the rule. A client that runs as root cannot be told apart"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:274
@@ -2188,7 +2191,7 @@ msgstr ""
 msgid "The handshake with the server completes, but it did not answer a request during the check. The cause may be on the server or on the way to it, a check from here cannot tell. Try the server from another network, or ask whoever runs it."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:596
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:609
 msgid "The interval between connectivity tests"
 msgstr ""
 
@@ -2426,7 +2429,7 @@ msgstr ""
 msgid "The server does not answer from here or through your other servers (%d). It may be off, or its address may be closed to these networks; from another network it may work."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:623
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:636
 msgid "The server in use changes only for one faster by this much"
 msgstr ""
 
@@ -2499,7 +2502,7 @@ msgstr ""
 msgid "The treatment does not fit this server."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:665
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:678
 msgid "The URL must serve at least 64 KiB or announce a shorter length"
 msgstr ""
 
@@ -2580,12 +2583,12 @@ msgstr ""
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:479
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:489
 msgid "Torrent clients on the router itself"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/initController.ts:979
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:76
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:73
 msgid "Traffic"
 msgstr ""
 
@@ -2806,7 +2809,7 @@ msgstr ""
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:77
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:74
 msgid "Way"
 msgstr ""
 
@@ -2826,7 +2829,7 @@ msgstr ""
 msgid "Which sites go through which servers. When a site is in several rules, the upper one works. Drag ☰ to change the order. The server in use is shown on the dashboard."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:452
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:462
 msgid "Whose BitTorrent goes through the rule"
 msgstr ""
 

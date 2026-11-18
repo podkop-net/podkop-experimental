@@ -795,13 +795,28 @@ func TestSuspectTold(t *testing.T) {
 		t.Fatal("kept known twice within keepKnownEvery")
 	case <-time.After(50 * time.Millisecond):
 	}
+	// (counted when the write is done: off the caller's path)
+	for wait := 0; s.earlyKeptKnown.Load() != 1 && wait < 100; wait++ {
+		time.Sleep(10 * time.Millisecond)
+	}
 	if s.earlyKeptKnown.Load() != 1 {
 		t.Fatalf("kept known %d times", s.earlyKeptKnown.Load())
 	}
+	// the device was told twice (its older connections ended again after endOlderEvery): one device
+	if s.earlySuspects.Load() != 1 {
+		t.Fatalf("%d devices told, of one", s.earlySuspects.Load())
+	}
 
-	// a device of the transparent proxy told by its own peers: nothing of this
+	// a device of the transparent proxy told by its own peers: nothing of this, with an inbound of
+	// suspects in the service too. Its device is not in the firewall's set, and act must not put
+	// it there (keepKnown): the next round would take it for one that connected again, and a
+	// client that does not would have every later connection closed instead of left open
 	calls = nil
+	for len(keptKnown) > 0 {
+		<-keptKnown
+	}
 	routed, _, add := early(t, ConfirmedReject)
+	routed.suspectOn = map[string]bool{"bt-suspect": true}
 	routedHosts := &recordSink{}
 	routed.hostsSink = routedHosts
 	routed.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{}, nil }
@@ -809,6 +824,30 @@ func TestSuspectTold(t *testing.T) {
 	routed.actOnKnown(start)
 	if len(calls) != 0 || routedHosts.count() != 0 || routed.earlySelfTold.Load() != 1 || routed.earlySuspects.Load() != 0 {
 		t.Fatalf("the transparent proxy: ended %d times, devices written %d, told %d", len(calls), routedHosts.count(), routed.earlySelfTold.Load())
+	}
+	if routed.early.rejected.Load() != 3 {
+		t.Fatalf("the transparent proxy: %d connections closed", routed.early.rejected.Load())
+	}
+	select {
+	case device := <-keptKnown:
+		t.Fatalf("a device of the transparent proxy's early check was put in the firewall's set: %v", device)
+	case <-time.After(100 * time.Millisecond):
+	}
+	// an inspected connection (its device is in the firewall's set: that is why it is inspected)
+	// and a suspect's keep the device known through act itself
+	for _, c := range []*conn{{early: false}, {early: true, suspect: true}} {
+		kept, _, _ := early(t, ConfirmedReject)
+		kept.suspectOn = map[string]bool{"bt-suspect": true}
+		device, other := net.Pipe()
+		t.Cleanup(func() { other.Close() })
+		c.Conn, c.service, c.cnt, c.device, c.confirmed = device, kept, &kept.counters, testDevice, ConfirmedReject
+		c.far = netip.AddrPortFrom(netip.AddrFrom4([4]byte{203, 0, 113, 77}), 51413)
+		c.act()
+		select {
+		case <-keptKnown:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("a confirmed connection (early %v, suspect %v) did not keep its device known", c.early, c.suspect)
+		}
 	}
 
 	// a suspect the firewall knows by now (a signature that came after its first connections):

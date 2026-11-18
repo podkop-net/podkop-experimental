@@ -10,6 +10,7 @@ under them; this guide covers what the hints do not.
 - [Servers](#servers)
 - [Rules](#rules)
 - [Settings](#settings)
+- [BitTorrent](#bittorrent)
 - [Dashboard](#dashboard)
 - [Diagnostics](#diagnostics)
 - [When something does not work](#when-something-does-not-work)
@@ -88,7 +89,7 @@ Settings → **BitTorrent** says what happens to the traffic of torrent clients.
 | Mode | What it does |
 |---|---|
 | As the other traffic | nothing special: the rules decide, as for any program |
-| Past podkop | torrents never use your servers: they go straight to the internet, and the router can offload them |
+| Past podkop | torrents go straight to the internet, not through your servers (the exceptions are below), and the router can offload them |
 | Block | dropped |
 | Through the servers of a rule | sent to the servers of the rule you choose, for example ones without a data cap |
 
@@ -122,17 +123,23 @@ What it cannot do:
   open; podkop then closes it so that the client opens it again, the right way. rTorrent and aria2
   with encryption required rarely do: in "Past podkop" and "Through the servers of a rule" such
   connections stay on the route they had, for peers that no tracker or DHT answer named.
-- **A download with a few peers** from a client that hides is not found on the whole LAN: three
-  encrypted handshakes must complete, and most addresses a tracker names do not answer.
-- **Programs that look alike.** An I2P router is taken for BitTorrent. A proxy client that keeps
-  connections to several servers on uncommon ports (Shadowsocks, VMess) on a device that also runs
-  a torrent client can be taken for it.
+- **A small download** from a client that hides is not found on the whole LAN: three encrypted
+  handshakes must complete, and most addresses a tracker names do not answer. In our tests a
+  tracker's answer of 50 peers was enough, one of 20 or fewer was not.
+- **A client that hides and has an open port** (a port forward, UPnP): what it opens itself is
+  blocked, but connections that peers open to it from outside are not.
+- **Programs that look alike.** An I2P router is taken for BitTorrent. A proxy client whose
+  connections look random from the first byte (shadowsocks-rust, V2Ray's VMess) is taken for a
+  torrent client when it keeps connections to three or more servers on uncommon ports; on a device
+  that also runs a torrent client, one such connection is enough.
 - **Flow offloading.** A connection the router offloaded passes no rule. Podkop decides by the
   first packet wherever it can. On the whole LAN, a client whose only sign is in the data of a TCP
   connection (a plain-HTTP tracker, a plaintext handshake) is not told with offloading on, unless
-  "Find clients that hide" catches it.
+  "Find clients that hide" catches it. That setting was tested with software offloading only, not
+  with hardware offloading or on real routers yet.
 - **A client on the router that runs as root**, and programs behind an interface that is not among
-  the source interfaces, are not seen.
+  the source interfaces, are not seen. With **Block**, the web interface of a client on the router
+  answers only to the private addresses of the LAN.
 - **The first announce** to an HTTP tracker of your lists, and every announce to an HTTPS tracker,
   go by the rules, like any site.
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/mdlayher/netlink"
 	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
+	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/sagernet/nftables"
 	"github.com/sagernet/nftables/expr"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -222,7 +223,9 @@ func parseFlow(data []byte) (btstats.Flow, bool) {
 			decoder.Nested(counts(&flow.Reply))
 		}
 	}
-	flow.Incoming = status&statusDNAT != 0
+	// from outside: its destination was rewritten (a port forward to a device), or it came to a
+	// client on the router itself (bt_router's mark of it)
+	flow.Incoming = status&statusDNAT != 0 || flow.Mark&dataplane.BitTorrentInboundCt == dataplane.BitTorrentInboundCt
 	return flow, decoder.Err() == nil && flow.Key != ""
 }
 
@@ -359,6 +362,7 @@ func dropCounts(conn *nftables.Conn, table *nftables.Table, chain string) ([]bts
 const (
 	ctaTupleIP      = 1
 	ctaIPv4Src      = 1
+	ctaIPv4Dst      = 2
 	ctaProtoDstPort = 3
 )
 
@@ -367,6 +371,7 @@ const (
 type undecided struct {
 	tuple  []byte
 	source [4]byte
+	far    [4]byte
 	tcp    bool
 	port   uint16
 	mark   uint32
@@ -393,8 +398,11 @@ func parseUndecided(data []byte) (undecided, bool) {
 					case ctaTupleIP:
 						tuple.Nested(func(ip *netlink.AttributeDecoder) error {
 							for ip.Next() {
-								if ip.Type() == ctaIPv4Src && len(ip.Bytes()) == 4 {
+								switch {
+								case ip.Type() == ctaIPv4Src && len(ip.Bytes()) == 4:
 									copy(entry.source[:], ip.Bytes())
+								case ip.Type() == ctaIPv4Dst && len(ip.Bytes()) == 4:
+									copy(entry.far[:], ip.Bytes())
 								}
 							}
 							return nil
@@ -429,6 +437,10 @@ func (u undecided) isUndecided(device [4]byte) bool {
 	if !u.tcp || u.source != device || u.port < firstFreePort || u.mark&(ctBitTorrent|ctLate|ctInspect|ctIntercepted) != 0 {
 		return false
 	}
+	// (to the router or to a network of its own: no peer's, and the detector does not look there)
+	if far := netip.AddrFrom4(u.far); far.IsPrivate() || far.IsLoopback() || far.IsLinkLocalUnicast() || far.IsMulticast() || far.IsUnspecified() {
+		return false
+	}
 	for _, port := range commonPorts {
 		if u.port == port {
 			return false
@@ -440,12 +452,14 @@ func (u undecided) isUndecided(device [4]byte) bool {
 // EndUndecidedFlows ends the conntrack entries of the TCP connections a device opened to uncommon
 // ports that the detector left as forwarded (the suspicion by fan-out: the module calls it when the early check
 // of a suspect told that the device runs a client). An offloaded connection ends being offloaded
-// with its entry; its next packet makes a new entry, which bt_tcp resets (the device is in
-// bt_hosts by then). It tells how many it ended.
+// with its entry; its next packet makes a new entry, which bt_tcp resets: the device is put in
+// bt_ended first, for bitTorrentEndedFor (a table without that set, which has no suspicion, has
+// no rule to reset by either). It tells how many it ended.
 func EndUndecidedFlows(device netip.Addr) (int, error) {
 	if !device.Is4() {
 		return 0, nil
 	}
+	_ = renewElement(setBitTorrentEnded, device, bitTorrentEndedFor)
 	conn, err := netlink.Dial(unix.NETLINK_NETFILTER, nil)
 	if err != nil {
 		return 0, E.Cause(err, "open netlink of netfilter")

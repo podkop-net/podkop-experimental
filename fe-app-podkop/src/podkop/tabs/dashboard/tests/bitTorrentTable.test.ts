@@ -58,7 +58,7 @@ describe('bitTorrentTable', () => {
         connections: '40',
         received: '1.23 MB',
         sent: '45.6 KB',
-        packets: 'Packets: received 1000, sent 500',
+        packets: 'Packets: sent 500, received 1000',
       },
       {
         kind: 'DHT and trackers',
@@ -67,7 +67,7 @@ describe('bitTorrentTable', () => {
         connections: '3',
         received: '900 B',
         sent: '300 B',
-        packets: 'Packets: received 2, sent 2',
+        packets: 'Packets: sent 2, received 2',
       },
     ]);
     // two rows or more have a row of what they add up to
@@ -78,7 +78,7 @@ describe('bitTorrentTable', () => {
       connections: '43',
       received: '1.24 MB',
       sent: '45.9 KB',
-      packets: 'Packets: received 1002, sent 502',
+      packets: 'Packets: sent 502, received 1002',
     });
     expect(table?.caption).toContain('as the devices of the LAN see it');
   });
@@ -108,7 +108,7 @@ describe('bitTorrentTable', () => {
     expect(table?.total).toBeUndefined();
     expect(table?.rows[0].sent).toBe('17 GB');
     expect(table?.notes).toEqual([
-      'Devices with no other sign of a client: 5 connections confirmed as BitTorrent, 1 devices told by them',
+      'Devices with no other sign of a client: connections confirmed as BitTorrent: 5, devices told by them: 1',
     ]);
   });
 
@@ -150,7 +150,7 @@ describe('bitTorrentTable', () => {
       'The last read of the connections failed: no netlink',
       'The router does not count the bytes of connections (net.netfilter.nf_conntrack_acct is 0)',
       'uTP connects turned to TCP (on a flow of the DHT): 3',
-      'Peers learned from the replies of trackers and of the DHT: 50 (replies read: 4, announces: 1)',
+      'Peers learned: 50 (replies of trackers and the DHT read: 4, announces: 1)',
       'Connections checked: 6; confirmed as BitTorrent: 2 (closed: 2, left open: 0); not BitTorrent: 4; no answer from the other side: 0',
     ]);
   });
@@ -171,7 +171,7 @@ describe('bitTorrentTable', () => {
       }),
     );
     expect(told?.notes).toEqual([
-      'Clients that hide: 2 devices told by the burst of their connections, 9 connections they had opened before closed',
+      'Clients that hide: devices told by the burst of their connections: 2, connections they had opened before, closed: 9',
     ]);
   });
 

@@ -579,11 +579,23 @@ func (s *Service) keepKnown(device netip.Addr) {
 	}
 	s.kept[device] = now
 	s.pendingMu.Unlock()
-	s.earlyKeptKnown.Add(1)
 	go func() {
-		if err := KeepKnown(device); err != nil && s.logger != nil {
-			s.logger.Debug("BitTorrent: ", device, " was not kept in the set of devices: ", err)
+		defer func() {
+			if recover() != nil {
+				s.counters.panics.Add(1)
+			}
+		}()
+		if err := KeepKnown(device); err != nil {
+			// not kept: the next confirmed connection tries again, not one keepKnownEvery later
+			s.pendingMu.Lock()
+			delete(s.kept, device)
+			s.pendingMu.Unlock()
+			if s.logger != nil {
+				s.logger.Debug("BitTorrent: ", device, " was not kept in the set of devices: ", err)
+			}
+			return
 		}
+		s.earlyKeptKnown.Add(1)
 	}()
 }
 
@@ -596,17 +608,28 @@ const keptMost = 1024
 // opened before, which the firewall left as forwarded, are ended (EndOlder). Before its confirmed
 // connections are acted on.
 func (s *Service) tell(device netip.Addr) {
-	s.earlySuspects.Add(1)
+	// (earlySuspects counts a device once, not each time its older connections are ended again;
+	// kept takes the device only when it was written: keepKnown does not wait keepKnownEvery
+	// for one the set never got)
+	written := false
+	if s.hostsSink != nil {
+		err := s.hostsSink.add([][]byte{device.AsSlice()}, s.wait)
+		written = err == nil
+		if err != nil && s.logger != nil {
+			s.logger.Warn("BitTorrent: ", device, " was not put in the set of devices: ", err)
+		}
+	}
 	s.pendingMu.Lock()
 	if s.kept == nil {
 		s.kept = make(map[netip.Addr]time.Time)
 	}
-	s.kept[device] = time.Now()
+	_, before := s.kept[device]
+	if written {
+		s.kept[device] = time.Now()
+	}
 	s.pendingMu.Unlock()
-	if s.hostsSink != nil {
-		if err := s.hostsSink.add([][]byte{device.AsSlice()}, s.wait); err != nil && s.logger != nil {
-			s.logger.Warn("BitTorrent: ", device, " was not put in the set of devices: ", err)
-		}
+	if !before {
+		s.earlySuspects.Add(1)
 	}
 	if EndOlder == nil {
 		return

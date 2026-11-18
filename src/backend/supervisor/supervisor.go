@@ -16,6 +16,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net"
 	"net/http"
 	"net/netip"
@@ -419,7 +420,10 @@ type Supervisor struct {
 	// no detector because of it (the rule is not there, is off or goes nowhere: the plan's
 	// bitTorrent); nil otherwise. The report tells it, where the card of the page was just gone.
 	bitTorrentNoRule atomic.Pointer[string]
-	bitTorrentStats  btstats.Stats
+	// bitTorrentWake tells the reads of BitTorrent's traffic that a table was applied
+	// (updateFirewall): a detector that came is read at once (pollBitTorrent)
+	bitTorrentWake  chan struct{}
+	bitTorrentStats btstats.Stats
 }
 
 // running is a state of the router that was brought up.
@@ -467,7 +471,7 @@ func New(options Options) *Supervisor {
 		options.Engine = realEngine{}
 	}
 	return &Supervisor{options: options, derive: make(chan struct{}, 1), requests: make(chan chan Result), updates: make(chan chan ListsUpdate), probes: make(chan probeRequest), statuses: make(chan chan []ListState), restores: make(chan chan string),
-		downloads: make(chan downloaded), subscriptionRequests: make(chan subscriptionRequest)}
+		downloads: make(chan downloaded), subscriptionRequests: make(chan subscriptionRequest), bitTorrentWake: make(chan struct{}, 1)}
 }
 
 func (s *Supervisor) log(level string, message ...any) {
@@ -910,6 +914,13 @@ func (s *Supervisor) drift(current *running) (changes []string, lost bool) {
 	// it is back, and one that is not there cannot be listened on
 	if address := s.options.System.LANAddress(); address != "" && address != built.LANAddress {
 		changes = append(changes, "the address of the LAN: "+address+" (was "+cmp.Or(built.LANAddress, "none")+")")
+	}
+	// a user of the router's torrent clients that the router has gained or lost since (the package
+	// of the client installed after the setting was made): its number is in the firewall's rules
+	if current.settings != nil {
+		if names := current.settings.Settings.BitTorrentRouterUsers; len(names) > 0 && !maps.Equal(userIDs(names), built.UserIDs) {
+			changes = append(changes, "the users of the router's torrent clients")
+		}
 	}
 	if listening := s.options.System.Listening(); listening != nil {
 		for _, inbound := range inboundSockets(current.result.Config) {
@@ -1694,7 +1705,7 @@ func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
 		BitTorrent: firewall.BitTorrent{Mode: wanted.BitTorrent, LAN: wanted.BitTorrentLAN, Sources: wanted.Sources, Fan: wanted.BitTorrentFan,
 			RouterUsers: wanted.BitTorrentRouterUsers}}
 	s.bitTorrentRule = ""
-	s.bitTorrentNoRule.Store(nil)
+	var noRule *string
 	if current.settings != nil && current.settings.Settings.BitTorrent == model.BitTorrentSection {
 		name := current.settings.Settings.BitTorrentSection
 		label := name
@@ -1704,9 +1715,10 @@ func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
 		if wanted.BitTorrent == model.BitTorrentSection {
 			s.bitTorrentRule = label
 		} else {
-			s.bitTorrentNoRule.Store(&label)
+			noRule = &label
 		}
 	}
+	s.bitTorrentNoRule.Store(noRule)
 	var sources []keyedSource
 	known := make(map[string]knownSource, len(current.result.RuleSets))
 	for _, ruleSet := range current.result.RuleSets {
@@ -1912,6 +1924,12 @@ func (s *Supervisor) updateFirewall(previous, next *firewall.Plan) error {
 	} else {
 		s.bitTorrentSetup.Store(&btstats.Setup{Mode: applied.Mode, LAN: applied.LAN, Rule: s.bitTorrentRule})
 	}
+	// the statistics read now, not at their next tick: the first read is the baseline of the
+	// connections open already, and those that begin before it are taken for such
+	select {
+	case s.bitTorrentWake <- struct{}{}:
+	default:
+	}
 	return nil
 }
 
@@ -1928,19 +1946,30 @@ func (s *Supervisor) pollBitTorrent(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case now := <-ticker.C:
-			setup := s.bitTorrentSetup.Load()
-			if last != nil && (setup == nil || setup.Mode != last.Mode || setup.LAN != last.LAN) {
-				s.bitTorrentStats.Reset()
+			last = s.readBitTorrent(last, now)
+		case <-s.bitTorrentWake:
+			// a table was applied: only a detector that came or changed is read ahead of the tick
+			if setup := s.bitTorrentSetup.Load(); setup != nil && (last == nil || setup.Mode != last.Mode || setup.LAN != last.LAN) {
+				last = s.readBitTorrent(last, time.Now())
 			}
-			last = setup
-			if setup == nil {
-				continue
-			}
-			flows, err := s.options.System.BitTorrentFlows()
-			drops, dropsErr := s.options.System.BitTorrentDrops()
-			s.bitTorrentStats.Observe(*setup, flows, drops, errors.Join(err, dropsErr), now)
 		}
 	}
+}
+
+// readBitTorrent is a read of pollBitTorrent at now: last is the setup of the read before, and the
+// setup read now is given back.
+func (s *Supervisor) readBitTorrent(last *btstats.Setup, now time.Time) *btstats.Setup {
+	setup := s.bitTorrentSetup.Load()
+	if last != nil && (setup == nil || setup.Mode != last.Mode || setup.LAN != last.LAN) {
+		s.bitTorrentStats.Reset()
+	}
+	if setup == nil {
+		return nil
+	}
+	flows, err := s.options.System.BitTorrentFlows()
+	drops, dropsErr := s.options.System.BitTorrentDrops()
+	s.bitTorrentStats.Observe(*setup, flows, drops, errors.Join(err, dropsErr), now)
+	return setup
 }
 
 // BitTorrentStats is what the BitTorrent traffic of the LAN came to (btstats.Report), with the
@@ -2209,6 +2238,8 @@ func (s *Supervisor) release() {
 		s.bitTorrentApplied = nil
 		s.bitTorrentSetup.Store(nil)
 	}
+	// nothing runs: the notice of a rule of BitTorrent that is off is of a configuration that is gone
+	s.bitTorrentNoRule.Store(nil)
 	err = s.options.System.RemoveRouting()
 	if err != nil {
 		s.log("error", "remove the routing: ", err)

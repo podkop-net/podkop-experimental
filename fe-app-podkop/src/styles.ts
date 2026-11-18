@@ -39,7 +39,7 @@ ${PartialStyles}
 
 /* Skeleton styles*/
 .skeleton {
-    background-color: var(--background-color-low, #e0e0e0);
+    background-color: var(--background-color-low, rgba(128, 128, 128, 0.2));
     border-radius: 4px;
     position: relative;
     overflow: hidden;
@@ -55,7 +55,7 @@ ${PartialStyles}
     background: linear-gradient(
             90deg,
             transparent,
-            rgba(255, 255, 255, 0.4),
+            rgba(160, 160, 160, 0.25),
             transparent
     );
     animation: skeleton-shimmer 1.6s infinite;

@@ -249,6 +249,8 @@ func (s *Stats) Observe(setup Setup, flows []Flow, drops Drops, err error, now t
 	if baseline {
 		s.flows = make(map[flowKey]seen)
 		s.rows = make(map[rowKey]*Row)
+		// "since" is from the read the counts begin at, not from one that failed before it
+		s.first = now
 	}
 	for _, row := range s.rows {
 		row.Open = 0

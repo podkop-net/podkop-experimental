@@ -102,7 +102,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_syn", "ip saddr @bt_hosts ip daddr . tcp dport @bt_peers ct mark set ct mark | 0x00080000 counter return"),
 		rule("bt_syn", "ip saddr @bt_hosts tcp dport != "+ports+" ct mark set ct mark | 0x00080000 counter return"),
 		rule("bt_handshake", "update @bt_hosts { ip saddr }"),
-		rule("bt_handshake", "update @bt_peers { ip daddr . tcp dport }"),
+		rule("bt_handshake", "ct direction original update @bt_peers { ip daddr . tcp dport }"),
 		rule("bt_handshake", "ct mark & 0x00008000 != 0 ct mark set ct mark | 0x00020000 counter return"),
 		rule("bt_handshake", "ct mark set ct mark | 0x00010000 counter goto bt_decided"),
 		rule("bt_decided", "ct mark & 0x00090000 != 0 @ih,0,112 0x474554202f616e6e6f756e63653f tcp dport != "+ports+" update @bt_trackers { ip saddr . ip daddr . tcp dport }"),
@@ -160,7 +160,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 			rule("bt_block", "meta l4proto udp counter drop"),
 			rule("bt_block", "counter drop"))
 	}
-	lines = append(lines, rule("bt_incoming", "iifname @interfaces return"), rule("bt_incoming", "ct state & new == 0 return"))
+	lines = append(lines, rule("bt_incoming", "ct state & new == 0 return"), rule("bt_incoming", "iifname @interfaces return"))
 	if mode == BitTorrentBlock {
 		devices := []string{""}
 		if !detector.LAN {
@@ -204,6 +204,16 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 				table, routes[index].marks, transport, routes[index].port))
 		}
 	}
+	// the block of the whole LAN: the device's side of a connection from outside whose entry was
+	// ended, after the rule of the SYN
+	if mode == BitTorrentBlock && detector.LAN {
+		for index, line := range lines {
+			if strings.Contains(line, "bt_tcp @ih,0,96 0x13426974546f7272656e7420") {
+				lines = append(lines[:index], append([]string{rule("bt_tcp", "ip saddr . tcp sport @bt_sockets ct state new counter goto bt_block")}, lines[index:]...)...)
+				break
+			}
+		}
+	}
 	// the programs of the router that run as one of RouterUsers: bt_router, the jumps to it after
 	// the second rule of mangle_output, and proxy's rule of what it marked
 	if users := detector.RouterUsers; len(users) > 0 {
@@ -216,17 +226,22 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		for index, user := range users {
 			lines = append(lines, fmt.Sprintf("add rule %s mangle_output index %d meta nfproto ipv4 meta skuid %d jump bt_router", table, index+1, user))
 		}
+		if mode != BitTorrentBlock {
+			lines = append(lines, fmt.Sprintf("add rule %s mangle_output index %d meta nfproto ipv4 ct direction original ct mark & 0x00010000 != 0 jump bt_router", table, len(users)+1))
+		}
+		lines = append(lines, rule("bt_router", "fib daddr type local accept"))
 		switch mode {
 		case BitTorrentBlock:
 			lines = append(lines, rule("bt_router", "meta l4proto udp counter drop"), rule("bt_router", "counter drop"))
 		case BitTorrentSection:
 			lines = append(lines,
-				rule("bt_router", "ct direction reply ct mark set ct mark | 0x00010000 accept"),
+				rule("bt_router", "ct direction reply ct mark set ct mark | 0x00050000 accept"),
 				rule("bt_router", "ct mark set ct mark | 0x00018000"),
 				rule("bt_router", "meta l4proto tcp meta mark set 0x00400000 counter accept"),
 				rule("bt_router", "meta l4proto udp meta mark set 0x00400000 counter accept"))
 		default:
-			lines = append(lines, rule("bt_router", "ct mark set ct mark | 0x00010000"), rule("bt_router", "ip daddr != 198.18.0.0/15 counter accept"))
+			lines = append(lines, rule("bt_router", "ct direction reply ct mark set ct mark | 0x00050000 accept"),
+				rule("bt_router", "ct mark set ct mark | 0x00010000"), rule("bt_router", "ip daddr != 198.18.0.0/15 counter accept"))
 		}
 		if mode != BitTorrentBlock {
 			for _, transport := range []string{"udp", "tcp"} {
@@ -236,7 +251,8 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 	}
 	// the suspicion by the fan-out of connection openings: its sets and its rules, each at its place
 	// among those of its chain
-	if fan, suspicion := bitTorrentSuspicion(detector); suspicion {
+	// (the condition and the times written out here: the code's own must not be what is tested by)
+	if fan := detector.Fan; fan.Burst > 0 && detector.LAN && (mode == BitTorrentBlock || mode == BitTorrentSection) {
 		before := func(anchor string, added ...string) {
 			for index, line := range lines {
 				if strings.Contains(line, anchor) {
@@ -251,8 +267,9 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		before("add chain "+table+" bt_detect",
 			"add set "+table+" bt_suspects { type ipv4_addr; size 1024; flags dynamic,timeout; timeout "+fan.Suspect.String()+"; }",
 			"add set "+table+" bt_fan_pairs { type ipv4_addr . ipv4_addr; size 16384; flags dynamic,timeout; timeout "+fan.Pair.String()+"; }",
-			"add set "+table+" bt_fan { type ipv4_addr; size 1024; flags dynamic,timeout; timeout "+(2*fan.Refill()).String()+"; }")
-		before("bt_tcp @ih,0,8 0x0-0xff", rule("bt_tcp", "ip saddr @bt_hosts "+free+"ct state new counter reject with tcp reset"))
+			"add set "+table+" bt_fan { type ipv4_addr; size 1024; flags dynamic,timeout; timeout "+(2*time.Duration(uint64(fan.Burst)*fan.Unit/fan.Rate+1)*time.Second).String()+"; }",
+			"add set "+table+" bt_ended { type ipv4_addr; size 1024; flags dynamic,timeout; timeout 5m; }")
+		before("bt_tcp @ih,0,8 0x0-0xff", rule("bt_tcp", "ip saddr @bt_ended "+free+"ct state new counter reject with tcp reset"))
 		before("bt_handshake update @bt_hosts",
 			rule("bt_syn", "ip saddr @bt_suspects "+free+"ct mark set ct mark | 0x000a0000 counter return"),
 			rule("bt_syn", free+"ip saddr . ip daddr @bt_fan_pairs update @bt_fan_pairs { ip saddr . ip daddr } return"),

@@ -10,7 +10,7 @@
     "call": "“Find a mask” on the dashboard also tries the names of public whitelists, downloaded for each search directly or through your servers. Off: only the built-in names",
     "key": "“Find a mask” on the dashboard also tries the names of public whitelists, downloaded for each search directly or through your servers. Off: only the built-in names",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:506"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:519"
     ]
   },
   {
@@ -91,15 +91,21 @@
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:57",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:82",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:341",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:406",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:432"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:406"
     ]
   },
   {
     "call": "%s (off)",
     "key": "%s (off)",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:427"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:430"
+    ]
+  },
+  {
+    "call": "%s (the rule is deleted)",
+    "key": "%s (the rule is deleted)",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:435"
     ]
   },
   {
@@ -141,7 +147,7 @@
     "call": "%s open",
     "key": "%s open",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:55"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:49"
     ]
   },
   {
@@ -162,7 +168,7 @@
     "call": "%s since the reset",
     "key": "%s since the reset",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:132"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:151"
     ]
   },
   {
@@ -198,7 +204,7 @@
     "call": "⚠️ This rule is switched off or deleted: BitTorrent goes as the other traffic until the rule is on again or another one is chosen",
     "key": "⚠️ This rule is switched off or deleted: BitTorrent goes as the other traffic until the rule is on again or another one is chosen",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:436"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:420"
     ]
   },
   {
@@ -244,10 +250,10 @@
     ]
   },
   {
-    "call": "A client set up without DHT, uTP and peer exchange, with encryption required, shows the router no sign of BitTorrent. With this on, a device that opens connections to many new addresses on uncommon ports at once has its new connections checked through sing-box; when three of them turn out to be BitTorrent, the device is taken as running a client and the connections it opened before are closed. Not found: a download with only a few peers. An I2P router is taken for BitTorrent. Connections under the check are not offloaded",
-    "key": "A client set up without DHT, uTP and peer exchange, with encryption required, shows the router no sign of BitTorrent. With this on, a device that opens connections to many new addresses on uncommon ports at once has its new connections checked through sing-box; when three of them turn out to be BitTorrent, the device is taken as running a client and the connections it opened before are closed. Not found: a download with only a few peers. An I2P router is taken for BitTorrent. Connections under the check are not offloaded",
+    "call": "A client set up without DHT, uTP and peer exchange, with encryption required, shows the router no sign of BitTorrent. With this on, a device that opens connections to many new addresses on uncommon ports at once has its new connections checked through sing-box; when three of them turn out to be BitTorrent, the device is taken as running a client and the connections it opened before are closed. Not found: a download whose tracker names about 20 peers or fewer. An I2P router is taken for BitTorrent. Connections under the check are not offloaded",
+    "key": "A client set up without DHT, uTP and peer exchange, with encryption required, shows the router no sign of BitTorrent. With this on, a device that opens connections to many new addresses on uncommon ports at once has its new connections checked through sing-box; when three of them turn out to be BitTorrent, the device is taken as running a client and the connections it opened before are closed. Not found: a download whose tracker names about 20 peers or fewer. An I2P router is taken for BitTorrent. Connections under the check are not offloaded",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:465"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:475"
     ]
   },
   {
@@ -335,10 +341,10 @@
     ]
   },
   {
-    "call": "A user name: letters, digits, - and _",
-    "key": "A user name: letters, digits, - and _",
+    "call": "A user name: letters, digits, ., - and _",
+    "key": "A user name: letters, digits, ., - and _",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:492"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:505"
     ]
   },
   {
@@ -389,7 +395,7 @@
     "call": "Addresses of the lists of masks",
     "key": "Addresses of the lists of masks",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:517"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:530"
     ]
   },
   {
@@ -593,7 +599,7 @@
     "call": "Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped",
     "key": "Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:652"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:665"
     ]
   },
   {
@@ -688,14 +694,14 @@
     "call": "Cache File Path",
     "key": "Cache File Path",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:717"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:730"
     ]
   },
   {
     "call": "Cache file path cannot be empty",
     "key": "Cache file path cannot be empty",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:728"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:741"
     ]
   },
   {
@@ -837,8 +843,8 @@
     ]
   },
   {
-    "call": "Clients that hide: %d devices told by the burst of their connections, %d connections they had opened before closed",
-    "key": "Clients that hide: %d devices told by the burst of their connections, %d connections they had opened before closed",
+    "call": "Clients that hide: devices told by the burst of their connections: %d, connections they had opened before, closed: %d",
+    "key": "Clients that hide: devices told by the burst of their connections: %d, connections they had opened before, closed: %d",
     "places": [
       "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:248"
     ]
@@ -884,7 +890,7 @@
     "call": "Connections",
     "key": "Connections",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:82"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:86"
     ]
   },
   {
@@ -955,7 +961,7 @@
     "call": "Custom URL",
     "key": "Custom URL",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:658"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:671"
     ]
   },
   {
@@ -976,7 +982,7 @@
     "call": "Default",
     "key": "Default",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:656"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:669"
     ]
   },
   {
@@ -1009,8 +1015,8 @@
     ]
   },
   {
-    "call": "Devices with no other sign of a client: %d connections confirmed as BitTorrent, %d devices told by them",
-    "key": "Devices with no other sign of a client: %d connections confirmed as BitTorrent, %d devices told by them",
+    "call": "Devices with no other sign of a client: connections confirmed as BitTorrent: %d, devices told by them: %d",
+    "key": "Devices with no other sign of a client: connections confirmed as BitTorrent: %d, devices told by them: %d",
     "places": [
       "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:240"
     ]
@@ -1088,7 +1094,7 @@
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:712",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:793",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:364",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:657"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:670"
     ]
   },
   {
@@ -1202,7 +1208,7 @@
     "call": "Dont Touch My DHCP!",
     "key": "Dont Touch My DHCP!",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:708"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:721"
     ]
   },
   {
@@ -1224,14 +1230,14 @@
     "call": "Download Check",
     "key": "Download Check",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:651"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:664"
     ]
   },
   {
     "call": "Download Check URL",
     "key": "Download Check URL",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:664"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:677"
     ]
   },
   {
@@ -1344,7 +1350,7 @@
     "call": "Every 1 minute",
     "key": "Every 1 minute",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:602"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:615"
     ]
   },
   {
@@ -1372,21 +1378,21 @@
     "call": "Every 3 minutes",
     "key": "Every 3 minutes",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:603"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:616"
     ]
   },
   {
     "call": "Every 30 seconds",
     "key": "Every 30 seconds",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:601"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:614"
     ]
   },
   {
     "call": "Every 5 minutes",
     "key": "Every 5 minutes",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:604"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:617"
     ]
   },
   {
@@ -1428,14 +1434,14 @@
     "call": "Exclude NTP",
     "key": "Exclude NTP",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:766"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:779"
     ]
   },
   {
     "call": "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN",
     "key": "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:767"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:780"
     ]
   },
   {
@@ -1538,7 +1544,7 @@
     "call": "Find clients that hide",
     "key": "Find clients that hide",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:464"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:474"
     ]
   },
   {
@@ -1922,7 +1928,7 @@
     "call": "List Update Frequency",
     "key": "List Update Frequency",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:694"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:707"
     ]
   },
   {
@@ -1957,7 +1963,7 @@
     "call": "Log Level",
     "key": "Log Level",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:750"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:763"
     ]
   },
   {
@@ -2102,7 +2108,7 @@
     "call": "Must be a number in the range of 50 - 1000",
     "key": "Must be a number in the range of 50 - 1000",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:644"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:657"
     ]
   },
   {
@@ -2161,7 +2167,7 @@
     "call": "Nearly every program of the router runs as root: it cannot be told apart",
     "key": "Nearly every program of the router runs as root: it cannot be told apart",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:494"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:507"
     ]
   },
   {
@@ -2220,7 +2226,7 @@
     "call": "No BitTorrent traffic seen yet",
     "key": "No BitTorrent traffic seen yet",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:125"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:144"
     ]
   },
   {
@@ -2472,7 +2478,7 @@
     "key": "On the whole LAN",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:403",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:455",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:465",
       "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:79"
     ]
   },
@@ -2480,7 +2486,7 @@
     "call": "One check for the servers of every rule. Each round tests every server with the next URL of the list; the delay of a server is the median of a full cycle, so one slow URL or one stray test does not change the server in use. A server is unavailable when two URLs do not answer through it. URLs of different companies are best",
     "key": "One check for the servers of every rule. Each round tests every server with the next URL of the list; the delay of a server is the median of a full cycle, so one slow URL or one stray test does not change the server in use. A server is unavailable when two URLs do not answer through it. URLs of different companies are best",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:546"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:559"
     ]
   },
   {
@@ -2494,7 +2500,7 @@
     "call": "One host name per line in each list; their names are tried in turn with the built-in ones. Empty: the lists of Runnin4ik/dpi-detector and cheburcheck.ru",
     "key": "One host name per line in each list; their names are tried in turn with the built-in ones. Empty: the lists of Runnin4ik/dpi-detector and cheburcheck.ru",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:518"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:531"
     ]
   },
   {
@@ -2538,7 +2544,7 @@
     "key": "Only what podkop takes",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:402",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:454",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:464",
       "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:80"
     ]
   },
@@ -2614,8 +2620,8 @@
     ]
   },
   {
-    "call": "Packets: received %d, sent %d",
-    "key": "Packets: received %d, sent %d",
+    "call": "Packets: sent %d, received %d",
+    "key": "Packets: sent %d, received %d",
     "places": [
       "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:130",
       "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:148"
@@ -2641,26 +2647,26 @@
     "call": "Path must be absolute (start with /)",
     "key": "Path must be absolute (start with /)",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:732"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:745"
     ]
   },
   {
     "call": "Path must contain at least one directory (like /tmp/cache.db)",
     "key": "Path must contain at least one directory (like /tmp/cache.db)",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:741"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:754"
     ]
   },
   {
     "call": "Path must end with cache.db",
     "key": "Path must end with cache.db",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:736"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:749"
     ]
   },
   {
-    "call": "Peers learned from the replies of trackers and of the DHT: %d (replies read: %d, announces: %d)",
-    "key": "Peers learned from the replies of trackers and of the DHT: %d (replies read: %d, announces: %d)",
+    "call": "Peers learned: %d (replies of trackers and the DHT read: %d, announces: %d)",
+    "key": "Peers learned: %d (replies of trackers and the DHT read: %d, announces: %d)",
     "places": [
       "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:211"
     ]
@@ -2724,7 +2730,7 @@
     "call": "Podkop will not modify your DHCP configuration",
     "key": "Podkop will not modify your DHCP configuration",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:709"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:722"
     ]
   },
   {
@@ -2746,7 +2752,7 @@
     "call": "Public lists of masks",
     "key": "Public lists of masks",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:505"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:518"
     ]
   },
   {
@@ -2775,7 +2781,7 @@
     "call": "Received",
     "key": "Received",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:81"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:85"
     ]
   },
   {
@@ -2838,7 +2844,7 @@
     "call": "Reset",
     "key": "Reset",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:143"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:162"
     ]
   },
   {
@@ -2873,7 +2879,7 @@
     "call": "Routing Excluded IPs",
     "key": "Routing Excluded IPs",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:777"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:790"
     ]
   },
   {
@@ -2986,7 +2992,7 @@
     "call": "Select how often the domain or subnet lists are updated automatically. A list is downloaded directly first, then through the servers of the rules, those that brought it before first; a source marked “Do not use for downloading lists and subscriptions” never carries it",
     "key": "Select how often the domain or subnet lists are updated automatically. A list is downloaded directly first, then through the servers of the rules, those that brought it before first; a source marked “Do not use for downloading lists and subscriptions” never carries it",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:695"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:708"
     ]
   },
   {
@@ -3000,7 +3006,7 @@
     "call": "Select or enter path for the cache file: FakeIP addresses and downloaded lists. Change this ONLY if you know what you are doing",
     "key": "Select or enter path for the cache file: FakeIP addresses and downloaded lists. Change this ONLY if you know what you are doing",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:718"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:731"
     ]
   },
   {
@@ -3028,7 +3034,7 @@
     "call": "Select the log level for sing-box",
     "key": "Select the log level for sing-box",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:751"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:764"
     ]
   },
   {
@@ -3042,12 +3048,12 @@
     "call": "Sent",
     "key": "Sent",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:80"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:84"
     ]
   },
   {
-    "call": "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is not counted.",
-    "key": "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is not counted.",
+    "call": "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is counted only when its user is named in the settings.",
+    "key": "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is counted only when its user is named in the settings.",
     "places": [
       "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:261"
     ]
@@ -3071,21 +3077,21 @@
     "call": "Server check interval",
     "key": "Server check interval",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:595"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:608"
     ]
   },
   {
     "call": "Server check tolerance, ms",
     "key": "Server check tolerance, ms",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:622"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:635"
     ]
   },
   {
     "call": "Server check URLs",
     "key": "Server check URLs",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:545"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:558"
     ]
   },
   {
@@ -3248,7 +3254,7 @@
     "call": "since %s",
     "key": "since %s",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:132"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:151"
     ]
   },
   {
@@ -3297,7 +3303,7 @@
     "call": "Specify a local IP address to be excluded from routing",
     "key": "Specify a local IP address to be excluded from routing",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:778"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:791"
     ]
   },
   {
@@ -3311,7 +3317,7 @@
     "call": "Start the statistics again from now",
     "key": "Start the statistics again from now",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:140"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:159"
     ]
   },
   {
@@ -3594,10 +3600,10 @@
     ]
   },
   {
-    "call": "The detector sees the devices of the LAN, not the programs of the router. Name the user a client on the router runs as (the packages of OpenWrt: transmission, aria2), and all the traffic of that user is treated as BitTorrent by the mode above: left alone past podkop (the addresses of the lists too), blocked, or sent through the rule. A client that runs as root cannot be told apart; a client in a container is a device of the LAN once its bridge is among the source interfaces",
-    "key": "The detector sees the devices of the LAN, not the programs of the router. Name the user a client on the router runs as (the packages of OpenWrt: transmission, aria2), and all the traffic of that user is treated as BitTorrent by the mode above: left alone past podkop (the addresses of the lists too), blocked, or sent through the rule. A client that runs as root cannot be told apart; a client in a container is a device of the LAN once its bridge is among the source interfaces",
+    "call": "The detector sees the devices of the LAN, not the programs of the router. Name the user a client on the router runs as (the packages of OpenWrt: transmission, aria2), and all the traffic of that user is treated as BitTorrent by the mode above: left alone past podkop (the addresses of the lists too), blocked, or sent through the rule. A client that runs as root cannot be told apart",
+    "key": "The detector sees the devices of the LAN, not the programs of the router. Name the user a client on the router runs as (the packages of OpenWrt: transmission, aria2), and all the traffic of that user is treated as BitTorrent by the mode above: left alone past podkop (the addresses of the lists too), blocked, or sent through the rule. A client that runs as root cannot be told apart",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:480"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:490"
     ]
   },
   {
@@ -3702,7 +3708,7 @@
     "call": "The interval between connectivity tests",
     "key": "The interval between connectivity tests",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:596"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:609"
     ]
   },
   {
@@ -4114,7 +4120,7 @@
     "call": "The server in use changes only for one faster by this much",
     "key": "The server in use changes only for one faster by this much",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:623"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:636"
     ]
   },
   {
@@ -4241,7 +4247,7 @@
     "call": "The URL must serve at least 64 KiB or announce a shorter length",
     "key": "The URL must serve at least 64 KiB or announce a shorter length",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:665"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:678"
     ]
   },
   {
@@ -4382,7 +4388,7 @@
     "call": "Torrent clients on the router itself",
     "key": "Torrent clients on the router itself",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:479"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:489"
     ]
   },
   {
@@ -4390,7 +4396,7 @@
     "key": "Traffic",
     "places": [
       "src/podkop/tabs/dashboard/initController.ts:979",
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:76"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:73"
     ]
   },
   {
@@ -4758,7 +4764,7 @@
     "call": "Way",
     "key": "Way",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:77"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:74"
     ]
   },
   {
@@ -4793,7 +4799,7 @@
     "call": "Whose BitTorrent goes through the rule",
     "key": "Whose BitTorrent goes through the rule",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:452"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:462"
     ]
   },
   {

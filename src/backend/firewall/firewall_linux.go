@@ -489,6 +489,15 @@ func Apply(plan *Plan) error {
 				&expr.Verdict{Kind: expr.VerdictJump, Chain: router.Name},
 			})
 		}
+		// and by the connection: what the kernel still sends for a socket the client has closed
+		// (the last ACK, a FIN again, data left in the queue) has no owner to tell it by, and left
+		// directly, from the router's own address, where the connection went through the rule
+		if plan.BitTorrent.Mode != BitTorrentBlock {
+			add(mangleOutput, ipv4(), []expr.Any{
+				&expr.Ct{Register: 1, Key: expr.CtKeyDIRECTION},
+				&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{ctDirectionOriginal}},
+			}, ctMarkTest(ctBitTorrent, expr.CmpOpNeq), []expr.Any{&expr.Verdict{Kind: expr.VerdictJump, Chain: router.Name}})
+		}
 	}
 	// the NTP of the router itself (sysntpd, the clock check of the backend) never goes to
 	// the proxy, whose TLS or REALITY a wrong clock breaks: through it the clock would never

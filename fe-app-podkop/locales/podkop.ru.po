@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-18 19:17+0000\n"
-"PO-Revision-Date: 2026-11-18 19:17+0000\n"
+"POT-Creation-Date: 2026-11-18 20:13+0000\n"
+"PO-Revision-Date: 2026-11-18 20:13+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -58,6 +58,9 @@ msgstr "%s (удалён)"
 
 msgid "%s (off)"
 msgstr "%s (выключено)"
+
+msgid "%s (the rule is deleted)"
+msgstr "%s (удалено)"
 
 msgid "%s at %s"
 msgstr "%s в %s"
@@ -119,8 +122,8 @@ msgstr "0 из %d, проверьте слова"
 msgid "A check is not possible now: this address was checked recently or is waiting in the queue, or the queue is full. Try again in %d s."
 msgstr "Проверка сейчас невозможна: этот адрес недавно проверялся или уже стоит в очереди, либо очередь заполнена. Повторите через %d с."
 
-msgid "A client set up without DHT, uTP and peer exchange, with encryption required, shows the router no sign of BitTorrent. With this on, a device that opens connections to many new addresses on uncommon ports at once has its new connections checked through sing-box; when three of them turn out to be BitTorrent, the device is taken as running a client and the connections it opened before are closed. Not found: a download with only a few peers. An I2P router is taken for BitTorrent. Connections under the check are not offloaded"
-msgstr "Клиент, настроенный без DHT, uTP и обмена пирами, с обязательным шифрованием, не даёт роутеру ни одного признака BitTorrent. С этой настройкой у устройства, которое разом открывает соединения ко многим новым адресам на необычных портах, новые соединения проверяются через sing-box; когда три из них оказываются BitTorrent, устройство считается клиентом, а соединения, открытые им раньше, закрываются. Не находит: раздачи, где пиров всего несколько. I2P принимается за BitTorrent. Проверяемые соединения не ускоряются (offloading)"
+msgid "A client set up without DHT, uTP and peer exchange, with encryption required, shows the router no sign of BitTorrent. With this on, a device that opens connections to many new addresses on uncommon ports at once has its new connections checked through sing-box; when three of them turn out to be BitTorrent, the device is taken as running a client and the connections it opened before are closed. Not found: a download whose tracker names about 20 peers or fewer. An I2P router is taken for BitTorrent. Connections under the check are not offloaded"
+msgstr "Клиент, настроенный без DHT, uTP и обмена пирами, с обязательным шифрованием, не даёт роутеру ни одного признака BitTorrent. С этой настройкой у устройства, которое разом открывает соединения ко многим новым адресам на необычных портах, новые соединения проверяются через sing-box; когда три из них оказываются BitTorrent, считается, что на устройстве работает клиент, а соединения, открытые им раньше, закрываются. Не находит: раздачи, где трекер называет около 20 пиров и меньше. I2P принимается за BitTorrent. Проверяемые соединения не ускоряются (flow offloading)"
 
 msgid "A domain is resolved to its real IP before the rule is chosen, so that the lists of subnets match"
 msgstr "Домен превращается в настоящий IP до выбора правила, чтобы срабатывали списки подсетей"
@@ -158,8 +161,8 @@ msgstr "Адрес подписки, ссылки на серверы (по од
 msgid "A tunnel, a modem or a second WAN. Empty: the main route"
 msgstr "Туннель, модем или второй WAN. Пусто: основной маршрут"
 
-msgid "A user name: letters, digits, - and _"
-msgstr "Имя пользователя: буквы, цифры, - и _"
+msgid "A user name: letters, digits, ., - and _"
+msgstr "Имя пользователя: буквы, цифры, ., - и _"
 
 msgid "A web page came instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP"
 msgstr "Вместо списка пришла веб-страница: возможно, это адрес сайта провайдера, а не подписки, или страница интернет-провайдера"
@@ -362,8 +365,8 @@ msgstr "Выбран внутри запасного"
 msgid "CIDR must be between 0 and 32"
 msgstr "CIDR должен быть между 0 и 32"
 
-msgid "Clients that hide: %d devices told by the burst of their connections, %d connections they had opened before closed"
-msgstr "Клиенты, которые прячутся: распознано устройств по всплеску соединений — %d, закрыто их прежних соединений — %d"
+msgid "Clients that hide: devices told by the burst of their connections: %d, connections they had opened before, closed: %d"
+msgstr "Клиенты, которые прячутся: распознано устройств по всплеску соединений: %d, закрыто их прежних соединений: %d"
 
 msgid "Close"
 msgstr "Закрыть"
@@ -434,8 +437,8 @@ msgstr "Определить по вставленному"
 msgid "Detect: the type follows the pasted text"
 msgstr "Определить: тип выбирается по вставленному тексту"
 
-msgid "Devices with no other sign of a client: %d connections confirmed as BitTorrent, %d devices told by them"
-msgstr "Устройства без других признаков клиента: подтверждено соединений BitTorrent — %d, распознано устройств — %d"
+msgid "Devices with no other sign of a client: connections confirmed as BitTorrent: %d, devices told by them: %d"
+msgstr "Устройства без других признаков клиента: подтверждено соединений BitTorrent: %d, распознано устройств: %d"
 
 msgid "DHCP has DNS server"
 msgstr "DHCP содержит DNS сервер"
@@ -1091,8 +1094,8 @@ msgstr "свои подсети"
 msgid "Packets from addresses that do not belong to their interface, not checked for BitTorrent: %d"
 msgstr "Пакеты с адресов, которые не относятся к своему интерфейсу, на BitTorrent не проверялись: %d"
 
-msgid "Packets: received %d, sent %d"
-msgstr "Пакетов: получено %d, отправлено %d"
+msgid "Packets: sent %d, received %d"
+msgstr "Пакетов: отправлено %d, получено %d"
 
 msgid "Past podkop"
 msgstr "Мимо podkop"
@@ -1109,8 +1112,8 @@ msgstr "Путь должен содержать хотя бы одну дире
 msgid "Path must end with cache.db"
 msgstr "Путь должен заканчиваться на cache.db"
 
-msgid "Peers learned from the replies of trackers and of the DHT: %d (replies read: %d, announces: %d)"
-msgstr "Пиров узнано из ответов трекеров и DHT: %d (прочитано ответов: %d, анонсов: %d)"
+msgid "Peers learned: %d (replies of trackers and the DHT read: %d, announces: %d)"
+msgstr "Узнано пиров: %d (прочитано ответов трекеров и DHT: %d, анонсов: %d)"
 
 msgid "Pending"
 msgstr "Ожидает запуска"
@@ -1271,8 +1274,8 @@ msgstr "Выберите сетевой интерфейс, с которого 
 msgid "Sent"
 msgstr "Отправлено"
 
-msgid "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is not counted."
-msgstr "Отправлено и получено — со стороны устройств сети; считает роутер, вместе с заголовками пакетов (1 GB = 1000 MB). Только IPv4; клиент на самом роутере не учитывается."
+msgid "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is counted only when its user is named in the settings."
+msgstr "Отправлено и получено — со стороны устройств сети; считает роутер, вместе с заголовками пакетов (1 GB = 1000 MB). Только IPv4; клиент на самом роутере учитывается, только если его пользователь указан в настройках."
 
 msgid "Server"
 msgstr "Сервер"
@@ -1499,8 +1502,8 @@ msgstr "соединение сброшено"
 msgid "The deleted source was used by the rules: %s. Their rows show it as deleted: choose another source there"
 msgstr "Удалённый источник использовался в правилах: %s. Их строки показывают его как удалённый: выберите там другой источник"
 
-msgid "The detector sees the devices of the LAN, not the programs of the router. Name the user a client on the router runs as (the packages of OpenWrt: transmission, aria2), and all the traffic of that user is treated as BitTorrent by the mode above: left alone past podkop (the addresses of the lists too), blocked, or sent through the rule. A client that runs as root cannot be told apart; a client in a container is a device of the LAN once its bridge is among the source interfaces"
-msgstr "Детектор видит устройства сети, а не программы самого роутера. Укажите пользователя, от имени которого на роутере работает клиент (в пакетах OpenWrt: transmission, aria2), и весь трафик этого пользователя будет считаться BitTorrent по режиму выше: идти мимо podkop (и к адресам из списков), блокироваться или идти через правило. Клиент, запущенный от root, отличить нельзя; клиент в контейнере становится устройством сети, если мост контейнера добавить в исходные интерфейсы"
+msgid "The detector sees the devices of the LAN, not the programs of the router. Name the user a client on the router runs as (the packages of OpenWrt: transmission, aria2), and all the traffic of that user is treated as BitTorrent by the mode above: left alone past podkop (the addresses of the lists too), blocked, or sent through the rule. A client that runs as root cannot be told apart"
+msgstr "Детектор видит устройства сети, а не программы самого роутера. Укажите пользователя, от имени которого на роутере работает клиент (в пакетах OpenWrt: transmission, aria2), и весь трафик этого пользователя будет обрабатываться как BitTorrent по режиму выше: пойдёт мимо podkop (в том числе к адресам из списков), будет заблокирован или пойдёт через правило. Клиент, запущенный от root, отличить нельзя"
 
 msgid "The devices YACD is opened from. A device of the WAN also needs its port 9090 opened in the firewall of the router"
 msgstr "Устройства, с которых открывается YACD. Для устройства WAN порт 9090 нужно также открыть в межсетевом экране роутера"

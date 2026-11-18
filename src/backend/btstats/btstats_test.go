@@ -16,6 +16,7 @@ const (
 	taken     = dataplane.InterceptedCt
 	inspect   = dataplane.BitTorrentInspectCt
 	late      = dataplane.BitTorrentLateCt
+	not       = dataplane.BitTorrentNotCt
 )
 
 // The kind of each mark, and the way each mode sends it (the firewall's bt_act, bt_free, proxy and
@@ -121,6 +122,18 @@ func TestFirstReadIsABaseline(t *testing.T) {
 	received, sent := Total(report.Rows)
 	require.Equal(t, count(15, 900), received)
 	require.Equal(t, count(940, 1250000), sent)
+}
+
+// A connection from outside to a client on the router itself (bt_router's mark of it, no rewritten
+// destination) is one from outside: what the client sent is sent. The reader of conntrack tells it
+// by the mark (firewall.parseFlow); here, what the statistics do with such a flow.
+func TestIncomingToTheRouter(t *testing.T) {
+	var s Stats
+	at := time.Unix(1000, 0)
+	setup := Setup{Mode: "section", LAN: true}
+	s.Observe(setup, nil, Drops{}, nil, at)
+	s.Observe(setup, []Flow{{ID: 1, Key: "a", Mark: bt | not, Incoming: true, Counted: true, Original: count(10, 600), Reply: count(900, 1200000)}}, Drops{}, nil, at.Add(PollEvery))
+	require.Equal(t, []Row{{Kind: KindIncoming, Way: WayUntouched, Open: 1, Connections: 1, Received: count(10, 600), Sent: count(900, 1200000)}}, s.Report(at.Add(PollEvery)).Rows)
 }
 
 // The rules' counters of a table made anew start at 0: what the one before dropped stays.
@@ -246,7 +259,11 @@ func TestResetCounts(t *testing.T) {
 	setup := Setup{Mode: "block"}
 	start := time.Unix(1000, 0)
 	open := Flow{ID: 1, Key: "a", Mark: bt | taken, Counted: true, Original: Count{10, 1000}, Reply: Count{20, 2000}}
+	// (a read with nothing first: the one with the connection is not the baseline, and its row
+	// holds the connection and its bytes before the reset)
+	s.Observe(setup, nil, Drops{}, nil, start)
 	s.Observe(setup, []Flow{open}, Drops{TCP: Count{5, 300}}, nil, start)
+	require.Equal(t, uint64(1), s.Report(start).Rows[0].Connections)
 	s.ResetCounts(map[string]int64{"watched": 7, "confirmed": 2}, start.Add(10*time.Second))
 	open.Original, open.Reply = Count{11, 1100}, Count{25, 2500}
 	s.Observe(setup, []Flow{open}, Drops{TCP: Count{6, 360}}, nil, start.Add(15*time.Second))

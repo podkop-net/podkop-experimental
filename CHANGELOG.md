@@ -20,15 +20,18 @@ Engine r27.
 - **BitTorrent statistics for a client that seeds.** Connections from outside (a port forward,
   UPnP) were counted only when the client answered with a plaintext handshake: encrypted ones
   never, and with flow offloading none. They are counted from their first packet now; on the stand
-  the card matched the capture for plain and encrypted connections, offloaded or not. After a
+  the card matched the capture for plain, encrypted and uTP connections, with software flow
+  offloading on and off. After a
   restart of podkop, connections already open count from then on, not with their whole life.
 - **BitTorrent, clients that hide (new, off by default):** "Find clients that hide", for Block and
   "Through the servers of a rule" on the whole LAN. A client with no DHT, uTP and peer exchange and
   with encryption required went through the block of the whole LAN untouched. A device that opens
   connections to many new addresses on uncommon ports at once now has its connections checked;
   after three confirmed handshakes it is treated as a client and its earlier connections are
-  closed. On the stand four such clients downloaded nothing, with flow offloading too. Not found:
-  a download with only a few peers. An I2P router is taken for BitTorrent.
+  closed. On the stand (containers) clients set up this way downloaded nothing under Block; aria2
+  also with software flow offloading. Hardware offloading and real routers were not tested. Not
+  found: a download whose tracker names about 20 peers or fewer, and connections that peers open
+  to such a client from outside. An I2P router is taken for BitTorrent.
 - **BitTorrent, a client on the router itself (new):** "Torrent clients on the router itself"
   names the user the client runs as (`transmission`, `aria2`); all the traffic of that user
   follows the mode. Before, the modes did not reach the router's own programs.

@@ -19,8 +19,6 @@ export const styles = `
     max-width: 100%;
     box-sizing: border-box;
     --dashboard-grid-columns: 4;
-    /* the least width of a tile of the grids: two of them fit a phone */
-    --dashboard-tile-min: 150px;
 }
 
 @media (max-width: 900px) {
@@ -30,13 +28,15 @@ export const styles = `
 }
 
 /* The columns of the grids go by the width the dashboard has, not the window's (a theme with a
-   side menu leaves less): as many tiles of --dashboard-tile-min as fit, four at most. The first
-   rule stays for a browser without min() and max(). */
+   side menu leaves less): as many tiles of 150 px as fit, four at most (two fit a phone). The
+   first rule stays for a browser without min() and max(), which drops the second when it reads
+   it. The four widgets are never three and one: under the width of four they are two a row (the
+   last term is half a row while the dashboard is under 630 px, and nothing from there on). */
 .pdk_dashboard-page__widgets-section {
     margin-top: 10px;
     display: grid;
     grid-template-columns: repeat(var(--dashboard-grid-columns), minmax(0, 1fr));
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(var(--dashboard-tile-min), calc((100% - 30px) / 4))), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(150px, calc((100% - 30px) / 4), min(calc((100% - 10px) / 2), calc((630px - 100%) * 999)))), 1fr));
     grid-gap: 10px;
 }
 
@@ -92,6 +92,8 @@ export const styles = `
 
 .pdk_dashboard-page__bittorrent__mode {
     opacity: 0.8;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .pdk_dashboard-page__bittorrent__reset {
@@ -167,8 +169,11 @@ export const styles = `
     opacity: 1;
 }
 
-/* a head is a word: it may break where the card is very narrow, a number may not */
+/* a head is a word: smaller, so that it fits its third of a phone's card whole at the 16 px
+   some themes have (the cells share their row evenly: their own font size moves no column), and
+   it may break where the card is narrower still; a number may not */
 .pdk_dashboard-page__bittorrent__row--head .pdk_dashboard-page__bittorrent__number {
+    font-size: 0.85em;
     white-space: normal;
     overflow-wrap: anywhere;
 }
@@ -252,13 +257,15 @@ export const styles = `
 .pdk_dashboard-page__outbound-section__title-section__title {
     color: var(--text-color-high);
     font-weight: 700;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .pdk_dashboard-page__outbound-grid {
     margin-top: 5px;
     display: grid;
     grid-template-columns: repeat(var(--dashboard-grid-columns), minmax(0, 1fr));
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(var(--dashboard-tile-min), calc((100% - 30px) / 4))), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(150px, calc((100% - 30px) / 4))), 1fr));
     grid-gap: 10px;
 }
 
@@ -269,6 +276,9 @@ export const styles = `
     grid-gap: 0;
     margin-left: -5px;
     margin-right: -5px;
+    /* (no gap, and 10 px wider: a cell of 160 px holds a tile of 150, and the columns change at
+       the widths at which those of a rule without fallbacks do) */
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(160px, 25%)), 1fr));
 }
 
 .pdk_dashboard-page__outbound-grid__cell {
@@ -432,7 +442,7 @@ button.pdk_dashboard-page__outbound-grid__item__block--neutral {
 }
 
 .pdk_dashboard-page__outbound-grid__item__latency--empty {
-    color: var(--primary-color-low, lightgray);
+    color: var(--primary-color-low, rgba(128, 128, 128, 0.6));
 }
 
 .pdk_dashboard-page__outbound-grid__item__latency--green {

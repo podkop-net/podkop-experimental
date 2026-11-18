@@ -3129,7 +3129,7 @@ function renderFailedState2() {
     "div",
     {
       id: "",
-      style: "height: 78px",
+      style: "min-height: 78px",
       class: "pdk_dashboard-page__widgets-section__item centered"
     },
     _("Currently unavailable")
@@ -3140,7 +3140,7 @@ function renderLoadingState2() {
     "div",
     {
       id: "",
-      style: "height: 78px",
+      style: "min-height: 78px",
       class: "pdk_dashboard-page__widgets-section__item skeleton"
     },
     ""
@@ -3185,6 +3185,7 @@ function renderWidget(props) {
 
 // src/podkop/tabs/dashboard/partials/renderBitTorrent.ts
 function renderRow(row, modifier) {
+  const cell = (name, children) => E("div", { class: name, role: "cell" }, [...children]);
   return E(
     "div",
     {
@@ -3193,40 +3194,31 @@ function renderRow(row, modifier) {
       title: row.packets
     },
     [
-      E("div", { class: "pdk_dashboard-page__bittorrent__what" }, [
-        E(
-          "div",
-          { class: "pdk_dashboard-page__bittorrent__kind", role: "cell" },
-          [row.kind]
-        ),
-        E(
-          "div",
-          { class: "pdk_dashboard-page__bittorrent__way", role: "cell" },
-          [row.way]
-        )
-      ]),
-      E("div", { class: "pdk_dashboard-page__bittorrent__numbers" }, [
-        E(
-          "div",
-          { class: "pdk_dashboard-page__bittorrent__number", role: "cell" },
-          [row.sent]
-        ),
-        E(
-          "div",
-          { class: "pdk_dashboard-page__bittorrent__number", role: "cell" },
-          [row.received]
-        ),
-        E(
-          "div",
-          { class: "pdk_dashboard-page__bittorrent__number", role: "cell" },
-          [
+      E(
+        "div",
+        { class: "pdk_dashboard-page__bittorrent__what", role: "presentation" },
+        [
+          cell("pdk_dashboard-page__bittorrent__kind", [row.kind]),
+          cell("pdk_dashboard-page__bittorrent__way", [row.way])
+        ]
+      ),
+      E(
+        "div",
+        {
+          class: "pdk_dashboard-page__bittorrent__numbers",
+          role: "presentation"
+        },
+        [
+          cell("pdk_dashboard-page__bittorrent__number", [row.sent]),
+          cell("pdk_dashboard-page__bittorrent__number", [row.received]),
+          cell("pdk_dashboard-page__bittorrent__number", [
             row.connections,
             E("div", { class: "pdk_dashboard-page__bittorrent__open" }, [
               _("%s open").format(row.open)
             ])
-          ]
-        )
-      ])
+          ])
+        ]
+      )
     ]
   );
 }
@@ -3239,15 +3231,26 @@ function renderHead() {
       role: "row"
     },
     [
-      E("div", { class: "pdk_dashboard-page__bittorrent__what" }, [
-        cell("pdk_dashboard-page__bittorrent__kind", _("Traffic")),
-        cell("pdk_dashboard-page__bittorrent__way", _("Way"))
-      ]),
-      E("div", { class: "pdk_dashboard-page__bittorrent__numbers" }, [
-        cell("pdk_dashboard-page__bittorrent__number", _("Sent")),
-        cell("pdk_dashboard-page__bittorrent__number", _("Received")),
-        cell("pdk_dashboard-page__bittorrent__number", _("Connections"))
-      ])
+      E(
+        "div",
+        { class: "pdk_dashboard-page__bittorrent__what", role: "presentation" },
+        [
+          cell("pdk_dashboard-page__bittorrent__kind", _("Traffic")),
+          cell("pdk_dashboard-page__bittorrent__way", _("Way"))
+        ]
+      ),
+      E(
+        "div",
+        {
+          class: "pdk_dashboard-page__bittorrent__numbers",
+          role: "presentation"
+        },
+        [
+          cell("pdk_dashboard-page__bittorrent__number", _("Sent")),
+          cell("pdk_dashboard-page__bittorrent__number", _("Received")),
+          cell("pdk_dashboard-page__bittorrent__number", _("Connections"))
+        ]
+      )
     ]
   );
 }
@@ -3268,16 +3271,26 @@ function renderBitTorrent(table, onReset) {
       ])
     ]);
   }
-  const body = table.rows.length ? [
-    renderHead(),
-    ...table.rows.map((row) => renderRow(row, "")),
-    ...table.total ? [
-      renderRow(
-        table.total,
-        " pdk_dashboard-page__bittorrent__row--total"
-      )
-    ] : []
-  ] : [
+  const rows = table.rows.length ? [
+    E(
+      "div",
+      {
+        class: "pdk_dashboard-page__bittorrent__rows",
+        role: "table",
+        "aria-label": "BitTorrent"
+      },
+      [
+        renderHead(),
+        ...table.rows.map((row) => renderRow(row, "")),
+        ...table.total ? [
+          renderRow(
+            table.total,
+            " pdk_dashboard-page__bittorrent__row--total"
+          )
+        ] : []
+      ]
+    )
+  ] : table.blocked.length ? [] : [
     E(
       "div",
       { class: "pdk_dashboard-page__bittorrent__empty" },
@@ -3302,9 +3315,7 @@ function renderBitTorrent(table, onReset) {
         )
       ] : []
     ]),
-    E("div", { class: "pdk_dashboard-page__bittorrent__rows", role: "table" }, [
-      ...body
-    ]),
+    ...rows,
     ...table.blocked.map(
       (line) => E("div", { class: "pdk_dashboard-page__bittorrent__blocked" }, [line])
     ),
@@ -3468,9 +3479,9 @@ function bitTorrentTable(report) {
     connections: String(row.connections),
     received: report.counted ? prettyBytes(row.received.bytes) : "\u2014",
     sent: report.counted ? prettyBytes(row.sent.bytes) : "\u2014",
-    packets: _("Packets: received %d, sent %d").format(
-      row.received.packets,
-      row.sent.packets
+    packets: _("Packets: sent %d, received %d").format(
+      row.sent.packets,
+      row.received.packets
     )
   }));
   let total;
@@ -3483,9 +3494,9 @@ function bitTorrentTable(report) {
       connections: String(sum((row) => row.connections)),
       received: report.counted ? prettyBytes(sum((row) => row.received.bytes)) : "\u2014",
       sent: report.counted ? prettyBytes(sum((row) => row.sent.bytes)) : "\u2014",
-      packets: _("Packets: received %d, sent %d").format(
-        sum((row) => row.received.packets),
-        sum((row) => row.sent.packets)
+      packets: _("Packets: sent %d, received %d").format(
+        sum((row) => row.sent.packets),
+        sum((row) => row.received.packets)
       )
     };
   }
@@ -3538,7 +3549,7 @@ function bitTorrentTable(report) {
     if ((module.replies ?? 0) + (module.announces ?? 0) > 0) {
       notes.push(
         _(
-          "Peers learned from the replies of trackers and of the DHT: %d (replies read: %d, announces: %d)"
+          "Peers learned: %d (replies of trackers and the DHT read: %d, announces: %d)"
         ).format(
           module.learned ?? 0,
           module.replies ?? 0,
@@ -3564,14 +3575,14 @@ function bitTorrentTable(report) {
   if (module && (module.early_confirmed ?? 0) > 0) {
     notes.push(
       _(
-        "Devices with no other sign of a client: %d connections confirmed as BitTorrent, %d devices told by them"
+        "Devices with no other sign of a client: connections confirmed as BitTorrent: %d, devices told by them: %d"
       ).format(module.early_confirmed ?? 0, module.early_self ?? 0)
     );
   }
   if (module && (module.early_suspects ?? 0) > 0) {
     notes.push(
       _(
-        "Clients that hide: %d devices told by the burst of their connections, %d connections they had opened before closed"
+        "Clients that hide: devices told by the burst of their connections: %d, connections they had opened before, closed: %d"
       ).format(module.early_suspects ?? 0, module.early_ended ?? 0)
     );
   }
@@ -3584,7 +3595,7 @@ function bitTorrentTable(report) {
     blocked,
     notes,
     caption: _(
-      "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is not counted."
+      "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is counted only when its user is named in the settings."
     )
   };
 }
@@ -4671,8 +4682,6 @@ var styles = `
     max-width: 100%;
     box-sizing: border-box;
     --dashboard-grid-columns: 4;
-    /* the least width of a tile of the grids: two of them fit a phone */
-    --dashboard-tile-min: 150px;
 }
 
 @media (max-width: 900px) {
@@ -4682,13 +4691,15 @@ var styles = `
 }
 
 /* The columns of the grids go by the width the dashboard has, not the window's (a theme with a
-   side menu leaves less): as many tiles of --dashboard-tile-min as fit, four at most. The first
-   rule stays for a browser without min() and max(). */
+   side menu leaves less): as many tiles of 150 px as fit, four at most (two fit a phone). The
+   first rule stays for a browser without min() and max(), which drops the second when it reads
+   it. The four widgets are never three and one: under the width of four they are two a row (the
+   last term is half a row while the dashboard is under 630 px, and nothing from there on). */
 .pdk_dashboard-page__widgets-section {
     margin-top: 10px;
     display: grid;
     grid-template-columns: repeat(var(--dashboard-grid-columns), minmax(0, 1fr));
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(var(--dashboard-tile-min), calc((100% - 30px) / 4))), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(150px, calc((100% - 30px) / 4), min(calc((100% - 10px) / 2), calc((630px - 100%) * 999)))), 1fr));
     grid-gap: 10px;
 }
 
@@ -4744,6 +4755,8 @@ var styles = `
 
 .pdk_dashboard-page__bittorrent__mode {
     opacity: 0.8;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .pdk_dashboard-page__bittorrent__reset {
@@ -4819,8 +4832,11 @@ var styles = `
     opacity: 1;
 }
 
-/* a head is a word: it may break where the card is very narrow, a number may not */
+/* a head is a word: smaller, so that it fits its third of a phone's card whole at the 16 px
+   some themes have (the cells share their row evenly: their own font size moves no column), and
+   it may break where the card is narrower still; a number may not */
 .pdk_dashboard-page__bittorrent__row--head .pdk_dashboard-page__bittorrent__number {
+    font-size: 0.85em;
     white-space: normal;
     overflow-wrap: anywhere;
 }
@@ -4904,13 +4920,15 @@ var styles = `
 .pdk_dashboard-page__outbound-section__title-section__title {
     color: var(--text-color-high);
     font-weight: 700;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .pdk_dashboard-page__outbound-grid {
     margin-top: 5px;
     display: grid;
     grid-template-columns: repeat(var(--dashboard-grid-columns), minmax(0, 1fr));
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(var(--dashboard-tile-min), calc((100% - 30px) / 4))), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(150px, calc((100% - 30px) / 4))), 1fr));
     grid-gap: 10px;
 }
 
@@ -4921,6 +4939,9 @@ var styles = `
     grid-gap: 0;
     margin-left: -5px;
     margin-right: -5px;
+    /* (no gap, and 10 px wider: a cell of 160 px holds a tile of 150, and the columns change at
+       the widths at which those of a rule without fallbacks do) */
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(160px, 25%)), 1fr));
 }
 
 .pdk_dashboard-page__outbound-grid__cell {
@@ -5084,7 +5105,7 @@ button.pdk_dashboard-page__outbound-grid__item__block--neutral {
 }
 
 .pdk_dashboard-page__outbound-grid__item__latency--empty {
-    color: var(--primary-color-low, lightgray);
+    color: var(--primary-color-low, rgba(128, 128, 128, 0.6));
 }
 
 .pdk_dashboard-page__outbound-grid__item__latency--green {
@@ -7272,7 +7293,7 @@ var styles4 = `
 }
 
 .pdk_diagnostic-page__right-bar__wiki {
-    border: 2px var(--background-color-low, lightgray) solid;
+    border: 2px var(--background-color-low, rgba(128, 128, 128, 0.35)) solid;
     border-radius: 4px;
     padding: 10px;
 
@@ -7297,7 +7318,7 @@ var styles4 = `
 .pdk_diagnostic-page__right-bar__wiki__texts {}
 
 .pdk_diagnostic-page__right-bar__actions {
-    border: 2px var(--background-color-low, lightgray) solid;
+    border: 2px var(--background-color-low, rgba(128, 128, 128, 0.35)) solid;
     border-radius: 4px;
     padding: 10px;
 
@@ -7308,7 +7329,7 @@ var styles4 = `
 }
 
 .pdk_diagnostic-page__right-bar__system-info {
-    border: 2px var(--background-color-low, lightgray) solid;
+    border: 2px var(--background-color-low, rgba(128, 128, 128, 0.35)) solid;
     border-radius: 4px;
     padding: 10px;
 
@@ -7363,7 +7384,7 @@ var styles4 = `
 }
 
 .pdk_diagnostic_alert {
-    border: 2px var(--background-color-low, lightgray) solid;
+    border: 2px var(--background-color-low, rgba(128, 128, 128, 0.35)) solid;
     border-radius: 4px;
 
     display: grid;
@@ -7638,7 +7659,7 @@ ${PartialStyles}
 
 /* Skeleton styles*/
 .skeleton {
-    background-color: var(--background-color-low, #e0e0e0);
+    background-color: var(--background-color-low, rgba(128, 128, 128, 0.2));
     border-radius: 4px;
     position: relative;
     overflow: hidden;
@@ -7654,7 +7675,7 @@ ${PartialStyles}
     background: linear-gradient(
             90deg,
             transparent,
-            rgba(255, 255, 255, 0.4),
+            rgba(160, 160, 160, 0.25),
             transparent
     );
     animation: skeleton-shimmer 1.6s infinite;

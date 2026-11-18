@@ -24,6 +24,9 @@ func TestBitTorrentModuleBuilds(t *testing.T) {
 		"block, the LAN":   "\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n",
 		"section":          "\toption bittorrent 'section'\n\toption bittorrent_section 'torrents'\n",
 		"section, the LAN": "\toption bittorrent 'section'\n\toption bittorrent_section 'torrents'\n\toption bittorrent_section_scope 'lan'\n",
+		// the suspicion by fan-out: the inbound of the suspects and the module's option of it
+		"block, the LAN, hidden clients":   "\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n\toption bittorrent_lan_suspect '1'\n",
+		"section, the LAN, hidden clients": "\toption bittorrent 'section'\n\toption bittorrent_section 'torrents'\n\toption bittorrent_section_scope 'lan'\n\toption bittorrent_lan_suspect '1'\n",
 	} {
 		parsed, err := uci.Parse([]byte(head + options + sections))
 		require.NoError(t, err, name)

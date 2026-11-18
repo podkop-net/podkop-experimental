@@ -29,7 +29,7 @@ export const styles = `
 }
 
 .pdk_diagnostic-page__right-bar__wiki {
-    border: 2px var(--background-color-low, lightgray) solid;
+    border: 2px var(--background-color-low, rgba(128, 128, 128, 0.35)) solid;
     border-radius: 4px;
     padding: 10px;
 
@@ -54,7 +54,7 @@ export const styles = `
 .pdk_diagnostic-page__right-bar__wiki__texts {}
 
 .pdk_diagnostic-page__right-bar__actions {
-    border: 2px var(--background-color-low, lightgray) solid;
+    border: 2px var(--background-color-low, rgba(128, 128, 128, 0.35)) solid;
     border-radius: 4px;
     padding: 10px;
 
@@ -65,7 +65,7 @@ export const styles = `
 }
 
 .pdk_diagnostic-page__right-bar__system-info {
-    border: 2px var(--background-color-low, lightgray) solid;
+    border: 2px var(--background-color-low, rgba(128, 128, 128, 0.35)) solid;
     border-radius: 4px;
     padding: 10px;
 
@@ -120,7 +120,7 @@ export const styles = `
 }
 
 .pdk_diagnostic_alert {
-    border: 2px var(--background-color-low, lightgray) solid;
+    border: 2px var(--background-color-low, rgba(128, 128, 128, 0.35)) solid;
     border-radius: 4px;
 
     display: grid;

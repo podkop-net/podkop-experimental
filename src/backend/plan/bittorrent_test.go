@@ -266,7 +266,7 @@ func TestBitTorrentRouterUsers(t *testing.T) {
 // the dead end of the check names (probe), the DNS inbound, the Clash API, and each other.
 func TestBitTorrentPortIsItsOwn(t *testing.T) {
 	ports := []int{dataplane.TProxyPort, probe.DeadEndPort, dataplane.DNSPort, dataplane.ClashAPIPort}
-	for _, port := range []int{dataplane.BitTorrentTProxyPort, dataplane.BitTorrentLANTProxyPort, dataplane.BitTorrentCheckTProxyPort} {
+	for _, port := range []int{dataplane.BitTorrentTProxyPort, dataplane.BitTorrentLANTProxyPort, dataplane.BitTorrentCheckTProxyPort, dataplane.BitTorrentSuspectTProxyPort} {
 		require.NotContains(t, ports, port)
 		ports = append(ports, port)
 	}

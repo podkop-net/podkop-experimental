@@ -127,9 +127,9 @@ export function bitTorrentTable(
     connections: String(row.connections),
     received: report.counted ? prettyBytes(row.received.bytes) : '—',
     sent: report.counted ? prettyBytes(row.sent.bytes) : '—',
-    packets: _('Packets: received %d, sent %d').format(
-      row.received.packets,
+    packets: _('Packets: sent %d, received %d').format(
       row.sent.packets,
+      row.received.packets,
     ),
   }));
   let total: BitTorrentTableRow | undefined;
@@ -145,9 +145,9 @@ export function bitTorrentTable(
         ? prettyBytes(sum((row) => row.received.bytes))
         : '—',
       sent: report.counted ? prettyBytes(sum((row) => row.sent.bytes)) : '—',
-      packets: _('Packets: received %d, sent %d').format(
-        sum((row) => row.received.packets),
+      packets: _('Packets: sent %d, received %d').format(
         sum((row) => row.sent.packets),
+        sum((row) => row.received.packets),
       ),
     };
   }
@@ -209,7 +209,7 @@ export function bitTorrentTable(
     if ((module.replies ?? 0) + (module.announces ?? 0) > 0) {
       notes.push(
         _(
-          'Peers learned from the replies of trackers and of the DHT: %d (replies read: %d, announces: %d)',
+          'Peers learned: %d (replies of trackers and the DHT read: %d, announces: %d)',
         ).format(
           module.learned ?? 0,
           module.replies ?? 0,
@@ -238,7 +238,7 @@ export function bitTorrentTable(
   if (module && (module.early_confirmed ?? 0) > 0) {
     notes.push(
       _(
-        'Devices with no other sign of a client: %d connections confirmed as BitTorrent, %d devices told by them',
+        'Devices with no other sign of a client: connections confirmed as BitTorrent: %d, devices told by them: %d',
       ).format(module.early_confirmed ?? 0, module.early_self ?? 0),
     );
   }
@@ -246,7 +246,7 @@ export function bitTorrentTable(
   if (module && (module.early_suspects ?? 0) > 0) {
     notes.push(
       _(
-        'Clients that hide: %d devices told by the burst of their connections, %d connections they had opened before closed',
+        'Clients that hide: devices told by the burst of their connections: %d, connections they had opened before, closed: %d',
       ).format(module.early_suspects ?? 0, module.early_ended ?? 0),
     );
   }
@@ -259,7 +259,7 @@ export function bitTorrentTable(
     blocked,
     notes,
     caption: _(
-      'Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is not counted.',
+      'Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is counted only when its user is named in the settings.',
     ),
   };
 }
