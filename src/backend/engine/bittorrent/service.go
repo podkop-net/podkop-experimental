@@ -17,8 +17,8 @@
 //   - The early check (0.8.18): on the inbounds of "early" (the transparent proxy), a TCP connection
 //     to a port no other program uses is checked as an inspected one, whatever its device. A
 //     confirmed one waits until its device is in the firewall's set of devices running a client
-//     ("hosts", read every earlyPoll, and at once when a device's third distinct far address is
-//     confirmed), then it is done with as "confirmed" says. A client's first
+//     ("hosts", read every earlyPoll, and in block at once when a device's third distinct far
+//     address is confirmed), then it is done with as "confirmed" says. A client's first
 //     connections, opened before the firewall knew the device (a client with no DHT and no uTP is
 //     told only by its local peer discovery, a minute after its start on the stand of 0.8.18), went
 //     by the lists for their whole life. A device with earlySelf confirmed connections to distinct
@@ -191,12 +191,13 @@ type waiting struct {
 
 // earlyPoll is how often the devices of pending connections are looked up in the set Hosts: a
 // dump of a set of a few devices, under a millisecond; a connection found early is acted on within
-// it once its device is known. A device's own confirmed connections do not wait for it: the one
-// that makes earlySelf distinct far addresses wakes the poller (0.8.19; 0.8.18 judged the device at
-// the next round, and a client with encryption required went on for up to earlyPoll after its
-// third handshake: in block aria2 passed 1.9-3.4 MB and rTorrent 4.7-6.3 MB there, 45-221 KB and
+// it once its device is known. In block a device's own confirmed connections do not wait for it:
+// the one that makes earlySelf distinct far addresses wakes the poller (0.8.19; 0.8.18 judged the
+// device at the next round, and a client with encryption required went on for up to earlyPoll
+// after its third handshake: aria2 passed 1.9-3.4 MB and rTorrent 4.7-6.3 MB there, 45-221 KB and
 // 44-134 KB up to the third handshake itself, which came 0-0.5 s after the first; the study of
-// 2026-11-18, the workspace's notes/2026-11-18-one-vs-three-handshakes.md). earlyFor is the
+// 2026-11-18, the workspace's notes/2026-11-18-one-vs-three-handshakes.md; pend tells why not
+// outside block). earlyFor is the
 // longest a confirmed connection waits (the firewall's timeout of a device), earlyMost the most
 // that wait for one device.
 const (
@@ -384,10 +385,13 @@ func (s *Service) selfKnownNow(device netip.Addr, now time.Time) bool {
 	return ok && now.Before(until)
 }
 
-// pend keeps a connection confirmed early, at now, until its device is known (pollPending). The
-// one that makes earlySelf distinct far addresses of a device wakes the poller, which judges the
-// device now; not while the device is watched for its retries (its connections wait for that
-// verdict), and not while the set cannot be read (the rounds try again).
+// pend keeps a connection confirmed early, at now, until its device is known (pollPending). In
+// block, the one that makes earlySelf distinct far addresses of a device wakes the poller, which
+// judges the device now (not while the set cannot be read: the rounds try again). Not outside
+// block: there the first verdict closes the connections confirmed by then and the others wait for
+// the device's retries, and at once it closed 3 of aria2's instead of the 9-15 of the next round:
+// the rest carried the whole download through the rule's server (100 % of 184 MB, against 93-98 %
+// straight when the round closed them all and aria2 connected again; the stand of 2026-11-18).
 func (s *Service) pend(c *conn, now time.Time) *waiting {
 	w := &waiting{far: c.far, since: now, confirmed: c.confirmed}
 	w.conn.Store(c)
@@ -401,7 +405,7 @@ func (s *Service) pend(c *conn, now time.Time) *waiting {
 	}
 	list = append(list, w)
 	s.pending[c.device] = list
-	if _, watched := s.selfTold[c.device]; !watched && !s.knownFailing && distinctFars(list, earlySelf) {
+	if c.confirmed == ConfirmedReject && !s.knownFailing && distinctFars(list, earlySelf) {
 		select {
 		case s.kick <- struct{}{}:
 		default:

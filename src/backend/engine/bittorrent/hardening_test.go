@@ -591,10 +591,11 @@ func TestLooksRandom(t *testing.T) {
 	}
 }
 
-// The connection that makes a device's third distinct far address wakes the poller, which judges
-// the device at once (0.8.19): 0.8.18 judged it at the next round, up to earlyPoll later, and a
-// client with encryption required passed megabytes meanwhile in block. Not for fewer far
-// addresses, not while the device is watched for its retries, not while the set cannot be read.
+// In block, the connection that makes a device's third distinct far address wakes the poller,
+// which judges the device at once (0.8.19): 0.8.18 judged it at the next round, up to earlyPoll
+// later, and a client with encryption required passed megabytes meanwhile. Not for fewer far
+// addresses, not outside block (learn_reset waits for the round, see pend), not while the set
+// cannot be read.
 func TestEarlyKick(t *testing.T) {
 	asked := func(s *Service) bool {
 		select {
@@ -629,18 +630,13 @@ func TestEarlyKick(t *testing.T) {
 		t.Fatalf("within %s: rejected %d of 4, told %d", earlyPoll/4, s.early.rejected.Load(), s.earlySelfTold.Load())
 	}
 
-	// learn_reset: told, the device is watched for its retries, and its next connections wait
-	watched, _, add := early(t, ConfirmedLearnReset)
-	watched.kick = make(chan struct{}, 1)
-	watched.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{}, nil }
+	// learn_reset: the round judges the device, as in 0.8.18
+	reset, _, add := early(t, ConfirmedLearnReset)
+	reset.kick = make(chan struct{}, 1)
+	reset.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{}, nil }
 	add(10, 3, start)
-	if !asked(watched) {
-		t.Fatalf("learn_reset: no round asked for at the third")
-	}
-	watched.actOnKnown(start)
-	add(20, 3, start)
-	if asked(watched) || len(watched.selfTold) != 1 {
-		t.Errorf("a round asked for while the device is watched for its retries (watched %d)", len(watched.selfTold))
+	if asked(reset) {
+		t.Errorf("learn_reset: a round asked for at the third")
 	}
 
 	// the set cannot be read: the rounds try again, a connection does not ask for one more
