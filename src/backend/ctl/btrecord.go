@@ -88,8 +88,13 @@ func bitTorrentRecord(env Environment, client api.Client, arguments []string, ou
 	for now := range time.Tick(recordEvery) {
 		cpuNow, podkopNow := readCPU(), podkopCPU()
 		report, err = client.BitTorrentStats()
+		// podkop restarted meanwhile: its time began again, and there is no part to tell
+		part := "-"
+		if podkopNow >= podkop {
+			part = cpuNow.part(cpu, podkopNow-podkop)
+		}
 		line := fmt.Sprintf("t=%s cpu %s (podkop %s), load %s, podkop %s, conntrack %s",
-			btstats.Duration(int64(now.Sub(start)/time.Second)), cpuNow.share(cpu), cpuNow.part(cpu, podkopNow-podkop),
+			btstats.Duration(int64(now.Sub(start)/time.Second)), cpuNow.share(cpu), part,
 			loadAverage(), podkopMemory(), conntrackCount())
 		cpu, podkop = cpuNow, podkopNow
 		if err != nil {

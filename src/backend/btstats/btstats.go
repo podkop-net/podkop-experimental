@@ -196,8 +196,10 @@ type Stats struct {
 }
 
 // Observe takes a read made at now: the entries with a mark of the detector and the counters of
-// its drops, under the mode of setup. err is the read's error, if any (the entries and drops are
-// then those it got).
+// its drops, under the mode of setup. err is the read's error, if any: the read is then left out
+// whole, and the report says so. What a failed read got is a part or nothing, and taken as a read
+// it ended every connection it did not name: the next read counted each as a new one, with all its
+// bytes again, and the drops likewise (the review of 0.8.18).
 func (s *Stats) Observe(setup Setup, flows []Flow, drops Drops, err error, now time.Time) {
 	s.access.Lock()
 	defer s.access.Unlock()
@@ -209,6 +211,7 @@ func (s *Stats) Observe(setup Setup, flows []Flow, drops Drops, err error, now t
 	s.err = ""
 	if err != nil {
 		s.err = err.Error()
+		return
 	}
 	if s.flows == nil {
 		s.flows = make(map[flowKey]seen)

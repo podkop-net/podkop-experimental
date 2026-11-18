@@ -133,7 +133,7 @@ func TestBitTorrentDropRules(t *testing.T) {
 		detector                 BitTorrent
 		block, incoming, decided int
 	}{
-		"bypass":         {BitTorrent{Mode: BitTorrentBypass}, 0, 0, 1},
+		"bypass":         {BitTorrent{Mode: BitTorrentBypass}, 0, 0, 2},
 		"block":          {BitTorrent{Mode: BitTorrentBlock, Sources: prefixes("192.168.1.60/32")}, 3, 2, 0},
 		"block, the LAN": {BitTorrent{Mode: BitTorrentBlock, LAN: true}, 3, 2, 0},
 	} {
@@ -145,7 +145,14 @@ func TestBitTorrentDropRules(t *testing.T) {
 			t.Fatal(err)
 		}
 		table := &nftables.Table{Name: tableName, Family: nftables.TableFamilyINet}
-		got := [3]int{len(dropCounts(conn, table, ChainBitTorrentBlock)), len(dropCounts(conn, table, ChainBitTorrentIncoming)), len(dropCounts(conn, table, ChainBitTorrentDecided))}
+		var got [3]int
+		for index, chain := range []string{ChainBitTorrentBlock, ChainBitTorrentIncoming, ChainBitTorrentDecided} {
+			counts, err := dropCounts(conn, table, chain)
+			if err != nil {
+				t.Error(name, chain, err)
+			}
+			got[index] = len(counts)
+		}
 		if got != [3]int{c.block, c.incoming, c.decided} {
 			t.Errorf("%s: bt_block %d, bt_incoming %d, bt_decided %d", name, got[0], got[1], got[2])
 		}

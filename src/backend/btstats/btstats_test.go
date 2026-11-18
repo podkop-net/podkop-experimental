@@ -107,11 +107,39 @@ func TestDropsOverATableAnew(t *testing.T) {
 	require.Equal(t, count(1, 60), report.UTPToTCP)
 }
 
+// A read that failed is left out whole: the connections it did not name are not ended, and the
+// next read does not count them, their bytes and the drops once more.
+func TestFailedReadIsLeftOut(t *testing.T) {
+	var s Stats
+	at := time.Unix(1000, 0)
+	setup := Setup{Mode: "block"}
+	flow := func(bytes uint64) []Flow {
+		return []Flow{{ID: 1, Key: "a", UDP: true, Mark: bt, Counted: true, Original: count(10, bytes), Reply: count(10, bytes)}}
+	}
+	s.Observe(setup, flow(1000), Drops{UTP: count(5, 400)}, nil, at)
+	s.Observe(setup, nil, Drops{}, errors.New("no netlink"), at.Add(PollEvery))
+	require.Equal(t, "no netlink", s.Report(at.Add(PollEvery)).Error)
+	s.Observe(setup, flow(1500), Drops{UTP: count(6, 480)}, nil, at.Add(2*PollEvery))
+	report := s.Report(at.Add(2 * PollEvery))
+	require.Empty(t, report.Error)
+	var connections, sent, received uint64
+	for _, row := range report.Rows {
+		connections += row.Connections
+		sent += row.Sent.Bytes
+		received += row.Received.Bytes
+	}
+	require.Equal(t, uint64(1), connections)
+	require.Equal(t, uint64(1500), sent)
+	require.Equal(t, uint64(1500), received)
+	require.Equal(t, []Blocked{{KindUTP, count(6, 480)}}, report.Blocked)
+}
+
 // A read that failed is told; the kernel that does not count is told; Reset forgets.
 func TestReportStates(t *testing.T) {
 	var s Stats
 	at := time.Unix(1000, 0)
-	s.Observe(Setup{Mode: "bypass"}, []Flow{{ID: 1, Key: "a", UDP: true, Mark: bt}}, Drops{}, errors.New("no netlink"), at)
+	s.Observe(Setup{Mode: "bypass"}, []Flow{{ID: 1, Key: "a", UDP: true, Mark: bt}}, Drops{}, nil, at)
+	s.Observe(Setup{Mode: "bypass"}, nil, Drops{}, errors.New("no netlink"), at)
 	report := s.Report(at)
 	require.Equal(t, "no netlink", report.Error)
 	require.False(t, report.Counted)

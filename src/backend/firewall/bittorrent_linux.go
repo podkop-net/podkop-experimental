@@ -1,9 +1,11 @@
 package firewall
 
 import (
+	"cmp"
 	"encoding/json"
 	"net/netip"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
@@ -33,13 +35,29 @@ import (
 //     the client tries the peer again over TCP, decided at the SYN, rather than keeping a
 //     connection on a flow sing-box relays.
 //   - TCP, at the SYN: to a peer the module learned for the device (bt_learned, device . peer .
-//     port; the lookup refreshes it), or to one of bt_peers, it is BitTorrent. A device running a
-//     client, to a port no other program uses (not commonPorts): it is inspected, in sing-box.
+//     port; the lookup refreshes it), to a tracker the device announced to (bt_trackers), or, of a
+//     device running a client, to one of bt_peers on a port no other program uses (1024 and over,
+//     not commonPorts), it is BitTorrent. A device running a client, to any other port no other
+//     program uses, or to one of bt_peers on a port other programs use: it is inspected, in
+//     sing-box. An address and a port in bt_peers are a peer's word (a reply named them and the
+//     client sent a packet there, or another device shook hands with them); on port 443 the same
+//     address may be a site's, and a peer list may name any address (libtorrent connects to peers
+//     on any port: its no_connect_privileged_ports is off by default; El Defrawy et al., USENIX
+//     SRUTI 2007, on peer lists that point a swarm at a victim's service port). So there the
+//     connection's own handshake decides: TLS stays on its route, BitTorrent's (plaintext, or
+//     MSE's three steps) is confirmed by the module and its far end learned for that device
+//     (0.8.19; 0.8.18 took every such connection of every device running a client for BitTorrent
+//     for 30 minutes: past the proxy in bypass, dropped in block). Of 18730 DHT nodes and 3773
+//     peers the stand's captures of real swarms name, 7 and 1 are on such ports, none on 443, and
+//     none of 14853 BitTorrent TCP connections went to one (lab/bt17/uports.py).
 //   - TCP, the first data: the plaintext handshake, or an announce to an HTTP tracker (which tells
-//     the device runs a client, and puts the tracker, on a port no other program uses, in bt_peers
-//     for trackerTimeout: its next announces are BitTorrent at their SYN, the mode's way, as UDP
-//     trackers are; 0.8.18, after the field's reports, where announces to trackers of the user's
-//     lists went through the rule's server in bypass).
+//     the device runs a client, and puts the tracker, on a port no other program uses, in
+//     bt_trackers for the device, for trackerTimeout: its next announces are BitTorrent at their
+//     SYN, the mode's way, as UDP trackers are; 0.8.18, after the field's reports, where announces
+//     to trackers of the user's lists went through the rule's server in bypass. A set of its own
+//     since 0.8.19: in bt_peers the tracker lost its two hours to any other packet to it, and its
+//     SYN was told only while the device was in bt_hosts, 30 minutes, less than the interval of an
+//     announce: a client that only seeds announced through the rule's server every time).
 //   - Nothing to an address of the router itself (fib daddr type local): a client that connects to
 //     the router's own WAN address (its external address learned by UPnP) is no peer (0.8.18).
 //
@@ -98,6 +116,8 @@ const (
 	// SetBitTorrentLearned is the set podkop's module writes (package bittorrent): device . peer .
 	// port.
 	SetBitTorrentLearned = dataplane.BitTorrentLearnedSet
+	// SetBitTorrentTrackers are the HTTP trackers a device announced to: device . tracker . port.
+	SetBitTorrentTrackers = "bt_trackers"
 )
 
 // The chains of the detector whose rules' counters BitTorrentDrops reads.
@@ -111,10 +131,15 @@ const (
 // BitTorrent: the prototype's value, with which all four clients of the stand were told whole.
 const bitTorrentTimeout = 30 * time.Minute
 
-// trackerTimeout is how long an HTTP tracker stays in bt_peers after an announce: longer than the
-// interval trackers ask between announces (asked on 2026-11-17: opentrackr 3476 s, its minimum
-// 1738 s; Ubuntu's tracker 1800 s), so that the next one finds it.
+// trackerTimeout is how long an HTTP tracker stays in bt_trackers after a connection of its device
+// to it: longer than the interval trackers ask between announces (asked on 2026-11-17: opentrackr
+// 3476 s, its minimum 1738 s; Ubuntu's tracker 1800 s), so that the next one finds it.
 const trackerTimeout = 2 * time.Hour
+
+// firstFreePort: a peer of bt_peers on a port under it is not taken at its word (the module's
+// learnable has the same bound): of the stand's 14853 BitTorrent TCP connections, 21 went to a
+// port under 1024, with no data (lab/bt17/uports.py).
+const firstFreePort = 1024
 
 // The priorities of the chains of the detector: before mangle (filter, -150) and after it, both
 // before proxy (-100); bt_incoming before fw4's forward chain (filter, 0).
@@ -215,8 +240,55 @@ func verdict(kind expr.VerdictKind, chain string) []expr.Any {
 	return []expr.Any{&expr.Verdict{Kind: kind, Chain: chain}}
 }
 
-// bitTorrentSetNames are the sets of the detector whose elements a table made anew keeps.
-var bitTorrentSetNames = []string{SetBitTorrentSockets, SetBitTorrentHosts, SetBitTorrentPeers, SetBitTorrentUTP, SetBitTorrentLearned}
+// bitTorrentSetNames are the sets of the detector whose elements a table made anew keeps, in the
+// order they are kept when not all can be (keepBitTorrent).
+var bitTorrentSetNames = []string{SetBitTorrentHosts, SetBitTorrentSockets, SetBitTorrentUTP, SetBitTorrentTrackers, SetBitTorrentLearned, SetBitTorrentPeers}
+
+// bitTorrentKeys is the length of a key of each set of the detector, and bitTorrentTimeouts the
+// longest an element of it has left: what is kept of a set is checked against them (a file of
+// another version, or one changed, must not give the kernel a key of another length).
+var (
+	bitTorrentKeys = map[string]int{SetBitTorrentHosts: 4, SetBitTorrentSockets: 8, SetBitTorrentUTP: 8, SetBitTorrentPeers: 8,
+		SetBitTorrentLearned: 12, SetBitTorrentTrackers: 12}
+	bitTorrentTimeouts = map[string]time.Duration{SetBitTorrentTrackers: trackerTimeout}
+)
+
+// bitTorrentKeptMost is the most elements kept of each set, those with the most time left (the
+// last used): the kept elements go into the transaction that makes the table, and a transaction
+// of a hundred thousand elements took a router with 128 MB to the OOM killer (fillLot). Together
+// they are fillLot at most. The stand's sets held at most 1464 peers and 785 learned peers at the
+// end of a run of one client (lab/bt17/sizes.py); the ones left out are learned again from the
+// next replies and handshakes.
+var bitTorrentKeptMost = map[string]int{SetBitTorrentHosts: 500, SetBitTorrentSockets: 500, SetBitTorrentUTP: 500, SetBitTorrentTrackers: 500,
+	SetBitTorrentLearned: 4000, SetBitTorrentPeers: 4000}
+
+// keepBitTorrent leaves of the elements read of the sets (or of a file) what a new table takes:
+// the sets of the detector only, keys of their length, a time left of a second to the set's
+// timeout, and at most bitTorrentKeptMost of each, those with the most time left.
+func keepBitTorrent(kept map[string][]nftables.SetElement) map[string][]nftables.SetElement {
+	checked := make(map[string][]nftables.SetElement)
+	for _, name := range bitTorrentSetNames {
+		longest := bitTorrentTimeout
+		if timeout, has := bitTorrentTimeouts[name]; has {
+			longest = timeout
+		}
+		var elements []nftables.SetElement
+		for _, element := range kept[name] {
+			if len(element.Key) != bitTorrentKeys[name] || element.Timeout < time.Second {
+				continue
+			}
+			elements = append(elements, nftables.SetElement{Key: element.Key, Timeout: min(element.Timeout, longest)})
+		}
+		if most := bitTorrentKeptMost[name]; len(elements) > most {
+			slices.SortStableFunc(elements, func(a, b nftables.SetElement) int { return cmp.Compare(b.Timeout, a.Timeout) })
+			elements = elements[:most]
+		}
+		if len(elements) > 0 {
+			checked[name] = elements
+		}
+	}
+	return checked
+}
 
 // bitTorrentKept reads what the sets of the detector of the table there now hold, each element
 // with the time it has left: a table made anew while the backend runs (a change of the settings
@@ -247,7 +319,7 @@ func bitTorrentKept() map[string][]nftables.SetElement {
 			}
 		}
 	}
-	return kept
+	return keepBitTorrent(kept)
 }
 
 // bitTorrentSaved is where Remove keeps what the sets of the detector hold, with the time each
@@ -321,7 +393,7 @@ func loadBitTorrentSets(now time.Time) map[string][]nftables.SetElement {
 			}
 		}
 	}
-	return kept
+	return keepBitTorrent(kept)
 }
 
 // bitTorrentSetsThere tells whether the table there now has the detector's set of devices.
@@ -336,7 +408,7 @@ func bitTorrentSetsThere() bool {
 
 // bitTorrentSets are the sets of the detector.
 type bitTorrentSets struct {
-	sockets, hosts, peers, utp, learned *nftables.Set
+	sockets, hosts, peers, utp, learned, trackers *nftables.Set
 }
 
 // addBitTorrentSets adds the sets of the detector, with the elements kept of the table before:
@@ -345,23 +417,25 @@ type bitTorrentSets struct {
 // bt_peers).
 func addBitTorrentSets(conn *nftables.Conn, table *nftables.Table, nextID *uint32, kept map[string][]nftables.SetElement) (sets bitTorrentSets, err error) {
 	endpointType := nftables.MustConcatSetType(nftables.TypeIPAddr, nftables.TypeInetService)
-	newSet := func(name string, keyType nftables.SetDatatype, concatenation bool) (*nftables.Set, error) {
+	devicePeerType := nftables.MustConcatSetType(nftables.TypeIPAddr, nftables.TypeIPAddr, nftables.TypeInetService)
+	newSet := func(name string, keyType nftables.SetDatatype, concatenation bool, timeout time.Duration) (*nftables.Set, error) {
 		if err != nil {
 			return nil, err
 		}
 		*nextID++
 		set := &nftables.Set{Table: table, ID: *nextID, Name: name, KeyType: keyType, Dynamic: true, HasTimeout: true,
-			Timeout: bitTorrentTimeout, Concatenation: concatenation}
+			Timeout: timeout, Concatenation: concatenation}
 		if err := conn.AddSet(set, nil); err != nil {
 			return set, err
 		}
 		return set, addElements(conn, set, kept[name])
 	}
-	sets.sockets, err = newSet(SetBitTorrentSockets, endpointType, true)
-	sets.hosts, err = newSet(SetBitTorrentHosts, nftables.TypeIPAddr, false)
-	sets.peers, err = newSet(SetBitTorrentPeers, endpointType, true)
-	sets.utp, err = newSet(SetBitTorrentUTP, endpointType, true)
-	sets.learned, err = newSet(SetBitTorrentLearned, nftables.MustConcatSetType(nftables.TypeIPAddr, nftables.TypeIPAddr, nftables.TypeInetService), true)
+	sets.sockets, err = newSet(SetBitTorrentSockets, endpointType, true, bitTorrentTimeout)
+	sets.hosts, err = newSet(SetBitTorrentHosts, nftables.TypeIPAddr, false, bitTorrentTimeout)
+	sets.peers, err = newSet(SetBitTorrentPeers, endpointType, true, bitTorrentTimeout)
+	sets.utp, err = newSet(SetBitTorrentUTP, endpointType, true, bitTorrentTimeout)
+	sets.learned, err = newSet(SetBitTorrentLearned, devicePeerType, true, bitTorrentTimeout)
+	sets.trackers, err = newSet(SetBitTorrentTrackers, devicePeerType, true, trackerTimeout)
 	return
 }
 
@@ -434,7 +508,7 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	if err != nil {
 		return err
 	}
-	sockets, hosts, peers, utp, learned := sets.sockets, sets.hosts, sets.peers, sets.utp, sets.learned
+	sockets, hosts, peers, utp, learned, trackers := sets.sockets, sets.hosts, sets.peers, sets.utp, sets.learned, sets.trackers
 	var elements []nftables.SetElement
 	for _, port := range commonPorts {
 		elements = append(elements, nftables.SetElement{Key: binaryutil.BigEndian.PutUint16(port)})
@@ -479,12 +553,22 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	tcp4 := func() []expr.Any { return append(ipv4(), protocol(unix.IPPROTO_TCP)...) }
 	udp4 := func() []expr.Any { return append(ipv4(), protocol(unix.IPPROTO_UDP)...) }
 	updateHost := func() [][]expr.Any { return [][]expr.Any{ipv4(), {addressLoad(offsetSource), update(hosts)}} }
-	// the device, the peer and its port of a TCP packet, for bt_learned
-	devicePeer := func() []expr.Any {
-		return append(tcp4(),
+	// the device, the peer and its port of a TCP packet, for bt_learned and bt_trackers
+	devicePeerKey := func() []expr.Any {
+		return []expr.Any{
 			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: offsetSource, Len: 4},
 			&expr.Payload{DestRegister: 9, Base: expr.PayloadBaseNetworkHeader, Offset: offsetDestination, Len: 4},
-			&expr.Payload{DestRegister: 10, Base: expr.PayloadBaseTransportHeader, Offset: 2, Len: 2})
+			&expr.Payload{DestRegister: 10, Base: expr.PayloadBaseTransportHeader, Offset: 2, Len: 2},
+		}
+	}
+	devicePeer := func() []expr.Any { return append(tcp4(), devicePeerKey()...) }
+	// freePort: the destination port of a TCP packet is firstFreePort or over and none of
+	// commonPorts
+	freePort := func() [][]expr.Any {
+		return [][]expr.Any{protocol(unix.IPPROTO_TCP), {
+			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseTransportHeader, Offset: 2, Len: 2},
+			&expr.Cmp{Op: expr.CmpOpGte, Register: 1, Data: binaryutil.BigEndian.PutUint16(firstFreePort)},
+		}, notCommonPort(2)}
 	}
 	setMark := func(on bool) []expr.Any {
 		mask, xor := ^uint32(markProxy), uint32(0)
@@ -523,13 +607,26 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: lsdAddress},
 	}, protocol(unix.IPPROTO_UDP), destinationPort(6771), []expr.Any{addressLoad(offsetSource), update(hosts), &expr.Counter{}}, returns)
 	add(udp, ipv4(), addressIn(offsetDestination, SetLocal, idLocal), returns)
-	// a uTP SYN of version 1, an extension of a known type or none, a timestamp difference of 0
-	utpSyn := func(then ...[]expr.Any) [][]expr.Any {
-		return append([][]expr.Any{innerIs(0, []byte{0x41}), {
-			inner(1, 1), &expr.Cmp{Op: expr.CmpOpLt, Register: 1, Data: []byte{3}},
-		}, innerIs(8, []byte{0, 0, 0, 0})}, then...)
+	// a uTP SYN of version 1 (BEP 29), as the clients send it: the header of 20 bytes alone with no
+	// extension, or with the one extension of 8 bytes (type 2) older uTorrent sent; a timestamp
+	// difference and an ack_nr of 0. Every one of the 53798 SYNs of the stand's captures
+	// (qBittorrent, Transmission, M4's clients; lab/bt17/uports.py) is the first. 0.8.18 took any
+	// packet that begins 0x41 with a byte under 3 and four zeros at 8: 3 of 65536 DNS queries
+	// without EDNS (the id, then NSCOUNT and ARCOUNT) among others, whose flow, socket and device
+	// became BitTorrent.
+	udpLength := func(length uint16) []expr.Any {
+		return []expr.Any{
+			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseTransportHeader, Offset: 4, Len: 2},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.BigEndian.PutUint16(8 + length)},
+		}
 	}
-	add(udp, utpSyn(udp4(), endpoint(offsetSource, 0), []expr.Any{update(utp)}, counter, verdict(expr.VerdictGoto, socket.Name))...)
+	utpSyns := [][][]expr.Any{
+		{protocol(unix.IPPROTO_UDP), udpLength(20), innerIs(0, []byte{0x41, 0}), innerIs(8, []byte{0, 0, 0, 0}), innerIs(18, []byte{0, 0})},
+		{protocol(unix.IPPROTO_UDP), udpLength(30), innerIs(0, []byte{0x41, 2}), innerIs(8, []byte{0, 0, 0, 0}), innerIs(18, []byte{0, 0, 0, 8})},
+	}
+	for _, utpSyn := range utpSyns {
+		add(udp, append(append([][]expr.Any{}, utpSyn...), udp4(), endpoint(offsetSource, 0), []expr.Any{update(utp)}, counter, verdict(expr.VerdictGoto, socket.Name))...)
+	}
 	for _, signature := range [][]byte{signatureDHTQuery, signatureDHTResponse, signatureDHTAddress, signatureDHTError, signatureTracker} {
 		add(udp, innerIs(0, signature), counter, verdict(expr.VerdictGoto, discovery.Name))
 	}
@@ -561,15 +658,15 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	}, verdict(expr.VerdictGoto, syn.Name))
 	add(tcp, innerIs(0, signatureHandshake[:12]), innerIs(12, signatureHandshake[12:20]), counter, verdict(expr.VerdictGoto, handshake.Name))
 	// an announce to an HTTP tracker: the device runs a client; the connection itself is the
-	// tracker's, not of the swarm. The tracker, on an uncommon port, is BitTorrent from its next
-	// connection on (bt_peers, for trackerTimeout)
+	// tracker's, not of the swarm. The tracker, on an uncommon port, is BitTorrent for the device
+	// from its next connection on (bt_trackers, for trackerTimeout)
 	for _, signature := range [][][]expr.Any{
 		{innerIs(0, signatureAnnounce)},
 		{innerIs(0, signatureAnnouncePHP[:12]), innerIs(12, signatureAnnouncePHP[12:])},
 	} {
-		// in the order nft writes "tcp dport != {...} update @bt_peers { ip daddr . tcp dport }"
-		tracker := append(append([][]expr.Any{}, signature...), protocol(unix.IPPROTO_TCP), notCommonPort(2), ipv4(), endpoint(offsetDestination, 2),
-			[]expr.Any{&expr.Dynset{SrcRegKey: 1, SetName: peers.Name, SetID: peers.ID, Operation: unix.NFT_DYNSET_OP_UPDATE, Timeout: trackerTimeout}})
+		// in the order nft writes "tcp dport != {...} update @bt_trackers { ip saddr . ip daddr . tcp dport }"
+		tracker := append(append([][]expr.Any{}, signature...), protocol(unix.IPPROTO_TCP), notCommonPort(2), ipv4(), devicePeerKey(),
+			[]expr.Any{update(trackers)})
 		add(tcp, tracker...)
 		announce := append(append([][]expr.Any{}, signature...), updateHost()...)
 		add(tcp, append(announce, ctMarkAdd(ctNot), counter, returns)...)
@@ -578,18 +675,25 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	// (the entry of a connection ForgetBitTorrentFlows ended makes a new one with its next packet):
 	// a device running a client, to a peer it knows, is taken as a plaintext handshake is
 	add(tcp, devicePeer(), []expr.Any{&expr.Lookup{SourceRegister: 1, SetName: learned.Name, SetID: learned.ID}}, counter, verdict(expr.VerdictGoto, handshake.Name))
-	add(tcp, ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID), protocol(unix.IPPROTO_TCP), endpoint(offsetDestination, 2),
-		[]expr.Any{inSet(peers)}, counter, verdict(expr.VerdictGoto, handshake.Name))
+	// (a peer of bt_peers on a port other programs use is not taken at its word: the top)
+	add(tcp, append(append([][]expr.Any{ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID)}, freePort()...), endpoint(offsetDestination, 2),
+		[]expr.Any{inSet(peers)}, counter, verdict(expr.VerdictGoto, handshake.Name))...)
 	add(tcp, hasPayload(), ctMarkAdd(ctNot))
 
 	// bt_syn: a connection to a peer the module learned for the device (refreshed: an element
-	// added again from userspace keeps its timer on kernel 6.6, R7 of the A5 review), or to a peer
-	// of bt_peers; else, of a device running a client to an uncommon port, inspected
+	// added again from userspace keeps its timer on kernel 6.6, R7 of the A5 review), to a tracker
+	// the device announced to (refreshed; the device runs a client), or, of a device running a
+	// client, to a peer of bt_peers on a port no other program uses: BitTorrent. Else, of a device
+	// running a client: to a peer of bt_peers on any other port, or to any uncommon port, inspected
 	add(syn, devicePeer(), []expr.Any{&expr.Lookup{SourceRegister: 1, SetName: learned.Name, SetID: learned.ID}},
 		devicePeer(), []expr.Any{&expr.Dynset{SrcRegKey: 1, SetName: learned.Name, SetID: learned.ID, Operation: unix.NFT_DYNSET_OP_UPDATE}},
 		ctMarkAdd(ctBitTorrent), counter, verdict(expr.VerdictGoto, decided.Name))
+	add(syn, append([][]expr.Any{devicePeer(), {&expr.Lookup{SourceRegister: 1, SetName: trackers.Name, SetID: trackers.ID}},
+		devicePeer(), {update(trackers)}}, append(updateHost(), ctMarkAdd(ctBitTorrent), counter, verdict(expr.VerdictGoto, decided.Name))...)...)
+	add(syn, append(append([][]expr.Any{ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID)}, freePort()...), endpoint(offsetDestination, 2),
+		[]expr.Any{inSet(peers)}, ctMarkAdd(ctBitTorrent), counter, verdict(expr.VerdictGoto, decided.Name))...)
 	add(syn, ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID), protocol(unix.IPPROTO_TCP), endpoint(offsetDestination, 2),
-		[]expr.Any{inSet(peers)}, ctMarkAdd(ctBitTorrent), counter, verdict(expr.VerdictGoto, decided.Name))
+		[]expr.Any{inSet(peers)}, ctMarkAdd(ctInspect), counter, returns)
 	add(syn, ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID), protocol(unix.IPPROTO_TCP), notCommonPort(2),
 		ctMarkAdd(ctInspect), counter, returns)
 
@@ -610,13 +714,14 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	}
 	// an announce on a connection under inspection (a device known to run a client, to an HTTP
 	// tracker on an uncommon port: decided at its SYN, so bt_tcp never sees its first data): the
-	// tracker goes to bt_peers as bt_tcp puts it there for a device not known yet
+	// tracker goes to bt_trackers as bt_tcp puts it there for a device not known yet (on an
+	// uncommon port only: a connection to a known peer on a common port is inspected too)
 	for _, signature := range [][][]expr.Any{
 		{innerIs(0, signatureAnnounce)},
 		{innerIs(0, signatureAnnouncePHP[:12]), innerIs(12, signatureAnnouncePHP[12:])},
 	} {
-		tracker := append(append([][]expr.Any{ctMarkTest(ctInspect, expr.CmpOpNeq)}, signature...), tcp4(), endpoint(offsetDestination, 2),
-			[]expr.Any{&expr.Dynset{SrcRegKey: 1, SetName: peers.Name, SetID: peers.ID, Operation: unix.NFT_DYNSET_OP_UPDATE, Timeout: trackerTimeout}})
+		tracker := append(append([][]expr.Any{ctMarkTest(ctInspect, expr.CmpOpNeq)}, signature...), protocol(unix.IPPROTO_TCP), notCommonPort(2), ipv4(),
+			devicePeerKey(), []expr.Any{update(trackers)})
 		add(decided, tracker...)
 	}
 	add(decided, ctMarkTest(ctBitTorrent, expr.CmpOpEq), returns)
@@ -632,8 +737,10 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	// peer over TCP (libtorrent does when a uTP connect fails), decided at the SYN by bt_peers.
 	// Block drops the flow already (or forwards the discovery of the traffic podkop does not take).
 	if mode != BitTorrentBlock {
-		add(decided, append([][]expr.Any{ctMarkTest(ctDiscovery, expr.CmpOpNeq)},
-			utpSyn(udp4(), endpoint(offsetSource, 0), []expr.Any{update(utp)}, counter, verdict(expr.VerdictDrop, ""))...)...)
+		for _, utpSyn := range utpSyns {
+			add(decided, append(append([][]expr.Any{ctMarkTest(ctDiscovery, expr.CmpOpNeq)}, utpSyn...),
+				udp4(), endpoint(offsetSource, 0), []expr.Any{update(utp)}, counter, verdict(expr.VerdictDrop, ""))...)
+		}
 	}
 	if mode == BitTorrentBlock && detector.LAN {
 		add(decided, verdict(expr.VerdictGoto, block.Name))

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sagernet/nftables"
 )
 
 // The tests save no sets at a Remove and take none at an Apply (TestBitTorrentSaved sets a file
@@ -29,6 +31,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		"add set " + table + " bt_peers { type ipv4_addr . inet_service; flags dynamic,timeout; timeout 30m; }",
 		"add set " + table + " bt_utp { type ipv4_addr . inet_service; flags dynamic,timeout; timeout 30m; }",
 		"add set " + table + " bt_learned { type ipv4_addr . ipv4_addr . inet_service; flags dynamic,timeout; timeout 30m; }",
+		"add set " + table + " bt_trackers { type ipv4_addr . ipv4_addr . inet_service; flags dynamic,timeout; timeout 2h; }",
 		"add chain " + table + " bt_detect { type filter hook prerouting priority -160; policy accept; }",
 		"add chain " + table + " bt_udp",
 		"add chain " + table + " bt_discovery",
@@ -53,7 +56,8 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_detect", "meta l4proto tcp goto bt_tcp"),
 		rule("bt_udp", "ip daddr 239.192.152.143 udp dport 6771 update @bt_hosts { ip saddr } counter return"),
 		rule("bt_udp", "ip daddr @localv4 return"),
-		rule("bt_udp", "@ih,0,8 0x41 @ih,8,8 < 0x3 @ih,64,32 0x0 update @bt_utp { ip saddr . udp sport } counter goto bt_socket"),
+		rule("bt_udp", "udp length 28 @ih,0,16 0x4100 @ih,64,32 0x0 @ih,144,16 0x0 update @bt_utp { ip saddr . udp sport } counter goto bt_socket"),
+		rule("bt_udp", "udp length 38 @ih,0,16 0x4102 @ih,64,32 0x0 @ih,144,32 0x8 update @bt_utp { ip saddr . udp sport } counter goto bt_socket"),
 		rule("bt_udp", "@ih,0,56 0x64313a6164323a counter goto bt_discovery"),
 		rule("bt_udp", "@ih,0,56 0x64313a7264323a counter goto bt_discovery"),
 		rule("bt_udp", "@ih,0,56 0x64323a6970363a counter goto bt_discovery"),
@@ -75,22 +79,24 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_tcp", "tcp flags & (syn | ack) == syn goto bt_syn"),
 		rule("bt_tcp", "@ih,0,96 0x13426974546f7272656e7420 @ih,96,64 0x70726f746f636f6c counter goto bt_handshake"),
 		// "GET /announce?", and "GET /announc" "e.php?"
-		rule("bt_tcp", "@ih,0,112 0x474554202f616e6e6f756e63653f tcp dport != "+ports+" update @bt_peers { ip daddr . tcp dport timeout 2h }"),
+		rule("bt_tcp", "@ih,0,112 0x474554202f616e6e6f756e63653f tcp dport != "+ports+" update @bt_trackers { ip saddr . ip daddr . tcp dport }"),
 		rule("bt_tcp", "@ih,0,112 0x474554202f616e6e6f756e63653f update @bt_hosts { ip saddr } ct mark set ct mark | 0x00040000 counter return"),
-		rule("bt_tcp", "@ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f tcp dport != "+ports+" update @bt_peers { ip daddr . tcp dport timeout 2h }"),
+		rule("bt_tcp", "@ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f tcp dport != "+ports+" update @bt_trackers { ip saddr . ip daddr . tcp dport }"),
 		rule("bt_tcp", "@ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f update @bt_hosts { ip saddr } ct mark set ct mark | 0x00040000 counter return"),
 		rule("bt_tcp", "ip saddr . ip daddr . tcp dport @bt_learned counter goto bt_handshake"),
-		rule("bt_tcp", "ip saddr @bt_hosts ip daddr . tcp dport @bt_peers counter goto bt_handshake"),
+		rule("bt_tcp", "ip saddr @bt_hosts tcp dport >= 1024 tcp dport != "+ports+" ip daddr . tcp dport @bt_peers counter goto bt_handshake"),
 		rule("bt_tcp", "@ih,0,8 0x0-0xff ct mark set ct mark | 0x00040000"),
 		rule("bt_syn", "ip saddr . ip daddr . tcp dport @bt_learned update @bt_learned { ip saddr . ip daddr . tcp dport } ct mark set ct mark | 0x00010000 counter goto bt_decided"),
-		rule("bt_syn", "ip saddr @bt_hosts ip daddr . tcp dport @bt_peers ct mark set ct mark | 0x00010000 counter goto bt_decided"),
+		rule("bt_syn", "ip saddr . ip daddr . tcp dport @bt_trackers update @bt_trackers { ip saddr . ip daddr . tcp dport } update @bt_hosts { ip saddr } ct mark set ct mark | 0x00010000 counter goto bt_decided"),
+		rule("bt_syn", "ip saddr @bt_hosts tcp dport >= 1024 tcp dport != "+ports+" ip daddr . tcp dport @bt_peers ct mark set ct mark | 0x00010000 counter goto bt_decided"),
+		rule("bt_syn", "ip saddr @bt_hosts ip daddr . tcp dport @bt_peers ct mark set ct mark | 0x00080000 counter return"),
 		rule("bt_syn", "ip saddr @bt_hosts tcp dport != "+ports+" ct mark set ct mark | 0x00080000 counter return"),
 		rule("bt_handshake", "update @bt_hosts { ip saddr }"),
 		rule("bt_handshake", "update @bt_peers { ip daddr . tcp dport }"),
 		rule("bt_handshake", "ct mark & 0x00008000 != 0 ct mark set ct mark | 0x00020000 counter return"),
 		rule("bt_handshake", "ct mark set ct mark | 0x00010000 counter goto bt_decided"),
-		rule("bt_decided", "ct mark & 0x00080000 != 0 @ih,0,112 0x474554202f616e6e6f756e63653f update @bt_peers { ip daddr . tcp dport timeout 2h }"),
-		rule("bt_decided", "ct mark & 0x00080000 != 0 @ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f update @bt_peers { ip daddr . tcp dport timeout 2h }"),
+		rule("bt_decided", "ct mark & 0x00080000 != 0 @ih,0,112 0x474554202f616e6e6f756e63653f tcp dport != "+ports+" update @bt_trackers { ip saddr . ip daddr . tcp dport }"),
+		rule("bt_decided", "ct mark & 0x00080000 != 0 @ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f tcp dport != "+ports+" update @bt_trackers { ip saddr . ip daddr . tcp dport }"),
 		rule("bt_decided", "ct mark & 0x00010000 == 0 return"),
 		rule("bt_decided", "ip saddr != @bt_hosts update @bt_hosts { ip saddr }"),
 		rule("bt_decided", "ip saddr . udp sport != @bt_sockets update @bt_sockets { ip saddr . udp sport }"),
@@ -98,7 +104,9 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_decided", "ip daddr . tcp dport != @bt_peers update @bt_peers { ip daddr . tcp dport }"),
 	)
 	if mode != BitTorrentBlock {
-		lines = append(lines, rule("bt_decided", "ct mark & 0x00004000 != 0 @ih,0,8 0x41 @ih,8,8 < 0x3 @ih,64,32 0x0 update @bt_utp { ip saddr . udp sport } counter drop"))
+		lines = append(lines,
+			rule("bt_decided", "ct mark & 0x00004000 != 0 udp length 28 @ih,0,16 0x4100 @ih,64,32 0x0 @ih,144,16 0x0 update @bt_utp { ip saddr . udp sport } counter drop"),
+			rule("bt_decided", "ct mark & 0x00004000 != 0 udp length 38 @ih,0,16 0x4102 @ih,64,32 0x0 @ih,144,32 0x8 update @bt_utp { ip saddr . udp sport } counter drop"))
 	}
 	if mode == BitTorrentBlock && detector.LAN {
 		lines = append(lines, rule("bt_decided", "goto bt_block"))
@@ -285,7 +293,7 @@ func TestBitTorrentKept(t *testing.T) {
 		t.Fatal(err)
 	}
 	learned := map[string]string{"bt_hosts": "192.168.1.60", "bt_sockets": "192.168.1.60 . 6881", "bt_peers": "203.0.113.7 . 51413",
-		"bt_utp": "192.168.1.60 . 6881", "bt_learned": "192.168.1.60 . 203.0.113.8 . 51413"}
+		"bt_utp": "192.168.1.60 . 6881", "bt_learned": "192.168.1.60 . 203.0.113.8 . 51413", "bt_trackers": "192.168.1.60 . 203.0.113.9 . 6969"}
 	for set, element := range learned {
 		nft(t, "add element inet "+tableName+" "+set+" { "+element+" timeout 10m }")
 	}
@@ -341,6 +349,55 @@ func TestBitTorrentSaved(t *testing.T) {
 	kept := loadBitTorrentSets(time.Now().Add(time.Minute))
 	if len(kept["bt_learned"]) != 0 || len(kept["bt_hosts"]) != 1 {
 		t.Errorf("after a minute: %v", kept)
+	}
+}
+
+// What is kept of the sets for a new table: the sets of the detector only, keys of their length, a
+// time left within the set's timeout, and of a set with more than its most, those with the most
+// time left.
+func TestKeepBitTorrent(t *testing.T) {
+	key := func(length int, last byte) []byte {
+		data := make([]byte, length)
+		data[length-1] = last
+		return data
+	}
+	read := map[string][]nftables.SetElement{
+		SetBitTorrentHosts: {{Key: key(4, 1), Timeout: 10 * time.Minute}, {Key: key(8, 2), Timeout: 10 * time.Minute}, {Key: key(4, 3), Timeout: 500 * time.Millisecond},
+			{Key: key(4, 4), Timeout: 3 * time.Hour}},
+		SetBitTorrentTrackers: {{Key: key(12, 1), Timeout: 100 * time.Minute}, {Key: key(12, 2), Timeout: 5 * time.Hour}, {Key: key(8, 3), Timeout: time.Minute}},
+		"another_set":         {{Key: key(4, 1), Timeout: time.Minute}},
+	}
+	for index := range bitTorrentKeptMost[SetBitTorrentPeers] + 500 {
+		element := nftables.SetElement{Key: []byte{198, 51, 100, 7, byte(index >> 8), byte(index), 0, 0}, Timeout: time.Duration(index+1) * 100 * time.Millisecond}
+		read[SetBitTorrentPeers] = append(read[SetBitTorrentPeers], element)
+	}
+	kept := keepBitTorrent(read)
+	hosts := kept[SetBitTorrentHosts]
+	if len(hosts) != 2 || hosts[0].Timeout != 10*time.Minute || hosts[1].Timeout != bitTorrentTimeout {
+		t.Errorf("the devices kept: %v", hosts)
+	}
+	trackers := kept[SetBitTorrentTrackers]
+	if len(trackers) != 2 || trackers[0].Timeout != 100*time.Minute || trackers[1].Timeout != trackerTimeout {
+		t.Errorf("the trackers kept: %v", trackers)
+	}
+	if _, has := kept["another_set"]; has {
+		t.Error("a set that is not the detector's was kept")
+	}
+	peers := kept[SetBitTorrentPeers]
+	shortest := peers[0].Timeout
+	for _, peer := range peers {
+		shortest = min(shortest, peer.Timeout)
+	}
+	// the 9 first have under a second left; of the rest, the 4000 with the most time
+	if len(peers) != bitTorrentKeptMost[SetBitTorrentPeers] || shortest != 501*100*time.Millisecond {
+		t.Errorf("%d peers kept, the shortest time left %v", len(peers), shortest)
+	}
+	total := 0
+	for _, most := range bitTorrentKeptMost {
+		total += most
+	}
+	if total > fillLot {
+		t.Errorf("the sets may keep %d elements in all, more than a transaction's %d", total, fillLot)
 	}
 }
 

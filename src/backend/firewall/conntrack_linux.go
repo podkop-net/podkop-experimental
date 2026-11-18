@@ -2,6 +2,7 @@ package firewall
 
 import (
 	"encoding/binary"
+	"errors"
 
 	"github.com/mdlayher/netlink"
 	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
@@ -226,7 +227,10 @@ func parseFlow(data []byte) (btstats.Flow, bool) {
 
 // BitTorrentDrops reads the counters of the rules of the detector that drop BitTorrent: bt_block's
 // by kind (in the mode block), bt_incoming's (a new connection from outside to a client's socket),
-// and bt_decided's drop of a uTP SYN on a flow of discovery. A chain that is not there counts 0.
+// and bt_decided's drop of a uTP SYN on a flow of discovery. A chain that is not there counts 0; a
+// chain that could not be read is an error, and the counters are none (a read that failed must
+// not pass for counters at 0: the statistics take those for a table made anew, and count what the
+// rules had once more at the next read).
 func BitTorrentDrops() (btstats.Drops, error) {
 	var drops btstats.Drops
 	conn, err := newConn()
@@ -234,7 +238,14 @@ func BitTorrentDrops() (btstats.Drops, error) {
 		return drops, err
 	}
 	table := &nftables.Table{Name: tableName, Family: nftables.TableFamilyINet}
-	dropped := func(chain string) []btstats.Count { return dropCounts(conn, table, chain) }
+	var failed error
+	dropped := func(chain string) []btstats.Count {
+		counts, err := dropCounts(conn, table, chain)
+		if err != nil && failed == nil {
+			failed = E.Cause(err, "read the rules of ", chain)
+		}
+		return counts
+	}
 	if block := dropped(ChainBitTorrentBlock); len(block) == 3 {
 		drops.Discovery, drops.UTP, drops.TCP = block[0], block[1], block[2]
 	}
@@ -246,15 +257,21 @@ func BitTorrentDrops() (btstats.Drops, error) {
 		drops.UTPToTCP.Packets += count.Packets
 		drops.UTPToTCP.Bytes += count.Bytes
 	}
+	if failed != nil {
+		return btstats.Drops{}, failed
+	}
 	return drops, nil
 }
 
 // dropCounts are the counters of the rules of a chain that count and drop, in their order; none
-// when the chain is not there.
-func dropCounts(conn *nftables.Conn, table *nftables.Table, chain string) []btstats.Count {
+// when the chain (or the table) is not there.
+func dropCounts(conn *nftables.Conn, table *nftables.Table, chain string) ([]btstats.Count, error) {
 	rules, err := conn.GetRules(table, &nftables.Chain{Name: chain, Table: table})
 	if err != nil {
-		return nil
+		if errors.Is(err, unix.ENOENT) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	var counts []btstats.Count
 	for _, rule := range rules {
@@ -272,5 +289,5 @@ func dropCounts(conn *nftables.Conn, table *nftables.Table, chain string) []btst
 			counts = append(counts, *count)
 		}
 	}
-	return counts
+	return counts, nil
 }
