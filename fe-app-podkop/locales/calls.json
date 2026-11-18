@@ -869,7 +869,7 @@
     "call": "Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d; no answer from the other side: %d",
     "key": "Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d; no answer from the other side: %d",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:150"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:173"
     ]
   },
   {
@@ -2542,6 +2542,13 @@
     ]
   },
   {
+    "call": "Packets from addresses that do not belong to their interface, not checked for BitTorrent: %d",
+    "key": "Packets from addresses that do not belong to their interface, not checked for BitTorrent: %d",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:157"
+    ]
+  },
+  {
     "call": "Packets: received %d, sent %d",
     "key": "Packets: received %d, sent %d",
     "places": [
@@ -2589,7 +2596,7 @@
     "call": "Peers learned: %d from %d replies and %d announces",
     "key": "Peers learned: %d from %d replies and %d announces",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:142"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:165"
     ]
   },
   {
@@ -4049,6 +4056,13 @@
     "key": "The servers may refuse connections until the subscription is renewed",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:592"
+    ]
+  },
+  {
+    "call": "The sets of the BitTorrent detector are full, it tells less: %d packets and peers found no room",
+    "key": "The sets of the BitTorrent detector are full, it tells less: %d packets and peers found no room",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:150"
     ]
   },
   {

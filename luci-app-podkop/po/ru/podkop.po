@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-17 17:32+0000\n"
-"PO-Revision-Date: 2026-11-17 17:32+0000\n"
+"POT-Creation-Date: 2026-11-18 04:25+0000\n"
+"PO-Revision-Date: 2026-11-18 04:25+0000\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -1061,6 +1061,9 @@ msgstr "свои домены"
 msgid "own subnets"
 msgstr "свои подсети"
 
+msgid "Packets from addresses that do not belong to their interface, not checked for BitTorrent: %d"
+msgstr "Пакеты с адресов, которые не относятся к своему интерфейсу, на BitTorrent не проверялись: %d"
+
 msgid "Packets: received %d, sent %d"
 msgstr "Пакетов: получено %d, отправлено %d"
 
@@ -1693,6 +1696,9 @@ msgstr "Сервер работает через запасной отпечат
 
 msgid "The servers may refuse connections until the subscription is renewed"
 msgstr "Пока подписку не продлят, серверы могут не пускать"
+
+msgid "The sets of the BitTorrent detector are full, it tells less: %d packets and peers found no room"
+msgstr "Наборы детектора BitTorrent заполнены, он распознаёт меньше: для %d пакетов и пиров не нашлось места"
 
 msgid "The settings are not saved. The engine of the router refuses these links:"
 msgstr "Настройки не сохранены. Движок роутера отвергает эти ссылки:"

@@ -227,7 +227,9 @@ func parseFlow(data []byte) (btstats.Flow, bool) {
 
 // BitTorrentDrops reads the counters of the rules of the detector that drop BitTorrent: bt_block's
 // by kind (in the mode block), bt_incoming's (a new connection from outside to a client's socket),
-// and bt_decided's drop of a uTP SYN on a flow of discovery. A chain that is not there counts 0; a
+// and bt_decided's drop of a uTP SYN on a flow of discovery; and the counters of what the detector
+// could not take (the sets that are full, the sources that are not of their interface). A chain
+// that is not there counts 0; a
 // chain that could not be read is an error, and the counters are none (a read that failed must
 // not pass for counters at 0: the statistics take those for a table made anew, and count what the
 // rules had once more at the next read).
@@ -257,10 +259,63 @@ func BitTorrentDrops() (btstats.Drops, error) {
 		drops.UTPToTCP.Packets += count.Packets
 		drops.UTPToTCP.Bytes += count.Bytes
 	}
+	// what the detector could not take: the packets a full set took nothing of, and those whose
+	// source address is not of the interface they came in on
+	last := func(chain string) btstats.Count {
+		counts, err := ruleCounts(conn, table, chain, func(rule *nftables.Rule) bool { return len(rule.Exprs) == 1 })
+		if err != nil && failed == nil {
+			failed = E.Cause(err, "read the rules of ", chain)
+		}
+		if len(counts) == 0 {
+			return btstats.Count{}
+		}
+		return counts[len(counts)-1]
+	}
+	drops.FullHosts, drops.FullSockets, drops.FullPeers, drops.FullUTP = last(chainBitTorrentAddHosts), last(chainBitTorrentAddSockets),
+		last(chainBitTorrentAddPeers), last(chainBitTorrentFullUTP)
+	foreign, err := ruleCounts(conn, table, chainBitTorrentDetect, func(rule *nftables.Rule) bool {
+		for _, expression := range rule.Exprs {
+			if fib, ok := expression.(*expr.Fib); ok && fib.FlagSADDR {
+				return true
+			}
+		}
+		return false
+	})
+	if err != nil && failed == nil {
+		failed = E.Cause(err, "read the rules of ", chainBitTorrentDetect)
+	}
+	if len(foreign) > 0 {
+		drops.Foreign = foreign[0]
+	}
 	if failed != nil {
 		return btstats.Drops{}, failed
 	}
 	return drops, nil
+}
+
+// ruleCounts are the counters of the rules of a chain that which chooses, in their order; none
+// when the chain (or the table) is not there.
+func ruleCounts(conn *nftables.Conn, table *nftables.Table, chain string, which func(*nftables.Rule) bool) ([]btstats.Count, error) {
+	rules, err := conn.GetRules(table, &nftables.Chain{Name: chain, Table: table})
+	if err != nil {
+		if errors.Is(err, unix.ENOENT) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var counts []btstats.Count
+	for _, rule := range rules {
+		if !which(rule) {
+			continue
+		}
+		for _, expression := range rule.Exprs {
+			if counter, ok := expression.(*expr.Counter); ok {
+				counts = append(counts, btstats.Count{Packets: counter.Packets, Bytes: counter.Bytes})
+				break
+			}
+		}
+	}
+	return counts, nil
 }
 
 // dropCounts are the counters of the rules of a chain that count and drop, in their order; none

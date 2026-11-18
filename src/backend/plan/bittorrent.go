@@ -145,6 +145,8 @@ func (b *builder) buildBitTorrentService() {
 		// bt-check once it knows
 		"early", []any{newObject("inbound", tagTProxyInbound, "confirmed", confirmed)},
 		"hosts", dataplane.BitTorrentHostsSet,
+		// one device's discovery must not fill the set for all: a quarter of it
+		"per_device", dataplane.BitTorrentLearnedSize/4,
 		"never_ports", never))
 }
 

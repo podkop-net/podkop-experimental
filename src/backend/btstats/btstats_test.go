@@ -134,6 +134,26 @@ func TestFailedReadIsLeftOut(t *testing.T) {
 	require.Equal(t, []Blocked{{KindUTP, count(6, 480)}}, report.Blocked)
 }
 
+// What the detector could not take is told: the packets a full set had no room for, by set, with
+// the module's refused writes, and the packets from sources that are not of their interface; a
+// table made anew starts its counters at 0, and what the one before counted stays.
+func TestLimits(t *testing.T) {
+	var s Stats
+	at := time.Unix(1000, 0)
+	setup := Setup{Mode: "bypass"}
+	s.Observe(setup, nil, Drops{}, nil, at)
+	require.NotContains(t, strings.Join(Lines(s.Report(at)), "\n"), "sets are full")
+	s.Observe(setup, nil, Drops{FullHosts: count(3, 180), FullPeers: count(40, 2400), Foreign: count(7, 420)}, nil, at.Add(PollEvery))
+	// a new table: its counters began again
+	s.Observe(setup, nil, Drops{FullPeers: count(2, 120), FullUTP: count(1, 48)}, nil, at.Add(2*PollEvery))
+	report := s.Report(at.Add(2 * PollEvery))
+	require.Equal(t, Limits{Devices: 3, UTP: 1, Peers: 42, Foreign: 7}, report.Limits)
+	report.Module = map[string]int64{"set_full": 5}
+	lines := strings.Join(Lines(report), "\n")
+	require.Contains(t, lines, "the detector's sets are full, it tells less: no room for the device of 3 packets, the socket of 0, the uTP socket of 1, the peer of 42; 5 writes of learned peers refused")
+	require.Contains(t, lines, "7 packets came from addresses that are not of the interface they came in on")
+}
+
 // A read that failed is told; the kernel that does not count is told; Reset forgets.
 func TestReportStates(t *testing.T) {
 	var s Stats

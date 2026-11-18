@@ -109,12 +109,32 @@ type Flow struct {
 
 // Drops are the counters of the firewall's rules that drop BitTorrent: by the kind of what they
 // dropped, a new connection from outside to a client's socket (the mode block), and the uTP SYNs
-// on a flow of discovery the firewall drops so that the client goes to the peer over TCP.
+// on a flow of discovery the firewall drops so that the client goes to the peer over TCP. And the
+// counters of what the detector could not take: the packets whose device, socket, peer or uTP
+// socket a set had no room for (Full*), and those it did not look at because their source address
+// is not of the interface they came in on (Foreign).
 type Drops struct {
-	Discovery, UTP, TCP Count
-	Incoming            Count
-	UTPToTCP            Count
+	Discovery, UTP, TCP                        Count
+	Incoming                                   Count
+	UTPToTCP                                   Count
+	FullHosts, FullSockets, FullPeers, FullUTP Count
+	Foreign                                    Count
 }
+
+// Limits is what the detector could not take, in packets: by the set that had no room for the
+// packet's device, socket, uTP socket or peer (the detector then tells less: it remembers no new
+// one), and Foreign, the packets it did not look at because their source address is not of the
+// interface they came in on.
+type Limits struct {
+	Devices uint64 `json:"devices,omitempty"`
+	Sockets uint64 `json:"sockets,omitempty"`
+	UTP     uint64 `json:"utp,omitempty"`
+	Peers   uint64 `json:"peers,omitempty"`
+	Foreign uint64 `json:"foreign,omitempty"`
+}
+
+// Full is the packets the sets had no room for, in all.
+func (l Limits) Full() uint64 { return l.Devices + l.Sockets + l.UTP + l.Peers }
 
 // Row is a line of the table: a kind, the way it went, the connections open at the last read
 // and all seen, what the devices received and sent.
@@ -151,6 +171,8 @@ type Report struct {
 	Blocked []Blocked `json:"blocked"`
 	// UTPToTCP: uTP SYNs the firewall dropped on a flow of discovery (the client tries TCP)
 	UTPToTCP Count `json:"utp_to_tcp"`
+	// Limits: what the detector could not take (its sets full, sources not of their interface)
+	Limits Limits `json:"limits"`
 	// Module is what the BitTorrent module of the sing-box that runs counted
 	// (engine.BitTorrentCounters), since that sing-box started or, after a reset, since the reset
 	Module map[string]int64 `json:"module,omitempty"`
@@ -306,6 +328,8 @@ func (s *Stats) Report(now time.Time) Report {
 		}
 	}
 	report.UTPToTCP = total.UTPToTCP
+	report.Limits = Limits{Devices: total.FullHosts.Packets, Sockets: total.FullSockets.Packets, UTP: total.FullUTP.Packets,
+		Peers: total.FullPeers.Packets, Foreign: total.Foreign.Packets}
 	return report
 }
 
@@ -353,31 +377,36 @@ func (s *Stats) ModuleSince(module map[string]int64) map[string]int64 {
 	return since
 }
 
+// counts are the counters of d, each in its place.
+func (d *Drops) counts() []*Count {
+	return []*Count{&d.Discovery, &d.UTP, &d.TCP, &d.Incoming, &d.UTPToTCP, &d.FullHosts, &d.FullSockets, &d.FullPeers, &d.FullUTP, &d.Foreign}
+}
+
 func (d Drops) less(other Drops) bool {
-	return d.Discovery.Packets < other.Discovery.Packets || d.UTP.Packets < other.UTP.Packets || d.TCP.Packets < other.TCP.Packets ||
-		d.Incoming.Packets < other.Incoming.Packets || d.UTPToTCP.Packets < other.UTPToTCP.Packets
+	mine, theirs := d.counts(), other.counts()
+	for index := range mine {
+		if mine[index].Packets < theirs[index].Packets {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *Drops) subtract(other Drops) {
-	sub := func(c *Count, o Count) {
-		if c.Packets >= o.Packets && c.Bytes >= o.Bytes {
-			c.Packets -= o.Packets
-			c.Bytes -= o.Bytes
+	mine, theirs := d.counts(), other.counts()
+	for index := range mine {
+		if mine[index].Packets >= theirs[index].Packets && mine[index].Bytes >= theirs[index].Bytes {
+			mine[index].Packets -= theirs[index].Packets
+			mine[index].Bytes -= theirs[index].Bytes
 		}
 	}
-	sub(&d.Discovery, other.Discovery)
-	sub(&d.UTP, other.UTP)
-	sub(&d.TCP, other.TCP)
-	sub(&d.Incoming, other.Incoming)
-	sub(&d.UTPToTCP, other.UTPToTCP)
 }
 
 func (d *Drops) addAll(other Drops) {
-	d.Discovery.add(other.Discovery)
-	d.UTP.add(other.UTP)
-	d.TCP.add(other.TCP)
-	d.Incoming.add(other.Incoming)
-	d.UTPToTCP.add(other.UTPToTCP)
+	mine, theirs := d.counts(), other.counts()
+	for index := range mine {
+		mine[index].add(*theirs[index])
+	}
 }
 
 // Classify tells the kind of a flow by its mark and protocol, and the way the mode sends it (the

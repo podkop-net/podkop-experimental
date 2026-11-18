@@ -105,7 +105,7 @@ var Commands = [][2]string{
 	{"show_system_info", "The version of OpenWrt and the model of the device"},
 	{"check_nft", "The firewall table of the backend as nft prints it"},
 	{"bittorrent_counters", "What the BitTorrent module has counted since sing-box started, as JSON (empty when BitTorrent is off)"},
-	{"bittorrent_stats", "What the BitTorrent traffic of the LAN came to since the detector was on (or the last bittorrent_reset), by its kind and the way the mode sent it, as JSON: {mode, lan, rule, since, read, counted, rows: [{kind, way, open, connections, received, sent}], blocked, utp_to_tcp, module, reset_at}"},
+	{"bittorrent_stats", "What the BitTorrent traffic of the LAN came to since the detector was on (or the last bittorrent_reset), by its kind and the way the mode sent it, as JSON: {mode, lan, rule, since, read, counted, rows: [{kind, way, open, connections, received, sent}], blocked, utp_to_tcp, limits, module, reset_at}"},
 	{"bittorrent_reset", "Start the BitTorrent statistics again from now (the dashboard's Reset), without a restart of podkop"},
 	{"bittorrent_record", "[minutes] [--reset]: write a report of BitTorrent for a test, a sample every 10 s for the minutes (default 10): the router, the settings, CPU, memory, connections and the BitTorrent statistics, without any address or name; --reset starts the statistics first. It prints the file it wrote"},
 	{"list_update", "Download every list now instead of at the update interval"},

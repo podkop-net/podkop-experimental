@@ -80,7 +80,7 @@ func TestBusBitTorrent(t *testing.T) {
 	encoded, err := json.Marshal(answer)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"mode":"bypass","lan":false,"since":0,"read":0,"counted":true,"rows":[{"kind":"utp","way":"past","open":2,"connections":3,`+
-		`"received":{"packets":10,"bytes":12000},"sent":{"packets":5,"bytes":600}}],"blocked":[],"utp_to_tcp":{"packets":0,"bytes":0}}`, string(encoded))
+		`"received":{"packets":10,"bytes":12000},"sent":{"packets":5,"bytes":600}}],"blocked":[],"utp_to_tcp":{"packets":0,"bytes":0},"limits":{}}`, string(encoded))
 }
 
 func TestBusStats(t *testing.T) {

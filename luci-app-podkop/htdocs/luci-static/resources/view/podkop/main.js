@@ -3421,6 +3421,22 @@ function bitTorrentTable(report) {
       )
     );
   }
+  const limits = report.limits;
+  const full = (limits?.devices ?? 0) + (limits?.sockets ?? 0) + (limits?.utp ?? 0) + (limits?.peers ?? 0) + (report.module?.set_full ?? 0);
+  if (full > 0) {
+    notes.push(
+      _(
+        "The sets of the BitTorrent detector are full, it tells less: %d packets and peers found no room"
+      ).format(full)
+    );
+  }
+  if ((limits?.foreign ?? 0) > 0) {
+    notes.push(
+      _(
+        "Packets from addresses that do not belong to their interface, not checked for BitTorrent: %d"
+      ).format(limits?.foreign ?? 0)
+    );
+  }
   const module = report.module;
   if (module) {
     notes.push(

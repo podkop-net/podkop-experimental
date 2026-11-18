@@ -107,7 +107,7 @@ type Options struct {
 	// NeverPorts are ports never learned, besides those under 1024: podkop's common ports, whose
 	// connections the firewall never takes for BitTorrent.
 	NeverPorts badoption.Listable[uint16] `json:"never_ports,omitempty"`
-	// PerDevice is the most peers learned for one device within Timeout (default 16384: the set
+	// PerDevice is the most peers learned for one device within Timeout (default 8192: the set
 	// holds 65535).
 	PerDevice int `json:"per_device,omitempty"`
 }
@@ -235,7 +235,7 @@ func New(ctx context.Context, logger log.ContextLogger, tag string, options Opti
 	s.thirdStepLate = orDefault(options.ThirdStepLate.Build(), 20*time.Second)
 	perDevice := options.PerDevice
 	if perDevice <= 0 {
-		perDevice = 16384
+		perDevice = 8192
 	}
 	s.devices = devices{cap: perDevice, window: timeout}
 	if options.Table != "" && options.Set != "" {

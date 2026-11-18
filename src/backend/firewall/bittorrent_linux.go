@@ -253,6 +253,29 @@ var (
 	bitTorrentTimeouts = map[string]time.Duration{SetBitTorrentTrackers: trackerTimeout}
 )
 
+// bitTorrentSizes is how many elements each set of the detector holds. With no size the kernel
+// gives a set that rules add to 65535, and a full one costs 4 to 9 MB of kernel memory that is
+// never swapped (55-64 bytes an element with a key of 8 bytes, 86-92 with 12, and the table:
+// lab/bt17/g2.sh, 2026-11-18): the six about 30-45 MB, on routers of 128 MB. The sizes are what a
+// LAN needs: its devices (a /22); four sockets a device (a client has 1 to 3: at most 2 on the
+// stand); the trackers of its devices; and of peers 21 times the most one client's five minutes
+// left in bt_peers on the stand (1532), 42 times bt_learned's (785). All six full: about 9 MB.
+// A set that is full takes no new element, and the detector tells less: bt_add_* and bt_full_utp
+// count the packets whose element found no room (BitTorrentLimits), and the page says so.
+var bitTorrentSizes = map[string]uint32{SetBitTorrentHosts: 1024, SetBitTorrentSockets: 4096, SetBitTorrentUTP: 4096, SetBitTorrentTrackers: 1024,
+	SetBitTorrentPeers: 32768, SetBitTorrentLearned: dataplane.BitTorrentLearnedSize}
+
+// The chains that add a device, a socket or a peer of a decided connection to its set and count
+// the packets a full set took nothing of, and the chain that counts the uTP SYNs whose socket
+// bt_utp had no room for (BitTorrentLimits reads their last rules).
+const (
+	chainBitTorrentAddHosts   = "bt_add_hosts"
+	chainBitTorrentAddSockets = "bt_add_sockets"
+	chainBitTorrentAddPeers   = "bt_add_peers"
+	chainBitTorrentFullUTP    = "bt_full_utp"
+	chainBitTorrentDetect     = "bt_detect"
+)
+
 // bitTorrentKeptMost is the most elements kept of each set, those with the most time left (the
 // last used): the kept elements go into the transaction that makes the table, and a transaction
 // of a hundred thousand elements took a router with 128 MB to the OOM killer (fillLot). Together
@@ -424,7 +447,7 @@ func addBitTorrentSets(conn *nftables.Conn, table *nftables.Table, nextID *uint3
 		}
 		*nextID++
 		set := &nftables.Set{Table: table, ID: *nextID, Name: name, KeyType: keyType, Dynamic: true, HasTimeout: true,
-			Timeout: timeout, Concatenation: concatenation}
+			Timeout: timeout, Concatenation: concatenation, Size: bitTorrentSizes[name]}
 		if err := conn.AddSet(set, nil); err != nil {
 			return set, err
 		}
@@ -529,13 +552,14 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		}
 	}
 	accept := nftables.ChainPolicyAccept
-	detect := conn.AddChain(&nftables.Chain{Name: "bt_detect", Table: table, Type: nftables.ChainTypeFilter,
+	detect := conn.AddChain(&nftables.Chain{Name: chainBitTorrentDetect, Table: table, Type: nftables.ChainTypeFilter,
 		Hooknum: nftables.ChainHookPrerouting, Priority: nftables.ChainPriorityRef(bitTorrentDetectPriority), Policy: &accept})
 	chain := func(name string) *nftables.Chain {
 		return conn.AddChain(&nftables.Chain{Name: name, Table: table})
 	}
 	udp, discovery, socket, flow := chain("bt_udp"), chain("bt_discovery"), chain("bt_socket"), chain("bt_flow")
 	tcp, syn, handshake, decided := chain("bt_tcp"), chain("bt_syn"), chain("bt_handshake"), chain(ChainBitTorrentDecided)
+	addHosts, addSockets, addPeers, fullUTP := chain(chainBitTorrentAddHosts), chain(chainBitTorrentAddSockets), chain(chainBitTorrentAddPeers), chain(chainBitTorrentFullUTP)
 	act := conn.AddChain(&nftables.Chain{Name: "bt_act", Table: table, Type: nftables.ChainTypeFilter,
 		Hooknum: nftables.ChainHookPrerouting, Priority: nftables.ChainPriorityRef(bitTorrentActPriority), Policy: &accept})
 	free := chain("bt_free")
@@ -597,6 +621,15 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(unix.RTN_LOCAL)},
 	}, returns)
 	add(detect, ctMarkTest(ctDecided, expr.CmpOpNeq), verdict(expr.VerdictGoto, decided.Name))
+	// a packet whose source address is not reachable through the interface it came in on (the
+	// reverse path, as a filter of spoofed sources asks it) is not looked at, counted: a device of
+	// the LAN that makes up source addresses made a device of each in bt_hosts, and with them the
+	// limit of a device meant nothing (the review of 0.8.18). After the connections decided before:
+	// a new flow pays the lookup, not every packet. The packet itself goes on as it would.
+	add(detect, []expr.Any{
+		&expr.Fib{Register: 1, FlagSADDR: true, FlagIIF: true, FlagPRESENT: true, ResultOIF: true},
+		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{0}},
+	}, counter, returns)
 	add(detect, protocol(unix.IPPROTO_UDP), verdict(expr.VerdictGoto, udp.Name))
 	add(detect, protocol(unix.IPPROTO_TCP), verdict(expr.VerdictGoto, tcp.Name))
 
@@ -627,6 +660,12 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	for _, utpSyn := range utpSyns {
 		add(udp, append(append([][]expr.Any{}, utpSyn...), udp4(), endpoint(offsetSource, 0), []expr.Any{update(utp)}, counter, verdict(expr.VerdictGoto, socket.Name))...)
 	}
+	// a uTP SYN that is still here: bt_utp had no room for its socket (the rule above ends where
+	// its update fails). Counted; the SYN goes on to the rules below
+	for _, utpSyn := range utpSyns {
+		add(udp, append(append([][]expr.Any{}, utpSyn...), verdict(expr.VerdictJump, fullUTP.Name))...)
+	}
+	add(fullUTP, counter)
 	for _, signature := range [][]byte{signatureDHTQuery, signatureDHTResponse, signatureDHTAddress, signatureDHTError, signatureTracker} {
 		add(udp, innerIs(0, signature), counter, verdict(expr.VerdictGoto, discovery.Name))
 	}
@@ -724,11 +763,22 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 			devicePeerKey(), []expr.Any{update(trackers)})
 		add(decided, tracker...)
 	}
+	// (each in a chain of its own, whose first rules add and return and whose last counts: a
+	// packet gets there when the set had no room for its element, and the rule that adds ended at
+	// its update. A connection of BitTorrent whose device, socket or peer no set took comes here
+	// with each of its packets, so a set that stays full shows)
 	add(decided, ctMarkTest(ctBitTorrent, expr.CmpOpEq), returns)
-	add(decided, ipv4(), []expr.Any{addressLoad(offsetSource)}, notIn(hosts), []expr.Any{addressLoad(offsetSource), update(hosts)})
-	add(decided, udp4(), endpoint(offsetSource, 0), notIn(sockets), endpoint(offsetSource, 0), []expr.Any{update(sockets)})
-	add(decided, udp4(), endpoint(offsetDestination, 2), notIn(peers), endpoint(offsetDestination, 2), []expr.Any{update(peers)})
-	add(decided, tcp4(), endpoint(offsetDestination, 2), notIn(peers), endpoint(offsetDestination, 2), []expr.Any{update(peers)})
+	add(decided, ipv4(), []expr.Any{addressLoad(offsetSource)}, notIn(hosts), verdict(expr.VerdictJump, addHosts.Name))
+	add(decided, udp4(), endpoint(offsetSource, 0), notIn(sockets), verdict(expr.VerdictJump, addSockets.Name))
+	add(decided, udp4(), endpoint(offsetDestination, 2), notIn(peers), verdict(expr.VerdictJump, addPeers.Name))
+	add(decided, tcp4(), endpoint(offsetDestination, 2), notIn(peers), verdict(expr.VerdictJump, addPeers.Name))
+	add(addHosts, append(updateHost(), returns)...)
+	add(addHosts, counter)
+	add(addSockets, udp4(), endpoint(offsetSource, 0), []expr.Any{update(sockets)}, returns)
+	add(addSockets, counter)
+	add(addPeers, udp4(), endpoint(offsetDestination, 2), []expr.Any{update(peers)}, returns)
+	add(addPeers, tcp4(), endpoint(offsetDestination, 2), []expr.Any{update(peers)}, returns)
+	add(addPeers, counter)
 	// a uTP SYN on a flow of discovery: the socket spoke DHT to this peer before its first uTP SYN
 	// (qBittorrent at its start: its DHT and its uTP share the socket, and so do the peer's). The
 	// flow goes through sing-box, and a connection on it would, for its whole life (the stand of

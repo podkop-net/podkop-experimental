@@ -636,6 +636,15 @@ export namespace Podkop {
     rows: BitTorrentRow[];
     blocked: Array<{ kind: BitTorrentKind; dropped: BitTorrentCount }>;
     utp_to_tcp: BitTorrentCount;
+    // packets the detector could not take: no room in a set for their device, socket, uTP socket
+    // or peer; a source address that is not of the interface they came in on
+    limits?: {
+      devices?: number;
+      sockets?: number;
+      utp?: number;
+      peers?: number;
+      foreign?: number;
+    };
     module?: Record<string, number>;
     // seconds since the statistics were reset (bittorrent_reset), absent when they were not
     reset_at?: number;

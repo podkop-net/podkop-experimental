@@ -130,6 +130,13 @@ func Lines(report Report) []string {
 	if quiet := QuietDiscovery(report); quiet != "" {
 		lines = append(lines, "  ⚠️ "+quiet)
 	}
+	if limits, learned := report.Limits, report.Module["set_full"]; limits.Full() > 0 || learned > 0 {
+		lines = append(lines, fmt.Sprintf("  ❌ the detector's sets are full, it tells less: no room for the device of %d packets, the socket of %d, the uTP socket of %d, "+
+			"the peer of %d; %d writes of learned peers refused", limits.Devices, limits.Sockets, limits.UTP, limits.Peers, learned))
+	}
+	if report.Limits.Foreign > 0 {
+		lines = append(lines, fmt.Sprintf("  ⚠️ %d packets came from addresses that are not of the interface they came in on: not looked at for BitTorrent", report.Limits.Foreign))
+	}
 	if module := report.Module; module != nil {
 		lines = append(lines, fmt.Sprintf("  the module, since %s: %d peers learned from %d replies and %d announces (%d known already, %d not learnable, %d over the cap); "+
 			"%d connections checked: %d confirmed (%d of them by a late third step; %d closed, %d left open), %d not BitTorrent "+

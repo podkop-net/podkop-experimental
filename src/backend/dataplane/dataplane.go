@@ -121,6 +121,10 @@ const (
 // device . peer . port.
 const BitTorrentLearnedSet = "bt_learned"
 
+// BitTorrentLearnedSize is how many elements BitTorrentLearnedSet holds (the firewall gives each
+// set of the detector a size); the module learns at most a quarter of it for one device.
+const BitTorrentLearnedSize = 32768
+
 // BitTorrentHostsSet is the set of the firewall's table of the devices running a BitTorrent client
 // (the module reads it for its early check).
 const BitTorrentHostsSet = "bt_hosts"

@@ -85,12 +85,39 @@ var (
 // table up.
 const netlinkDeadline = time.Minute
 
-// newConn is a netlink connection of nftables whose reads end at netlinkDeadline; a
-// connection that is not lasting dials anew at every flush, and the bound with it.
+// netlinkReadBuffer is the receive buffer asked for a netlink connection of the firewall (the
+// kernel gives twice what is asked). The kernel answers a transaction once it has taken all of
+// it: an acknowledgement of every message, and every rule back (the library asks for the echo, to
+// learn the rule's handle), all queued on the socket before the first is read. The default buffer
+// (212992 bytes on nexus) held the answers to the table up to 0.8.18, and not to the table with
+// the detector's limits of 0.8.19: "netlink receive: recvmsg: no buffer space available", and no
+// table. A table with more rules for any other reason would have met the same. 2 MiB asked: twenty
+// times the default; only what is queued takes memory.
+const netlinkReadBuffer = 2 << 20
+
+// newConn is a netlink connection of nftables whose reads end at netlinkDeadline and whose
+// receive buffer is netlinkReadBuffer; a connection that is not lasting dials anew at every
+// flush, and both with it.
 func newConn() (*nftables.Conn, error) {
 	return nftables.New(nftables.WithSockOptions(func(conn *netlink.Conn) error {
+		readBuffer(conn)
 		return conn.SetReadDeadline(time.Now().Add(netlinkDeadline))
 	}))
+}
+
+// readBuffer gives a connection netlinkReadBuffer: past the system's limit when the process may
+// (the backend runs as root), else as much of it as the limit allows.
+func readBuffer(conn *netlink.Conn) {
+	if raw, err := conn.SyscallConn(); err == nil {
+		forced := false
+		_ = raw.Control(func(fd uintptr) {
+			forced = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_RCVBUFFORCE, netlinkReadBuffer) == nil
+		})
+		if forced {
+			return
+		}
+	}
+	_ = conn.SetReadBuffer(netlinkReadBuffer)
 }
 
 // Plan is the whole table: what its rules depend on and what its sets hold.
