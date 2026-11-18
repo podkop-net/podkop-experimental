@@ -1,6 +1,8 @@
 package model
 
 import (
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/uci"
@@ -30,6 +32,19 @@ func TestMaskNames(t *testing.T) {
 	names := MaskNames([]byte(list), []string{"deepl.com"})
 	require.Equal(t, []string{"img.avito.st", "mail.ru", "vk.com", "gosuslugi.ru", "bbc.co.uk"}, names)
 	require.Empty(t, MaskNames([]byte("<html><body>blocked</body></html>\n"), nil))
+}
+
+// A list names at most so many sites, the first of it; a shorter name of a site taken still
+// replaces the longer one.
+func TestMaskNamesMost(t *testing.T) {
+	t.Parallel()
+	list := "a.one.example\ntwo.example\nthree.example\none.example\nfour.example\n"
+	require.Equal(t, []string{"one.example", "two.example"}, maskNames([]byte(list), nil, 2))
+	var long strings.Builder
+	for index := 0; index < MaskSitesMost+500; index++ {
+		long.WriteString("site" + strconv.Itoa(index) + ".example\n")
+	}
+	require.Len(t, MaskNames([]byte(long.String()), nil), MaskSitesMost)
 }
 
 // The lists are the default ones unless the settings name others or turn them off.

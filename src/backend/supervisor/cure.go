@@ -350,20 +350,28 @@ func (s *Supervisor) SuggestMask(ctx context.Context, tag string) SuggestResult 
 func (s *Supervisor) runSuggest(scan *suggestScan, instance Instance, content []byte, maskLists []string) {
 	ctx, cancel := context.WithTimeout(context.Background(), suggestBudget)
 	defer cancel()
+	result := SuggestResult{State: SuggestNone}
+	// the scan ends whatever happens in it: a panic left it "running" for good, and every later
+	// search answered "busy" (and, with no guard, ended the backend)
+	defer func() {
+		if fault := recover(); fault != nil {
+			s.log("error", "suggest a mask for ", scan.tag, ": ", fault)
+		}
+		s.suggestAccess.Lock()
+		scan.result, scan.running, scan.finished = result, false, time.Now()
+		s.suggestAccess.Unlock()
+		close(scan.done)
+	}()
 	names := make(chan string)
 	go s.feedMasks(ctx, names, maskLists)
 	sni, tried, err := instance.SuggestMask(ctx, content, names)
-	result := SuggestResult{State: SuggestNone, Tried: tried}
+	result.Tried = tried
 	switch {
 	case err != nil:
 		s.log("warn", "suggest a mask for ", scan.tag, ": ", err)
 	case sni != "":
 		result = SuggestResult{State: SuggestFound, SNI: sni, Tried: tried}
 	}
-	s.suggestAccess.Lock()
-	scan.result, scan.running, scan.finished = result, false, time.Now()
-	s.suggestAccess.Unlock()
-	close(scan.done)
 }
 
 // serverNameOf is tls.server_name of an outbound, "" when it has none.

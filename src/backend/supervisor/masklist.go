@@ -26,6 +26,12 @@ const maskListDir = "masklists"
 // or when ctx ends.
 func (s *Supervisor) feedMasks(ctx context.Context, names chan<- string, addresses []string) {
 	defer close(names)
+	// a fault ends the feeding (the search goes on with the names it has), not the backend
+	defer func() {
+		if fault := recover(); fault != nil {
+			s.log("error", "the names of a mask search: ", fault)
+		}
+	}()
 	type arrival struct {
 		source int
 		names  []string
@@ -33,7 +39,14 @@ func (s *Supervisor) feedMasks(ctx context.Context, names chan<- string, address
 	arrived := make(chan arrival, len(addresses))
 	for index, address := range addresses {
 		go func() {
-			arrived <- arrival{source: index + 1, names: s.maskList(ctx, address)}
+			got := arrival{source: index + 1}
+			defer func() {
+				if fault := recover(); fault != nil {
+					s.log("error", "the list of masks at ", address, ": ", fault)
+				}
+				arrived <- got
+			}()
+			got.names = s.maskList(ctx, address)
 		}()
 	}
 	waiting := len(addresses)

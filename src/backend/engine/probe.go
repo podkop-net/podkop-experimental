@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -39,6 +40,35 @@ import (
 
 // the most a probe reads of an answer: the raw bytes of a download are all it asks of it
 const probeReadLimit = 1 << 20
+
+// probeHeaderLimit is the most a probe reads of an answer's status line and headers.
+// http.ReadResponse keeps a line of any length whole, so a server (or what answers in its place)
+// that sends bytes with no end of line had every flow of a burst and of a mask search grow until
+// its deadline (the review of 0.8.18). 64 KiB: eight times what nginx and Apache take of headers
+// by default (8 KiB), a quarter of what Chrome takes (256 KiB).
+const probeHeaderLimit = 64 << 10
+
+// errProbeHeaders: the answer's status line and headers are longer than probeHeaderLimit. Its
+// class is ClassOther: an answer that is no HTTP, not a cut and not a stall.
+var errProbeHeaders = errors.New("the headers of the answer are too long")
+
+// boundedReader gives left bytes of reader, then errProbeHeaders.
+type boundedReader struct {
+	reader io.Reader
+	left   int64
+}
+
+func (r *boundedReader) Read(buffer []byte) (int, error) {
+	if r.left <= 0 {
+		return 0, errProbeHeaders
+	}
+	if int64(len(buffer)) > r.left {
+		buffer = buffer[:r.left]
+	}
+	n, err := r.reader.Read(buffer)
+	r.left -= int64(n)
+	return n, err
+}
 
 // A flow whose last byte came this close to its deadline was still receiving. A limit stalls a
 // flow long before it: its bytes come in the first seconds of the 12 or 15 s a request has.
@@ -328,7 +358,9 @@ func classAt(ctx context.Context, err error) detect.ErrorClass {
 }
 
 // exchange asks for the address over a connection and counts the raw bytes of the answer. It
-// reads no further than the answer, or the first end of it.
+// reads no further than the answer, or the first end of it: probeHeaderLimit of headers, then
+// probeReadLimit of the body. The body is not closed: closing one read by http.ReadResponse reads
+// the rest of it, whatever its length, and the caller closes the connection.
 func exchange(ctx context.Context, conn net.Conn, address string) detect.Attempt {
 	attempt := detect.Attempt{Handshake: true}
 	if deadline, has := ctx.Deadline(); has {
@@ -346,12 +378,14 @@ func exchange(ctx context.Context, conn net.Conn, address string) detect.Attempt
 		return attempt
 	}
 	counted := &countingReader{reader: conn}
-	response, err := http.ReadResponse(bufio.NewReader(counted), request)
+	bounded := &boundedReader{reader: counted, left: probeHeaderLimit}
+	response, err := http.ReadResponse(bufio.NewReader(bounded), request)
 	if err != nil {
 		attempt.Bytes, attempt.Class = counted.count, classAt(ctx, err)
 		return attempt
 	}
-	defer response.Body.Close()
+	// the body has its own limit, of what it decodes to; its framing is bounded by net/http
+	bounded.left = math.MaxInt64
 	attempt.Status = response.StatusCode
 	_, err = io.Copy(io.Discard, io.LimitReader(response.Body, probeReadLimit))
 	attempt.Bytes = counted.count
@@ -390,10 +424,16 @@ func targetAddress(address string) (string, error) {
 	return net.JoinHostPort(parsed.Hostname(), "80"), nil
 }
 
-// how many masks SuggestMask tries at once, and how long one probe may take.
+// how many masks SuggestMask tries at once, and how long one probe may take. probeMaskPace is
+// the least time from the start of one probe of a worker to its next: a miss holds a probe for
+// seconds (a stalled pull), and the search then makes a connection every few seconds; misses that
+// end at once (a server that refuses or resets) went through every name of the lists, hundreds to
+// thousands of connections to the one server within the budget of a search, each with another
+// site's name (the review of 0.8.18). At most probeMaskParallel new connections a second now.
 const (
 	probeMaskParallel = 6
 	probeMaskPer      = 12 * time.Second
+	probeMaskPace     = time.Second
 )
 
 // SuggestMask looks for a whitelisted SNI that lifts a 16-20KB limit on the server of content: each
@@ -427,11 +467,19 @@ func (i *Instance) SuggestMask(ctx context.Context, content []byte, names <-chan
 		go func() {
 			defer wg.Done()
 			for cand := range jobs {
-				ok := i.maskLifts(ctx, content, cand, target, full)
+				started := time.Now()
+				ok := i.maskLiftsSafely(ctx, content, cand, target, full)
 				select {
 				case results <- result{cand, ok}:
 				case <-ctx.Done():
 					return
+				}
+				if left := probeMaskPace - time.Since(started); left > 0 && !ok {
+					select {
+					case <-time.After(left):
+					case <-ctx.Done():
+						return
+					}
 				}
 			}
 		}()
@@ -469,6 +517,18 @@ func (i *Instance) SuggestMask(ctx context.Context, content []byte, names <-chan
 		}
 	}
 	return "", scanned, nil
+}
+
+// maskLiftsSafely is maskLifts whose panic (a fault in what a server sent) is one name that did
+// not lift the limit, not the end of the backend: the workers of a search are goroutines of their
+// own.
+func (i *Instance) maskLiftsSafely(ctx context.Context, content []byte, name, target string, full int64) (lifts bool) {
+	defer func() {
+		if recover() != nil {
+			lifts = false
+		}
+	}()
+	return i.maskLifts(ctx, content, name, target, full)
 }
 
 // maskLifts tells whether a tls.spoof of name carries the probe target in full, i.e. the limit is

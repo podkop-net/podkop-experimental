@@ -55,6 +55,17 @@ func MaskSite(name string) string {
 // pass or fail together on a path, so one probe per site covers the list. Lines that are no host
 // name a mask may carry (ValidMaskName), comments and blanks are left out.
 func MaskNames(list []byte, skip []string) []string {
+	return maskNames(list, skip, MaskSitesMost)
+}
+
+// MaskSitesMost is the most sites MaskNames takes of one list, the first it names: a search tries
+// its names in their order, a few hundred at most within its budget (probeMaskPace of the engine),
+// and a list of 4 MiB of one-site lines (the most a download gives) made hundreds of thousands of
+// entries, tens of megabytes, at each search. The public whitelists in use name 2-3 thousand
+// sites.
+const MaskSitesMost = 4096
+
+func maskNames(list []byte, skip []string, most int) []string {
 	taken := make(map[string]bool, len(skip))
 	for _, name := range skip {
 		taken[MaskSite(name)] = true
@@ -79,6 +90,10 @@ func MaskNames(list []byte, skip []string) []string {
 		known, seen := shortest[site]
 		switch {
 		case !seen:
+			if len(sites) >= most {
+				// a shorter name of a site taken already still counts; a new site does not
+				continue
+			}
 			sites = append(sites, site)
 			shortest[site] = name
 		case len(name) < len(known):

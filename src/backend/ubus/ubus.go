@@ -299,6 +299,17 @@ func serveOnce(ctx context.Context, path string, object Object) error {
 	}
 }
 
+// callSafely runs a method: a panic of it is the call's failure (StatusUnknownError), not the end
+// of the backend. Each call runs in a goroutine of its own, out of reach of any other guard.
+func callSafely(ctx context.Context, handler Method, arguments map[string]any) (result any, status int) {
+	defer func() {
+		if recover() != nil {
+			result, status = nil, StatusUnknownError
+		}
+	}()
+	return handler.Call(ctx, arguments)
+}
+
 // answer runs the method a call names and sends its answer: the data, then the status.
 func answer(ctx context.Context, object Object, objectID uint32, call *message, send func([]byte)) {
 	method, _ := call.string(attributeMethod)
@@ -318,7 +329,7 @@ func answer(ctx context.Context, object Object, objectID uint32, call *message, 
 			}
 		}
 		if status == StatusOK {
-			result, code := handler.Call(ctx, arguments)
+			result, code := callSafely(ctx, handler, arguments)
 			status = code
 			if status == StatusOK {
 				reply, status = AsTable(result)

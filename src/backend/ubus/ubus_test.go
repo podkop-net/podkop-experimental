@@ -41,6 +41,14 @@ var testObject = Object{
 				return []string{"not", "an", "object"}, StatusOK
 			},
 		},
+		// a method that panics: the call fails, the object goes on serving
+		"faulty": {
+			Call: func(ctx context.Context, arguments map[string]any) (any, int) {
+				var none map[string]int
+				none["fault"] = 1
+				return nil, StatusOK
+			},
+		},
 	},
 }
 
@@ -129,7 +137,7 @@ func TestServeWithStandIn(t *testing.T) {
 	for _, c := range []struct {
 		method string
 		status uint32
-	}{{"nothing", StatusMethodNotFound}, {"missing", StatusNotFound}, {"list", StatusUnknownError}} {
+	}{{"nothing", StatusMethodNotFound}, {"missing", StatusNotFound}, {"list", StatusUnknownError}, {"faulty", StatusUnknownError}, {"missing", StatusNotFound}} {
 		invoke(8, c.method, nil)
 		got = answers()[8]
 		require.Len(t, got, 1, c.method)
