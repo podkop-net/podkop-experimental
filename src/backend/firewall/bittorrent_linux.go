@@ -110,6 +110,10 @@ type BitTorrent struct {
 	// Fan is the allowance of the suspicion by the fan-out of a device's connection openings
 	// (dataplane.Fan), for the block and the section of the whole LAN; off when it is nothing.
 	Fan dataplane.Fan
+	// RouterUsers are the users (their numbers) of the programs of the router itself whose
+	// traffic the mode takes as BitTorrent's ("bittorrent_router_users"): a client on the router
+	// sends from the output hook, which the detector does not look at (bt_router).
+	RouterUsers []uint32
 }
 
 const (
@@ -135,6 +139,7 @@ const (
 	ChainBitTorrentBlock    = "bt_block"
 	ChainBitTorrentIncoming = "bt_incoming"
 	ChainBitTorrentDecided  = "bt_decided"
+	ChainBitTorrentRouter   = "bt_router"
 )
 
 // bitTorrentTimeout is how long a socket, a device and a peer are kept after their last packet of
@@ -561,6 +566,61 @@ func tproxyTo(port uint16) []expr.Any {
 	}
 }
 
+// markedForRouter matches what mangle_output marked of the router's own traffic.
+func markedForRouter() []expr.Any {
+	return []expr.Any{
+		&expr.Meta{Key: expr.MetaKeyMARK, Register: 1},
+		&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(markRouter), Xor: binaryutil.NativeEndian.PutUint32(0)},
+		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(markRouter)},
+	}
+}
+
+// addBitTorrentRouter makes bt_router, the chain of the traffic of the router's own programs that
+// run as one of the detector's RouterUsers, and gives it; mangle_output (the output hook, of the
+// type route: a mark set there routes the packet again) jumps to it for each of those users, after
+// the addresses that are local and sing-box's own sockets. A torrent client on the router itself
+// (Transmission and aria2 of OpenWrt's packages run as users of their own) sends nothing through
+// the interfaces the detector looks at; a user tells its traffic for sure, where the signs of
+// BitTorrent would have to be looked for in every program of the router. All of that user's
+// traffic is taken as BitTorrent's:
+//   - past podkop: left alone, the addresses of the lists too (accept ends mangle_output); to an
+//     address of the FakeIP range, which only sing-box can turn back into its name, it goes on to
+//     the rules that mark it, and proxy sends it to the BitTorrent inbound, straight out;
+//   - through a rule: what it sends on a connection it began is marked for the router's path, and
+//     proxy sends it to the BitTorrent inbound, whose route is the rule's; its answers to
+//     connections from outside go as they came;
+//   - block: dropped, UDP then the rest (BitTorrentDrops reads the two).
+//
+// Every connection gets the mark of BitTorrent for the statistics. Nothing of the router is
+// offloaded: each packet passes here.
+func addBitTorrentRouter(conn *nftables.Conn, table *nftables.Table, add func(*nftables.Chain, ...[]expr.Any), detector BitTorrent) *nftables.Chain {
+	router := conn.AddChain(&nftables.Chain{Name: ChainBitTorrentRouter, Table: table})
+	counter := []expr.Any{&expr.Counter{}}
+	accept := verdict(expr.VerdictAccept, "")
+	direction := func(value byte) []expr.Any {
+		return []expr.Any{&expr.Ct{Register: 1, Key: expr.CtKeyDIRECTION}, &expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{value}}}
+	}
+	markRouterPath := []expr.Any{
+		&expr.Immediate{Register: 1, Data: binaryutil.NativeEndian.PutUint32(markRouter)},
+		&expr.Meta{Key: expr.MetaKeyMARK, SourceRegister: true, Register: 1},
+	}
+	switch detector.Mode {
+	case BitTorrentBlock:
+		add(router, protocol(unix.IPPROTO_UDP), counter, verdict(expr.VerdictDrop, ""))
+		add(router, counter, verdict(expr.VerdictDrop, ""))
+	case BitTorrentSection:
+		add(router, direction(ctDirectionReply), ctMarkAdd(ctBitTorrent), accept)
+		add(router, ctMarkAdd(ctBitTorrent|ctIntercepted))
+		for _, transport := range []byte{unix.IPPROTO_TCP, unix.IPPROTO_UDP} {
+			add(router, protocol(transport), markRouterPath, counter, accept)
+		}
+	default:
+		add(router, ctMarkAdd(ctBitTorrent))
+		add(router, ipv4(), addressNotWithin(offsetDestination, rangeFakeIP), counter, accept)
+	}
+	return router
+}
+
 func markedForProxy() []expr.Any {
 	return []expr.Any{
 		&expr.Meta{Key: expr.MetaKeyMARK, Register: 1},
@@ -600,6 +660,13 @@ func addBitTorrentProxy(add func(*nftables.Chain, ...[]expr.Any), proxy *nftable
 			freePort = dataplane.BitTorrentTProxyPort
 		}
 		routes = append(routes, route{ctBitTorrent, true, dataplane.BitTorrentTProxyPort}, route{ctBitTorrent, false, freePort})
+	}
+	// of the router's own programs that run as one of RouterUsers (bt_router): what was marked for
+	// the router's path goes to the BitTorrent inbound, not to the transparent proxy's
+	if detector.Mode != BitTorrentBlock && len(detector.RouterUsers) > 0 {
+		for _, transport := range []byte{unix.IPPROTO_TCP, unix.IPPROTO_UDP} {
+			add(proxy, ctMarkTest(ctBitTorrent, expr.CmpOpNeq), markedForRouter(), protocol(transport), tproxyTo(dataplane.BitTorrentTProxyPort))
+		}
 	}
 	for _, r := range routes {
 		intercepted := ctMarkTest(ctIntercepted, expr.CmpOpNeq)

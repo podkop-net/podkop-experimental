@@ -245,6 +245,23 @@ func TestBitTorrentSuspicion(t *testing.T) {
 	require.Contains(t, strings.Join(result.Warnings, "\n"), "bittorrent_lan_allowance")
 }
 
+// The users of the router's own torrent clients ("bittorrent_router_users") go to the firewall by
+// their numbers, each once, in order; a name the router does not have and root are left out with
+// a warning; with BitTorrent off there are none.
+func TestBitTorrentRouterUsers(t *testing.T) {
+	const head = "config settings 'settings'\n\toption dns_type 'udp'\n\toption dns_server '8.8.8.8'\n"
+	const main = "\nconfig section 'main'\n\toption connection_type 'proxy'\n\toption proxy_config_type 'url'\n\toption proxy_string 'socks5://203.0.113.15:1080'\n"
+	const users = "\tlist bittorrent_router_users 'transmission'\n\tlist bittorrent_router_users 'aria2'\n\tlist bittorrent_router_users 'nobody-there'\n\tlist bittorrent_router_users 'root'\n\tlist bittorrent_router_users 'aria2'\n"
+	facts := Facts{UserIDs: map[string]uint32{"transmission": 224, "aria2": 111, "root": 0}}
+	result := buildText(t, head+"\toption bittorrent 'block'\n"+users+main, facts)
+	require.Equal(t, []uint32{111, 224}, result.Dataplane.BitTorrentRouterUsers)
+	warnings := strings.Join(result.Warnings, "\n")
+	require.Contains(t, warnings, `the router has no user "nobody-there"`)
+	require.Contains(t, warnings, `the user "root" (bittorrent_router_users) is root`)
+	off := buildText(t, head+users+main, facts)
+	require.Empty(t, off.Dataplane.BitTorrentRouterUsers)
+}
+
 // The inbound of BitTorrent listens where nothing else of the backend does: the transparent proxy,
 // the dead end of the check names (probe), the DNS inbound, the Clash API, and each other.
 func TestBitTorrentPortIsItsOwn(t *testing.T) {

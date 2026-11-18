@@ -478,6 +478,18 @@ func Apply(plan *Plan) error {
 		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(markOutbound)},
 		&expr.Counter{},
 	}, returns)
+	// the programs of the router that run as a user the settings name for BitTorrent (bt_router)
+	if plan.BitTorrent.Mode != "" && len(plan.BitTorrent.RouterUsers) > 0 {
+		router := addBitTorrentRouter(conn, table, add, plan.BitTorrent)
+		for _, user := range plan.BitTorrent.RouterUsers {
+			// (IPv4 alone, as the detector: the addresses that are local were told above for it)
+			add(mangleOutput, ipv4(), []expr.Any{
+				&expr.Meta{Key: expr.MetaKeySKUID, Register: 1},
+				&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(user)},
+				&expr.Verdict{Kind: expr.VerdictJump, Chain: router.Name},
+			})
+		}
+	}
 	// the NTP of the router itself (sysntpd, the clock check of the backend) never goes to
 	// the proxy, whose TLS or REALITY a wrong clock breaks: through it the clock would never
 	// be set. A FakeIP address has no other way than sing-box; the DNS gives the names of

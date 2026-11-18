@@ -136,6 +136,8 @@ func TestBitTorrentDropRules(t *testing.T) {
 		"bypass":         {BitTorrent{Mode: BitTorrentBypass}, 0, 0, 2},
 		"block":          {BitTorrent{Mode: BitTorrentBlock, Sources: prefixes("192.168.1.60/32")}, 3, 2, 0},
 		"block, the LAN": {BitTorrent{Mode: BitTorrentBlock, LAN: true}, 3, 2, 0},
+		// (bt_router's two drops are read into the same counters: BitTorrentDrops must not fail)
+		"block, a user of the router": {BitTorrent{Mode: BitTorrentBlock, RouterUsers: []uint32{4321}}, 3, 0, 0},
 	} {
 		if err := Apply(&Plan{Interfaces: []string{"br-lan"}, BitTorrent: c.detector}); err != nil {
 			t.Fatal(name, err)

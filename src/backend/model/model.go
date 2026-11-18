@@ -260,6 +260,11 @@ type Settings struct {
 	// dataplane.DefaultFan, as dataplane.ParseFan reads it.
 	BitTorrentSuspect   bool
 	BitTorrentAllowance string
+	// BitTorrentRouterUsers ("bittorrent_router_users") are the users the torrent clients of the
+	// router itself run as (OpenWrt's packages: "transmission", "aria2"): all the traffic of such
+	// a user is taken as BitTorrent's by the mode. The detector does not see what the router's own
+	// programs send.
+	BitTorrentRouterUsers []string
 	// MaskLists are the public lists of names "Find a mask" tries beside the built-in ones
 	// (maskLists); none when the settings turn them off
 	MaskLists []string
@@ -360,6 +365,7 @@ func Load(parsed *uci.Package) (*Config, error) {
 		BitTorrentConfirmed:     settings.Get("bittorrent_confirmed"),
 		BitTorrentSuspect:       settings.Bool("bittorrent_lan_suspect", false),
 		BitTorrentAllowance:     strings.TrimSpace(settings.Get("bittorrent_lan_allowance")),
+		BitTorrentRouterUsers:   list(settings, "bittorrent_router_users"),
 		MaskLists:               maskLists(settings),
 		UpdateInterval:          get(settings, "update_interval", "1d"),
 		DontTouchDHCP:           settings.Bool("dont_touch_dhcp", false),

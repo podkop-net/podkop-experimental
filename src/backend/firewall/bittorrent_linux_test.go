@@ -204,6 +204,36 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 				table, routes[index].marks, transport, routes[index].port))
 		}
 	}
+	// the programs of the router that run as one of RouterUsers: bt_router, the jumps to it after
+	// the second rule of mangle_output, and proxy's rule of what it marked
+	if users := detector.RouterUsers; len(users) > 0 {
+		for index, line := range lines {
+			if strings.Contains(line, "add chain "+table+" bt_detect") {
+				lines = append(lines[:index], append([]string{"add chain " + table + " bt_router"}, lines[index:]...)...)
+				break
+			}
+		}
+		for index, user := range users {
+			lines = append(lines, fmt.Sprintf("add rule %s mangle_output index %d meta nfproto ipv4 meta skuid %d jump bt_router", table, index+1, user))
+		}
+		switch mode {
+		case BitTorrentBlock:
+			lines = append(lines, rule("bt_router", "meta l4proto udp counter drop"), rule("bt_router", "counter drop"))
+		case BitTorrentSection:
+			lines = append(lines,
+				rule("bt_router", "ct direction reply ct mark set ct mark | 0x00010000 accept"),
+				rule("bt_router", "ct mark set ct mark | 0x00018000"),
+				rule("bt_router", "meta l4proto tcp meta mark set 0x00400000 counter accept"),
+				rule("bt_router", "meta l4proto udp meta mark set 0x00400000 counter accept"))
+		default:
+			lines = append(lines, rule("bt_router", "ct mark set ct mark | 0x00010000"), rule("bt_router", "ip daddr != 198.18.0.0/15 counter accept"))
+		}
+		if mode != BitTorrentBlock {
+			for _, transport := range []string{"udp", "tcp"} {
+				lines = append(lines, fmt.Sprintf("insert rule %s proxy ct mark & 0x00010000 != 0 meta mark & 0x00400000 == 0x00400000 meta l4proto %s tproxy ip to 127.0.0.1:1604 counter accept", table, transport))
+			}
+		}
+	}
 	// the suspicion by the fan-out of connection openings: its sets and its rules, each at its place
 	// among those of its chain
 	if fan, suspicion := bitTorrentSuspicion(detector); suspicion {
@@ -250,7 +280,11 @@ func TestBitTorrentTable(t *testing.T) {
 		"block, the LAN, hidden clients":   {Mode: BitTorrentBlock, LAN: true, Fan: dataplane.DefaultFan},
 		"section, the LAN, hidden clients": {Mode: BitTorrentSection, LAN: true, Fan: dataplane.DefaultFan},
 		"block, hidden clients asked":      {Mode: BitTorrentBlock, Fan: dataplane.DefaultFan},
-		"bypass, hidden clients asked":     {Mode: BitTorrentBypass, Fan: dataplane.DefaultFan},
+		// a client on the router itself, by its user
+		"bypass, a user of the router":            {Mode: BitTorrentBypass, RouterUsers: []uint32{4321}},
+		"block, users of the router":              {Mode: BitTorrentBlock, RouterUsers: []uint32{4321, 4322}},
+		"section, the LAN, hidden, a router user": {Mode: BitTorrentSection, LAN: true, Fan: dataplane.DefaultFan, RouterUsers: []uint32{4321}},
+		"bypass, hidden clients asked":            {Mode: BitTorrentBypass, Fan: dataplane.DefaultFan},
 	} {
 		plan := &Plan{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: detector}
 		_ = Remove()

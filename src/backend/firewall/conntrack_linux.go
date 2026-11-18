@@ -256,6 +256,13 @@ func BitTorrentDrops() (btstats.Drops, error) {
 		drops.Incoming.Packets += count.Packets
 		drops.Incoming.Bytes += count.Bytes
 	}
+	// of the router's own programs (bt_router, in block): UDP, then the rest
+	if router := dropped(ChainBitTorrentRouter); len(router) == 2 {
+		drops.UTP.Packets += router[0].Packets
+		drops.UTP.Bytes += router[0].Bytes
+		drops.TCP.Packets += router[1].Packets
+		drops.TCP.Bytes += router[1].Bytes
+	}
 	for _, count := range dropped(ChainBitTorrentDecided) {
 		drops.UTPToTCP.Packets += count.Packets
 		drops.UTPToTCP.Bytes += count.Bytes

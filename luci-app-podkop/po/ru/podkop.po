@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-18 18:55+0000\n"
-"PO-Revision-Date: 2026-11-18 18:55+0000\n"
+"POT-Creation-Date: 2026-11-18 19:17+0000\n"
+"PO-Revision-Date: 2026-11-18 19:17+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -157,6 +157,9 @@ msgstr "Адрес подписки, ссылки на серверы (по од
 
 msgid "A tunnel, a modem or a second WAN. Empty: the main route"
 msgstr "Туннель, модем или второй WAN. Пусто: основной маршрут"
+
+msgid "A user name: letters, digits, - and _"
+msgstr "Имя пользователя: буквы, цифры, - и _"
 
 msgid "A web page came instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP"
 msgstr "Вместо списка пришла веб-страница: возможно, это адрес сайта провайдера, а не подписки, или страница интернет-провайдера"
@@ -902,6 +905,9 @@ msgstr "Имя содержит"
 msgid "Name does not contain"
 msgstr "Имя не содержит"
 
+msgid "Nearly every program of the router runs as root: it cannot be told apart"
+msgstr "От root работает почти всё на роутере: его трафик отличить нельзя"
+
 msgid "neither method:password@server nor base64 of it"
 msgstr "нет ни method:password@сервер, ни base64 этой строки"
 
@@ -1493,6 +1499,9 @@ msgstr "соединение сброшено"
 msgid "The deleted source was used by the rules: %s. Their rows show it as deleted: choose another source there"
 msgstr "Удалённый источник использовался в правилах: %s. Их строки показывают его как удалённый: выберите там другой источник"
 
+msgid "The detector sees the devices of the LAN, not the programs of the router. Name the user a client on the router runs as (the packages of OpenWrt: transmission, aria2), and all the traffic of that user is treated as BitTorrent by the mode above: left alone past podkop (the addresses of the lists too), blocked, or sent through the rule. A client that runs as root cannot be told apart; a client in a container is a device of the LAN once its bridge is among the source interfaces"
+msgstr "Детектор видит устройства сети, а не программы самого роутера. Укажите пользователя, от имени которого на роутере работает клиент (в пакетах OpenWrt: transmission, aria2), и весь трафик этого пользователя будет считаться BitTorrent по режиму выше: идти мимо podkop (и к адресам из списков), блокироваться или идти через правило. Клиент, запущенный от root, отличить нельзя; клиент в контейнере становится устройством сети, если мост контейнера добавить в исходные интерфейсы"
+
 msgid "The devices YACD is opened from. A device of the WAN also needs its port 9090 opened in the firewall of the router"
 msgstr "Устройства, с которых открывается YACD. Для устройства WAN порт 9090 нужно также открыть в межсетевом экране роутера"
 
@@ -1822,6 +1831,9 @@ msgstr "через: %s"
 
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"
+
+msgid "Torrent clients on the router itself"
+msgstr "Торрент-клиенты на самом роутере"
 
 msgid "Traffic"
 msgstr "Трафик"

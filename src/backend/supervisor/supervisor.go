@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/netip"
 	"os"
+	"os/user"
 	"path/filepath"
 	"runtime/debug"
 	"slices"
@@ -1260,7 +1261,8 @@ func (s *Supervisor) prepare(checked bool) (next *candidate, err error) {
 		return nil, errNothingToRoute
 	}
 	servers := s.servers()
-	facts := plan.Facts{LANAddress: s.options.System.LANAddress(), Devices: s.options.System.Devices(plan.InterfaceNames(settings)), NTPServerNames: s.options.System.NTPServerNames()}
+	facts := plan.Facts{LANAddress: s.options.System.LANAddress(), Devices: s.options.System.Devices(plan.InterfaceNames(settings)), NTPServerNames: s.options.System.NTPServerNames(),
+		UserIDs: userIDs(settings.Settings.BitTorrentRouterUsers)}
 	if facts.Devices == nil && s.current != nil {
 		// netifd did not answer: the devices the names stood for so far, not the names
 		facts.Devices = s.current.result.Facts.Devices
@@ -1662,12 +1664,35 @@ func (s *Supervisor) surround(previousFirewall *firewall.Plan) error {
 	return nil
 }
 
+// userIDs are the numbers of the users of the router with these names (the system's user
+// database: /etc/passwd on OpenWrt); a name the router does not have is left out. None asked,
+// nothing is read.
+func userIDs(names []string) map[string]uint32 {
+	if len(names) == 0 {
+		return nil
+	}
+	found := make(map[string]uint32, len(names))
+	for _, name := range names {
+		account, err := user.Lookup(name)
+		if err != nil {
+			continue
+		}
+		number, err := strconv.ParseUint(account.Uid, 10, 32)
+		if err != nil {
+			continue
+		}
+		found[name] = uint32(number)
+	}
+	return found
+}
+
 // firewallPlan makes the firewall table of a state: the rules from the settings, the
 // sets from what the rule sets hold now.
 func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
 	wanted := &current.result.Dataplane
 	result := &firewall.Plan{Interfaces: wanted.Interfaces, ExcludeNTP: wanted.ExcludeNTP, Sources: wanted.Sources, ClashAPIInterfaces: wanted.ClashAPIInterfaces,
-		BitTorrent: firewall.BitTorrent{Mode: wanted.BitTorrent, LAN: wanted.BitTorrentLAN, Sources: wanted.Sources, Fan: wanted.BitTorrentFan}}
+		BitTorrent: firewall.BitTorrent{Mode: wanted.BitTorrent, LAN: wanted.BitTorrentLAN, Sources: wanted.Sources, Fan: wanted.BitTorrentFan,
+			RouterUsers: wanted.BitTorrentRouterUsers}}
 	s.bitTorrentRule = ""
 	s.bitTorrentNoRule.Store(nil)
 	if current.settings != nil && current.settings.Settings.BitTorrent == model.BitTorrentSection {

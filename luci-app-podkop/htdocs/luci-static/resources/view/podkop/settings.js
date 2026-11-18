@@ -471,6 +471,32 @@ function createSettingsContent(section, singBoxFeatures = []) {
   o.depends({ bittorrent: "block", bittorrent_block_scope: "lan" });
   o.depends({ bittorrent: "section", bittorrent_section_scope: "lan" });
 
+  // a torrent client on the router itself: its traffic leaves by the output hook, which the
+  // detector does not look at; told by the user it runs as (the backend's bt_router)
+  o = section.option(
+    form.DynamicList,
+    "bittorrent_router_users",
+    _("Torrent clients on the router itself"),
+    _(
+      "The detector sees the devices of the LAN, not the programs of the router. Name the user a client on the router runs as (the packages of OpenWrt: transmission, aria2), and all the traffic of that user is treated as BitTorrent by the mode above: left alone past podkop (the addresses of the lists too), blocked, or sent through the rule. A client that runs as root cannot be told apart; a client in a container is a device of the LAN once its bridge is among the source interfaces",
+    ),
+  );
+  o.placeholder = "transmission";
+  o.rmempty = true;
+  o.depends("bittorrent", "bypass");
+  o.depends("bittorrent", "block");
+  o.depends("bittorrent", "section");
+  o.validate = function (section_id, value) {
+    if (!value) return true;
+    if (!/^[a-z_][a-z0-9_-]*$/i.test(value))
+      return _("A user name: letters, digits, - and _");
+    if (value === "root")
+      return _(
+        "Nearly every program of the router runs as root: it cannot be told apart",
+      );
+    return true;
+  };
+
   // "Find a mask" on the dashboard tries its built-in names and, in turn with them, the names of a
   // public whitelists; the backend downloads them for each search and keeps the last copies in RAM
   o = section.option(

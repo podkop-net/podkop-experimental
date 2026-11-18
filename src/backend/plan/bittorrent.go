@@ -1,6 +1,8 @@
 package plan
 
 import (
+	"slices"
+
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
 )
@@ -100,6 +102,29 @@ func (b *builder) bitTorrentFan() dataplane.Fan {
 		return dataplane.DefaultFan
 	}
 	return fan
+}
+
+// bitTorrentRouterUsers are the numbers of the users of "bittorrent_router_users", in order and
+// each once; none with BitTorrent off. A name the router does not have is left out with a warning,
+// and so is root: nearly every program of the router runs as it, podkop's own downloads included.
+func (b *builder) bitTorrentRouterUsers() []uint32 {
+	if b.bitTorrentMode == model.BitTorrentOff {
+		return nil
+	}
+	var users []uint32
+	for _, name := range b.config.Settings.BitTorrentRouterUsers {
+		user, found := b.facts.UserIDs[name]
+		switch {
+		case !found:
+			b.warnOnce("BitTorrent: the router has no user \"", name, "\" (bittorrent_router_users): left out")
+		case user == 0:
+			b.warnOnce("BitTorrent: the user \"", name, "\" (bittorrent_router_users) is root, as which nearly every program of the router runs: left out")
+		case !slices.Contains(users, user):
+			users = append(users, user)
+		}
+	}
+	slices.Sort(users)
+	return users
 }
 
 // bitTorrentSuspicion tells whether the suspicion by fan-out is on.

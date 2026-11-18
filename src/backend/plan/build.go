@@ -82,6 +82,9 @@ type Facts struct {
 	// (clock.ServerNames): sing-box answers them with their own addresses, never from FakeIP
 	// (ledger item 16).
 	NTPServerNames []string
+	// UserIDs are the numbers of the users of the router the settings name
+	// ("bittorrent_router_users": netcfg.UserIDs); a name that is not in it is no user there.
+	UserIDs map[string]uint32
 }
 
 // Options are the builder's ways to the outside.
@@ -331,6 +334,9 @@ type Dataplane struct {
 	// BitTorrentFan is the allowance of the suspicion by the fan-out of a device's connection
 	// openings (dataplane.Fan), nothing when it is off
 	BitTorrentFan dataplane.Fan
+	// BitTorrentRouterUsers are the users (their numbers) of the router's own programs whose
+	// traffic the mode takes as BitTorrent's (firewall.BitTorrent.RouterUsers)
+	BitTorrentRouterUsers []uint32
 }
 
 // defaultInterface is the interface the firewall takes traffic from when the settings
@@ -386,6 +392,7 @@ func (b *builder) dataplane() Dataplane {
 	settings := &b.config.Settings
 	result := Dataplane{Interfaces: b.devices(settings.SourceNetworkInterfaces), ExcludeNTP: settings.ExcludeNTP, TakeDNS: !settings.DontTouchDHCP, ClashAPI: b.clashAPI, ClashSecret: b.clashSecret}
 	result.BitTorrent, result.BitTorrentLAN, result.BitTorrentFan = b.bitTorrentDataplane()
+	result.BitTorrentRouterUsers = b.bitTorrentRouterUsers()
 	if len(result.Interfaces) == 0 {
 		result.Interfaces = []string{defaultInterface}
 	}
