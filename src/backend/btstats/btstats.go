@@ -235,7 +235,11 @@ func (s *Stats) Observe(setup Setup, flows []Flow, drops Drops, err error, now t
 		s.err = err.Error()
 		return
 	}
-	if s.flows == nil {
+	// the first read: the connections open already are counted from what they have now on (their
+	// marks are older than this backend: a restart of podkop added the whole life of each to a
+	// table that says "since" its own start), as ResetCounts leaves them
+	baseline := s.flows == nil
+	if baseline {
 		s.flows = make(map[flowKey]seen)
 		s.rows = make(map[rowKey]*Row)
 	}
@@ -260,6 +264,9 @@ func (s *Stats) Observe(setup Setup, flows []Flow, drops Drops, err error, now t
 			s.rows[rowKey{kind, way}] = row
 		}
 		row.Open++
+		if baseline {
+			known, before = true, seen{flow.Original, flow.Reply}
+		}
 		if !known {
 			row.Connections++
 			before = seen{}
@@ -294,6 +301,15 @@ func (s *Stats) SetModule(counters map[string]int64) {
 	s.access.Lock()
 	defer s.access.Unlock()
 	s.module = counters
+}
+
+// Total is what the rows of a report add up to: what the devices received and sent in all.
+func Total(rows []Row) (received, sent Count) {
+	for _, row := range rows {
+		received.add(row.Received)
+		sent.add(row.Sent)
+	}
+	return received, sent
 }
 
 // Report is what the reads came to, at now.
@@ -431,8 +447,10 @@ func Classify(setup Setup, flow Flow) (Kind, Way) {
 	section, block := setup.Mode == model.BitTorrentSection, setup.Mode == model.BitTorrentBlock
 	switch kind {
 	case KindIncoming:
-		// the firewall leaves a connection from outside as forwarded; block drops a new one
-		if block {
+		// the firewall leaves a connection from outside as forwarded; block drops a new one, of
+		// every device (the whole LAN) or of the devices routed whole: one that is counted there
+		// outside the scope of the whole LAN is of a device podkop does not route, and goes on
+		if block && setup.LAN {
 			return kind, WayBlocked
 		}
 		return kind, WayUntouched

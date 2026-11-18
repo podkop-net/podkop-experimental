@@ -781,7 +781,12 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	add(decided, ipv4(), []expr.Any{addressLoad(offsetSource)}, notIn(hosts), verdict(expr.VerdictJump, addHosts.Name))
 	add(decided, udp4(), endpoint(offsetSource, 0), notIn(sockets), verdict(expr.VerdictJump, addSockets.Name))
 	add(decided, udp4(), endpoint(offsetDestination, 2), notIn(peers), verdict(expr.VerdictJump, addPeers.Name))
-	add(decided, tcp4(), endpoint(offsetDestination, 2), notIn(peers), verdict(expr.VerdictJump, addPeers.Name))
+	// (TCP: only of a connection the device began. The far end of one from outside is the port the
+	// peer connected from, where nothing listens: a seeding client's would fill bt_peers)
+	add(decided, []expr.Any{
+		&expr.Ct{Register: 1, Key: expr.CtKeyDIRECTION},
+		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{ctDirectionOriginal}},
+	}, tcp4(), endpoint(offsetDestination, 2), notIn(peers), verdict(expr.VerdictJump, addPeers.Name))
 	add(addHosts, append(updateHost(), returns)...)
 	add(addHosts, counter)
 	add(addSockets, udp4(), endpoint(offsetSource, 0), []expr.Any{update(sockets)}, returns)
@@ -862,20 +867,28 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		add(block, counter, drop)
 	}
 
-	// bt_incoming: in block, a new connection from outside (a port forward) to a client's socket,
-	// of every device (LAN) or of the devices routed whole
+	// bt_incoming: a new connection from outside (a port forward, UPnP) to a client's socket. Block
+	// drops it, of every device (LAN) or of the devices routed whole. Every other one is told as
+	// BitTorrent here, at its first packet: the detector saw a connection from outside only in the
+	// device's answers, so an encrypted handshake (MSE: the answer is random bytes) was never told,
+	// and with flow offloading none was (a connection is offloaded when its TCP handshake ends: the
+	// device's first data passes no rule). The statistics then missed most of what a seeding client
+	// sent (the field's report of 2026-11-18). The connection goes on as forwarded: bt_free leaves
+	// what a device answers alone, and nothing but the statistics reads the mark of such a
+	// connection. A client whose TCP port is not that of its UDP socket (bt_sockets holds the
+	// sockets that spoke DHT or uTP) is still told by its plaintext answers alone.
+	incoming := conn.AddChain(&nftables.Chain{Name: ChainBitTorrentIncoming, Table: table, Type: nftables.ChainTypeFilter,
+		Hooknum: nftables.ChainHookForward, Priority: nftables.ChainPriorityRef(bitTorrentIncomingPriority), Policy: &accept})
+	add(incoming, []expr.Any{
+		&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
+		&expr.Lookup{SourceRegister: 1, SetName: SetInterfaces, SetID: idInterfaces},
+	}, returns)
+	add(incoming, []expr.Any{
+		&expr.Ct{Key: expr.CtKeySTATE, Register: 1},
+		&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(expr.CtStateBitNEW), Xor: binaryutil.NativeEndian.PutUint32(0)},
+		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(0)},
+	}, returns)
 	if mode == BitTorrentBlock {
-		incoming := conn.AddChain(&nftables.Chain{Name: ChainBitTorrentIncoming, Table: table, Type: nftables.ChainTypeFilter,
-			Hooknum: nftables.ChainHookForward, Priority: nftables.ChainPriorityRef(bitTorrentIncomingPriority), Policy: &accept})
-		add(incoming, []expr.Any{
-			&expr.Meta{Key: expr.MetaKeyIIFNAME, Register: 1},
-			&expr.Lookup{SourceRegister: 1, SetName: SetInterfaces, SetID: idInterfaces},
-		}, returns)
-		add(incoming, []expr.Any{
-			&expr.Ct{Key: expr.CtKeySTATE, Register: 1},
-			&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(expr.CtStateBitNEW), Xor: binaryutil.NativeEndian.PutUint32(0)},
-			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(0)},
-		}, returns)
 		devices := []netip.Prefix{{}}
 		if !detector.LAN {
 			devices = detector.Sources
@@ -889,6 +902,11 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 				rule = append(rule, protocol(transport), endpoint(offsetDestination, 2), []expr.Any{inSet(sockets)}, counter, verdict(expr.VerdictDrop, ""))
 				add(incoming, rule...)
 			}
+		}
+	}
+	if mode != BitTorrentBlock || !detector.LAN {
+		for _, transport := range []byte{unix.IPPROTO_TCP, unix.IPPROTO_UDP} {
+			add(incoming, ipv4(), protocol(transport), endpoint(offsetDestination, 2), []expr.Any{inSet(sockets)}, ctMarkAdd(ctBitTorrent), counter)
 		}
 	}
 	return portsErr

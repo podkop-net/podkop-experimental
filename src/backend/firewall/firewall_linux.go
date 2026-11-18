@@ -41,9 +41,11 @@ const (
 	// the bit of a connection's status that says its destination was rewritten
 	// (IPS_DST_NAT of the kernel's nf_conntrack_common.h)
 	statusDNAT = 1 << 5
-	// the direction of a packet that answers the one that began its connection
-	// (IP_CT_DIR_REPLY of the kernel's nf_conntrack_tuple_common.h)
-	ctDirectionReply = 1
+	// the direction of a packet that answers the one that began its connection, and of one that
+	// goes the way of the packet that began it (IP_CT_DIR_REPLY and IP_CT_DIR_ORIGINAL of the
+	// kernel's nf_conntrack_tuple_common.h)
+	ctDirectionReply    = 1
+	ctDirectionOriginal = 0
 )
 
 // clashAPIPriority is that of the chain clash_api: before fw4's input chain (filter, 0)

@@ -121,6 +121,11 @@ func Lines(report Report) []string {
 			KindName(row.Kind), WayName(row.Way, report.Rule), row.Open, row.Connections,
 			Bytes(row.Received.Bytes), row.Received.Packets, Bytes(row.Sent.Bytes), row.Sent.Packets))
 	}
+	if len(report.Rows) > 1 && report.Counted {
+		received, sent := Total(report.Rows)
+		lines = append(lines, fmt.Sprintf("  in all: received %s (%d packets), sent %s (%d packets), as the devices of the LAN see it",
+			Bytes(received.Bytes), received.Packets, Bytes(sent.Bytes), sent.Packets))
+	}
 	for _, blocked := range report.Blocked {
 		lines = append(lines, fmt.Sprintf("  blocked, %s: %d packets (%s)", KindName(blocked.Kind), blocked.Dropped.Packets, Bytes(blocked.Dropped.Bytes)))
 	}

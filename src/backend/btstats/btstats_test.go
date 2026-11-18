@@ -59,7 +59,8 @@ func TestClassify(t *testing.T) {
 		{"block, uTP taken", Setup{Mode: "block"}, flow{true, bt | taken, false}, KindUTP, WayBlocked},
 		{"block, discovery not taken", Setup{Mode: "block"}, flow{true, discovery, false}, KindDiscovery, WayUntouched},
 		{"block LAN, uTP not taken", Setup{Mode: "block", LAN: true}, flow{true, bt, false}, KindUTP, WayBlocked},
-		{"block, incoming", Setup{Mode: "block"}, flow{false, bt, true}, KindIncoming, WayBlocked},
+		{"block, incoming", Setup{Mode: "block"}, flow{false, bt, true}, KindIncoming, WayUntouched},
+		{"block LAN, incoming", Setup{Mode: "block", LAN: true}, flow{false, bt, true}, KindIncoming, WayBlocked},
 	}
 	for _, c := range cases {
 		kind, way := Classify(c.setup, Flow{UDP: c.flow.udp, Mark: c.flow.mark, Incoming: c.flow.incoming})
@@ -79,6 +80,7 @@ func TestObserve(t *testing.T) {
 	setup := Setup{Mode: "bypass"}
 	utp := Flow{ID: 1, Key: "a", UDP: true, Mark: bt | taken, Counted: true, Original: count(10, 1000), Reply: count(20, 30000)}
 	dht := Flow{ID: 2, Key: "b", UDP: true, Mark: discovery | taken, Counted: true, Original: count(1, 100), Reply: count(1, 500)}
+	s.Observe(setup, nil, Drops{}, nil, at)
 	s.Observe(setup, []Flow{utp, dht}, Drops{}, nil, at)
 	utp.Original, utp.Reply = count(15, 1500), count(40, 60000)
 	s.Observe(setup, []Flow{utp}, Drops{}, nil, at.Add(PollEvery))
@@ -97,6 +99,28 @@ func TestObserve(t *testing.T) {
 	report = s.Report(at.Add(2 * PollEvery))
 	require.Equal(t, Row{Kind: KindUTP, Way: WayPast, Open: 1, Connections: 2, Received: count(43, 60300), Sent: count(17, 1700)}, report.Rows[1])
 	require.Equal(t, Row{Kind: KindIncoming, Way: WayUntouched, Open: 1, Connections: 1, Received: count(5, 5000), Sent: count(4, 400)}, report.Rows[2])
+}
+
+// The connections open at the first read are counted from what they have then on: their marks
+// are older than the backend that reads them (a restart of podkop), and the table says "since" its
+// start. A read that failed first leaves the next one as the first.
+func TestFirstReadIsABaseline(t *testing.T) {
+	var s Stats
+	at := time.Unix(1000, 0)
+	setup := Setup{Mode: "bypass"}
+	old := Flow{ID: 1, Key: "a", Mark: bt, Incoming: true, Counted: true, Original: count(1000, 60000), Reply: count(90000, 120000000)}
+	s.Observe(setup, nil, Drops{}, errors.New("no netlink"), at)
+	s.Observe(setup, []Flow{old}, Drops{}, nil, at.Add(PollEvery))
+	report := s.Report(at.Add(PollEvery))
+	require.Equal(t, []Row{{Kind: KindIncoming, Way: WayUntouched, Open: 1}}, report.Rows)
+	old.Original, old.Reply = count(1010, 60600), count(90900, 121200000)
+	started := Flow{ID: 2, Key: "b", Mark: bt, Incoming: true, Counted: true, Original: count(5, 300), Reply: count(40, 50000)}
+	s.Observe(setup, []Flow{old, started}, Drops{}, nil, at.Add(2*PollEvery))
+	report = s.Report(at.Add(2 * PollEvery))
+	require.Equal(t, []Row{{Kind: KindIncoming, Way: WayUntouched, Open: 2, Connections: 1, Received: count(15, 900), Sent: count(940, 1250000)}}, report.Rows)
+	received, sent := Total(report.Rows)
+	require.Equal(t, count(15, 900), received)
+	require.Equal(t, count(940, 1250000), sent)
 }
 
 // The rules' counters of a table made anew start at 0: what the one before dropped stays.
@@ -121,6 +145,7 @@ func TestFailedReadIsLeftOut(t *testing.T) {
 	flow := func(bytes uint64) []Flow {
 		return []Flow{{ID: 1, Key: "a", UDP: true, Mark: bt, Counted: true, Original: count(10, bytes), Reply: count(10, bytes)}}
 	}
+	s.Observe(setup, nil, Drops{}, nil, at)
 	s.Observe(setup, flow(1000), Drops{UTP: count(5, 400)}, nil, at)
 	s.Observe(setup, nil, Drops{}, errors.New("no netlink"), at.Add(PollEvery))
 	require.Equal(t, "no netlink", s.Report(at.Add(PollEvery)).Error)
@@ -194,6 +219,17 @@ func TestLines(t *testing.T) {
 			"0 the third step late or short), " +
 			"0 undecided (0 no data, 0 no answer, 0 no third step), 0 plaintext handshakes",
 	}, Lines(report))
+}
+
+// Two rows or more have a line of what they add up to.
+func TestLinesTotal(t *testing.T) {
+	report := Report{Mode: "bypass", Counted: true, Rows: []Row{
+		{Kind: KindUTP, Way: WayUntouched, Received: count(10, 1000), Sent: count(20, 2000000)},
+		{Kind: KindIncoming, Way: WayUntouched, Received: count(1, 500), Sent: count(2, 15000000)},
+	}}
+	require.Contains(t, Lines(report), "  in all: received 1.5 KB (11 packets), sent 17 MB (22 packets), as the devices of the LAN see it")
+	report.Rows = report.Rows[:1]
+	require.NotContains(t, strings.Join(Lines(report), "\n"), "in all:")
 }
 
 func TestBytes(t *testing.T) {

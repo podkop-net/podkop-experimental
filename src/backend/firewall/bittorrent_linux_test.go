@@ -49,8 +49,9 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		"add chain " + table + " bt_free",
 	}
 	if mode == BitTorrentBlock {
-		lines = append(lines, "add chain "+table+" bt_block", "add chain "+table+" bt_incoming { type filter hook forward priority -1; policy accept; }")
+		lines = append(lines, "add chain "+table+" bt_block")
 	}
+	lines = append(lines, "add chain "+table+" bt_incoming { type filter hook forward priority -1; policy accept; }")
 	lines = append(lines,
 		rule("bt_detect", "iifname != @interfaces return"),
 		rule("bt_detect", "meta nfproto != ipv4 return"),
@@ -109,7 +110,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_decided", "ip saddr != @bt_hosts jump bt_add_hosts"),
 		rule("bt_decided", "ip saddr . udp sport != @bt_sockets jump bt_add_sockets"),
 		rule("bt_decided", "ip daddr . udp dport != @bt_peers jump bt_add_peers"),
-		rule("bt_decided", "ip daddr . tcp dport != @bt_peers jump bt_add_peers"),
+		rule("bt_decided", "ct direction original ip daddr . tcp dport != @bt_peers jump bt_add_peers"),
 		rule("bt_add_hosts", "update @bt_hosts { ip saddr } return"),
 		rule("bt_add_hosts", "counter"),
 		rule("bt_add_sockets", "update @bt_sockets { ip saddr . udp sport } return"),
@@ -156,9 +157,10 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		lines = append(lines,
 			rule("bt_block", "meta l4proto udp ct mark & 0x00004000 != 0 counter drop"),
 			rule("bt_block", "meta l4proto udp counter drop"),
-			rule("bt_block", "counter drop"),
-			rule("bt_incoming", "iifname @interfaces return"),
-			rule("bt_incoming", "ct state & new == 0 return"))
+			rule("bt_block", "counter drop"))
+	}
+	lines = append(lines, rule("bt_incoming", "iifname @interfaces return"), rule("bt_incoming", "ct state & new == 0 return"))
+	if mode == BitTorrentBlock {
 		devices := []string{""}
 		if !detector.LAN {
 			devices = nil
@@ -171,6 +173,12 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 			for _, transport := range []string{"tcp", "udp"} {
 				lines = append(lines, rule("bt_incoming", device+"ip daddr . "+transport+" dport @bt_sockets counter drop"))
 			}
+		}
+	}
+	// a connection from outside to a client's socket that is not dropped is told as BitTorrent
+	if mode != BitTorrentBlock || !detector.LAN {
+		for _, transport := range []string{"tcp", "udp"} {
+			lines = append(lines, rule("bt_incoming", "ip daddr . "+transport+" dport @bt_sockets ct mark set ct mark | 0x00010000 counter"))
 		}
 	}
 	// the first rules of proxy, before the transparent proxy's: the last one inserted is the first
