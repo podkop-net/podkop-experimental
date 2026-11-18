@@ -61,7 +61,7 @@ describe('bitTorrentTable', () => {
         packets: 'Packets: received 1000, sent 500',
       },
       {
-        kind: 'DHT and UDP trackers',
+        kind: 'DHT and trackers',
         way: 'Through the rule Torrents',
         open: '1',
         connections: '3',

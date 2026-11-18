@@ -973,8 +973,8 @@
     ]
   },
   {
-    "call": "DHT and UDP trackers",
-    "key": "DHT and UDP trackers",
+    "call": "DHT and trackers",
+    "key": "DHT and trackers",
     "places": [
       "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:33"
     ]

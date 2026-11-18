@@ -30,8 +30,8 @@ const PollEvery = 5 * time.Second
 type Kind string
 
 const (
-	// KindDiscovery: the DHT and UDP trackers (a flow whose first packet is a DHT message or a
-	// tracker's connect)
+	// KindDiscovery: the DHT and the trackers (a UDP flow whose first packet is a DHT message or a
+	// tracker's connect; a TCP connection to an HTTP tracker the device announced to)
 	KindDiscovery Kind = "discovery"
 	// KindUTP: the other UDP of a client's socket, uTP to its peers
 	KindUTP Kind = "utp"
@@ -421,7 +421,7 @@ func Classify(setup Setup, flow Flow) (Kind, Way) {
 		kind = KindChecked
 	case flow.Mark&dataplane.BitTorrentLateCt != 0:
 		kind = KindLate
-	case flow.UDP && flow.Mark&dataplane.BitTorrentDiscoveryCt != 0:
+	case flow.Mark&dataplane.BitTorrentDiscoveryCt != 0:
 		kind = KindDiscovery
 	case flow.UDP:
 		kind = KindUTP

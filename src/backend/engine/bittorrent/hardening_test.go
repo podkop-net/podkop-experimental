@@ -2,6 +2,7 @@ package bittorrent
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net"
@@ -13,6 +14,9 @@ import (
 	"time"
 
 	"github.com/sagernet/nftables"
+	"github.com/sagernet/sing-box/adapter"
+	C "github.com/sagernet/sing-box/constant"
+	M "github.com/sagernet/sing/common/metadata"
 )
 
 // The tests of the limits and the corrections of 0.8.19 (the review of 0.8.18).
@@ -651,5 +655,63 @@ func TestEarlyKick(t *testing.T) {
 	add(20, 1, start)
 	if asked(failing) {
 		t.Errorf("a round asked for while the set cannot be read")
+	}
+}
+
+// On an inbound of discovery a connection is watched for an announce whatever the sniffer named
+// it, HTTP or nothing (0.8.19: the BitTorrent inbound is not sniffed, and the firewall sends the
+// announces to a known tracker there); of the transparent proxy, only one named HTTP. One watched
+// for an announce only stands aside at any other first data and counts nothing: in the section
+// the peers' connections come through the same inbound.
+func TestAnnounceOnLearnInbound(t *testing.T) {
+	s, sink := testService()
+	s.learnOn = map[string]bool{"bt-in": true}
+	s.sniffedOn = map[string]bool{"tproxy-in": true}
+	wraps := func(inbound string, protocol string) *conn {
+		near, other := net.Pipe()
+		t.Cleanup(func() { near.Close(); other.Close() })
+		routed := s.RoutedConnection(context.Background(), near, adapter.InboundContext{Inbound: inbound, Protocol: protocol,
+			Source: M.ParseSocksaddr("192.168.80.10:50000"), Destination: M.ParseSocksaddr("203.0.113.9:6969")}, nil, nil)
+		wrapped, _ := routed.(*conn)
+		return wrapped
+	}
+	for _, c := range []struct {
+		inbound, protocol string
+		want              bool
+	}{
+		{"bt-in", "", true}, {"bt-in", C.ProtocolHTTP, true}, {"bt-in", C.ProtocolTLS, false}, {"bt-in", C.ProtocolBitTorrent, false},
+		{"tproxy-in", C.ProtocolHTTP, true}, {"tproxy-in", "", false}, {"mixed-in", C.ProtocolHTTP, false},
+	} {
+		if got := wraps(c.inbound, c.protocol); (got != nil) != c.want {
+			t.Errorf("%s, protocol %q: watched %v, want %v", c.inbound, c.protocol, got != nil, c.want)
+		} else if got != nil && (got.inspect || got.early) {
+			t.Errorf("%s, protocol %q: inspected", c.inbound, c.protocol)
+		}
+	}
+	// an announce: its reply is read
+	body := "d8:intervali1800e5:peers" + bstring(compact(testPeers)) + "e"
+	announce := wraps("bt-in", "")
+	announce.sent([]byte(clientRequest), time.Now())
+	announce.answers([]byte("HTTP/1.1 200 OK\r\nContent-Length: "+itoa(len(body))+"\r\n\r\n"+body), time.Now())
+	if sink.count() != 3 || s.counters.announces.Load() != 1 || !announce.done.Load() {
+		t.Errorf("an announce on the BitTorrent inbound: learned %d of 3, announces %d", sink.count(), s.counters.announces.Load())
+	}
+	// a peer's connection: a plaintext handshake, or MSE's first message
+	for name, first := range map[string][]byte{"a plaintext handshake": append(append([]byte{}, plaintextHandshake...), make([]byte, 48)...), "MSE": randomBytes(200)} {
+		peer := wraps("bt-in", "")
+		peer.sent(first, time.Now())
+		if !peer.done.Load() {
+			t.Errorf("%s: not stood aside", name)
+		}
+	}
+	counted := s.counters.snapshot()
+	for _, name := range []string{"plaintext", "confirmed", "watched", "inspected", "not_shaped", "handed_back"} {
+		want := int64(0)
+		if name == "handed_back" {
+			want = 3
+		}
+		if counted[name] != want {
+			t.Errorf("%s: %d, want %d", name, counted[name], want)
+		}
 	}
 }

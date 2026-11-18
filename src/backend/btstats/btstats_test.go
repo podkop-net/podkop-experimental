@@ -35,6 +35,11 @@ func TestClassify(t *testing.T) {
 	}{
 		{"bypass, discovery taken", Setup{Mode: "bypass"}, flow{true, discovery | taken, false}, KindDiscovery, WayRelay},
 		{"bypass, discovery not taken", Setup{Mode: "bypass"}, flow{true, discovery, false}, KindDiscovery, WayRelay},
+		{"bypass, an announce to a known HTTP tracker, taken", Setup{Mode: "bypass"}, flow{false, discovery | taken, false}, KindDiscovery, WayRelay},
+		{"bypass, an announce not taken", Setup{Mode: "bypass"}, flow{false, discovery, false}, KindDiscovery, WayRelay},
+		{"section, an announce taken", Setup{Mode: "section"}, flow{false, discovery | taken, false}, KindDiscovery, WayRule},
+		{"block, an announce taken", Setup{Mode: "block"}, flow{false, discovery | taken, false}, KindDiscovery, WayBlocked},
+		{"block, an announce not taken", Setup{Mode: "block"}, flow{false, discovery, false}, KindDiscovery, WayUntouched},
 		{"bypass, uTP taken", Setup{Mode: "bypass"}, flow{true, bt | taken, false}, KindUTP, WayPast},
 		{"bypass, uTP not taken", Setup{Mode: "bypass"}, flow{true, bt, false}, KindUTP, WayUntouched},
 		{"bypass, TCP taken", Setup{Mode: "bypass"}, flow{false, bt | taken, false}, KindTCP, WayPast},
@@ -223,7 +228,7 @@ func TestResetCounts(t *testing.T) {
 	require.Equal(t, map[string]int64{"watched": 4, "confirmed": 1}, s.ModuleSince(map[string]int64{"watched": 4, "confirmed": 1}))
 }
 
-// The DHT and the UDP trackers sent and got nothing back: the line of the global check says so;
+// The DHT and the trackers sent and got nothing back: the line of the global check says so;
 // with an answer, too few flows or bytes not counted, it does not.
 func TestQuietDiscovery(t *testing.T) {
 	row := func(connections uint64, received uint64) Report {
@@ -235,7 +240,7 @@ func TestQuietDiscovery(t *testing.T) {
 	quiet := row(220, 0)
 	quiet.Counted = false
 	require.Empty(t, QuietDiscovery(quiet))
-	require.Contains(t, strings.Join(Lines(row(220, 0)), "\n"), "⚠️ the DHT and the UDP trackers got no answer")
+	require.Contains(t, strings.Join(Lines(row(220, 0)), "\n"), "⚠️ the DHT and the trackers got no answer")
 }
 
 // The early check has a line of its own once it watched something.

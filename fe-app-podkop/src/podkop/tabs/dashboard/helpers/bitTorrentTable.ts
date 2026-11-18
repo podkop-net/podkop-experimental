@@ -30,7 +30,7 @@ export interface BitTorrentTable {
 export function bitTorrentKindName(kind: Podkop.BitTorrentKind): string {
   switch (kind) {
     case 'discovery':
-      return _('DHT and UDP trackers');
+      return _('DHT and trackers');
     case 'utp':
       return _('uTP');
     case 'tcp':

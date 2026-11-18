@@ -419,8 +419,8 @@ msgstr "Определить: тип выбирается по вставлен�
 msgid "DHCP has DNS server"
 msgstr "DHCP содержит DNS сервер"
 
-msgid "DHT and UDP trackers"
-msgstr "DHT и UDP-трекеры"
+msgid "DHT and trackers"
+msgstr "DHT и трекеры"
 
 msgid "Diagnostics"
 msgstr "Диагностика"

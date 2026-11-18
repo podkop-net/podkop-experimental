@@ -58,13 +58,19 @@ import (
 //     since 0.8.19: in bt_peers the tracker lost its two hours to any other packet to it, and its
 //     SYN was told only while the device was in bt_hosts, 30 minutes, less than the interval of an
 //     announce: a client that only seeds announced through the rule's server every time).
+//     Such an announce is discovery, as the request to a UDP tracker is (0.8.19): it goes through
+//     sing-box, out as the mode says, and the module learns the peers its reply names before the
+//     client connects to them. Forwarded past sing-box, as 0.8.18 sent it in bypass, its reply was
+//     read by nobody: the client's connections to those peers were inspected, and a client that
+//     does not connect again to a peer whose connection was closed (rTorrent, aria2) lost them.
 //   - Nothing to an address of the router itself (fib daddr type local): a client that connects to
 //     the router's own WAN address (its external address learned by UPnP) is no peer (0.8.18).
 //
 // The decision is kept in the conntrack mark of the connection: a connection never changes its
 // way on the run. bt_act, after mangle, does what the mode says with it:
 //   - of the traffic podkop takes (mangle marked it for the proxy): bypass lets it past podkop
-//     (forwarded, the router may offload it), but sends the discovery to sing-box's BitTorrent
+//     (forwarded, the router may offload it), but sends the discovery (the DHT, UDP trackers, an
+//     announce to an HTTP tracker of bt_trackers) to sing-box's BitTorrent
 //     inbound (out directly, the peers learned); block drops it; section sends it to the
 //     BitTorrent inbound, whose route rule sends it to the servers of the rule. An inspected
 //     connection goes to the inspection inbound, where sing-box routes it as podkop's rules say
@@ -721,14 +727,15 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 
 	// bt_syn: a connection to a peer the module learned for the device (refreshed: an element
 	// added again from userspace keeps its timer on kernel 6.6, R7 of the A5 review), to a tracker
-	// the device announced to (refreshed; the device runs a client), or, of a device running a
+	// the device announced to (refreshed; the device runs a client; discovery: the module reads
+	// the reply), or, of a device running a
 	// client, to a peer of bt_peers on a port no other program uses: BitTorrent. Else, of a device
 	// running a client: to a peer of bt_peers on any other port, or to any uncommon port, inspected
 	add(syn, devicePeer(), []expr.Any{&expr.Lookup{SourceRegister: 1, SetName: learned.Name, SetID: learned.ID}},
 		devicePeer(), []expr.Any{&expr.Dynset{SrcRegKey: 1, SetName: learned.Name, SetID: learned.ID, Operation: unix.NFT_DYNSET_OP_UPDATE}},
 		ctMarkAdd(ctBitTorrent), counter, verdict(expr.VerdictGoto, decided.Name))
 	add(syn, append([][]expr.Any{devicePeer(), {&expr.Lookup{SourceRegister: 1, SetName: trackers.Name, SetID: trackers.ID}},
-		devicePeer(), {update(trackers)}}, append(updateHost(), ctMarkAdd(ctBitTorrent), counter, verdict(expr.VerdictGoto, decided.Name))...)...)
+		devicePeer(), {update(trackers)}}, append(updateHost(), ctMarkAdd(ctBitTorrent|ctDiscovery), counter, verdict(expr.VerdictGoto, decided.Name))...)...)
 	add(syn, append(append([][]expr.Any{ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID)}, freePort()...), endpoint(offsetDestination, 2),
 		[]expr.Any{inSet(peers)}, ctMarkAdd(ctBitTorrent), counter, verdict(expr.VerdictGoto, decided.Name))...)
 	add(syn, ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID), protocol(unix.IPPROTO_TCP), endpoint(offsetDestination, 2),
@@ -754,12 +761,15 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	// an announce on a connection under inspection (a device known to run a client, to an HTTP
 	// tracker on an uncommon port: decided at its SYN, so bt_tcp never sees its first data): the
 	// tracker goes to bt_trackers as bt_tcp puts it there for a device not known yet (on an
-	// uncommon port only: a connection to a known peer on a common port is inspected too)
+	// uncommon port only: a connection to a known peer on a common port is inspected too). And on
+	// a connection told as BitTorrent at its SYN by bt_peers: a tracker that answers UDP on the
+	// port of its HTTP (opentrackr on 1337) is there as the far end of the client's UDP, and its
+	// announces went past the module for good (0.8.19; the stand of 2026-11-18)
 	for _, signature := range [][][]expr.Any{
 		{innerIs(0, signatureAnnounce)},
 		{innerIs(0, signatureAnnouncePHP[:12]), innerIs(12, signatureAnnouncePHP[12:])},
 	} {
-		tracker := append(append([][]expr.Any{ctMarkTest(ctInspect, expr.CmpOpNeq)}, signature...), protocol(unix.IPPROTO_TCP), notCommonPort(2), ipv4(),
+		tracker := append(append([][]expr.Any{ctMarkTest(ctInspect|ctBitTorrent, expr.CmpOpNeq)}, signature...), protocol(unix.IPPROTO_TCP), notCommonPort(2), ipv4(),
 			devicePeerKey(), []expr.Any{update(trackers)})
 		add(decided, tracker...)
 	}

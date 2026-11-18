@@ -3329,7 +3329,7 @@ function prettyBytes(n) {
 function bitTorrentKindName(kind) {
   switch (kind) {
     case "discovery":
-      return _("DHT and UDP trackers");
+      return _("DHT and trackers");
     case "utp":
       return _("uTP");
     case "tcp":

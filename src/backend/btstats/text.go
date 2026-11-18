@@ -11,7 +11,7 @@ import (
 func KindName(kind Kind) string {
 	switch kind {
 	case KindDiscovery:
-		return "DHT and UDP trackers"
+		return "DHT and trackers"
 	case KindUTP:
 		return "uTP"
 	case KindTCP:
@@ -170,8 +170,9 @@ func ModuleSince(report Report) string {
 // DHT queries and tracker connects (the field's reports of 0.8.17: 220-2428 in 13-160 min).
 const quietMin = 50
 
-// QuietDiscovery is a warning when the DHT and the UDP trackers got no answer at all: sent, and not
-// a byte received in quietMin flows or more. The router counts what came back to the devices; a
+// QuietDiscovery is a warning when the DHT and the trackers got no answer at all: sent, and not a
+// byte received in quietMin flows or more (the UDP of the DHT and of the trackers, and since 0.8.19
+// the announces to an HTTP tracker the device announced to before). The router counts what came back to the devices; a
 // line that filters BitTorrent's discovery (the field's report 1 of 0.8.17: 220 tracker connects, 0
 // bytes back) looks so. Empty otherwise, or when the router does not count bytes.
 func QuietDiscovery(report Report) string {
@@ -189,5 +190,5 @@ func QuietDiscovery(report Report) string {
 	if flows < quietMin || received.Bytes > 0 {
 		return ""
 	}
-	return fmt.Sprintf("the DHT and the UDP trackers got no answer in %d flows: the provider may filter them, or the trackers are gone", flows)
+	return fmt.Sprintf("the DHT and the trackers got no answer in %d flows: the provider may filter them, or the trackers are gone", flows)
 }

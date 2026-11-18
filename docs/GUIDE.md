@@ -104,7 +104,7 @@ The tab is one list; here its fields are grouped by topic.
   A treatment belongs to the server and survives a rename. A mark on the tile opens the window,
   where the treatment can be removed.
 - The **BitTorrent** card (when BitTorrent is not "As the other traffic") shows the traffic of
-  BitTorrent clients: by kind (DHT and UDP trackers, uTP, TCP, incoming) and by the way it went.
+  BitTorrent clients: by kind (DHT and trackers, uTP, TCP, incoming) and by the way it went.
   **Reset** starts the counts again, without a restart of podkop.
 
 ## Diagnostics

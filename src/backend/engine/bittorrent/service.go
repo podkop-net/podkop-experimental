@@ -5,7 +5,8 @@
 // built as the A5 decision record says (notes/2026-11-16-a5-decision.md, approved 2026-11-16):
 //
 //   - The learner (R2): on the inbounds of "learn", the replies of UDP trackers and of the DHT to
-//     the requests a device sent, and the replies of HTTP trackers to its announces. The peers they
+//     the requests a device sent, and the replies of HTTP trackers to its announces (told by the
+//     connection's first data, whatever the sniffer named it: 0.8.19). The peers they
 //     name go into the set for that device (device . peer . port) before the reply reaches it, so
 //     the firewall decides the device's connection to a peer at its SYN.
 //   - The inspection (R3): on the inbounds of "inspect", the TCP connections the firewall could not
@@ -309,8 +310,10 @@ func Snapshot() Counters {
 		return nil
 	}
 	snapshot := s.counters.snapshot()
+	// early_announces: announces read on connections of the early check (a device not known yet
+	// announcing to a tracker on an uncommon port)
 	early := s.early.snapshot()
-	for _, name := range []string{"watched", "inspected", "confirmed", "confirmed_late", "refuted", "unanswered", "no_data", "not_shaped", "not_random"} {
+	for _, name := range []string{"watched", "inspected", "confirmed", "confirmed_late", "refuted", "unanswered", "no_data", "not_shaped", "not_random", "announces"} {
 		snapshot["early_"+name] = early[name]
 	}
 	snapshot["early_acted"] = s.earlyActed.Load()
@@ -325,8 +328,13 @@ func Snapshot() Counters {
 
 func (s *Service) RoutedConnection(ctx context.Context, connection net.Conn, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) net.Conn {
 	confirmed, inspect := s.inspectOn[metadata.Inbound]
-	// an announce to an HTTP tracker on an inbound of discovery: sing-box's sniffer named it HTTP
-	announce := s.sink != nil && (s.learnOn[metadata.Inbound] || s.sniffedOn[metadata.Inbound]) && metadata.Protocol == C.ProtocolHTTP
+	// an announce to an HTTP tracker: on an inbound of discovery, a connection sing-box's sniffer
+	// named HTTP or did not name (the BitTorrent inbound is not sniffed: the firewall sends there
+	// the connections to the trackers a device announced to, and in the section the peers'; the
+	// conn tells an announce by its first data and stands aside at any other); of the transparent
+	// proxy, one the sniffer named HTTP
+	announce := s.sink != nil && (s.learnOn[metadata.Inbound] && (metadata.Protocol == C.ProtocolHTTP || metadata.Protocol == "") ||
+		s.sniffedOn[metadata.Inbound] && metadata.Protocol == C.ProtocolHTTP)
 	device := metadata.Source.Addr.Unmap()
 	far := metadata.Destination.Unwrap().AddrPort()
 	if metadata.Destination.IsFqdn() {

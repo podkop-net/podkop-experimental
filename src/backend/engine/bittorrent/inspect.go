@@ -19,7 +19,9 @@ import (
 // answers (Write: the copy towards the device writes it), until it has seen enough:
 //
 //   - The first data of the device is an announce to an HTTP tracker: the reply's peers are
-//     learned before its last part reaches the device.
+//     learned before its last part reaches the device. A connection watched for an announce only
+//     (not inspected: a peer's connection on the BitTorrent inbound in the section) stands aside
+//     at any other first data, counted nowhere.
 //   - On an inspected inbound, the three steps of the encrypted handshake of BitTorrent (MSE), as
 //     study A1 measured them (the workspace's notes/2026-11-16-bt-phaseA.md):
 //     1. the first data of the device is 96 to 608 bytes, begins as no known protocol and looks
@@ -255,7 +257,7 @@ func (c *conn) sent(data []byte, now time.Time) (verdict int) {
 	switch c.step {
 	case stepFirst:
 		switch {
-		case bytes.HasPrefix(data, plaintextHandshake):
+		case c.inspect && bytes.HasPrefix(data, plaintextHandshake):
 			c.cnt.plaintext.Add(1)
 			if c.routed && c.confirmed != ConfirmedReject {
 				// on the mode's way already: learned, not closed
