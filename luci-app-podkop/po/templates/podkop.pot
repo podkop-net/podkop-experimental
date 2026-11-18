@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-18 07:10+0000\n"
-"PO-Revision-Date: 2026-11-18 07:10+0000\n"
+"POT-Creation-Date: 2026-11-18 18:41+0000\n"
+"PO-Revision-Date: 2026-11-18 18:41+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -32,11 +32,11 @@ msgstr ""
 msgid "%: the loss its checks counted"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:88
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:93
 msgid "%d h %d min"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:87
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:92
 msgid "%d min"
 msgstr ""
 
@@ -53,7 +53,7 @@ msgstr ""
 msgid "%d probes"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:86
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:91
 msgid "%d s"
 msgstr ""
 
@@ -93,6 +93,10 @@ msgstr ""
 msgid "%s of %s"
 msgstr ""
 
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:55
+msgid "%s open"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:311
 msgid "%s received"
 msgstr ""
@@ -101,7 +105,7 @@ msgstr ""
 msgid "%s s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:45
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:119
 msgid "%s since the reset"
 msgstr ""
 
@@ -110,7 +114,7 @@ msgstr ""
 msgid "%s via %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:113
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:137
 msgid "%s: %d packets (%s) dropped"
 msgstr ""
 
@@ -281,7 +285,7 @@ msgid "Apply"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:390
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:81
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:86
 msgid "As the other traffic"
 msgstr ""
 
@@ -355,11 +359,11 @@ msgstr ""
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:338
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:392
 #: src/podkop/methods/custom/ruleTiles.ts:146
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:77
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:82
 msgid "Block"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:64
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:69
 msgid "Blocked"
 msgstr ""
 
@@ -509,7 +513,7 @@ msgstr ""
 msgid "connecting…"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:17
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:82
 msgid "Connections"
 msgstr ""
 
@@ -525,7 +529,7 @@ msgstr ""
 msgid "connections are refused"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:173
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:204
 msgid "Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d; no answer from the other side: %d"
 msgstr ""
 
@@ -583,11 +587,15 @@ msgstr ""
 msgid "Detect: the type follows the pasted text"
 msgstr ""
 
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:222
+msgid "Devices with no other sign of a client: %d connections confirmed as BitTorrent, %d devices told by them"
+msgstr ""
+
 #: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:134
 msgid "DHCP has DNS server"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:33
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:37
 msgid "DHT and trackers"
 msgstr ""
 
@@ -964,6 +972,10 @@ msgstr ""
 msgid "If the server does not answer, it is tried through another server of yours, whose operator can see the address of this one."
 msgstr ""
 
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:122
+msgid "In all"
+msgstr ""
+
 #: src/podkop/tabs/dashboard/partials/renderSections.ts:220
 msgid "In the balance: %d devices"
 msgstr ""
@@ -984,7 +996,7 @@ msgstr ""
 msgid "In this order, while no server of the rule answers. Directly here: blocked sites do not open, and the provider sees the addresses."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:43
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:48
 msgid "Incoming through a port forward"
 msgstr ""
 
@@ -1279,7 +1291,7 @@ msgstr ""
 msgid "no answer in %d s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:37
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:112
 msgid "No BitTorrent traffic seen yet"
 msgstr ""
 
@@ -1399,7 +1411,7 @@ msgstr ""
 msgid "Not running"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:58
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:63
 msgid "Not through podkop"
 msgstr ""
 
@@ -1430,7 +1442,7 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:403
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:440
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:71
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:76
 msgid "On the whole LAN"
 msgstr ""
 
@@ -1469,12 +1481,8 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:402
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:439
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:72
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:77
 msgid "Only what podkop takes"
-msgstr ""
-
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:16
-msgid "Open"
 msgstr ""
 
 #: src/helpers/withTimeout.ts:7
@@ -1514,17 +1522,18 @@ msgstr ""
 msgid "own subnets"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:157
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:182
 msgid "Packets from addresses that do not belong to their interface, not checked for BitTorrent: %d"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:107
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:112
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:130
 msgid "Packets: received %d, sent %d"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:391
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:56
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:75
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:61
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:80
 msgid "Past podkop"
 msgstr ""
 
@@ -1544,8 +1553,8 @@ msgstr ""
 msgid "Path must end with cache.db"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:165
-msgid "Peers learned: %d from %d replies and %d announces"
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:193
+msgid "Peers learned from the replies of trackers and of the DHT: %d (replies read: %d, announces: %d)"
 msgstr ""
 
 #: src/podkop/tabs/diagnostic/diagnostic.store.ts:103
@@ -1612,7 +1621,7 @@ msgstr ""
 msgid "Ready"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:18
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:81
 msgid "Received"
 msgstr ""
 
@@ -1648,7 +1657,7 @@ msgstr ""
 msgid "replies %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:56
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:130
 msgid "Reset"
 msgstr ""
 
@@ -1765,8 +1774,12 @@ msgstr ""
 msgid "Select the network interface from which the traffic will originate"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:19
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:80
 msgid "Sent"
+msgstr ""
+
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:235
+msgid "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is not counted."
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:774
@@ -1883,7 +1896,7 @@ msgstr ""
 msgid "simplest"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:45
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:119
 msgid "since %s"
 msgstr ""
 
@@ -1919,7 +1932,7 @@ msgstr ""
 msgid "Start podkop"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:53
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:127
 msgid "Start the statistics again from now"
 msgstr ""
 
@@ -1995,15 +2008,15 @@ msgstr ""
 msgid "TCP connects, but TLS or the WebSocket/HTTP upgrade gets no answer."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:37
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:42
 msgid "TCP to peers"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:41
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:46
 msgid "TCP to uncommon ports"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:39
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:44
 msgid "TCP told by its handshake in podkop"
 msgstr ""
 
@@ -2161,7 +2174,7 @@ msgstr ""
 msgid "The last probe could not count"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:122
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:147
 msgid "The last read of the connections failed: %s"
 msgstr ""
 
@@ -2295,7 +2308,7 @@ msgstr ""
 msgid "The router did not answer"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:127
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:152
 msgid "The router does not count the bytes of connections (net.netfilter.nf_conntrack_acct is 0)"
 msgstr ""
 
@@ -2395,7 +2408,7 @@ msgstr ""
 msgid "The servers may refuse connections until the subscription is renewed"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:150
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:175
 msgid "The sets of the BitTorrent detector are full, it tells less: %d packets and peers found no room"
 msgstr ""
 
@@ -2504,20 +2517,20 @@ msgstr ""
 msgid "through %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:62
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:67
 msgid "Through sing-box, being checked"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:54
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:59
 msgid "Through sing-box, straight out"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:60
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:65
 msgid "Through the rule %s"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:393
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:79
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:84
 msgid "Through the servers of a rule"
 msgstr ""
 
@@ -2530,7 +2543,7 @@ msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/initController.ts:979
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:14
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:76
 msgid "Traffic"
 msgstr ""
 
@@ -2684,11 +2697,15 @@ msgstr ""
 msgid "uTLS-fallback"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:35
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:139
 msgid "uTP"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:134
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:40
+msgid "uTP and the DHT of its socket"
+msgstr ""
+
+#: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:159
 msgid "uTP connects turned to TCP (on a flow of the DHT): %d"
 msgstr ""
 
@@ -2747,7 +2764,7 @@ msgstr ""
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:15
+#: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:77
 msgid "Way"
 msgstr ""
 

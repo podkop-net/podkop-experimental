@@ -52,7 +52,7 @@ describe('bitTorrentTable', () => {
     expect(table?.since).toBe('2 h 3 min');
     expect(table?.rows).toEqual([
       {
-        kind: 'uTP',
+        kind: 'uTP and the DHT of its socket',
         way: 'Past podkop',
         open: '12',
         connections: '40',
@@ -69,6 +69,46 @@ describe('bitTorrentTable', () => {
         sent: '300 B',
         packets: 'Packets: received 2, sent 2',
       },
+    ]);
+    // two rows or more have a row of what they add up to
+    expect(table?.total).toEqual({
+      kind: 'In all',
+      way: '',
+      open: '13',
+      connections: '43',
+      received: '1.24 MB',
+      sent: '45.9 KB',
+      packets: 'Packets: received 1002, sent 502',
+    });
+    expect(table?.caption).toContain('as the devices of the LAN see it');
+  });
+
+  it('has no row of the total for one row, and no line of the module that read nothing', () => {
+    const table = bitTorrentTable(
+      report({
+        rows: [
+          {
+            kind: 'incoming',
+            way: 'untouched',
+            open: 650,
+            connections: 811257,
+            received: { packets: 9000000, bytes: 1080000000 },
+            sent: { packets: 12000000, bytes: 16990000000 },
+          },
+        ],
+        module: {
+          learned: 0,
+          replies: 0,
+          announces: 0,
+          early_confirmed: 5,
+          early_self: 1,
+        },
+      }),
+    );
+    expect(table?.total).toBeUndefined();
+    expect(table?.rows[0].sent).toBe('17 GB');
+    expect(table?.notes).toEqual([
+      'Devices with no other sign of a client: 5 connections confirmed as BitTorrent, 1 devices told by them',
     ]);
   });
 
@@ -110,7 +150,7 @@ describe('bitTorrentTable', () => {
       'The last read of the connections failed: no netlink',
       'The router does not count the bytes of connections (net.netfilter.nf_conntrack_acct is 0)',
       'uTP connects turned to TCP (on a flow of the DHT): 3',
-      'Peers learned: 50 from 4 replies and 1 announces',
+      'Peers learned from the replies of trackers and of the DHT: 50 (replies read: 4, announces: 1)',
       'Connections checked: 6; confirmed as BitTorrent: 2 (closed: 2, left open: 0); not BitTorrent: 4; no answer from the other side: 0',
     ]);
   });

@@ -1,15 +1,15 @@
 # RU translations for PODKOP package.
 # Copyright (C) 2026 THE PODKOP'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PODKOP package.
-# Automatically generated, 2026.
+# FiyeroT, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-18 04:25+0000\n"
-"PO-Revision-Date: 2026-11-18 04:25+0000\n"
-"Last-Translator: Automatically generated\n"
+"POT-Creation-Date: 2026-11-18 18:41+0000\n"
+"PO-Revision-Date: 2026-11-18 18:41+0000\n"
+"Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -70,6 +70,9 @@ msgstr "%s уже есть в правиле «%s» выше"
 
 msgid "%s of %s"
 msgstr "%s из %s"
+
+msgid "%s open"
+msgstr "открыто: %s"
 
 msgid "%s received"
 msgstr "получено %s"
@@ -416,6 +419,9 @@ msgstr "Определить по вставленному"
 msgid "Detect: the type follows the pasted text"
 msgstr "Определить: тип выбирается по вставленному тексту"
 
+msgid "Devices with no other sign of a client: %d connections confirmed as BitTorrent, %d devices told by them"
+msgstr "Устройства без других признаков клиента: подтверждено соединений BitTorrent — %d, распознано устройств — %d"
+
 msgid "DHCP has DNS server"
 msgstr "DHCP содержит DNS сервер"
 
@@ -679,6 +685,9 @@ msgstr "Ошибка HTTP"
 
 msgid "If the server does not answer, it is tried through another server of yours, whose operator can see the address of this one."
 msgstr "Если сервер не ответит, он будет проверен через другой ваш сервер — его владелец сможет увидеть адрес этого."
+
+msgid "In all"
+msgstr "Всего"
 
 msgid "In the balance: %d devices"
 msgstr "В балансировке, устройств: %d"
@@ -1031,9 +1040,6 @@ msgstr "Её открывает только Happ. Вставьте обычны
 msgid "Only what podkop takes"
 msgstr "Только то, что берёт podkop"
 
-msgid "Open"
-msgstr "Открыто"
-
 msgid "Operation timed out"
 msgstr "Время ожидания истекло"
 
@@ -1082,8 +1088,8 @@ msgstr "Путь должен содержать хотя бы одну дире
 msgid "Path must end with cache.db"
 msgstr "Путь должен заканчиваться на cache.db"
 
-msgid "Peers learned: %d from %d replies and %d announces"
-msgstr "Узнано пиров: %d из %d ответов и %d анонсов"
+msgid "Peers learned from the replies of trackers and of the DHT: %d (replies read: %d, announces: %d)"
+msgstr "Пиров узнано из ответов трекеров и DHT: %d (прочитано ответов: %d, анонсов: %d)"
 
 msgid "Pending"
 msgstr "Ожидает запуска"
@@ -1243,6 +1249,9 @@ msgstr "Выберите сетевой интерфейс, с которого 
 
 msgid "Sent"
 msgstr "Отправлено"
+
+msgid "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is not counted."
+msgstr "Отправлено и получено — со стороны устройств сети; считает роутер, вместе с заголовками пакетов (1 GB = 1000 MB). Только IPv4; клиент на самом роутере не учитывается."
 
 msgid "Server"
 msgstr "Сервер"
@@ -1903,6 +1912,9 @@ msgstr "uTLS-fallback"
 
 msgid "uTP"
 msgstr "uTP"
+
+msgid "uTP and the DHT of its socket"
+msgstr "uTP и DHT того же сокета"
 
 msgid "uTP connects turned to TCP (on a flow of the DHT): %d"
 msgstr "Подключения uTP, переведённые на TCP (в потоке DHT): %d"

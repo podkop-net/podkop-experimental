@@ -31,14 +31,14 @@
     "call": "%d h %d min",
     "key": "%d h %d min",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:88"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:93"
     ]
   },
   {
     "call": "%d min",
     "key": "%d min",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:87"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:92"
     ]
   },
   {
@@ -67,7 +67,7 @@
     "call": "%d s",
     "key": "%d s",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:86"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:91"
     ]
   },
   {
@@ -131,6 +131,13 @@
     ]
   },
   {
+    "call": "%s open",
+    "key": "%s open",
+    "places": [
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:55"
+    ]
+  },
+  {
     "call": "%s received",
     "key": "%s received",
     "places": [
@@ -148,7 +155,7 @@
     "call": "%s since the reset",
     "key": "%s since the reset",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:45"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:119"
     ]
   },
   {
@@ -163,7 +170,7 @@
     "call": "%s: %d packets (%s) dropped",
     "key": "%s: %d packets (%s) dropped",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:113"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:137"
     ]
   },
   {
@@ -457,7 +464,7 @@
     "key": "As the other traffic",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:390",
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:81"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:86"
     ]
   },
   {
@@ -582,14 +589,14 @@
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:338",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:392",
       "src/podkop/methods/custom/ruleTiles.ts:146",
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:77"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:82"
     ]
   },
   {
     "call": "Blocked",
     "key": "Blocked",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:64"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:69"
     ]
   },
   {
@@ -841,7 +848,7 @@
     "call": "Connections",
     "key": "Connections",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:17"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:82"
     ]
   },
   {
@@ -869,7 +876,7 @@
     "call": "Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d; no answer from the other side: %d",
     "key": "Connections checked: %d; confirmed as BitTorrent: %d (closed: %d, left open: %d); not BitTorrent: %d; no answer from the other side: %d",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:173"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:204"
     ]
   },
   {
@@ -966,6 +973,13 @@
     ]
   },
   {
+    "call": "Devices with no other sign of a client: %d connections confirmed as BitTorrent, %d devices told by them",
+    "key": "Devices with no other sign of a client: %d connections confirmed as BitTorrent, %d devices told by them",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:222"
+    ]
+  },
+  {
     "call": "DHCP has DNS server",
     "key": "DHCP has DNS server",
     "places": [
@@ -976,7 +990,7 @@
     "call": "DHT and trackers",
     "key": "DHT and trackers",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:33"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:37"
     ]
   },
   {
@@ -1611,6 +1625,13 @@
     ]
   },
   {
+    "call": "In all",
+    "key": "In all",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:122"
+    ]
+  },
+  {
     "call": "In the balance: %d devices",
     "key": "In the balance: %d devices",
     "places": [
@@ -1649,7 +1670,7 @@
     "call": "Incoming through a port forward",
     "key": "Incoming through a port forward",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:43"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:48"
     ]
   },
   {
@@ -2148,7 +2169,7 @@
     "call": "No BitTorrent traffic seen yet",
     "key": "No BitTorrent traffic seen yet",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:37"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:112"
     ]
   },
   {
@@ -2349,7 +2370,7 @@
     "call": "Not through podkop",
     "key": "Not through podkop",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:58"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:63"
     ]
   },
   {
@@ -2401,7 +2422,7 @@
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:403",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:440",
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:71"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:76"
     ]
   },
   {
@@ -2467,14 +2488,7 @@
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:402",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:439",
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:72"
-    ]
-  },
-  {
-    "call": "Open",
-    "key": "Open",
-    "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:16"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:77"
     ]
   },
   {
@@ -2545,14 +2559,15 @@
     "call": "Packets from addresses that do not belong to their interface, not checked for BitTorrent: %d",
     "key": "Packets from addresses that do not belong to their interface, not checked for BitTorrent: %d",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:157"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:182"
     ]
   },
   {
     "call": "Packets: received %d, sent %d",
     "key": "Packets: received %d, sent %d",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:107"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:112",
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:130"
     ]
   },
   {
@@ -2560,8 +2575,8 @@
     "key": "Past podkop",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:391",
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:56",
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:75"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:61",
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:80"
     ]
   },
   {
@@ -2593,10 +2608,10 @@
     ]
   },
   {
-    "call": "Peers learned: %d from %d replies and %d announces",
-    "key": "Peers learned: %d from %d replies and %d announces",
+    "call": "Peers learned from the replies of trackers and of the DHT: %d (replies read: %d, announces: %d)",
+    "key": "Peers learned from the replies of trackers and of the DHT: %d (replies read: %d, announces: %d)",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:165"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:193"
     ]
   },
   {
@@ -2709,7 +2724,7 @@
     "call": "Received",
     "key": "Received",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:18"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:81"
     ]
   },
   {
@@ -2772,7 +2787,7 @@
     "call": "Reset",
     "key": "Reset",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:56"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:130"
     ]
   },
   {
@@ -2976,7 +2991,14 @@
     "call": "Sent",
     "key": "Sent",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:19"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:80"
+    ]
+  },
+  {
+    "call": "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is not counted.",
+    "key": "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is not counted.",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:235"
     ]
   },
   {
@@ -3175,7 +3197,7 @@
     "call": "since %s",
     "key": "since %s",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:45"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:119"
     ]
   },
   {
@@ -3238,7 +3260,7 @@
     "call": "Start the statistics again from now",
     "key": "Start the statistics again from now",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:53"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:127"
     ]
   },
   {
@@ -3368,21 +3390,21 @@
     "call": "TCP to peers",
     "key": "TCP to peers",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:37"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:42"
     ]
   },
   {
     "call": "TCP to uncommon ports",
     "key": "TCP to uncommon ports",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:41"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:46"
     ]
   },
   {
     "call": "TCP told by its handshake in podkop",
     "key": "TCP told by its handshake in podkop",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:39"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:44"
     ]
   },
   {
@@ -3657,7 +3679,7 @@
     "call": "The last read of the connections failed: %s",
     "key": "The last read of the connections failed: %s",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:122"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:147"
     ]
   },
   {
@@ -3887,7 +3909,7 @@
     "call": "The router does not count the bytes of connections (net.netfilter.nf_conntrack_acct is 0)",
     "key": "The router does not count the bytes of connections (net.netfilter.nf_conntrack_acct is 0)",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:127"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:152"
     ]
   },
   {
@@ -4062,7 +4084,7 @@
     "call": "The sets of the BitTorrent detector are full, it tells less: %d packets and peers found no room",
     "key": "The sets of the BitTorrent detector are full, it tells less: %d packets and peers found no room",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:150"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:175"
     ]
   },
   {
@@ -4252,21 +4274,21 @@
     "call": "Through sing-box, being checked",
     "key": "Through sing-box, being checked",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:62"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:67"
     ]
   },
   {
     "call": "Through sing-box, straight out",
     "key": "Through sing-box, straight out",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:54"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:59"
     ]
   },
   {
     "call": "Through the rule %s",
     "key": "Through the rule %s",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:60"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:65"
     ]
   },
   {
@@ -4274,7 +4296,7 @@
     "key": "Through the servers of a rule",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:393",
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:79"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:84"
     ]
   },
   {
@@ -4296,7 +4318,7 @@
     "key": "Traffic",
     "places": [
       "src/podkop/tabs/dashboard/initController.ts:979",
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:14"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:76"
     ]
   },
   {
@@ -4555,14 +4577,21 @@
     "call": "uTP",
     "key": "uTP",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:35"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:139"
+    ]
+  },
+  {
+    "call": "uTP and the DHT of its socket",
+    "key": "uTP and the DHT of its socket",
+    "places": [
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:40"
     ]
   },
   {
     "call": "uTP connects turned to TCP (on a flow of the DHT): %d",
     "key": "uTP connects turned to TCP (on a flow of the DHT): %d",
     "places": [
-      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:134"
+      "src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:159"
     ]
   },
   {
@@ -4657,7 +4686,7 @@
     "call": "Way",
     "key": "Way",
     "places": [
-      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:15"
+      "src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:77"
     ]
   },
   {

@@ -1,7 +1,12 @@
 // language=CSS
 export const styles = `
+/* The field that holds the dashboard takes the width its place gives it and no more: as a flex
+   item (the themes lay a field out so) it would be as wide as its widest unbreakable content. */
 #cbi-podkop-dashboard-_mount_node > div {
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 #cbi-podkop-dashboard > h3 {
@@ -10,7 +15,12 @@ export const styles = `
     
 .pdk_dashboard-page {
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
     --dashboard-grid-columns: 4;
+    /* the least width of a tile of the grids: two of them fit a phone */
+    --dashboard-tile-min: 150px;
 }
 
 @media (max-width: 900px) {
@@ -19,17 +29,29 @@ export const styles = `
     }
 }
 
+/* The columns of the grids go by the width the dashboard has, not the window's (a theme with a
+   side menu leaves less): as many tiles of --dashboard-tile-min as fit, four at most. The first
+   rule stays for a browser without min() and max(). */
 .pdk_dashboard-page__widgets-section {
     margin-top: 10px;
     display: grid;
-    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
+    grid-template-columns: repeat(var(--dashboard-grid-columns), minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(var(--dashboard-tile-min), calc((100% - 30px) / 4))), 1fr));
     grid-gap: 10px;
 }
 
+.pdk_dashboard-page__widgets-section > div {
+    min-width: 0;
+}
+
 .pdk_dashboard-page__widgets-section__item {
-    border: 2px var(--background-color-low, lightgray) solid;
+    border: 2px var(--background-color-low, rgba(128, 128, 128, 0.35)) solid;
     border-radius: 4px;
     padding: 10px;
+    min-width: 0;
+    height: 100%;
+    box-sizing: border-box;
+    overflow-wrap: anywhere;
 }
 
 .pdk_dashboard-page__widgets-section__item__title {}
@@ -50,9 +72,10 @@ export const styles = `
 
 .pdk_dashboard-page__bittorrent {
     margin-top: 10px;
-    border: 2px var(--background-color-low, lightgray) solid;
+    border: 2px var(--background-color-low, rgba(128, 128, 128, 0.35)) solid;
     border-radius: 4px;
     padding: 10px;
+    min-width: 0;
 }
 
 .pdk_dashboard-page__bittorrent.hidden {
@@ -75,30 +98,88 @@ export const styles = `
     margin-left: auto;
 }
 
-.pdk_dashboard-page__bittorrent__scroll {
-    overflow-x: auto;
+/* The rows of the card of BitTorrent: blocks, not a table (renderBitTorrent). A row is "what" (the
+   kind and the way) and "numbers" (sent, received, connections) on a wrapping flex line; every row
+   has the same bases, so all of them wrap at the same width of the card and the numbers stay under
+   the heads of their columns. Nothing here is wider than a word: the card never widens the page. */
+.pdk_dashboard-page__bittorrent__rows {
+    min-width: 0;
 }
 
-.pdk_dashboard-page__bittorrent__table {
-    width: 100%;
-    border-collapse: collapse;
+.pdk_dashboard-page__bittorrent__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 12px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--background-color-low, rgba(128, 128, 128, 0.35));
 }
 
-.pdk_dashboard-page__bittorrent__table th,
-.pdk_dashboard-page__bittorrent__table td {
-    padding: 3px 8px;
-    text-align: left;
-    white-space: nowrap;
-    border-bottom: 1px var(--background-color-low, lightgray) solid;
+.pdk_dashboard-page__bittorrent__what {
+    flex: 1 1 18em;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 12px;
 }
 
-.pdk_dashboard-page__bittorrent__table td.number,
-.pdk_dashboard-page__bittorrent__table th:nth-child(n+3) {
+.pdk_dashboard-page__bittorrent__kind,
+.pdk_dashboard-page__bittorrent__way {
+    flex: 1 1 10em;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.pdk_dashboard-page__bittorrent__way {
+    opacity: 0.8;
+}
+
+.pdk_dashboard-page__bittorrent__numbers {
+    flex: 0 1 21em;
+    min-width: 0;
+    margin-left: auto;
+    display: flex;
+    gap: 0 8px;
+}
+
+.pdk_dashboard-page__bittorrent__number {
+    flex: 1 1 0;
+    min-width: 0;
     text-align: right;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
-.pdk_dashboard-page__bittorrent__table td.empty {
+.pdk_dashboard-page__bittorrent__open {
+    font-size: 0.8em;
+    opacity: 0.7;
+    white-space: normal;
+}
+
+/* (the heads keep the font size of the rows: the bases above are in em, and a smaller font would
+   wrap the heads at another width than the rows, their columns apart) */
+.pdk_dashboard-page__bittorrent__row--head {
+    font-weight: 600;
+    opacity: 0.85;
+}
+
+.pdk_dashboard-page__bittorrent__row--head .pdk_dashboard-page__bittorrent__way {
+    opacity: 1;
+}
+
+/* a head is a word: it may break where the card is very narrow, a number may not */
+.pdk_dashboard-page__bittorrent__row--head .pdk_dashboard-page__bittorrent__number {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.pdk_dashboard-page__bittorrent__row--total {
+    font-weight: 600;
+    border-bottom: 0;
+}
+
+.pdk_dashboard-page__bittorrent__empty {
+    padding: 8px 0;
     text-align: center;
     opacity: 0.7;
 }
@@ -106,18 +187,28 @@ export const styles = `
 .pdk_dashboard-page__bittorrent__blocked {
     margin-top: 6px;
     color: var(--error-color-medium, red);
+    overflow-wrap: anywhere;
 }
 
 .pdk_dashboard-page__bittorrent__note {
     margin-top: 4px;
     opacity: 0.85;
+    overflow-wrap: anywhere;
+}
+
+.pdk_dashboard-page__bittorrent__caption {
+    margin-top: 6px;
+    font-size: 0.85em;
+    opacity: 0.7;
+    overflow-wrap: anywhere;
 }
 
 .pdk_dashboard-page__outbound-section {
     margin-top: 10px;
-    border: 2px var(--background-color-low, lightgray) solid;
+    border: 2px var(--background-color-low, rgba(128, 128, 128, 0.35)) solid;
     border-radius: 4px;
     padding: 10px;
+    min-width: 0;
 }
 
 .pdk_dashboard-page__outbound-section__title-section {
@@ -166,7 +257,8 @@ export const styles = `
 .pdk_dashboard-page__outbound-grid {
     margin-top: 5px;
     display: grid;
-    grid-template-columns: repeat(var(--dashboard-grid-columns), 1fr);
+    grid-template-columns: repeat(var(--dashboard-grid-columns), minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(var(--dashboard-tile-min), calc((100% - 30px) / 4))), 1fr));
     grid-gap: 10px;
 }
 
@@ -215,7 +307,7 @@ export const styles = `
 }
 
 .pdk_dashboard-page__outbound-grid__item {
-    border: 2px var(--background-color-low, lightgray) solid;
+    border: 2px var(--background-color-low, rgba(128, 128, 128, 0.35)) solid;
     border-radius: 4px;
     padding: 10px;
     min-width: 0;

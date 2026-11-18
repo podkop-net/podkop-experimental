@@ -23,8 +23,12 @@ export interface BitTorrentTable {
   // the statistics were reset (the button), not counted from the start of the mode
   reset: boolean;
   rows: BitTorrentTableRow[];
+  // what the rows add up to; none with fewer than two rows
+  total?: BitTorrentTableRow;
   blocked: string[];
   notes: string[];
+  // what the numbers are, under the table
+  caption: string;
 }
 
 export function bitTorrentKindName(kind: Podkop.BitTorrentKind): string {
@@ -32,7 +36,8 @@ export function bitTorrentKindName(kind: Podkop.BitTorrentKind): string {
     case 'discovery':
       return _('DHT and trackers');
     case 'utp':
-      return _('uTP');
+      // the DHT of a socket that speaks uTP is counted with it (the firewall's bt_discovery)
+      return _('uTP and the DHT of its socket');
     case 'tcp':
       return _('TCP to peers');
     case 'late':
@@ -109,9 +114,29 @@ export function bitTorrentTable(
       row.sent.packets,
     ),
   }));
+  let total: BitTorrentTableRow | undefined;
+  if (rows.length > 1) {
+    const sum = (pick: (row: Podkop.BitTorrentRow) => number) =>
+      (report.rows || []).reduce((all, row) => all + pick(row), 0);
+    total = {
+      kind: _('In all'),
+      way: '',
+      open: String(sum((row) => row.open)),
+      connections: String(sum((row) => row.connections)),
+      received: report.counted
+        ? prettyBytes(sum((row) => row.received.bytes))
+        : '—',
+      sent: report.counted ? prettyBytes(sum((row) => row.sent.bytes)) : '—',
+      packets: _('Packets: received %d, sent %d').format(
+        sum((row) => row.received.packets),
+        sum((row) => row.sent.packets),
+      ),
+    };
+  }
   const blocked = (report.blocked || []).map((item) =>
     _('%s: %d packets (%s) dropped').format(
-      bitTorrentKindName(item.kind),
+      // (the block drops uTP as such: the DHT of its socket is counted with the discovery)
+      item.kind === 'utp' ? _('uTP') : bitTorrentKindName(item.kind),
       item.dropped.packets,
       prettyBytes(item.dropped.bytes),
     ),
@@ -161,13 +186,19 @@ export function bitTorrentTable(
   }
   const module = report.module;
   if (module) {
-    notes.push(
-      _('Peers learned: %d from %d replies and %d announces').format(
-        module.learned ?? 0,
-        module.replies ?? 0,
-        module.announces ?? 0,
-      ),
-    );
+    // nothing to say of a client whose peers the firewall tells by its own packets (uTP, the
+    // DHT): the module read no reply, and "0 peers learned" read as a failure
+    if ((module.replies ?? 0) + (module.announces ?? 0) > 0) {
+      notes.push(
+        _(
+          'Peers learned from the replies of trackers and of the DHT: %d (replies read: %d, announces: %d)',
+        ).format(
+          module.learned ?? 0,
+          module.replies ?? 0,
+          module.announces ?? 0,
+        ),
+      );
+    }
     if ((module.watched ?? 0) > 0) {
       notes.push(
         _(
@@ -185,12 +216,24 @@ export function bitTorrentTable(
       );
     }
   }
+  // the early check: a device with no sign of a client, told by its own connections
+  if (module && (module.early_confirmed ?? 0) > 0) {
+    notes.push(
+      _(
+        'Devices with no other sign of a client: %d connections confirmed as BitTorrent, %d devices told by them',
+      ).format(module.early_confirmed ?? 0, module.early_self ?? 0),
+    );
+  }
   return {
     mode: bitTorrentModeName(report),
     since: spanText(report.since),
     reset: (report.reset_at ?? 0) > 0,
     rows,
+    total,
     blocked,
     notes,
+    caption: _(
+      'Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is not counted.',
+    ),
   };
 }
