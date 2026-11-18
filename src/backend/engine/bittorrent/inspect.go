@@ -22,7 +22,8 @@ import (
 //     learned before its last part reaches the device.
 //   - On an inspected inbound, the three steps of the encrypted handshake of BitTorrent (MSE), as
 //     study A1 measured them (the workspace's notes/2026-11-16-bt-phaseA.md):
-//     1. the first data of the device is 96 to 608 bytes and begins as no known protocol;
+//     1. the first data of the device is 96 to 608 bytes, begins as no known protocol and looks
+//     random where MSE has its key (looksRandom);
 //     2. the far side answers 96 to 608 bytes, and the device sends nothing before that answer
 //     (the initiator of MSE needs the far side's key for its next message);
 //     3. the device's next data follows the answer: 56 bytes or more within thirdStep (aria2 and
@@ -34,7 +35,7 @@ import (
 //
 // Each inspected connection ends in one verdict, counted and told in the log at the level debug
 // (the device, the far end, the lengths and delays of the steps): confirmed, not shaped like MSE,
-// the far side first, the device again before the answer, the answer too long or too short, the
+// a first data that does not look random, the far side first, the device again before the answer, the answer too long or too short, the
 // third step late or short, no first data (a dial that failed), no answer, no third step.
 //
 // Then the conn stands aside: it reports its handshake done (sing's copy asks NeedHandshakeFor*
@@ -80,6 +81,41 @@ func mseShaped(data []byte) bool {
 		return false
 	}
 	return !bytes.HasPrefix(data, []byte{0x00, 0x94, 0x01, 0x00, 0x00, 0x00})
+}
+
+// randomHead is how much of a first data looksRandom reads; randomZerosMost the most zero bytes
+// it may hold there.
+const (
+	randomHead      = 16
+	randomZerosMost = 3
+)
+
+// looksRandom tells a first data that may begin with MSE's first message: a public key of
+// Diffie-Hellman, 96 bytes that are uniformly random. Text (SIP's REGISTER) and a structured
+// header (lengths and versions with zero bytes: PostgreSQL's startup message) are not: the first
+// randomHead bytes all printable or white space (a key's are with a probability of 2e-7), or more
+// than randomZerosMost zero bytes among them (4e-7). The study of 2026-11-18 (the workspace's
+// notes/2026-11-18-one-vs-three-handshakes.md): without this test SIP over TCP and PostgreSQL
+// without TLS were confirmed on every connection (80 of 80, 48 of 48: the far side's answer and
+// the client's next message have MSE's lengths and timing), with it on none, and it lost none of
+// 5346 confirmed handshakes of real clients. A proxy protocol that is random from its first byte
+// (Shadowsocks, VMess) passes it as MSE does: only the count of distinct far addresses of the
+// early check, and the firewall's evidence of a device running a client, stand between such a
+// connection and a verdict.
+func looksRandom(data []byte) bool {
+	head := data[:min(randomHead, len(data))]
+	zeros, text := 0, true
+	for _, b := range head {
+		switch {
+		case b == 0:
+			zeros++
+			text = false
+		case b == '\t' || b == '\n' || b == '\r' || (b >= 0x20 && b <= 0x7e):
+		default:
+			text = false
+		}
+	}
+	return !text && zeros <= randomZerosMost
 }
 
 // Confirmed is what is done with a connection the three steps confirm.
@@ -238,6 +274,13 @@ func (c *conn) sent(data []byte, now time.Time) (verdict int) {
 		case httpAnnounce(data):
 			// the path of an announce in a request no client sent (a browser's): not read
 			c.cnt.announcesForeign.Add(1)
+		case c.inspect && mseShaped(data) && !looksRandom(data):
+			// MSE's length and no known beginning, but text or a header where MSE has a key
+			c.cnt.notShaped.Add(1)
+			c.cnt.notRandom.Add(1)
+			c.verdict("the first data does not look random", len(data), now)
+			c.finish()
+			return verdictNone
 		case c.inspect && mseShaped(data):
 			c.cnt.inspected.Add(1)
 			c.step = stepAnswer

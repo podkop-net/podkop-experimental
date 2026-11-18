@@ -185,7 +185,8 @@ func TestLines(t *testing.T) {
 		"  uTP SYNs on a flow of discovery dropped, so that the client goes over TCP: 3",
 		"  the module, since sing-box started: 120 peers learned from 7 replies and 1 announces (0 known already, 0 not learnable, 0 over the cap); " +
 			"6 connections checked: 2 confirmed (0 of them by a late third step; 2 closed, 0 left open), 0 not BitTorrent " +
-			"(0 not shaped like MSE, 0 the far side first, 0 refuted: 0 the device again, 0 the answer too long, 0 too short, 0 the third step late or short), " +
+			"(0 not shaped like MSE, 0 of them not random where MSE has a key, 0 the far side first, 0 refuted: 0 the device again, 0 the answer too long, 0 too short, " +
+			"0 the third step late or short), " +
 			"0 undecided (0 no data, 0 no answer, 0 no third step), 0 plaintext handshakes",
 	}, Lines(report))
 }

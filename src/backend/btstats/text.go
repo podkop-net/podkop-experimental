@@ -140,11 +140,12 @@ func Lines(report Report) []string {
 	if module := report.Module; module != nil {
 		lines = append(lines, fmt.Sprintf("  the module, since %s: %d peers learned from %d replies and %d announces (%d known already, %d not learnable, %d over the cap); "+
 			"%d connections checked: %d confirmed (%d of them by a late third step; %d closed, %d left open), %d not BitTorrent "+
-			"(%d not shaped like MSE, %d the far side first, %d refuted: %d the device again, %d the answer too long, %d too short, %d the third step late or short), "+
+			"(%d not shaped like MSE, %d of them not random where MSE has a key, %d the far side first, %d refuted: %d the device again, %d the answer too long, %d too short, "+
+			"%d the third step late or short), "+
 			"%d undecided (%d no data, %d no answer, %d no third step), %d plaintext handshakes",
 			ModuleSince(report), module["learned"], module["replies"], module["announces"], module["known"], module["not_learnable"], module["capped"],
 			module["watched"], module["confirmed"], module["confirmed_late"], module["rejected"]+module["reset"], module["kept_open"],
-			module["not_shaped"]+module["far_first"]+module["refuted"], module["not_shaped"], module["far_first"], module["refuted"],
+			module["not_shaped"]+module["far_first"]+module["refuted"], module["not_shaped"], module["not_random"], module["far_first"], module["refuted"],
 			module["refuted_again"], module["refuted_long"], module["refuted_short"], module["refuted_third"],
 			module["no_data"]+module["unanswered"]+module["no_third"], module["no_data"], module["unanswered"], module["no_third"],
 			module["plaintext"]))

@@ -541,3 +541,115 @@ func TestWriterFaults(t *testing.T) {
 		t.Errorf("a set not found on the first connection: %v, written %d", err, healthy.added)
 	}
 }
+
+// A first data of MSE's length that is text, or a header with zero bytes, where MSE's first
+// message has its key is not inspected further (0.8.19, the study of 2026-11-18): SIP's REGISTER
+// and PostgreSQL's startup message were confirmed on every connection, as the far side's answer
+// and the client's next message have MSE's lengths and timing.
+func TestLooksRandom(t *testing.T) {
+	sip := []byte("REGISTER sip:192.0.2.10:5060 SIP/2.0\r\nVia: SIP/2.0/TCP 192.168.80.10:5061;branch=z9hG4bK-1-0\r\nFrom: <sip:1001@192.0.2.10>;tag=1\r\n")
+	// PostgreSQL's startup message: the length, the protocol 3.0, then names and values
+	postgres := append([]byte{0, 0, 0, 138, 0, 3, 0, 0}, []byte("user\x00an_application_user_with_a_long_name\x00database\x00a_database_with_a_long_name\x00application_name\x00psql\x00\x00")...)
+	key := []byte{0x9c, 0x31, 0x00, 0xf2, 0x41, 0x42, 0x00, 0x7e, 0x20, 0xd5, 0x00, 0x11, 0x61, 0x62, 0x63, 0xff}
+	for name, c := range map[string]struct {
+		data []byte
+		want bool
+	}{
+		"SIP":                    {sip, false},
+		"PostgreSQL":             {postgres, false},
+		"text with a tab":        {[]byte("a\tb\r\nc d e f g h i j k l m n o p"), false},
+		"four zero bytes":        {[]byte{0x9c, 0, 0x31, 0, 0xf2, 0, 0x41, 0, 0x42, 0x7e, 0x20, 0xd5, 0x11, 0x61, 0x62, 0xff}, false},
+		"three zero bytes":       {key, true},
+		"a byte over the text's": {append([]byte("REGISTER sip:19"), 0x80), true},
+		"zeros after the head":   {append(append([]byte{}, key...), make([]byte, 80)...), true},
+		"shorter than the head":  {[]byte{0x9c, 0x31}, true},
+	} {
+		if got := looksRandom(c.data); got != c.want {
+			t.Errorf("%s: looks random %v, want %v", name, got, c.want)
+		}
+	}
+	// the exchange of a SIP registration through the inspection: not confirmed, counted, and the
+	// connection goes on whole; the same exchange with a random first data is confirmed
+	e := exchange{first: len(sip), answer: 430, third: 544, bulk: 1 << 16}
+	s, sink, wrapped, got, err := run(t, e, ConfirmedReject, sip)
+	if err != nil || got != e.bulk {
+		t.Errorf("SIP: bulk %d of %d: %v", got, e.bulk, err)
+	}
+	if s.counters.confirmed.Load() != 0 || s.counters.inspected.Load() != 0 || s.counters.notRandom.Load() != 1 || s.counters.notShaped.Load() != 1 || sink.count() != 0 {
+		t.Errorf("SIP: %v", s.counters.snapshot())
+	}
+	if wrapped.NeedHandshakeForRead() {
+		t.Errorf("SIP: not stood aside")
+	}
+	s, _, _, got, _ = run(t, e, ConfirmedReject, nil)
+	if got != 0 || s.counters.confirmed.Load() != 1 || s.counters.notRandom.Load() != 0 {
+		t.Errorf("the same lengths, random: bulk %d, %v", got, s.counters.snapshot())
+	}
+}
+
+// The connection that makes a device's third distinct far address wakes the poller, which judges
+// the device at once (0.8.19): 0.8.18 judged it at the next round, up to earlyPoll later, and a
+// client with encryption required passed megabytes meanwhile in block. Not for fewer far
+// addresses, not while the device is watched for its retries, not while the set cannot be read.
+func TestEarlyKick(t *testing.T) {
+	asked := func(s *Service) bool {
+		select {
+		case <-s.kick:
+			return true
+		default:
+			return false
+		}
+	}
+	s, _, add := early(t, ConfirmedReject)
+	s.kick = make(chan struct{}, 1)
+	s.stopPolling = make(chan struct{})
+	s.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{}, nil }
+	start := time.Now()
+	add(10, 2, start)
+	add(10, 1, start)
+	if asked(s) {
+		t.Fatalf("a round asked for with two distinct far addresses")
+	}
+	add(12, 1, start)
+	if len(s.kick) != 1 {
+		t.Fatalf("no round asked for at the third distinct far address")
+	}
+	// the poller acts on it well within a round
+	go s.pollPending()
+	defer close(s.stopPolling)
+	deadline := time.Now().Add(earlyPoll / 4)
+	for s.early.rejected.Load() != 4 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if s.early.rejected.Load() != 4 || s.earlySelfTold.Load() != 1 {
+		t.Fatalf("within %s: rejected %d of 4, told %d", earlyPoll/4, s.early.rejected.Load(), s.earlySelfTold.Load())
+	}
+
+	// learn_reset: told, the device is watched for its retries, and its next connections wait
+	watched, _, add := early(t, ConfirmedLearnReset)
+	watched.kick = make(chan struct{}, 1)
+	watched.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{}, nil }
+	add(10, 3, start)
+	if !asked(watched) {
+		t.Fatalf("learn_reset: no round asked for at the third")
+	}
+	watched.actOnKnown(start)
+	add(20, 3, start)
+	if asked(watched) || len(watched.selfTold) != 1 {
+		t.Errorf("a round asked for while the device is watched for its retries (watched %d)", len(watched.selfTold))
+	}
+
+	// the set cannot be read: the rounds try again, a connection does not ask for one more
+	failing, _, add := early(t, ConfirmedReject)
+	failing.kick = make(chan struct{}, 1)
+	failing.known = func() (map[netip.Addr]bool, error) { return nil, errors.New("no netlink") }
+	add(10, 3, start)
+	if !asked(failing) {
+		t.Fatalf("no round asked for before the read failed")
+	}
+	failing.actOnKnown(start)
+	add(20, 1, start)
+	if asked(failing) {
+		t.Errorf("a round asked for while the set cannot be read")
+	}
+}

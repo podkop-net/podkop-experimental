@@ -16,7 +16,8 @@
 //   - The early check (0.8.18): on the inbounds of "early" (the transparent proxy), a TCP connection
 //     to a port no other program uses is checked as an inspected one, whatever its device. A
 //     confirmed one waits until its device is in the firewall's set of devices running a client
-//     ("hosts", read every earlyPoll), then it is done with as "confirmed" says. A client's first
+//     ("hosts", read every earlyPoll, and at once when a device's third distinct far address is
+//     confirmed), then it is done with as "confirmed" says. A client's first
 //     connections, opened before the firewall knew the device (a client with no DHT and no uTP is
 //     told only by its local peer discovery, a minute after its start on the stand of 0.8.18), went
 //     by the lists for their whole life. A device with earlySelf confirmed connections to distinct
@@ -52,6 +53,7 @@ import (
 	"context"
 	"net"
 	"net/netip"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -171,6 +173,8 @@ type Service struct {
 	// earlyGone: connections that had closed when their device was known (their far end learned)
 	earlyGone   atomic.Int64
 	stopPolling chan struct{}
+	// kick wakes the poller before its next round (pend: a device's third distinct far address)
+	kick chan struct{}
 	// replyBytes: what the conns keep of replies to announces, in all (httpRepliesMost)
 	replyBytes atomic.Int64
 }
@@ -186,8 +190,14 @@ type waiting struct {
 
 // earlyPoll is how often the devices of pending connections are looked up in the set Hosts: a
 // dump of a set of a few devices, under a millisecond; a connection found early is acted on within
-// it once its device is known. earlyFor is the longest a confirmed connection waits (the
-// firewall's timeout of a device), earlyMost the most that wait for one device.
+// it once its device is known. A device's own confirmed connections do not wait for it: the one
+// that makes earlySelf distinct far addresses wakes the poller (0.8.19; 0.8.18 judged the device at
+// the next round, and a client with encryption required went on for up to earlyPoll after its
+// third handshake: in block aria2 passed 1.9-3.4 MB and rTorrent 4.7-6.3 MB there, 45-221 KB and
+// 44-134 KB up to the third handshake itself, which came 0-0.5 s after the first; the study of
+// 2026-11-18, the workspace's notes/2026-11-18-one-vs-three-handshakes.md). earlyFor is the
+// longest a confirmed connection waits (the firewall's timeout of a device), earlyMost the most
+// that wait for one device.
 const (
 	earlyPoll = 2 * time.Second
 	earlyFor  = 30 * time.Minute
@@ -210,7 +220,8 @@ var running atomic.Pointer[Service]
 func New(ctx context.Context, logger log.ContextLogger, tag string, options Options) (adapter.Service, error) {
 	s := &Service{ctx: ctx, logger: logger, tag: tag, options: options,
 		learnOn: make(map[string]bool), sniffedOn: make(map[string]bool), inspectOn: make(map[string]Confirmed), neverPorts: make(map[uint16]struct{}),
-		earlyOn: make(map[string]Confirmed), pending: make(map[netip.Addr][]*waiting), stopPolling: make(chan struct{})}
+		earlyOn: make(map[string]Confirmed), pending: make(map[netip.Addr][]*waiting), stopPolling: make(chan struct{}),
+		kick: make(chan struct{}, 1)}
 	for _, inbound := range options.Learn {
 		s.learnOn[inbound] = true
 	}
@@ -299,7 +310,7 @@ func Snapshot() Counters {
 	}
 	snapshot := s.counters.snapshot()
 	early := s.early.snapshot()
-	for _, name := range []string{"watched", "inspected", "confirmed", "confirmed_late", "refuted", "unanswered", "no_data", "not_shaped"} {
+	for _, name := range []string{"watched", "inspected", "confirmed", "confirmed_late", "refuted", "unanswered", "no_data", "not_shaped", "not_random"} {
 		snapshot["early_"+name] = early[name]
 	}
 	snapshot["early_acted"] = s.earlyActed.Load()
@@ -365,7 +376,10 @@ func (s *Service) selfKnownNow(device netip.Addr, now time.Time) bool {
 	return ok && now.Before(until)
 }
 
-// pend keeps a connection confirmed early, at now, until its device is known (pollPending).
+// pend keeps a connection confirmed early, at now, until its device is known (pollPending). The
+// one that makes earlySelf distinct far addresses of a device wakes the poller, which judges the
+// device now; not while the device is watched for its retries (its connections wait for that
+// verdict), and not while the set cannot be read (the rounds try again).
 func (s *Service) pend(c *conn, now time.Time) *waiting {
 	w := &waiting{far: c.far, since: now, confirmed: c.confirmed}
 	w.conn.Store(c)
@@ -377,12 +391,34 @@ func (s *Service) pend(c *conn, now time.Time) *waiting {
 		list = list[1:]
 		s.earlyExpired.Add(1)
 	}
-	s.pending[c.device] = append(list, w)
+	list = append(list, w)
+	s.pending[c.device] = list
+	if _, watched := s.selfTold[c.device]; !watched && !s.knownFailing && distinctFars(list, earlySelf) {
+		select {
+		case s.kick <- struct{}{}:
+		default:
+			// a round is asked for already (or no poller: a test's service)
+		}
+	}
 	return w
 }
 
-// pollPending looks the devices of pending connections up in the set every earlyPoll, and acts on
-// the connections of a device that is there; one that waited earlyFor goes.
+// distinctFars tells whether waiting connections are to n distinct far addresses or more.
+func distinctFars(list []*waiting, n int) bool {
+	seen := make([]netip.Addr, 0, n)
+	for _, w := range list {
+		if address := w.far.Addr(); !slices.Contains(seen, address) {
+			if seen = append(seen, address); len(seen) >= n {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// pollPending looks the devices of pending connections up in the set every earlyPoll, and when
+// pend asks for it, and acts on the connections of a device that is there or that is taken as
+// running a client by its own connections; one that waited earlyFor goes.
 func (s *Service) pollPending() {
 	ticker := time.NewTicker(earlyPoll)
 	defer ticker.Stop()
@@ -392,6 +428,8 @@ func (s *Service) pollPending() {
 			return
 		case now := <-ticker.C:
 			s.poll(now)
+		case <-s.kick:
+			s.poll(time.Now())
 		}
 	}
 }

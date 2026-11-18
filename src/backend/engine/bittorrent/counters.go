@@ -35,6 +35,9 @@ type counters struct {
 	farFirst  atomic.Int64 // watched connections whose far side spoke first
 	inspected atomic.Int64 // connections whose first data was shaped like MSE
 	notShaped atomic.Int64 // inspected connections whose first data was not
+	// notRandom: of notShaped, MSE's length and no known beginning, but text or a structured header
+	// where MSE's first message has a key (looksRandom)
+	notRandom atomic.Int64
 	confirmed atomic.Int64 // confirmed by the three steps (or a plaintext handshake)
 	// confirmedLate: of confirmed, by a third step later than thirdStep (96-636 bytes within
 	// thirdStepLate)
@@ -81,6 +84,7 @@ func (c *counters) snapshot() Counters {
 		"far_first":       c.farFirst.Load(),
 		"inspected":       c.inspected.Load(),
 		"not_shaped":      c.notShaped.Load(),
+		"not_random":      c.notRandom.Load(),
 		"confirmed":       c.confirmed.Load(),
 		"confirmed_late":  c.confirmedLate.Load(),
 		"refuted_again":   c.refutedAgain.Load(),
