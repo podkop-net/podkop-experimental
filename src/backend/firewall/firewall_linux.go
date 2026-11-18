@@ -92,8 +92,9 @@ const netlinkDeadline = time.Minute
 // (212992 bytes on nexus) held the answers to the table up to 0.8.18, and not to the table with
 // the detector's limits of 0.8.19: "netlink receive: recvmsg: no buffer space available", and no
 // table. A table with more rules for any other reason would have met the same. 2 MiB asked: twenty
-// times the default; only what is queued takes memory.
-const netlinkReadBuffer = 2 << 20
+// times the default; only what is queued takes memory. (A variable for the test that measures
+// what the table needs.)
+var netlinkReadBuffer = 2 << 20
 
 // newConn is a netlink connection of nftables whose reads end at netlinkDeadline and whose
 // receive buffer is netlinkReadBuffer; a connection that is not lasting dials anew at every

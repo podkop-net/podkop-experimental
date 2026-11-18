@@ -367,6 +367,36 @@ func TestBitTorrentSaved(t *testing.T) {
 	}
 }
 
+// The receive buffer the transaction of the whole table needs (netlinkReadBuffer): found for each
+// mode by halving, logged, and at most a quarter of what the firewall asks for. The kernel gives
+// twice what is asked, and a socket's default is 212992 bytes given.
+func TestReadBufferNeeded(t *testing.T) {
+	needNft(t)
+	asked := netlinkReadBuffer
+	t.Cleanup(func() { netlinkReadBuffer = asked; _ = Remove() })
+	for _, mode := range []string{"", BitTorrentBypass, BitTorrentBlock, BitTorrentSection} {
+		plan := &Plan{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: BitTorrent{Mode: mode, LAN: mode != BitTorrentBypass}}
+		low, high := 2<<10, asked
+		for high-low > 2<<10 {
+			middle := (low + high) / 2
+			netlinkReadBuffer = asked
+			_ = Remove()
+			netlinkReadBuffer = middle
+			if err := Apply(plan); err != nil {
+				low = middle
+			} else {
+				high = middle
+			}
+		}
+		netlinkReadBuffer = asked
+		rules := strings.Count(nft(t, "list", "table", "inet", tableName), "\n")
+		t.Logf("mode %q: the table (%d lines listed) needs a receive buffer of about %d bytes given (%d asked)", mode, rules, 2*high, high)
+		if high > asked/4 {
+			t.Errorf("mode %q: the table needs %d bytes asked, more than a quarter of the %d the firewall asks for", mode, high, asked)
+		}
+	}
+}
+
 // What is kept of the sets for a new table: the sets of the detector only, keys of their length, a
 // time left within the set's timeout, and of a set with more than its most, those with the most
 // time left.
