@@ -3,8 +3,10 @@ package firewall
 import (
 	"fmt"
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
+	"net/netip"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -326,6 +328,64 @@ func TestBitTorrentTable(t *testing.T) {
 	}
 	if err := Remove(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// KnowBitTorrentHost puts a device in bt_hosts for the whole timeout from now: one that is not
+// there is added; one that is there with little time left has the whole timeout again (an element
+// added again keeps its timer: it is taken out and put back, in one transaction); a table without
+// the set is an error. And EndUndecidedFlows's set of the devices whose connections were ended.
+func TestKnowBitTorrentHost(t *testing.T) {
+	needNft(t)
+	_ = Remove()
+	t.Cleanup(func() { _ = Remove() })
+	device := netip.MustParseAddr("192.168.1.60")
+	if err := KnowBitTorrentHost(device); err == nil {
+		t.Error("no table: no error")
+	}
+	if err := Apply(&Plan{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBlock, LAN: true, Fan: dataplane.DefaultFan}}); err != nil {
+		t.Fatal(err)
+	}
+	left := func(set string) time.Duration {
+		listing := nft(t, "list", "set", "inet", tableName, set)
+		match := regexp.MustCompile(`192\.168\.1\.60 (?:timeout \S+ )?expires (\S+?)[ ,}]`).FindStringSubmatch(listing)
+		if match == nil {
+			return -1
+		}
+		expires, err := time.ParseDuration(match[1])
+		if err != nil {
+			t.Fatalf("the time left %q: %v", match[1], err)
+		}
+		return expires
+	}
+	if got := left("bt_hosts"); got != -1 {
+		t.Fatalf("in the set before it was put there: %v", got)
+	}
+	// not there: added
+	if err := KnowBitTorrentHost(device); err != nil {
+		t.Fatal(err)
+	}
+	if got := left("bt_hosts"); got < bitTorrentTimeout-time.Minute {
+		t.Errorf("added: %v left of %v", got, bitTorrentTimeout)
+	}
+	// there with 10 s left: the whole timeout again
+	nft(t, "delete element inet "+tableName+" bt_hosts { 192.168.1.60 }")
+	nft(t, "add element inet "+tableName+" bt_hosts { 192.168.1.60 timeout 10s }")
+	if got := left("bt_hosts"); got < 0 || got > 10*time.Second {
+		t.Fatalf("the element of 10 s: %v left", got)
+	}
+	if err := KnowBitTorrentHost(device); err != nil {
+		t.Fatal(err)
+	}
+	if got := left("bt_hosts"); got < bitTorrentTimeout-time.Minute {
+		t.Errorf("kept known: %v left of %v", got, bitTorrentTimeout)
+	}
+	// the devices whose connections were ended: there for bitTorrentEndedFor
+	if _, err := EndUndecidedFlows(device); err != nil {
+		t.Fatal(err)
+	}
+	if got := left("bt_ended"); got < bitTorrentEndedFor-time.Minute || got > bitTorrentEndedFor {
+		t.Errorf("bt_ended: %v left of %v", got, bitTorrentEndedFor)
 	}
 }
 
