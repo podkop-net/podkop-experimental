@@ -12,6 +12,7 @@ import (
 	"github.com/sagernet/nftables"
 	"github.com/sagernet/nftables/binaryutil"
 	"github.com/sagernet/nftables/expr"
+	E "github.com/sagernet/sing/common/exceptions"
 	"golang.org/x/sys/unix"
 )
 
@@ -106,6 +107,9 @@ type BitTorrent struct {
 	// Sources are the devices the backend routes whole: in block (not LAN), a new connection from
 	// outside to a client's socket on one of them is dropped.
 	Sources []netip.Prefix
+	// Fan is the allowance of the suspicion by the fan-out of a device's connection openings
+	// (dataplane.Fan), for the block and the section of the whole LAN; off when it is nothing.
+	Fan dataplane.Fan
 }
 
 const (
@@ -163,6 +167,24 @@ const (
 	ctDiscovery   = dataplane.BitTorrentDiscoveryCt
 	ctIntercepted = dataplane.InterceptedCt
 	ctDecided     = ctBitTorrent | ctLate | ctNot | ctInspect
+	// ctSuspect: a suspect's connection under the early check (dataplane.BitTorrentSuspectCt)
+	ctSuspect = dataplane.BitTorrentSuspectCt
+)
+
+// The sets of the suspicion by fan-out (dataplane.Fan): the suspects, the
+// far addresses a device opened a connection to of late (device . far address), and the allowance
+// of each device (a limit an element). None is kept when the table is made anew.
+const (
+	SetBitTorrentSuspects = dataplane.BitTorrentSuspectsSet
+	setBitTorrentFanPairs = "bt_fan_pairs"
+	setBitTorrentFan      = "bt_fan"
+)
+
+// The sizes of the sets of the suspicion: the devices of a LAN (as bt_hosts), and the far
+// addresses of their connections to uncommon ports within the time a far address counts once.
+const (
+	bitTorrentSuspectsSize = 1024
+	bitTorrentFanPairsSize = 16384
 )
 
 // lsdAddress is the multicast group of the local peer discovery of BitTorrent (BEP 14), port 6771.
@@ -223,6 +245,34 @@ func ctMarkAdd(bits uint32) []expr.Any {
 		&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(^bits), Xor: binaryutil.NativeEndian.PutUint32(bits)},
 		&expr.Ct{Key: expr.CtKeyMARK, Register: 1, SourceRegister: true},
 	}
+}
+
+// ctMarkAll matches a conntrack mark with all the bits set.
+func ctMarkAll(bits uint32) []expr.Any {
+	return []expr.Any{
+		&expr.Ct{Key: expr.CtKeyMARK, Register: 1},
+		&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(bits), Xor: binaryutil.NativeEndian.PutUint32(0)},
+		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(bits)},
+	}
+}
+
+// ctMarkClear clears the bits in the conntrack mark, keeping the others.
+func ctMarkClear(bits uint32) []expr.Any {
+	return []expr.Any{
+		&expr.Ct{Key: expr.CtKeyMARK, Register: 1},
+		&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(^bits), Xor: binaryutil.NativeEndian.PutUint32(0)},
+		&expr.Ct{Key: expr.CtKeyMARK, Register: 1, SourceRegister: true},
+	}
+}
+
+// bitTorrentSuspicion tells whether the table has the suspicion by fan-out, and its allowance: the
+// setting is on, and the scope is the whole LAN (the traffic podkop takes passes the early check of
+// the transparent proxy already).
+func bitTorrentSuspicion(detector BitTorrent) (dataplane.Fan, bool) {
+	if !detector.LAN || detector.Mode == "" || detector.Mode == BitTorrentBypass || !detector.Fan.On() {
+		return dataplane.Fan{}, false
+	}
+	return detector.Fan, true
 }
 
 // endpoint loads an address and a port of a packet, for a key of address . port: the source
@@ -425,6 +475,35 @@ func loadBitTorrentSets(now time.Time) map[string][]nftables.SetElement {
 	return keepBitTorrent(kept)
 }
 
+// KnowBitTorrentHost keeps a device in bt_hosts for the set's whole timeout from now: the element
+// is taken out and put back, since one added again keeps the timer it had (kernel 6.6: R7 of the
+// A5 review). For a device the BitTorrent module told by its handshakes, which no packet of its own
+// keeps there: a client set to hide has no sign but its confirmed connections, and once out of the
+// set it would be free until suspected again, which the peers it keeps retrying do not count for.
+// A table or a set that is not there is an error; a device that was not in the set is added.
+func KnowBitTorrentHost(device netip.Addr) error {
+	if !device.Is4() {
+		return nil
+	}
+	conn, err := newConn()
+	if err != nil {
+		return err
+	}
+	set, err := conn.GetSetByName(&nftables.Table{Name: tableName, Family: nftables.TableFamilyINet}, SetBitTorrentHosts)
+	if err != nil {
+		return E.Cause(err, "find the set ", SetBitTorrentHosts)
+	}
+	element := []nftables.SetElement{{Key: device.AsSlice(), Timeout: bitTorrentTimeout}}
+	// (a delete of an element that is not there fails its batch: sent alone, its error left)
+	if err := conn.SetDeleteElements(set, element); err == nil {
+		_ = conn.Flush()
+	}
+	if err := conn.SetAddElements(set, element); err != nil {
+		return err
+	}
+	return conn.Flush()
+}
+
 // bitTorrentSetsThere tells whether the table there now has the detector's set of devices.
 func bitTorrentSetsThere() bool {
 	conn, err := newConn()
@@ -505,6 +584,12 @@ func addBitTorrentProxy(add func(*nftables.Chain, ...[]expr.Any), proxy *nftable
 		intercepted bool
 		port        uint16
 	}
+	// a suspect's connection of the traffic podkop does not take: the inbound of the suspects,
+	// before the rule of the inspected ones (it carries their bit too)
+	if _, suspicion := bitTorrentSuspicion(detector); suspicion {
+		add(proxy, ctMarkAll(ctSuspect), ctMarkTest(ctIntercepted, expr.CmpOpEq), markedForProxy(), protocol(unix.IPPROTO_TCP),
+			tproxyTo(dataplane.BitTorrentSuspectTProxyPort))
+	}
 	routes := []route{{ctInspect, true, dataplane.BitTorrentCheckTProxyPort}}
 	if detector.LAN {
 		routes = append(routes, route{ctInspect, false, dataplane.BitTorrentLANTProxyPort})
@@ -556,6 +641,22 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseTransportHeader, Offset: offset, Len: 2},
 			&expr.Lookup{SourceRegister: 1, SetName: ports.Name, SetID: ports.ID, Invert: true},
 		}
+	}
+	fan, suspicion := bitTorrentSuspicion(detector)
+	var suspects, fanPairs, fanMeter *nftables.Set
+	if suspicion {
+		newSet := func(name string, keyType nftables.SetDatatype, concatenation bool, timeout time.Duration, size uint32) *nftables.Set {
+			*nextID++
+			set := &nftables.Set{Table: table, ID: *nextID, Name: name, KeyType: keyType, Dynamic: true, HasTimeout: true,
+				Timeout: timeout, Concatenation: concatenation, Size: size}
+			if err := conn.AddSet(set, nil); err != nil && portsErr == nil {
+				portsErr = err
+			}
+			return set
+		}
+		suspects = newSet(SetBitTorrentSuspects, nftables.TypeIPAddr, false, fan.Suspect, bitTorrentSuspectsSize)
+		fanPairs = newSet(setBitTorrentFanPairs, nftables.MustConcatSetType(nftables.TypeIPAddr, nftables.TypeIPAddr), true, fan.Pair, bitTorrentFanPairsSize)
+		fanMeter = newSet(setBitTorrentFan, nftables.TypeIPAddr, false, 2*fan.Refill(), bitTorrentSuspectsSize)
 	}
 	accept := nftables.ChainPolicyAccept
 	detect := conn.AddChain(&nftables.Chain{Name: chainBitTorrentDetect, Table: table, Type: nftables.ChainTypeFilter,
@@ -723,6 +824,18 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	// (a peer of bt_peers on a port other programs use is not taken at its word: the top)
 	add(tcp, append(append([][]expr.Any{ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID)}, freePort()...), endpoint(offsetDestination, 2),
 		[]expr.Any{inSet(peers)}, counter, verdict(expr.VerdictGoto, handshake.Name))...)
+	if suspicion {
+		// a packet that is no SYN and that conntrack has no entry for (ct state new), of a device
+		// running a client, to an uncommon port: a connection it opened before it was told, whose
+		// entry the module ended (EndUndecidedFlows). It is reset: the device opens it again, and
+		// its SYN is decided as those of a device running a client are
+		add(tcp, append(append([][]expr.Any{ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID)}, freePort()...),
+			[]expr.Any{
+				&expr.Ct{Key: expr.CtKeySTATE, Register: 1},
+				&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(expr.CtStateBitNEW), Xor: binaryutil.NativeEndian.PutUint32(0)},
+				&expr.Cmp{Op: expr.CmpOpNeq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(0)},
+			}, counter, []expr.Any{&expr.Reject{Type: unix.NFT_REJECT_TCP_RST}})...)
+	}
 	add(tcp, hasPayload(), ctMarkAdd(ctNot))
 
 	// bt_syn: a connection to a peer the module learned for the device (refreshed: an element
@@ -742,6 +855,39 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		[]expr.Any{inSet(peers)}, ctMarkAdd(ctInspect), counter, returns)
 	add(syn, ipv4(), addressIn(offsetSource, SetBitTorrentHosts, hosts.ID), protocol(unix.IPPROTO_TCP), notCommonPort(2),
 		ctMarkAdd(ctInspect), counter, returns)
+
+	if suspicion {
+		// the suspicion by fan-out. A suspect, to an uncommon port: the connection
+		// goes under the early check (the inbound of the suspects, or the transparent proxy's when
+		// podkop takes it: bt_act). The suspicion is not refreshed: it ends fan.Suspect after it
+		// began, and a device that still fans out is a suspect again.
+		add(syn, append(append([][]expr.Any{ipv4(), addressIn(offsetSource, SetBitTorrentSuspects, suspects.ID)}, freePort()...),
+			ctMarkAdd(ctSuspect), counter, returns)...)
+		// A device no signature told, to an uncommon port, at a far address it opened no
+		// connection to within fan.Pair: one of its allowance (fan.Burst at once, fan.Rate more a
+		// unit). Over it, the device is a suspect, this connection included. A far address it
+		// keeps connecting to stays counted once (the first rule refreshes it): the ten servers a
+		// subscription's client tests every ten seconds are ten, not ten more each fan.Pair. As
+		// nft writes it:
+		//   ip saddr . ip daddr @bt_fan_pairs update @bt_fan_pairs { ip saddr . ip daddr } return
+		//   add @bt_fan_pairs { ip saddr . ip daddr }
+		//   update @bt_fan { ip saddr limit rate over RATE/UNIT burst BURST packets }
+		//   update @bt_suspects { ip saddr }
+		pairKey := func() []expr.Any {
+			return []expr.Any{
+				&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: offsetSource, Len: 4},
+				&expr.Payload{DestRegister: 9, Base: expr.PayloadBaseNetworkHeader, Offset: offsetDestination, Len: 4},
+			}
+		}
+		add(syn, append(append([][]expr.Any{ipv4()}, freePort()...),
+			pairKey(), []expr.Any{&expr.Lookup{SourceRegister: 1, SetName: fanPairs.Name, SetID: fanPairs.ID}},
+			pairKey(), []expr.Any{&expr.Dynset{SrcRegKey: 1, SetName: fanPairs.Name, SetID: fanPairs.ID, Operation: unix.NFT_DYNSET_OP_UPDATE}}, returns)...)
+		add(syn, append(append([][]expr.Any{ipv4()}, freePort()...),
+			pairKey(), []expr.Any{&expr.Dynset{SrcRegKey: 1, SetName: fanPairs.Name, SetID: fanPairs.ID, Operation: unix.NFT_DYNSET_OP_ADD}},
+			[]expr.Any{addressLoad(offsetSource), &expr.Dynset{SrcRegKey: 1, SetName: fanMeter.Name, SetID: fanMeter.ID, Operation: unix.NFT_DYNSET_OP_UPDATE,
+				Exprs: []expr.Any{&expr.Limit{Type: expr.LimitTypePkts, Rate: fan.Rate, Unit: expr.LimitTime(fan.Unit), Burst: fan.Burst, Over: true}}}},
+			[]expr.Any{addressLoad(offsetSource), update(suspects)}, ctMarkAdd(ctSuspect), counter, returns)...)
+	}
 
 	// bt_handshake: the plaintext handshake; a connection the proxy has taken stays with sing-box
 	add(handshake, updateHost()...)
@@ -817,6 +963,11 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(markProxy), Xor: binaryutil.NativeEndian.PutUint32(0)},
 		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(0)},
 	}, verdict(expr.VerdictGoto, free.Name))
+	if suspicion {
+		// a suspect's connection that podkop takes: the transparent proxy's own early check sees
+		// it, as it would with no suspicion (the mark goes; its first data is told in bt_tcp)
+		add(act, ctMarkAll(ctSuspect), ctMarkClear(ctSuspect), counter)
+	}
 	add(act, ctMarkTest(ctIntercepted, expr.CmpOpEq), ctMarkAdd(ctIntercepted))
 	// inspected: the mark stays, proxy sends it to the inspection inbound
 	add(act, ctMarkTest(ctInspect, expr.CmpOpNeq), returns)

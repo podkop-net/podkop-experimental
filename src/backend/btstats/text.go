@@ -104,6 +104,10 @@ func Duration(seconds int64) string {
 // Lines are the global check's lines of a report.
 func Lines(report Report) []string {
 	if report.Mode == "" || report.Mode == model.BitTorrentOff {
+		if report.Problem == ProblemRule {
+			return []string{"BitTorrent: as the other traffic (the detector is off)",
+				"  ❌ the settings send BitTorrent through the servers of the rule " + report.Rule + ", which is not there, is switched off or has no servers"}
+		}
 		return []string{"BitTorrent: as the other traffic (the detector is off)"}
 	}
 	lines := []string{fmt.Sprintf("BitTorrent: %s; since %s, read %s ago", ModeName(report), Duration(report.Since), Duration(report.Read))}
@@ -154,8 +158,12 @@ func Lines(report Report) []string {
 			module["refuted_again"], module["refuted_long"], module["refuted_short"], module["refuted_third"],
 			module["no_data"]+module["unanswered"]+module["no_third"], module["no_data"], module["unanswered"], module["no_third"],
 			module["plaintext"]))
+		if module["early_suspects"] > 0 || module["early_kept_known"] > 0 {
+			lines = append(lines, fmt.Sprintf("  clients that hide: %d devices told by the burst of their connections, %d connections they had opened before ended, "+
+				"a told device kept known %d times", module["early_suspects"], module["early_ended"], module["early_kept_known"]))
+		}
 		if module["early_watched"] > 0 {
-			lines = append(lines, fmt.Sprintf("  the early check: %d connections of the transparent proxy watched, %d confirmed before their device was known to run a client, "+
+			lines = append(lines, fmt.Sprintf("  the early check: %d connections of devices with no sign of a client watched, %d confirmed before their device was known to run a client, "+
 				"%d of them taken as BitTorrent since (%d devices told by their own peers), %d waited too long",
 				module["early_watched"], module["early_confirmed"], module["early_acted"], module["early_self"], module["early_expired"]))
 		}

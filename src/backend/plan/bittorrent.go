@@ -36,7 +36,12 @@ const (
 	tagBitTorrentInbound      = "bt-in"
 	tagBitTorrentLANInbound   = "bt-lan"
 	tagBitTorrentCheckInbound = "bt-check"
-	tagBitTorrentService      = "bittorrent"
+	// tagBitTorrentSuspectInbound: the connections of the devices the firewall suspects by the
+	// fan-out of their connection openings (dataplane.Fan), of the traffic
+	// podkop does not take: out directly, as the inbound of the LAN; the module checks them as
+	// its early check does those of the transparent proxy.
+	tagBitTorrentSuspectInbound = "bt-suspect"
+	tagBitTorrentService        = "bittorrent"
 )
 
 // BitTorrentCheckInboundTag is the inbound of the connections the module inspects: they are of the
@@ -78,6 +83,37 @@ func (b *builder) bitTorrentLAN() bool {
 
 // proxyInbounds are the inbounds of the traffic the firewall marks, which podkop's rules route:
 // the transparent proxy, and the inspection inbound of BitTorrent when it is on.
+// bitTorrentFan is the allowance of the suspicion by fan-out, nothing when it is off: the setting
+// is on and the scope is the whole LAN (firewall.bitTorrentSuspicion tells the table the same). An
+// allowance of the settings that cannot be read leaves the default, with a warning.
+func (b *builder) bitTorrentFan() dataplane.Fan {
+	settings := &b.config.Settings
+	if !settings.BitTorrentSuspect || !b.bitTorrentLAN() {
+		return dataplane.Fan{}
+	}
+	if settings.BitTorrentAllowance == "" {
+		return dataplane.DefaultFan
+	}
+	fan, ok := dataplane.ParseFan(settings.BitTorrentAllowance)
+	if !ok {
+		b.warnOnce("BitTorrent: the allowance \"" + settings.BitTorrentAllowance + "\" (bittorrent_lan_allowance) is not \"BURST RATE/UNIT PAIR SUSPECT\": the default is used")
+		return dataplane.DefaultFan
+	}
+	return fan
+}
+
+// bitTorrentSuspicion tells whether the suspicion by fan-out is on.
+func (b *builder) bitTorrentSuspicion() bool { return b.bitTorrentFan().On() }
+
+// bitTorrentLANInbounds are the inbounds of the traffic podkop does not take whose connections
+// go out directly once the mode's rule of the sniffed protocol passed them.
+func (b *builder) bitTorrentLANInbounds() []any {
+	if b.bitTorrentSuspicion() {
+		return []any{tagBitTorrentLANInbound, tagBitTorrentSuspectInbound}
+	}
+	return []any{tagBitTorrentLANInbound}
+}
+
 func (b *builder) proxyInbounds() any {
 	if b.bitTorrentMode == model.BitTorrentOff {
 		return tagTProxyInbound
@@ -92,7 +128,7 @@ func (b *builder) bitTorrentSniffed() []any {
 	if b.bitTorrentMode == model.BitTorrentOff {
 		return nil
 	}
-	return []any{tagBitTorrentCheckInbound, tagBitTorrentLANInbound}
+	return append([]any{tagBitTorrentCheckInbound}, b.bitTorrentLANInbounds()...)
 }
 
 // buildBitTorrentInbound adds the inbounds of BitTorrent (bt-in, of no use in block, where the
@@ -110,6 +146,9 @@ func (b *builder) buildBitTorrentInbound() {
 	}
 	tproxy(tagBitTorrentLANInbound, dataplane.BitTorrentLANTProxyPort)
 	tproxy(tagBitTorrentCheckInbound, dataplane.BitTorrentCheckTProxyPort)
+	if b.bitTorrentSuspicion() {
+		tproxy(tagBitTorrentSuspectInbound, dataplane.BitTorrentSuspectTProxyPort)
+	}
 	b.buildBitTorrentService()
 }
 
@@ -132,9 +171,15 @@ func (b *builder) buildBitTorrentService() {
 	for _, port := range dataplane.BitTorrentCommonPorts {
 		never = append(never, port)
 	}
+	learn := []any{tagBitTorrentInbound, tagBitTorrentLANInbound, tagBitTorrentCheckInbound}
+	early := []any{newObject("inbound", tagTProxyInbound, "confirmed", confirmed)}
+	if b.bitTorrentSuspicion() {
+		learn = append(learn, tagBitTorrentSuspectInbound)
+		early = append(early, newObject("inbound", tagBitTorrentSuspectInbound, "confirmed", confirmed, "suspect", true))
+	}
 	b.services = append(b.services, newObject("type", bitTorrentServiceType, "tag", tagBitTorrentService,
 		"table", dataplane.FirewallTable, "set", dataplane.BitTorrentLearnedSet,
-		"learn", []any{tagBitTorrentInbound, tagBitTorrentLANInbound, tagBitTorrentCheckInbound},
+		"learn", learn,
 		"learn_sniffed", []any{tagTProxyInbound},
 		"inspect", []any{
 			newObject("inbound", tagBitTorrentCheckInbound, "confirmed", confirmed),
@@ -143,7 +188,7 @@ func (b *builder) buildBitTorrentService() {
 		// the early check (0.8.18): a connection of the transparent proxy to an uncommon port,
 		// confirmed before the firewall knew its device runs a client, is done with as those of
 		// bt-check once it knows
-		"early", []any{newObject("inbound", tagTProxyInbound, "confirmed", confirmed)},
+		"early", early,
 		"hosts", dataplane.BitTorrentHostsSet,
 		// one device's discovery must not fill the set for all: a quarter of it
 		"per_device", dataplane.BitTorrentLearnedSize/4,
@@ -160,26 +205,30 @@ func (b *builder) addBitTorrentRoutes() {
 		return
 	case model.BitTorrentBypass:
 		b.addRouteRule("", newObject("action", "route", "inbound", tagBitTorrentInbound, "outbound", tagDirectOutbound))
-		b.addRouteRule("", newObject("action", "route", "inbound", append(taken, tagBitTorrentLANInbound), "protocol", "bittorrent", "outbound", tagDirectOutbound))
+		b.addRouteRule("", newObject("action", "route", "inbound", append(taken, b.bitTorrentLANInbounds()...), "protocol", "bittorrent", "outbound", tagDirectOutbound))
 	case model.BitTorrentBlock:
-		b.addRouteRule("", newObject("action", "reject", "inbound", append(taken, tagBitTorrentLANInbound), "protocol", "bittorrent"))
+		b.addRouteRule("", newObject("action", "reject", "inbound", append(taken, b.bitTorrentLANInbounds()...), "protocol", "bittorrent"))
 	case model.BitTorrentSection:
 		b.addRouteRule("", b.sectionRoute(b.bitTorrentSection, tagBitTorrentInbound))
 		if b.bitTorrentLAN() {
-			taken = append(taken, tagBitTorrentLANInbound)
+			taken = append(taken, b.bitTorrentLANInbounds()...)
 		}
 		sniffed := b.sectionRoute(b.bitTorrentSection, taken)
 		sniffed.set("protocol", "bittorrent")
 		b.addRouteRule("", sniffed)
 	}
-	b.addRouteRule("", newObject("action", "route", "inbound", tagBitTorrentLANInbound, "outbound", tagDirectOutbound))
+	var lan any = tagBitTorrentLANInbound
+	if b.bitTorrentSuspicion() {
+		lan = b.bitTorrentLANInbounds()
+	}
+	b.addRouteRule("", newObject("action", "route", "inbound", lan, "outbound", tagDirectOutbound))
 }
 
 // bitTorrentDataplane is what the firewall is told of BitTorrent: the mode (none when off), and
 // whether it acts on the whole LAN.
-func (b *builder) bitTorrentDataplane() (string, bool) {
+func (b *builder) bitTorrentDataplane() (string, bool, dataplane.Fan) {
 	if b.bitTorrentMode == model.BitTorrentOff {
-		return "", false
+		return "", false, dataplane.Fan{}
 	}
-	return b.bitTorrentMode, b.bitTorrentLAN()
+	return b.bitTorrentMode, b.bitTorrentLAN(), b.bitTorrentFan()
 }

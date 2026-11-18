@@ -3255,6 +3255,19 @@ function renderBitTorrent(table, onReset) {
   if (!table) {
     return E("div", { class: "pdk_dashboard-page__bittorrent hidden" }, []);
   }
+  if (table.problem) {
+    return E("div", { class: "pdk_dashboard-page__bittorrent" }, [
+      E("div", { class: "pdk_dashboard-page__bittorrent__title" }, [
+        E("b", {}, "BitTorrent"),
+        E("span", { class: "pdk_dashboard-page__bittorrent__mode" }, [
+          table.mode
+        ])
+      ]),
+      E("div", { class: "pdk_dashboard-page__bittorrent__blocked" }, [
+        `\u26A0\uFE0F ${table.problem}`
+      ])
+    ]);
+  }
   const body = table.rows.length ? [
     renderHead(),
     ...table.rows.map((row) => renderRow(row, "")),
@@ -3432,7 +3445,22 @@ function spanText(seconds) {
   );
 }
 function bitTorrentTable(report) {
-  if (!report || !report.mode || report.mode === "off") return void 0;
+  if (!report) return void 0;
+  if (!report.mode || report.mode === "off") {
+    if (report.problem !== "rule") return void 0;
+    return {
+      mode: _("As the other traffic"),
+      since: "",
+      reset: false,
+      rows: [],
+      blocked: [],
+      notes: [],
+      caption: "",
+      problem: _(
+        "The rule \xAB%s\xBB chosen for BitTorrent in the settings is switched off, deleted or has no servers: BitTorrent goes as the other traffic"
+      ).format(report.rule || "")
+    };
+  }
   const rows = (report.rows || []).map((row) => ({
     kind: bitTorrentKindName(row.kind),
     way: bitTorrentWayName(row.way, report.rule),
@@ -3538,6 +3566,13 @@ function bitTorrentTable(report) {
       _(
         "Devices with no other sign of a client: %d connections confirmed as BitTorrent, %d devices told by them"
       ).format(module.early_confirmed ?? 0, module.early_self ?? 0)
+    );
+  }
+  if (module && (module.early_suspects ?? 0) > 0) {
+    notes.push(
+      _(
+        "Clients that hide: %d devices told by the burst of their connections, %d connections they had opened before closed"
+      ).format(module.early_suspects ?? 0, module.early_ended ?? 0)
     );
   }
   return {

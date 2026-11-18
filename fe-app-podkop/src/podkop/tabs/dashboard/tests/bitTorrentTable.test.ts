@@ -155,6 +155,26 @@ describe('bitTorrentTable', () => {
     ]);
   });
 
+  it('has a card that says why when the rule of the mode is off, and a line of the hidden clients told', () => {
+    const table = bitTorrentTable(
+      report({ mode: '', problem: 'rule', rule: 'Torrents' }),
+    );
+    expect(table?.problem).toBe(
+      'The rule «Torrents» chosen for BitTorrent in the settings is switched off, deleted or has no servers: BitTorrent goes as the other traffic',
+    );
+    expect(table?.rows).toEqual([]);
+    const told = bitTorrentTable(
+      report({
+        mode: 'block',
+        lan: true,
+        module: { early_suspects: 2, early_ended: 9 },
+      }),
+    );
+    expect(told?.notes).toEqual([
+      'Clients that hide: 2 devices told by the burst of their connections, 9 connections they had opened before closed',
+    ]);
+  });
+
   it('says a span short', () => {
     expect(spanText(42)).toBe('42 s');
     expect(spanText(150)).toBe('2 min');

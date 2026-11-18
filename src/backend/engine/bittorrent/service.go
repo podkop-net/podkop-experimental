@@ -119,7 +119,18 @@ type Options struct {
 type InspectOptions struct {
 	Inbound   string    `json:"inbound"`
 	Confirmed Confirmed `json:"confirmed"`
+	// Suspect (of Early): the inbound carries, of the traffic podkop does not take,
+	// the connections of devices the firewall suspects of running a client (by the fan-out of
+	// their connection openings). When the early check tells such a device, the module puts it
+	// in the set Hosts itself (the firewall then inspects its connections as a client's) and has
+	// the connections it opened before ended (EndOlder).
+	Suspect bool `json:"suspect,omitempty"`
 }
+
+// EndOlder ends the connections a device opened before it was told, those the firewall left as
+// forwarded, and tells how many (the backend sets it: firewall.EndUndecidedFlows; nil, nothing is
+// ended).
+var EndOlder func(device netip.Addr) (int, error)
 
 // Register adds the service to a registry of sing-box services.
 func Register(registry *boxService.Registry) {
@@ -128,17 +139,30 @@ func Register(registry *boxService.Registry) {
 
 // Service is the module, a service of sing-box.
 type Service struct {
-	ctx        context.Context
-	logger     log.ContextLogger
-	tag        string
-	options    Options
-	learnOn    map[string]bool
-	sniffedOn  map[string]bool
-	inspectOn  map[string]Confirmed
-	earlyOn    map[string]Confirmed
-	neverPorts map[uint16]struct{}
-	wait       time.Duration
-	thirdStep  time.Duration
+	ctx       context.Context
+	logger    log.ContextLogger
+	tag       string
+	options   Options
+	learnOn   map[string]bool
+	sniffedOn map[string]bool
+	inspectOn map[string]Confirmed
+	earlyOn   map[string]Confirmed
+	// suspectOn: the early inbounds of the suspects; hosts writes the devices told there to the
+	// set Hosts (hostsSink: the writer, or a test's); earlySuspects counts those devices,
+	// earlyEnded the older connections ended for them; ended: when a device's were ended last
+	// (under pendingMu)
+	suspectOn     map[string]bool
+	hosts         *writer
+	hostsSink     adder
+	earlySuspects atomic.Int64
+	earlyEnded    atomic.Int64
+	ended         map[netip.Addr]time.Time
+	// kept: when a device was kept known last (keepKnown; under pendingMu); earlyKeptKnown counts
+	kept           map[netip.Addr]time.Time
+	earlyKeptKnown atomic.Int64
+	neverPorts     map[uint16]struct{}
+	wait           time.Duration
+	thirdStep      time.Duration
 	// thirdStepLate: see Options.ThirdStepLate
 	thirdStepLate time.Duration
 	devices       devices
@@ -187,7 +211,14 @@ type waiting struct {
 	far       netip.AddrPort
 	since     time.Time
 	confirmed Confirmed
+	// suspect: of the inbound of the suspects
+	suspect bool
 }
+
+// endOlderEvery is the least between two times the older connections of one device are ended: the
+// device is in the set Hosts for the firewall's timeout after the first, and its connections are
+// decided at their SYN from then on.
+const endOlderEvery = time.Minute
 
 // earlyPoll is how often the devices of pending connections are looked up in the set Hosts: a
 // dump of a set of a few devices, under a millisecond; a connection found early is acted on within
@@ -223,7 +254,7 @@ func New(ctx context.Context, logger log.ContextLogger, tag string, options Opti
 	s := &Service{ctx: ctx, logger: logger, tag: tag, options: options,
 		learnOn: make(map[string]bool), sniffedOn: make(map[string]bool), inspectOn: make(map[string]Confirmed), neverPorts: make(map[uint16]struct{}),
 		earlyOn: make(map[string]Confirmed), pending: make(map[netip.Addr][]*waiting), stopPolling: make(chan struct{}),
-		kick: make(chan struct{}, 1)}
+		kick: make(chan struct{}, 1), suspectOn: make(map[string]bool), ended: make(map[netip.Addr]time.Time)}
 	for _, inbound := range options.Learn {
 		s.learnOn[inbound] = true
 	}
@@ -236,6 +267,9 @@ func New(ctx context.Context, logger log.ContextLogger, tag string, options Opti
 	if options.Table != "" && options.Hosts != "" {
 		for _, early := range options.Early {
 			s.earlyOn[early.Inbound] = early.Confirmed
+			if early.Suspect {
+				s.suspectOn[early.Inbound] = true
+			}
 		}
 		s.known = func() (map[netip.Addr]bool, error) { return readHosts(options.Table, options.Hosts) }
 	}
@@ -253,6 +287,9 @@ func New(ctx context.Context, logger log.ContextLogger, tag string, options Opti
 	s.devices = devices{cap: perDevice, window: timeout}
 	if options.Table != "" && options.Set != "" {
 		s.writer = newWriter(options.Table, options.Set, timeout, s.wait, &s.counters)
+	}
+	if len(s.suspectOn) > 0 {
+		s.hosts = newWriter(options.Table, options.Hosts, timeout, s.wait, &s.counters)
 	}
 	return s, nil
 }
@@ -283,6 +320,15 @@ func (s *Service) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 			s.sink = s.writer
 		}
 	}
+	if s.hosts != nil {
+		if err := s.hosts.start(); err != nil {
+			// fail open: a suspect told is not put in the set, its connections go on
+			s.logger.Error("BitTorrent: no netlink for the set of devices, a suspect told stays a suspect: ", err)
+			s.hosts = nil
+		} else {
+			s.hostsSink = s.hosts
+		}
+	}
 	service.FromContext[adapter.Router](s.ctx).AppendTracker(s)
 	running.Store(s)
 	if len(s.earlyOn) > 0 {
@@ -300,6 +346,9 @@ func (s *Service) close() error {
 	}
 	if s.writer != nil {
 		s.writer.close()
+	}
+	if s.hosts != nil {
+		s.hosts.close()
 	}
 	return nil
 }
@@ -324,6 +373,9 @@ func Snapshot() Counters {
 	snapshot["early_expired"] = s.earlyExpired.Load()
 	snapshot["early_gone"] = s.earlyGone.Load()
 	snapshot["early_read_failed"] = s.earlyReadFailed.Load()
+	snapshot["early_suspects"] = s.earlySuspects.Load()
+	snapshot["early_ended"] = s.earlyEnded.Load()
+	snapshot["early_kept_known"] = s.earlyKeptKnown.Load()
 	return snapshot
 }
 
@@ -356,7 +408,7 @@ func (s *Service) RoutedConnection(ctx context.Context, connection net.Conn, met
 		counted.watched.Add(1)
 	}
 	return &conn{Conn: connection, service: s, cnt: counted, early: early, device: device, far: far, inspect: inspect, confirmed: confirmed,
-		routed: metadata.Protocol == C.ProtocolBitTorrent}
+		routed: metadata.Protocol == C.ProtocolBitTorrent, suspect: early && s.suspectOn[metadata.Inbound]}
 }
 
 // logConfirmed tells a confirmed connection in the log: the device, the far end, what was done. A
@@ -373,6 +425,9 @@ func (s *Service) logConfirmed(device netip.Addr, far netip.AddrPort, done strin
 func (s *Service) initEarly() {
 	if s.selfTold == nil {
 		s.selfTold, s.noRetry, s.selfKnown = make(map[netip.Addr]time.Time), make(map[netip.Addr]time.Time), make(map[netip.Addr]time.Time)
+	}
+	if s.ended == nil {
+		s.ended = make(map[netip.Addr]time.Time)
 	}
 }
 
@@ -393,7 +448,7 @@ func (s *Service) selfKnownNow(device netip.Addr, now time.Time) bool {
 // the rest carried the whole download through the rule's server (100 % of 184 MB, against 93-98 %
 // straight when the round closed them all and aria2 connected again; the stand of 2026-11-18).
 func (s *Service) pend(c *conn, now time.Time) *waiting {
-	w := &waiting{far: c.far, since: now, confirmed: c.confirmed}
+	w := &waiting{far: c.far, since: now, confirmed: c.confirmed, suspect: c.suspect}
 	w.conn.Store(c)
 	s.pendingMu.Lock()
 	defer s.pendingMu.Unlock()
@@ -484,9 +539,87 @@ func (s *Service) actOnKnown(now time.Time) {
 		}
 		return
 	}
-	for _, d := range s.sweep(now, known) {
+	dues, told := s.sweep(now, known)
+	for _, device := range told {
+		s.tell(device)
+	}
+	for _, d := range dues {
 		s.actOn(d)
 	}
+}
+
+// KeepKnown keeps a device in the firewall's set of devices for the set's whole timeout from now
+// (firewall.KnowBitTorrentHost; set by the engine, nil in tests and where there is no firewall).
+var KeepKnown func(device netip.Addr) error
+
+// keepKnownEvery is how often at most a device is kept known: a third of the 30 minutes the firewall
+// keeps a device, so that one whose handshakes go on being confirmed never leaves the set.
+const keepKnownEvery = 10 * time.Minute
+
+// keepKnown keeps the device of a confirmed connection known to the firewall, with the suspicion
+// by fan-out on: a device the module told has no packet of its own that keeps it in the set (a
+// client set to hide shows nothing but its handshakes), and the peers it retries are not counted
+// again, so once out of the set it would go unchecked. Off the connection's path: a netlink
+// round trip, at most one every keepKnownEvery a device.
+func (s *Service) keepKnown(device netip.Addr) {
+	if len(s.suspectOn) == 0 || KeepKnown == nil || !device.Is4() {
+		return
+	}
+	now := time.Now()
+	s.pendingMu.Lock()
+	if s.kept == nil {
+		s.kept = make(map[netip.Addr]time.Time)
+	}
+	if last, seen := s.kept[device]; seen && now.Sub(last) < keepKnownEvery {
+		s.pendingMu.Unlock()
+		return
+	}
+	if len(s.kept) >= keptMost {
+		clear(s.kept)
+	}
+	s.kept[device] = now
+	s.pendingMu.Unlock()
+	s.earlyKeptKnown.Add(1)
+	go func() {
+		if err := KeepKnown(device); err != nil && s.logger != nil {
+			s.logger.Debug("BitTorrent: ", device, " was not kept in the set of devices: ", err)
+		}
+	}()
+}
+
+// keptMost bounds the devices keepKnown remembers (the firewall's set of devices holds 1024).
+const keptMost = 1024
+
+// tell does, for a suspect the early check told (or that the firewall knows by now), what the
+// firewall cannot: the device goes to the set Hosts, so that its next connections are inspected as
+// a client's and a packet of a connection whose entry is ended is reset; then the connections it
+// opened before, which the firewall left as forwarded, are ended (EndOlder). Before its confirmed
+// connections are acted on.
+func (s *Service) tell(device netip.Addr) {
+	s.earlySuspects.Add(1)
+	s.pendingMu.Lock()
+	if s.kept == nil {
+		s.kept = make(map[netip.Addr]time.Time)
+	}
+	s.kept[device] = time.Now()
+	s.pendingMu.Unlock()
+	if s.hostsSink != nil {
+		if err := s.hostsSink.add([][]byte{device.AsSlice()}, s.wait); err != nil && s.logger != nil {
+			s.logger.Warn("BitTorrent: ", device, " was not put in the set of devices: ", err)
+		}
+	}
+	if EndOlder == nil {
+		return
+	}
+	ended, err := EndOlder(device)
+	s.earlyEnded.Add(int64(ended))
+	if s.logger == nil {
+		return
+	}
+	if err != nil {
+		s.logger.Warn("BitTorrent: the connections ", device, " opened before it was told were not all ended: ", err)
+	}
+	s.logger.Info("BitTorrent: ", device, ", suspected by the fan-out of its connections, is taken as running a client: ", ended, " connections it opened before are ended")
 }
 
 // expireEarly forgets, at now, what ran out (the devices that keep their connections, those told
@@ -524,7 +657,7 @@ func (s *Service) expireEarly(now time.Time) bool {
 
 // sweep judges, at now and with the devices known to the firewall, the devices watched and the
 // connections that wait, and gives those to act on.
-func (s *Service) sweep(now time.Time, known map[netip.Addr]bool) []due {
+func (s *Service) sweep(now time.Time, known map[netip.Addr]bool) (all []due, told []netip.Addr) {
 	s.pendingMu.Lock()
 	defer s.pendingMu.Unlock()
 	s.knownFailing = false
@@ -542,7 +675,11 @@ func (s *Service) sweep(now time.Time, known map[netip.Addr]bool) []due {
 			}
 		}
 	}
-	var all []due
+	for device, at := range s.ended {
+		if now.Sub(at) > endOlderEvery {
+			delete(s.ended, device)
+		}
+	}
 	for device, list := range s.pending {
 		// a connection of the transparent proxy is done with as the mode says: all of a
 		// device's waiting ones alike; only learn_reset waits for a device to connect again
@@ -573,12 +710,20 @@ func (s *Service) sweep(now time.Time, known map[netip.Addr]bool) []due {
 				s.logger.Info("BitTorrent: ", device, " made the encrypted handshake of BitTorrent with ", len(distinct), " peers: taken as running a client")
 			}
 		}
+		suspect := false
 		for _, w := range list {
 			all = append(all, due{device: device, waiting: w, kept: kept})
+			suspect = suspect || w.suspect
+		}
+		// a suspect whose connections are acted on (told by them, or known to the firewall by a
+		// signature that came after): the caller puts it in the set and ends its older connections
+		if _, done := s.ended[device]; suspect && !done {
+			s.ended[device] = now
+			told = append(told, device)
 		}
 		delete(s.pending, device)
 	}
-	return all
+	return all, told
 }
 
 // actOn does with a connection that waited what its inbound says, now that its device is known.

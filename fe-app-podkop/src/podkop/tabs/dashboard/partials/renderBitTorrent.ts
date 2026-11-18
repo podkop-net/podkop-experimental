@@ -92,6 +92,19 @@ export function renderBitTorrent(
   if (!table) {
     return E('div', { class: 'pdk_dashboard-page__bittorrent hidden' }, []);
   }
+  if (table.problem) {
+    return E('div', { class: 'pdk_dashboard-page__bittorrent' }, [
+      E('div', { class: 'pdk_dashboard-page__bittorrent__title' }, [
+        E('b', {}, 'BitTorrent'),
+        E('span', { class: 'pdk_dashboard-page__bittorrent__mode' }, [
+          table.mode,
+        ]),
+      ]),
+      E('div', { class: 'pdk_dashboard-page__bittorrent__blocked' }, [
+        `⚠️ ${table.problem}`,
+      ]),
+    ]);
+  }
   const body = table.rows.length
     ? [
         renderHead(),

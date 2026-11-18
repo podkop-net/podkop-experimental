@@ -29,6 +29,9 @@ export interface BitTorrentTable {
   notes: string[];
   // what the numbers are, under the table
   caption: string;
+  // BitTorrent goes as the other traffic although the settings ask otherwise: the card says why
+  // and shows nothing else
+  problem?: string;
 }
 
 export function bitTorrentKindName(kind: Podkop.BitTorrentKind): string {
@@ -101,7 +104,22 @@ export function spanText(seconds: number): string {
 export function bitTorrentTable(
   report: Podkop.BitTorrentReport | undefined,
 ): BitTorrentTable | undefined {
-  if (!report || !report.mode || report.mode === 'off') return undefined;
+  if (!report) return undefined;
+  if (!report.mode || report.mode === 'off') {
+    if (report.problem !== 'rule') return undefined;
+    return {
+      mode: _('As the other traffic'),
+      since: '',
+      reset: false,
+      rows: [],
+      blocked: [],
+      notes: [],
+      caption: '',
+      problem: _(
+        'The rule «%s» chosen for BitTorrent in the settings is switched off, deleted or has no servers: BitTorrent goes as the other traffic',
+      ).format(report.rule || ''),
+    };
+  }
   const rows = (report.rows || []).map((row) => ({
     kind: bitTorrentKindName(row.kind),
     way: bitTorrentWayName(row.way, report.rule),
@@ -222,6 +240,14 @@ export function bitTorrentTable(
       _(
         'Devices with no other sign of a client: %d connections confirmed as BitTorrent, %d devices told by them',
       ).format(module.early_confirmed ?? 0, module.early_self ?? 0),
+    );
+  }
+  // the suspicion by fan-out: the devices it told, and the connections they had opened before
+  if (module && (module.early_suspects ?? 0) > 0) {
+    notes.push(
+      _(
+        'Clients that hide: %d devices told by the burst of their connections, %d connections they had opened before closed',
+      ).format(module.early_suspects ?? 0, module.early_ended ?? 0),
     );
   }
   return {

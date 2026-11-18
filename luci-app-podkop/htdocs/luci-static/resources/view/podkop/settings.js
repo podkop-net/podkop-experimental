@@ -411,17 +411,32 @@ function createSettingsContent(section, singBoxFeatures = []) {
     _("Its servers carry the BitTorrent traffic podkop takes"),
   );
   // the rules are listed when the field is drawn: the settings are loaded then, not yet when the
-  // form is made (the list was empty, 2026-11-15); a rule that is gone is shown as such
+  // form is made (the list was empty, 2026-11-15); a rule that is gone or switched off is shown
+  // as such, and the one chosen has a warning under the field: with such a rule BitTorrent goes
+  // as the other traffic, and only the log said so (the stand of 2026-11-18)
+  const ruleDescription = _(
+    "Its servers carry the BitTorrent traffic podkop takes",
+  );
   o.renderWidget = function (section_id, option_index, cfgvalue) {
     this.keylist = [];
     this.vallist = [];
+    let off = false;
     uci.sections("podkop", "section").forEach((rule) => {
-      const label = String(rule.label || "").trim();
-      this.value(rule[".name"], label || rule[".name"]);
+      const label = String(rule.label || "").trim() || rule[".name"];
+      const isOff = rule.enabled === "0";
+      this.value(rule[".name"], isOff ? _("%s (off)").format(label) : label);
+      off = off || (isOff && rule[".name"] === cfgvalue);
     });
-    if (cfgvalue && !this.keylist.includes(cfgvalue)) {
+    const gone = cfgvalue && !this.keylist.includes(cfgvalue);
+    if (gone) {
       this.value(cfgvalue, _("%s (deleted)").format(cfgvalue));
     }
+    this.description =
+      off || gone
+        ? _(
+            "⚠️ This rule is switched off or deleted: BitTorrent goes as the other traffic until the rule is on again or another one is chosen",
+          )
+        : ruleDescription;
     return form.ListValue.prototype.renderWidget.call(
       this,
       section_id,
@@ -440,6 +455,21 @@ function createSettingsContent(section, singBoxFeatures = []) {
   o.value("lan", _("On the whole LAN"));
   o.default = "podkop";
   o.depends("bittorrent", "section");
+
+  // the suspicion by the fan-out of a device's connection openings (the backend's
+  // dataplane/fan.go): for the scope of the whole LAN only
+  o = section.option(
+    form.Flag,
+    "bittorrent_lan_suspect",
+    _("Find clients that hide"),
+    _(
+      "A client set up without DHT, uTP and peer exchange, with encryption required, shows the router no sign of BitTorrent. With this on, a device that opens connections to many new addresses on uncommon ports at once has its new connections checked through sing-box; when three of them turn out to be BitTorrent, the device is taken as running a client and the connections it opened before are closed. Not found: a download with only a few peers. An I2P router is taken for BitTorrent. Connections under the check are not offloaded",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+  o.depends({ bittorrent: "block", bittorrent_block_scope: "lan" });
+  o.depends({ bittorrent: "section", bittorrent_section_scope: "lan" });
 
   // "Find a mask" on the dashboard tries its built-in names and, in turn with them, the names of a
   // public whitelists; the backend downloads them for each search and keeps the last copies in RAM

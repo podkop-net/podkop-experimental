@@ -328,6 +328,9 @@ type Dataplane struct {
 	// Interfaces.
 	BitTorrent    string
 	BitTorrentLAN bool
+	// BitTorrentFan is the allowance of the suspicion by the fan-out of a device's connection
+	// openings (dataplane.Fan), nothing when it is off
+	BitTorrentFan dataplane.Fan
 }
 
 // defaultInterface is the interface the firewall takes traffic from when the settings
@@ -382,7 +385,7 @@ func (b *builder) devices(names []string) []string {
 func (b *builder) dataplane() Dataplane {
 	settings := &b.config.Settings
 	result := Dataplane{Interfaces: b.devices(settings.SourceNetworkInterfaces), ExcludeNTP: settings.ExcludeNTP, TakeDNS: !settings.DontTouchDHCP, ClashAPI: b.clashAPI, ClashSecret: b.clashSecret}
-	result.BitTorrent, result.BitTorrentLAN = b.bitTorrentDataplane()
+	result.BitTorrent, result.BitTorrentLAN, result.BitTorrentFan = b.bitTorrentDataplane()
 	if len(result.Interfaces) == 0 {
 		result.Interfaces = []string{defaultInterface}
 	}

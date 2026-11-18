@@ -2,6 +2,7 @@ package firewall
 
 import (
 	"fmt"
+	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"os"
 	"path/filepath"
 	"strings"
@@ -203,6 +204,32 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 				table, routes[index].marks, transport, routes[index].port))
 		}
 	}
+	// the suspicion by the fan-out of connection openings: its sets and its rules, each at its place
+	// among those of its chain
+	if fan, suspicion := bitTorrentSuspicion(detector); suspicion {
+		before := func(anchor string, added ...string) {
+			for index, line := range lines {
+				if strings.Contains(line, anchor) {
+					lines = append(lines[:index], append(append([]string{}, added...), lines[index:]...)...)
+					return
+				}
+			}
+			t.Fatalf("no line with %q", anchor)
+		}
+		free := "tcp dport >= 1024 tcp dport != " + ports + " "
+		limit := fmt.Sprintf("limit rate over %d/%s burst %d packets", fan.Rate, map[uint64]string{1: "second", 60: "minute"}[fan.Unit], fan.Burst)
+		before("add chain "+table+" bt_detect",
+			"add set "+table+" bt_suspects { type ipv4_addr; size 1024; flags dynamic,timeout; timeout "+fan.Suspect.String()+"; }",
+			"add set "+table+" bt_fan_pairs { type ipv4_addr . ipv4_addr; size 16384; flags dynamic,timeout; timeout "+fan.Pair.String()+"; }",
+			"add set "+table+" bt_fan { type ipv4_addr; size 1024; flags dynamic,timeout; timeout "+(2*fan.Refill()).String()+"; }")
+		before("bt_tcp @ih,0,8 0x0-0xff", rule("bt_tcp", "ip saddr @bt_hosts "+free+"ct state new counter reject with tcp reset"))
+		before("bt_handshake update @bt_hosts",
+			rule("bt_syn", "ip saddr @bt_suspects "+free+"ct mark set ct mark | 0x000a0000 counter return"),
+			rule("bt_syn", free+"ip saddr . ip daddr @bt_fan_pairs update @bt_fan_pairs { ip saddr . ip daddr } return"),
+			rule("bt_syn", free+"add @bt_fan_pairs { ip saddr . ip daddr } update @bt_fan { ip saddr "+limit+" } update @bt_suspects { ip saddr } ct mark set ct mark | 0x000a0000 counter return"))
+		before("bt_act ct mark & 0x00008000 == 0 ct mark set", rule("bt_act", "ct mark & 0x000a0000 == 0x000a0000 ct mark set ct mark & 0xfff5ffff counter"))
+		lines = append(lines, "insert rule "+table+" proxy ct mark & 0x000a0000 == 0x000a0000 ct mark & 0x00008000 == 0 meta mark & 0x00100000 == 0x00100000 meta l4proto tcp tproxy ip to 127.0.0.1:1607 counter accept")
+	}
 	for _, line := range lines {
 		nft(t, line)
 	}
@@ -218,6 +245,12 @@ func TestBitTorrentTable(t *testing.T) {
 		"block, the LAN":   {Mode: BitTorrentBlock, LAN: true},
 		"section":          {Mode: BitTorrentSection},
 		"section, the LAN": {Mode: BitTorrentSection, LAN: true},
+		// the suspicion by fan-out, on in the scope of the whole LAN alone: outside it the setting
+		// changes nothing of the table
+		"block, the LAN, hidden clients":   {Mode: BitTorrentBlock, LAN: true, Fan: dataplane.DefaultFan},
+		"section, the LAN, hidden clients": {Mode: BitTorrentSection, LAN: true, Fan: dataplane.DefaultFan},
+		"block, hidden clients asked":      {Mode: BitTorrentBlock, Fan: dataplane.DefaultFan},
+		"bypass, hidden clients asked":     {Mode: BitTorrentBypass, Fan: dataplane.DefaultFan},
 	} {
 		plan := &Plan{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: detector}
 		_ = Remove()

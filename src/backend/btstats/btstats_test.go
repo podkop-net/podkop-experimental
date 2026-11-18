@@ -279,9 +279,20 @@ func TestQuietDiscovery(t *testing.T) {
 	require.Contains(t, strings.Join(Lines(row(220, 0)), "\n"), "⚠️ the DHT and the trackers got no answer")
 }
 
+// A rule of the mode section that is off is told, not only "the detector is off"; the suspicion
+// by fan-out has a line once it told a device.
+func TestLinesProblemAndSuspects(t *testing.T) {
+	require.Equal(t, []string{"BitTorrent: as the other traffic (the detector is off)",
+		"  ❌ the settings send BitTorrent through the servers of the rule Torrents, which is not there, is switched off or has no servers"},
+		Lines(Report{Problem: ProblemRule, Rule: "Torrents"}))
+	report := Report{Mode: "block", LAN: true, Counted: true, Module: map[string]int64{"early_suspects": 2, "early_ended": 9, "early_kept_known": 4}}
+	require.Contains(t, strings.Join(Lines(report), "\n"),
+		"clients that hide: 2 devices told by the burst of their connections, 9 connections they had opened before ended, a told device kept known 4 times")
+}
+
 // The early check has a line of its own once it watched something.
 func TestLinesEarly(t *testing.T) {
 	report := Report{Mode: "bypass", Counted: true, Module: map[string]int64{"early_watched": 78, "early_confirmed": 20, "early_acted": 20, "early_self": 1}}
 	require.Contains(t, strings.Join(Lines(report), "\n"),
-		"the early check: 78 connections of the transparent proxy watched, 20 confirmed before their device was known to run a client, 20 of them taken as BitTorrent since (1 devices told by their own peers), 0 waited too long")
+		"the early check: 78 connections of devices with no sign of a client watched, 20 confirmed before their device was known to run a client, 20 of them taken as BitTorrent since (1 devices told by their own peers), 0 waited too long")
 }

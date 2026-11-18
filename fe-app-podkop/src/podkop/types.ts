@@ -648,6 +648,9 @@ export namespace Podkop {
     module?: Record<string, number>;
     // seconds since the statistics were reset (bittorrent_reset), absent when they were not
     reset_at?: number;
+    // why BitTorrent goes as the other traffic although the settings ask otherwise: 'rule' (the
+    // rule of "Through the servers of a rule", named in rule, is off, deleted or has no servers)
+    problem?: string;
   }
 
   export interface Stats {

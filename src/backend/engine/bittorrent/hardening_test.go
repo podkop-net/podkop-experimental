@@ -711,3 +711,114 @@ func TestAnnounceOnLearnInbound(t *testing.T) {
 		}
 	}
 }
+
+// A suspect (a device the firewall suspects by the fan-out of its connection
+// openings, its connections on an early inbound of its own) that the early check tells is put in
+// the set of devices by the module, and the connections it opened before are ended, once within
+// endOlderEvery, before its confirmed connections are acted on. A device of the transparent proxy
+// is not.
+func TestSuspectTold(t *testing.T) {
+	var calls []netip.Addr
+	EndOlder = func(device netip.Addr) (int, error) {
+		calls = append(calls, device)
+		return 7, nil
+	}
+	// (kept known: a device whose handshake is confirmed again keepKnownEvery after it was told
+	// is put back in the firewall's set, off the connection's path)
+	keptKnown := make(chan netip.Addr, 16)
+	KeepKnown = func(device netip.Addr) error {
+		keptKnown <- device
+		return nil
+	}
+	t.Cleanup(func() { EndOlder, KeepKnown = nil, nil })
+	suspects := func(conns []*conn) {
+		for _, c := range conns {
+			c.suspect, c.waits.suspect = true, true
+		}
+	}
+	s, _, add := early(t, ConfirmedReject)
+	hosts := &recordSink{}
+	s.hostsSink = hosts
+	s.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{}, nil }
+	start := time.Now()
+	suspects(add(10, 2, start))
+	s.actOnKnown(start)
+	if len(calls) != 0 || hosts.count() != 0 || s.early.rejected.Load() != 0 {
+		t.Fatalf("two distinct far addresses: ended %d times, devices written %d, rejected %d", len(calls), hosts.count(), s.early.rejected.Load())
+	}
+	suspects(add(12, 1, start))
+	s.actOnKnown(start)
+	if len(calls) != 1 || calls[0] != testDevice || hosts.count() != 1 || string(hosts.keys[0]) != string(testDevice.AsSlice()) {
+		t.Fatalf("the third: ended for %v, devices written %x", calls, hosts.keys)
+	}
+	if s.early.rejected.Load() != 3 || s.earlySuspects.Load() != 1 || s.earlyEnded.Load() != 7 {
+		t.Fatalf("the third: rejected %d, suspects %d, ended %d", s.early.rejected.Load(), s.earlySuspects.Load(), s.earlyEnded.Load())
+	}
+	// within endOlderEvery: its next confirmed connections are closed, nothing is ended again
+	suspects(add(20, 2, start.Add(10*time.Second)))
+	s.actOnKnown(start.Add(10 * time.Second))
+	if len(calls) != 1 || s.early.rejected.Load() != 5 {
+		t.Fatalf("ten seconds later: ended %d times, rejected %d", len(calls), s.early.rejected.Load())
+	}
+	// after it: once more
+	suspects(add(30, 1, start.Add(2*endOlderEvery)))
+	s.actOnKnown(start.Add(2 * endOlderEvery))
+	if len(calls) != 2 || hosts.count() != 2 {
+		t.Fatalf("after endOlderEvery: ended %d times, devices written %d", len(calls), hosts.count())
+	}
+
+	// the module wrote the device when it told it, and its confirmed connections since came
+	// within keepKnownEvery: not kept known again yet; with the suspicion on (an inbound of
+	// suspects) and the time gone, once
+	select {
+	case device := <-keptKnown:
+		t.Fatalf("kept known within keepKnownEvery: %v", device)
+	default:
+	}
+	s.suspectOn = map[string]bool{"bt-suspect": true}
+	s.keepKnown(testDevice)
+	s.pendingMu.Lock()
+	s.kept[testDevice] = time.Now().Add(-2 * keepKnownEvery)
+	s.pendingMu.Unlock()
+	s.keepKnown(testDevice)
+	s.keepKnown(testDevice)
+	select {
+	case device := <-keptKnown:
+		if device != testDevice {
+			t.Fatalf("kept known: %v", device)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("a told device was not kept known after keepKnownEvery")
+	}
+	select {
+	case <-keptKnown:
+		t.Fatal("kept known twice within keepKnownEvery")
+	case <-time.After(50 * time.Millisecond):
+	}
+	if s.earlyKeptKnown.Load() != 1 {
+		t.Fatalf("kept known %d times", s.earlyKeptKnown.Load())
+	}
+
+	// a device of the transparent proxy told by its own peers: nothing of this
+	calls = nil
+	routed, _, add := early(t, ConfirmedReject)
+	routedHosts := &recordSink{}
+	routed.hostsSink = routedHosts
+	routed.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{}, nil }
+	add(10, 3, start)
+	routed.actOnKnown(start)
+	if len(calls) != 0 || routedHosts.count() != 0 || routed.earlySelfTold.Load() != 1 || routed.earlySuspects.Load() != 0 {
+		t.Fatalf("the transparent proxy: ended %d times, devices written %d, told %d", len(calls), routedHosts.count(), routed.earlySelfTold.Load())
+	}
+
+	// a suspect the firewall knows by now (a signature that came after its first connections):
+	// one confirmed connection is enough, and its older connections are ended too
+	known, _, add := early(t, ConfirmedLearnReset)
+	known.hostsSink = &recordSink{}
+	known.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{testDevice: true}, nil }
+	suspects(add(10, 1, start))
+	known.actOnKnown(start)
+	if len(calls) != 1 || known.early.reset.Load() != 1 {
+		t.Fatalf("known to the firewall: ended %d times, reset %d", len(calls), known.early.reset.Load())
+	}
+}

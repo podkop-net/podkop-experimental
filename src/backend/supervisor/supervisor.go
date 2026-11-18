@@ -414,7 +414,11 @@ type Supervisor struct {
 	// (nil while no table with the detector is there), bitTorrentStats what they came to
 	bitTorrentRule  string
 	bitTorrentSetup atomic.Pointer[btstats.Setup]
-	bitTorrentStats btstats.Stats
+	// bitTorrentNoRule is the rule the settings chose for BitTorrent when the table made last has
+	// no detector because of it (the rule is not there, is off or goes nowhere: the plan's
+	// bitTorrent); nil otherwise. The report tells it, where the card of the page was just gone.
+	bitTorrentNoRule atomic.Pointer[string]
+	bitTorrentStats  btstats.Stats
 }
 
 // running is a state of the router that was brought up.
@@ -1663,13 +1667,19 @@ func (s *Supervisor) surround(previousFirewall *firewall.Plan) error {
 func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
 	wanted := &current.result.Dataplane
 	result := &firewall.Plan{Interfaces: wanted.Interfaces, ExcludeNTP: wanted.ExcludeNTP, Sources: wanted.Sources, ClashAPIInterfaces: wanted.ClashAPIInterfaces,
-		BitTorrent: firewall.BitTorrent{Mode: wanted.BitTorrent, LAN: wanted.BitTorrentLAN, Sources: wanted.Sources}}
+		BitTorrent: firewall.BitTorrent{Mode: wanted.BitTorrent, LAN: wanted.BitTorrentLAN, Sources: wanted.Sources, Fan: wanted.BitTorrentFan}}
 	s.bitTorrentRule = ""
-	if wanted.BitTorrent == model.BitTorrentSection && current.settings != nil {
+	s.bitTorrentNoRule.Store(nil)
+	if current.settings != nil && current.settings.Settings.BitTorrent == model.BitTorrentSection {
 		name := current.settings.Settings.BitTorrentSection
-		s.bitTorrentRule = name
+		label := name
 		if section := current.settings.Section(name); section != nil && section.Label != "" {
-			s.bitTorrentRule = section.Label
+			label = section.Label
+		}
+		if wanted.BitTorrent == model.BitTorrentSection {
+			s.bitTorrentRule = label
+		} else {
+			s.bitTorrentNoRule.Store(&label)
 		}
 	}
 	var sources []keyedSource
@@ -1913,7 +1923,11 @@ func (s *Supervisor) pollBitTorrent(ctx context.Context) {
 func (s *Supervisor) BitTorrentStats() btstats.Report {
 	setup := s.bitTorrentSetup.Load()
 	if setup == nil {
-		return btstats.Report{Rows: []btstats.Row{}, Blocked: []btstats.Blocked{}, Module: engine.BitTorrentCounters()}
+		report := btstats.Report{Rows: []btstats.Row{}, Blocked: []btstats.Blocked{}, Module: engine.BitTorrentCounters()}
+		if rule := s.bitTorrentNoRule.Load(); rule != nil {
+			report.Problem, report.Rule = btstats.ProblemRule, *rule
+		}
+		return report
 	}
 	report := s.bitTorrentStats.Report(time.Now())
 	// the mode the firewall has now: the first read comes btstats.PollEvery after it

@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-18 18:41+0000\n"
-"PO-Revision-Date: 2026-11-18 18:41+0000\n"
+"POT-Creation-Date: 2026-11-18 18:55+0000\n"
+"PO-Revision-Date: 2026-11-18 18:55+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -56,6 +56,9 @@ msgstr "%d ч"
 msgid "%s (deleted)"
 msgstr "%s (удалён)"
 
+msgid "%s (off)"
+msgstr "%s (выключено)"
+
 msgid "%s at %s"
 msgstr "%s в %s"
 
@@ -95,6 +98,9 @@ msgstr "⇄N: устройств на сервере в балансировке
 msgid "~: too few checks yet"
 msgstr "~: проверок пока мало"
 
+msgid "⚠️ This rule is switched off or deleted: BitTorrent goes as the other traffic until the rule is on again or another one is chosen"
+msgstr "⚠️ Это правило выключено или удалено: BitTorrent идёт как остальной трафик, пока правило не включат или не выберут другое"
+
 msgid "✔ Enabled"
 msgstr "✔ Включено"
 
@@ -112,6 +118,9 @@ msgstr "0 из %d, проверьте слова"
 
 msgid "A check is not possible now: this address was checked recently or is waiting in the queue, or the queue is full. Try again in %d s."
 msgstr "Проверка сейчас невозможна: этот адрес недавно проверялся или уже стоит в очереди, либо очередь заполнена. Повторите через %d с."
+
+msgid "A client set up without DHT, uTP and peer exchange, with encryption required, shows the router no sign of BitTorrent. With this on, a device that opens connections to many new addresses on uncommon ports at once has its new connections checked through sing-box; when three of them turn out to be BitTorrent, the device is taken as running a client and the connections it opened before are closed. Not found: a download with only a few peers. An I2P router is taken for BitTorrent. Connections under the check are not offloaded"
+msgstr "Клиент, настроенный без DHT, uTP и обмена пирами, с обязательным шифрованием, не даёт роутеру ни одного признака BitTorrent. С этой настройкой у устройства, которое разом открывает соединения ко многим новым адресам на необычных портах, новые соединения проверяются через sing-box; когда три из них оказываются BitTorrent, устройство считается клиентом, а соединения, открытые им раньше, закрываются. Не находит: раздачи, где пиров всего несколько. I2P принимается за BitTorrent. Проверяемые соединения не ускоряются (offloading)"
 
 msgid "A domain is resolved to its real IP before the rule is chosen, so that the lists of subnets match"
 msgstr "Домен превращается в настоящий IP до выбора правила, чтобы срабатывали списки подсетей"
@@ -349,6 +358,9 @@ msgstr "Выбран внутри запасного"
 
 msgid "CIDR must be between 0 and 32"
 msgstr "CIDR должен быть между 0 и 32"
+
+msgid "Clients that hide: %d devices told by the burst of their connections, %d connections they had opened before closed"
+msgstr "Клиенты, которые прячутся: распознано устройств по всплеску соединений — %d, закрыто их прежних соединений — %d"
 
 msgid "Close"
 msgstr "Закрыть"
@@ -631,6 +643,9 @@ msgstr "Самый быстрый: по задержке проверки сер
 
 msgid "Find a mask"
 msgstr "Подобрать маску"
+
+msgid "Find clients that hide"
+msgstr "Искать клиенты, которые прячутся"
 
 msgid "Fingerprint %s does not pass or hangs with several connections at once, the fallback one passes. It looks like a DPI block by fingerprint."
 msgstr "Отпечаток %s не проходит или зависает при нескольких подключениях сразу, запасной проходит. Похоже на блокировку ТСПУ по отпечатку."
@@ -1654,6 +1669,9 @@ msgstr "Похоже, у роутера нет связи с интернето�
 
 msgid "The row connects through its own source"
 msgstr "Строка подключается через свой же источник"
+
+msgid "The rule «%s» chosen for BitTorrent in the settings is switched off, deleted or has no servers: BitTorrent goes as the other traffic"
+msgstr "Правило «%s», выбранное для BitTorrent в настройках, выключено, удалено или без серверов: BitTorrent идёт как остальной трафик"
 
 msgid "The rule for BitTorrent"
 msgstr "Правило для BitTorrent"

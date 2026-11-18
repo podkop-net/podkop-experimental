@@ -224,3 +224,57 @@ func TestBitTorrentPollCost(t *testing.T) {
 		return err
 	})
 }
+
+func TestParseUndecided(t *testing.T) {
+	// an entry as ctnetlink dumps it: the tuple of the original direction (the addresses, the
+	// protocol and the ports, nested) and the mark
+	nested := func(kind uint16, attributes ...netlink.Attribute) netlink.Attribute {
+		data, err := netlink.MarshalAttributes(attributes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return netlink.Attribute{Type: kind | unix.NLA_F_NESTED, Data: data}
+	}
+	entry := func(source [4]byte, protocol byte, port uint16, mark uint32) []byte {
+		data, err := netlink.MarshalAttributes([]netlink.Attribute{
+			nested(ctaTupleOrig,
+				nested(ctaTupleIP, netlink.Attribute{Type: ctaIPv4Src, Data: source[:]}, netlink.Attribute{Type: 2, Data: []byte{203, 0, 113, 9}}),
+				nested(ctaTupleProto, netlink.Attribute{Type: ctaProtoNum, Data: []byte{protocol}},
+					netlink.Attribute{Type: 2, Data: []byte{0xa4, 0x10}}, netlink.Attribute{Type: ctaProtoDstPort, Data: []byte{byte(port >> 8), byte(port)}})),
+			{Type: ctaMark, Data: []byte{byte(mark >> 24), byte(mark >> 16), byte(mark >> 8), byte(mark)}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return append([]byte{unix.AF_INET, 0, 0, 0}, data...)
+	}
+	device := [4]byte{192, 168, 80, 10}
+	for _, test := range []struct {
+		name      string
+		data      []byte
+		undecided bool
+	}{
+		{"not BitTorrent, an uncommon port", entry(device, unix.IPPROTO_TCP, 51413, ctNot), true},
+		{"no mark (offloaded before its first data)", entry(device, unix.IPPROTO_TCP, 6881, 0), true},
+		{"another device", entry([4]byte{192, 168, 80, 11}, unix.IPPROTO_TCP, 51413, 0), false},
+		{"UDP", entry(device, unix.IPPROTO_UDP, 51413, 0), false},
+		{"port 443", entry(device, unix.IPPROTO_TCP, 443, 0), false},
+		{"a port under 1024", entry(device, unix.IPPROTO_TCP, 990, 0), false},
+		{"inspected", entry(device, unix.IPPROTO_TCP, 51413, ctInspect), false},
+		{"a suspect's", entry(device, unix.IPPROTO_TCP, 51413, ctSuspect), false},
+		{"BitTorrent", entry(device, unix.IPPROTO_TCP, 51413, ctBitTorrent), false},
+		{"taken by podkop", entry(device, unix.IPPROTO_TCP, 51413, ctIntercepted|ctNot), false},
+	} {
+		parsed, ok := parseUndecided(test.data)
+		if !ok {
+			t.Errorf("%s: not parsed", test.name)
+			continue
+		}
+		if got := parsed.isUndecided(device); got != test.undecided {
+			t.Errorf("%s: undecided %v, want %v (%+v)", test.name, got, test.undecided, parsed)
+		}
+	}
+	if _, ok := parseUndecided([]byte{2, 0}); ok {
+		t.Error("a short message parsed")
+	}
+}

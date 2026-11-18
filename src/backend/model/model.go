@@ -252,6 +252,14 @@ type Settings struct {
 	// "" or "learn_reset" learns its far end and closes it (the owner's choice of 2026-11-17),
 	// "learn" only learns it (the owner's choice (ii) of 2026-11-16 alone).
 	BitTorrentConfirmed string
+	// BitTorrentSuspect ("bittorrent_lan_suspect", for the block and the section of the whole LAN):
+	// a device with no sign of a client that opens connections to many far addresses on uncommon
+	// ports at once is a suspect, and its connections are checked for BitTorrent's encrypted
+	// handshake (dataplane.Fan): the way to a client set to hide. BitTorrentAllowance
+	// ("bittorrent_lan_allowance", not on the page, for measurements) is another allowance than
+	// dataplane.DefaultFan, as dataplane.ParseFan reads it.
+	BitTorrentSuspect   bool
+	BitTorrentAllowance string
 	// MaskLists are the public lists of names "Find a mask" tries beside the built-in ones
 	// (maskLists); none when the settings turn them off
 	MaskLists []string
@@ -350,6 +358,8 @@ func Load(parsed *uci.Package) (*Config, error) {
 		BitTorrentSection:       settings.Get("bittorrent_section"),
 		BitTorrentSectionLAN:    settings.Get("bittorrent_section_scope") == "lan",
 		BitTorrentConfirmed:     settings.Get("bittorrent_confirmed"),
+		BitTorrentSuspect:       settings.Bool("bittorrent_lan_suspect", false),
+		BitTorrentAllowance:     strings.TrimSpace(settings.Get("bittorrent_lan_allowance")),
 		MaskLists:               maskLists(settings),
 		UpdateInterval:          get(settings, "update_interval", "1d"),
 		DontTouchDHCP:           settings.Bool("dont_touch_dhcp", false),

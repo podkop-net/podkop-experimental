@@ -179,7 +179,14 @@ type Report struct {
 	// ResetAt is the seconds since the statistics were reset (Stats.ResetCounts), 0 when they
 	// were not
 	ResetAt int64 `json:"reset_at,omitempty"`
+	// Problem says why BitTorrent goes as the other traffic although the settings ask otherwise:
+	// ProblemRule, with the rule's name in Rule; "" when nothing is wrong
+	Problem string `json:"problem,omitempty"`
 }
+
+// ProblemRule: the settings send BitTorrent through the servers of a rule that is not there, is
+// switched off or goes nowhere, so the detector is off.
+const ProblemRule = "rule"
 
 type rowKey struct {
 	kind Kind

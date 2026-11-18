@@ -162,6 +162,8 @@ type conn struct {
 	// early: a connection of the transparent proxy (Options.Early), checked as an inspected one;
 	// confirmed, it waits for its device to be known as running a client (the poller of pending)
 	early bool
+	// suspect: a connection of the inbound of the suspects (InspectOptions.Suspect)
+	suspect bool
 	// cnt: the counters it counts in (the service's, or its early ones)
 	cnt *counters
 	// waits: its place among the connections confirmed early that wait for their device (pend)
@@ -425,6 +427,7 @@ func (c *conn) confirm() int {
 // act does with a confirmed connection what its inbound says: learn its far end (and close it), or
 // close it. The caller holds access, or (pending) the conn stood aside already.
 func (c *conn) act() int {
+	c.service.keepKnown(c.device)
 	switch c.confirmed {
 	case ConfirmedLearn:
 		if c.service.learnFar(c.device, c.far) {

@@ -3,6 +3,7 @@ package firewall
 import (
 	"encoding/binary"
 	"errors"
+	"net/netip"
 
 	"github.com/mdlayher/netlink"
 	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
@@ -345,4 +346,135 @@ func dropCounts(conn *nftables.Conn, table *nftables.Table, chain string) ([]bts
 		}
 	}
 	return counts, nil
+}
+
+// The attributes of a tuple (nfnetlink_conntrack.h).
+const (
+	ctaTupleIP      = 1
+	ctaIPv4Src      = 1
+	ctaProtoDstPort = 3
+)
+
+// undecided is a conntrack entry EndUndecidedFlows looks at: the raw tuple of its original
+// direction (given back to the kernel to end it), its source, protocol, destination port and mark.
+type undecided struct {
+	tuple  []byte
+	source [4]byte
+	tcp    bool
+	port   uint16
+	mark   uint32
+}
+
+// parseUndecided reads an entry of a conntrack dump.
+func parseUndecided(data []byte) (undecided, bool) {
+	var entry undecided
+	if len(data) < 4 {
+		return entry, false
+	}
+	decoder, err := netlink.NewAttributeDecoder(data[4:])
+	if err != nil {
+		return entry, false
+	}
+	decoder.ByteOrder = binary.BigEndian
+	for decoder.Next() {
+		switch decoder.Type() {
+		case ctaTupleOrig:
+			entry.tuple = append([]byte(nil), decoder.Bytes()...)
+			decoder.Nested(func(tuple *netlink.AttributeDecoder) error {
+				for tuple.Next() {
+					switch tuple.Type() {
+					case ctaTupleIP:
+						tuple.Nested(func(ip *netlink.AttributeDecoder) error {
+							for ip.Next() {
+								if ip.Type() == ctaIPv4Src && len(ip.Bytes()) == 4 {
+									copy(entry.source[:], ip.Bytes())
+								}
+							}
+							return nil
+						})
+					case ctaTupleProto:
+						tuple.Nested(func(proto *netlink.AttributeDecoder) error {
+							for proto.Next() {
+								switch proto.Type() {
+								case ctaProtoNum:
+									entry.tcp = proto.Uint8() == unix.IPPROTO_TCP
+								case ctaProtoDstPort:
+									entry.port = proto.Uint16()
+								}
+							}
+							return nil
+						})
+					}
+				}
+				return nil
+			})
+		case ctaMark:
+			entry.mark = decoder.Uint32()
+		}
+	}
+	return entry, decoder.Err() == nil && len(entry.tuple) > 0
+}
+
+// isUndecided tells whether an entry is a TCP connection of device to an uncommon port that the
+// detector did not tell as BitTorrent, does not inspect and podkop did not take: one that goes on
+// as forwarded, whatever it carries.
+func (u undecided) isUndecided(device [4]byte) bool {
+	if !u.tcp || u.source != device || u.port < firstFreePort || u.mark&(ctBitTorrent|ctLate|ctInspect|ctIntercepted) != 0 {
+		return false
+	}
+	for _, port := range commonPorts {
+		if u.port == port {
+			return false
+		}
+	}
+	return true
+}
+
+// EndUndecidedFlows ends the conntrack entries of the TCP connections a device opened to uncommon
+// ports that the detector left as forwarded (the suspicion by fan-out: the module calls it when the early check
+// of a suspect told that the device runs a client). An offloaded connection ends being offloaded
+// with its entry; its next packet makes a new entry, which bt_tcp resets (the device is in
+// bt_hosts by then). It tells how many it ended.
+func EndUndecidedFlows(device netip.Addr) (int, error) {
+	if !device.Is4() {
+		return 0, nil
+	}
+	conn, err := netlink.Dial(unix.NETLINK_NETFILTER, nil)
+	if err != nil {
+		return 0, E.Cause(err, "open netlink of netfilter")
+	}
+	defer conn.Close()
+	header := []byte{unix.AF_INET, nfnetlinkV0, 0, 0}
+	messages, err := conn.Execute(netlink.Message{
+		Header: netlink.Header{Type: netlink.HeaderType(nfnlSubsysCtnetlink<<8 | ipctnlMsgCtGet), Flags: netlink.Request | netlink.Dump},
+		Data:   header,
+	})
+	if err != nil {
+		return 0, E.Cause(err, "read the conntrack entries")
+	}
+	ended := 0
+	var failed error
+	for _, message := range messages {
+		entry, ok := parseUndecided(message.Data)
+		if !ok || !entry.isUndecided(device.As4()) {
+			continue
+		}
+		attributes, err := netlink.MarshalAttributes([]netlink.Attribute{{Type: ctaTupleOrig | unix.NLA_F_NESTED, Data: entry.tuple}})
+		if err != nil {
+			return ended, err
+		}
+		_, err = conn.Execute(netlink.Message{
+			Header: netlink.Header{Type: netlink.HeaderType(nfnlSubsysCtnetlink<<8 | ipctnlMsgCtDelete), Flags: netlink.Request | netlink.Acknowledge},
+			Data:   append(append([]byte(nil), header...), attributes...),
+		})
+		switch {
+		case err == nil:
+			ended++
+		case errors.Is(err, unix.ENOENT):
+			// gone meanwhile
+		case failed == nil:
+			failed = E.Cause(err, "end a conntrack entry")
+		}
+	}
+	return ended, failed
 }

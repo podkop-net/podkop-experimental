@@ -204,6 +204,47 @@ func TestBitTorrentWrongSettings(t *testing.T) {
 	}
 }
 
+// The suspicion by the fan-out of connection openings ("bittorrent_lan_suspect") is on only in the
+// scope of the whole LAN: the inbound of the suspects, the module's early check of it, and the
+// allowance for the firewall. Outside that scope, and without the setting, nothing of it is there.
+func TestBitTorrentSuspicion(t *testing.T) {
+	const rule = "\nconfig section 'torrents'\n\toption connection_type 'proxy'\n\toption proxy_config_type 'url'\n\toption proxy_string 'socks5://203.0.113.16:1080'\n"
+	for name, c := range map[string]struct {
+		settings string
+		fan      dataplane.Fan
+	}{
+		"block of the LAN":            {"\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n\toption bittorrent_lan_suspect '1'\n", dataplane.DefaultFan},
+		"section of the LAN":          {"\toption bittorrent 'section'\n\toption bittorrent_section 'torrents'\n\toption bittorrent_section_scope 'lan'\n\toption bittorrent_lan_suspect '1'\n", dataplane.DefaultFan},
+		"an allowance of the lab":     {"\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n\toption bittorrent_lan_suspect '1'\n\toption bittorrent_lan_allowance '8 1/second 60 600'\n", dataplane.Fan{Burst: 8, Rate: 1, Unit: 1, Pair: 60e9, Suspect: 600e9}},
+		"an allowance that is none":   {"\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n\toption bittorrent_lan_suspect '1'\n\toption bittorrent_lan_allowance 'many'\n", dataplane.DefaultFan},
+		"block of what podkop takes":  {"\toption bittorrent 'block'\n\toption bittorrent_lan_suspect '1'\n", dataplane.Fan{}},
+		"bypass":                      {"\toption bittorrent 'bypass'\n\toption bittorrent_lan_suspect '1'\n", dataplane.Fan{}},
+		"the LAN without the setting": {"\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n", dataplane.Fan{}},
+		"an allowance alone":          {"\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n\toption bittorrent_lan_allowance '8 1/second 60 600'\n", dataplane.Fan{}},
+	} {
+		result, config := bitTorrentBuild(t, c.settings, rule)
+		require.Equal(t, c.fan, result.Dataplane.BitTorrentFan, name)
+		inbound := hasInbound(config, tagBitTorrentSuspectInbound)
+		early := ""
+		for _, service := range services(t, result) {
+			text, _ := json.Marshal(service["early"])
+			early += string(text)
+		}
+		if !c.fan.On() {
+			require.Nil(t, inbound, name)
+			require.NotContains(t, early, tagBitTorrentSuspectInbound, name)
+			continue
+		}
+		require.NotNil(t, inbound, name)
+		require.EqualValues(t, dataplane.BitTorrentSuspectTProxyPort, inbound["listen_port"], name)
+		require.Contains(t, early, `"inbound":"`+tagBitTorrentSuspectInbound+`"`, name)
+		require.Contains(t, early, `"suspect":true`, name)
+	}
+	// an allowance that cannot be read is told
+	result, _ := bitTorrentBuild(t, "\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n\toption bittorrent_lan_suspect '1'\n\toption bittorrent_lan_allowance 'many'\n", "")
+	require.Contains(t, strings.Join(result.Warnings, "\n"), "bittorrent_lan_allowance")
+}
+
 // The inbound of BitTorrent listens where nothing else of the backend does: the transparent proxy,
 // the dead end of the check names (probe), the DNS inbound, the Clash API, and each other.
 func TestBitTorrentPortIsItsOwn(t *testing.T) {
