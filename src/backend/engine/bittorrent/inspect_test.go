@@ -299,11 +299,10 @@ func TestInspectLearnResetUnlearned(t *testing.T) {
 		far   netip.AddrPort
 		setup func(*Service)
 	}{
-		"a port under 1024": {netip.MustParseAddrPort("203.0.113.7:1000"), nil},
-		"CGNAT":             {netip.MustParseAddrPort("100.64.1.1:51413"), nil},
-		"the device's cap":  {testFar, func(s *Service) { s.devices.cap = 0 }},
-		"no netlink":        {testFar, func(s *Service) { s.sink = nil }},
-		"a failed write":    {testFar, func(s *Service) { s.sink = failingSink{} }},
+		"CGNAT":            {netip.MustParseAddrPort("100.64.1.1:51413"), nil},
+		"the device's cap": {testFar, func(s *Service) { s.devices.cap = 0 }},
+		"no netlink":       {testFar, func(s *Service) { s.sink = nil }},
+		"a failed write":   {testFar, func(s *Service) { s.sink = failingSink{} }},
 	} {
 		farAddress, stop := farServer(t, mse)
 		s, _ := testService()
@@ -320,6 +319,26 @@ func TestInspectLearnResetUnlearned(t *testing.T) {
 		if err != nil || got != mse.bulk || s.counters.confirmed.Load() != 1 || s.counters.keptOpen.Load() != 1 {
 			t.Errorf("%s: bulk %d of %d (%v), confirmed %d, kept open %d", name, got, mse.bulk, err,
 				s.counters.confirmed.Load(), s.counters.keptOpen.Load())
+		}
+	}
+}
+
+// A confirmed connection to a port other programs use (443, a port under 1024): its far end is
+// learned by its own handshake, for its device, and the connection closed (learn_reset) as one to
+// any other port (0.8.19: the firewall inspects a connection to a known peer on such a port).
+func TestInspectLearnResetCommonPort(t *testing.T) {
+	for _, far := range []string{"203.0.113.7:443", "203.0.113.7:1000"} {
+		farAddress, stop := farServer(t, mse)
+		s, sink := testService()
+		r := newRelay(t, farAddress, func(inbound net.Conn) net.Conn {
+			return &conn{Conn: inbound, service: s, cnt: &s.counters, device: testDevice, far: netip.MustParseAddrPort(far), inspect: true, confirmed: ConfirmedLearnReset}
+		})
+		got, _ := runDevice(r.address(), mse, nil)
+		<-r.wrapped
+		r.close()
+		stop()
+		if got != 0 || sink.count() != 1 || s.counters.reset.Load() != 1 || s.counters.keptOpen.Load() != 0 {
+			t.Errorf("%s: bulk %d, learned %d of 1, reset %d of 1", far, got, sink.count(), s.counters.reset.Load())
 		}
 	}
 }
@@ -631,7 +650,7 @@ func TestInspectEarly(t *testing.T) {
 	far, stop := farServer(t, e)
 	defer stop()
 	s, sink := testService()
-	s.pending = make(map[netip.Addr][]*conn)
+	s.pending = make(map[netip.Addr][]*waiting)
 	known := false
 	s.known = func() (map[netip.Addr]bool, error) {
 		return map[netip.Addr]bool{testDevice: known}, nil
@@ -684,16 +703,16 @@ func TestInspectEarly(t *testing.T) {
 func TestEarlySelf(t *testing.T) {
 	for _, distinct := range []int{2, 3} {
 		s, sink := testService()
-		s.pending = make(map[netip.Addr][]*conn)
+		s.pending = make(map[netip.Addr][]*waiting)
 		s.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{}, nil }
 		for i := 0; i < distinct; i++ {
 			device, other := net.Pipe()
 			defer other.Close()
 			far := netip.AddrPortFrom(netip.AddrFrom4([4]byte{203, 0, 113, byte(10 + i)}), 51413)
 			c := &conn{Conn: device, service: s, cnt: &s.early, early: true, device: testDevice, far: far, inspect: true,
-				confirmed: ConfirmedLearn, pendingSince: time.Now()}
+				confirmed: ConfirmedLearn}
 			c.done.Store(true)
-			s.pend(c)
+			c.waits = s.pend(c, time.Now())
 		}
 		s.actOnKnown(time.Now())
 		acted := int(s.earlyActed.Load())
@@ -712,7 +731,7 @@ func TestEarlySelf(t *testing.T) {
 func TestEarlyNoRetry(t *testing.T) {
 	for _, retries := range []bool{false, true} {
 		s, sink := testService()
-		s.pending = make(map[netip.Addr][]*conn)
+		s.pending = make(map[netip.Addr][]*waiting)
 		known := false
 		s.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{testDevice: known}, nil }
 		var conns []*conn
@@ -722,10 +741,10 @@ func TestEarlyNoRetry(t *testing.T) {
 				t.Cleanup(func() { other.Close() })
 				far := netip.AddrPortFrom(netip.AddrFrom4([4]byte{203, 0, 113, byte(first + i)}), 51413)
 				c := &conn{Conn: device, service: s, cnt: &s.early, early: true, device: testDevice, far: far, inspect: true,
-					confirmed: ConfirmedLearnReset, pendingSince: time.Now()}
+					confirmed: ConfirmedLearnReset}
 				c.done.Store(true)
 				conns = append(conns, c)
-				s.pend(c)
+				c.waits = s.pend(c, time.Now())
 			}
 		}
 		start := time.Now()
@@ -755,7 +774,7 @@ func TestEarlyNoRetry(t *testing.T) {
 // first and the later ones: the wait for a retry is learn_reset's.
 func TestEarlySelfBlock(t *testing.T) {
 	s, sink := testService()
-	s.pending = make(map[netip.Addr][]*conn)
+	s.pending = make(map[netip.Addr][]*waiting)
 	s.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{}, nil }
 	add := func(first int, n int) {
 		for i := 0; i < n; i++ {
@@ -763,9 +782,9 @@ func TestEarlySelfBlock(t *testing.T) {
 			t.Cleanup(func() { other.Close() })
 			far := netip.AddrPortFrom(netip.AddrFrom4([4]byte{203, 0, 113, byte(first + i)}), 51413)
 			c := &conn{Conn: device, service: s, cnt: &s.early, early: true, device: testDevice, far: far, inspect: true,
-				confirmed: ConfirmedReject, pendingSince: time.Now()}
+				confirmed: ConfirmedReject}
 			c.done.Store(true)
-			s.pend(c)
+			c.waits = s.pend(c, time.Now())
 		}
 	}
 	start := time.Now()

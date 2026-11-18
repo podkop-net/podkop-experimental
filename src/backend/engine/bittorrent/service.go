@@ -32,7 +32,16 @@
 //     (it is still not in the set: its retries, decided at the SYN by the learned peer, would have
 //     put it there) has its confirmed connections learned and left open for earlyFor (rTorrent
 //     and aria2 with encryption required: 3 of 169 and 3 of 104 ended connections tried again, on
-//     the stand of 0.8.18; closing each starved their downloads to a fifth and less).
+//     the stand of 0.8.18; closing each starved their downloads to a fifth and less). A watched
+//     device is judged at every poll, whether a connection waits or not (0.8.18 judged it only
+//     while one did, so a device that had connected again was taken hours later, at its next
+//     confirmed connection, as one that had not). A connection that closed while it waited stays
+//     as a far end the device shook hands with: it counts among the earlySelf, and its far end is
+//     learned when the device is known (the device's next connection to it is decided at its SYN).
+//   - A peer on a common port (0.8.19): the firewall does not take a reply's or a UDP flow's word
+//     for a peer on port 443 or another port other programs use; it sends the device's connection
+//     there to an inspected inbound, where the handshake of BitTorrent itself (plaintext, or MSE's
+//     three steps) confirms it, and its far end is learned for that device (learnFar).
 //
 // It uses sing-box's public API only: a connection tracker, appended before the inbounds start.
 // It fails open: when it cannot write the set, the replies and the connections go on as sing-box
@@ -153,10 +162,26 @@ type Service struct {
 	noRetry   map[netip.Addr]time.Time
 	selfKnown map[netip.Addr]time.Time
 	pendingMu sync.Mutex
-	pending   map[netip.Addr][]*conn
-	// known tells whether a device is in the set Hosts (the poller's netlink read; a test's)
-	known       func() (map[netip.Addr]bool, error)
+	pending   map[netip.Addr][]*waiting
+	// known tells whether a device is in the set Hosts (the poller's netlink read; a test's);
+	// knownFailing: its last read failed (told in the log once), earlyReadFailed counts them
+	known           func() (map[netip.Addr]bool, error)
+	knownFailing    bool
+	earlyReadFailed atomic.Int64
+	// earlyGone: connections that had closed when their device was known (their far end learned)
+	earlyGone   atomic.Int64
 	stopPolling chan struct{}
+	// replyBytes: what the conns keep of replies to announces, in all (httpRepliesMost)
+	replyBytes atomic.Int64
+}
+
+// waiting is a connection confirmed early that waits for its device to be known: the connection
+// while it is open, and after it closed its far end, as what the device shook hands with.
+type waiting struct {
+	conn      atomic.Pointer[conn]
+	far       netip.AddrPort
+	since     time.Time
+	confirmed Confirmed
 }
 
 // earlyPoll is how often the devices of pending connections are looked up in the set Hosts: a
@@ -185,7 +210,7 @@ var running atomic.Pointer[Service]
 func New(ctx context.Context, logger log.ContextLogger, tag string, options Options) (adapter.Service, error) {
 	s := &Service{ctx: ctx, logger: logger, tag: tag, options: options,
 		learnOn: make(map[string]bool), sniffedOn: make(map[string]bool), inspectOn: make(map[string]Confirmed), neverPorts: make(map[uint16]struct{}),
-		earlyOn: make(map[string]Confirmed), pending: make(map[netip.Addr][]*conn), stopPolling: make(chan struct{})}
+		earlyOn: make(map[string]Confirmed), pending: make(map[netip.Addr][]*waiting), stopPolling: make(chan struct{})}
 	for _, inbound := range options.Learn {
 		s.learnOn[inbound] = true
 	}
@@ -282,6 +307,8 @@ func Snapshot() Counters {
 	snapshot["early_no_retry"] = s.earlyNoRetry.Load()
 	snapshot["early_kept"] = s.earlyKept.Load()
 	snapshot["early_expired"] = s.earlyExpired.Load()
+	snapshot["early_gone"] = s.earlyGone.Load()
+	snapshot["early_read_failed"] = s.earlyReadFailed.Load()
 	return snapshot
 }
 
@@ -338,16 +365,20 @@ func (s *Service) selfKnownNow(device netip.Addr, now time.Time) bool {
 	return ok && now.Before(until)
 }
 
-// pend keeps a connection confirmed early until its device is known (pollPending).
-func (s *Service) pend(c *conn) {
+// pend keeps a connection confirmed early, at now, until its device is known (pollPending).
+func (s *Service) pend(c *conn, now time.Time) *waiting {
+	w := &waiting{far: c.far, since: now, confirmed: c.confirmed}
+	w.conn.Store(c)
 	s.pendingMu.Lock()
 	defer s.pendingMu.Unlock()
 	list := s.pending[c.device]
 	if len(list) >= earlyMost {
+		list[0] = nil
 		list = list[1:]
 		s.earlyExpired.Add(1)
 	}
-	s.pending[c.device] = append(list, c)
+	s.pending[c.device] = append(list, w)
+	return w
 }
 
 // pollPending looks the devices of pending connections up in the set every earlyPoll, and acts on
@@ -360,26 +391,93 @@ func (s *Service) pollPending() {
 		case <-s.stopPolling:
 			return
 		case now := <-ticker.C:
-			s.actOnKnown(now)
+			s.poll(now)
 		}
 	}
 }
 
+// poll is a round of pollPending whose panic ends the round, not the backend (the poller is a
+// goroutine of its own).
+func (s *Service) poll(now time.Time) {
+	defer func() {
+		if recover() != nil {
+			s.counters.panics.Add(1)
+		}
+	}()
+	s.actOnKnown(now)
+}
+
+// due is a waiting connection to act on: kept, its far end is learned and it is left open.
+type due struct {
+	device  netip.Addr
+	waiting *waiting
+	kept    bool
+}
+
 // actOnKnown is a round of pollPending at now.
 func (s *Service) actOnKnown(now time.Time) {
-	s.pendingMu.Lock()
-	if len(s.pending) == 0 {
-		s.pendingMu.Unlock()
+	if !s.expireEarly(now) {
+		// no connection waits and no device is watched: the set is not read
 		return
 	}
-	s.pendingMu.Unlock()
 	known, err := s.known()
 	if err != nil {
-		// fail open: the connections go on as they were routed
+		// fail open: the connections go on as they were routed, and no device is judged without
+		// the set; what waited earlyFor still goes
+		s.earlyReadFailed.Add(1)
+		s.pendingMu.Lock()
+		first := !s.knownFailing
+		s.knownFailing = true
+		s.pendingMu.Unlock()
+		if first && s.logger != nil {
+			s.logger.Warn("BitTorrent: the set of devices cannot be read, the connections confirmed early wait: ", err)
+		}
 		return
 	}
+	for _, d := range s.sweep(now, known) {
+		s.actOn(d)
+	}
+}
+
+// expireEarly forgets, at now, what ran out (the devices that keep their connections, those told
+// in block, the connections that waited earlyFor) and tells whether a connection waits or a
+// device is watched.
+func (s *Service) expireEarly(now time.Time) bool {
 	s.pendingMu.Lock()
+	defer s.pendingMu.Unlock()
 	s.initEarly()
+	for _, states := range []map[netip.Addr]time.Time{s.noRetry, s.selfKnown} {
+		for device, until := range states {
+			if now.After(until) {
+				delete(states, device)
+			}
+		}
+	}
+	for device, list := range s.pending {
+		kept := list[:0]
+		for _, w := range list {
+			if now.Sub(w.since) > earlyFor {
+				s.earlyExpired.Add(1)
+				continue
+			}
+			kept = append(kept, w)
+		}
+		clear(list[len(kept):])
+		if len(kept) == 0 {
+			delete(s.pending, device)
+		} else {
+			s.pending[device] = kept
+		}
+	}
+	return len(s.pending) > 0 || len(s.selfTold) > 0
+}
+
+// sweep judges, at now and with the devices known to the firewall, the devices watched and the
+// connections that wait, and gives those to act on.
+func (s *Service) sweep(now time.Time, known map[netip.Addr]bool) []due {
+	s.pendingMu.Lock()
+	defer s.pendingMu.Unlock()
+	s.knownFailing = false
 	// a device told by its own peers: known since (it connected again), or not within earlyRetry
 	for device, at := range s.selfTold {
 		switch {
@@ -394,76 +492,71 @@ func (s *Service) actOnKnown(now time.Time) {
 			}
 		}
 	}
-	for _, states := range []map[netip.Addr]time.Time{s.noRetry, s.selfKnown} {
-		for device, until := range states {
-			if now.After(until) {
-				delete(states, device)
-			}
-		}
-	}
-	keep := make(map[*conn]bool)
-	var due []*conn
+	var all []due
 	for device, list := range s.pending {
 		// a connection of the transparent proxy is done with as the mode says: all of a
 		// device's waiting ones alike; only learn_reset waits for a device to connect again
-		resets := len(list) > 0 && list[0].confirmed == ConfirmedLearnReset
+		resets := list[0].confirmed == ConfirmedLearnReset
 		if _, watched := s.selfTold[device]; watched && resets {
 			// waiting for the verdict of earlyRetry
 			continue
 		}
-		kept := list[:0]
 		distinct := make(map[netip.Addr]struct{})
-		for _, c := range list {
-			if now.Sub(c.pendingSince) > earlyFor {
-				s.earlyExpired.Add(1)
-				continue
-			}
-			kept = append(kept, c)
-			distinct[c.far.Addr()] = struct{}{}
+		for _, w := range list {
+			distinct[w.far.Addr()] = struct{}{}
 		}
 		_, noRetry := s.noRetry[device]
 		_, selfKnown := s.selfKnown[device]
 		self := !known[device] && (noRetry || selfKnown || len(distinct) >= earlySelf)
-		if known[device] || self {
-			if noRetry && !known[device] {
-				for _, c := range kept {
-					keep[c] = true
-				}
-			} else if self && !selfKnown {
-				if resets {
-					s.selfTold[device] = now
-				} else {
-					s.selfKnown[device] = now.Add(earlyFor)
-				}
-				s.earlySelfTold.Add(1)
-				if s.logger != nil {
-					s.logger.Info("BitTorrent: ", device, " made the encrypted handshake of BitTorrent with ", len(distinct), " peers: taken as running a client")
-				}
-			}
-			due = append(due, kept...)
-			delete(s.pending, device)
+		if !known[device] && !self {
 			continue
 		}
-		if len(kept) == 0 {
-			delete(s.pending, device)
-		} else {
-			s.pending[device] = kept
+		kept := noRetry && !known[device]
+		if self && !noRetry && !selfKnown {
+			if resets {
+				s.selfTold[device] = now
+			} else {
+				s.selfKnown[device] = now.Add(earlyFor)
+			}
+			s.earlySelfTold.Add(1)
+			if s.logger != nil {
+				s.logger.Info("BitTorrent: ", device, " made the encrypted handshake of BitTorrent with ", len(distinct), " peers: taken as running a client")
+			}
 		}
+		for _, w := range list {
+			all = append(all, due{device: device, waiting: w, kept: kept})
+		}
+		delete(s.pending, device)
 	}
-	s.pendingMu.Unlock()
-	for _, c := range due {
-		s.earlyActed.Add(1)
-		if s.logger != nil {
-			s.logger.Info("BitTorrent: the connection of ", c.device, " to ", c.far, ", confirmed before the device was known to run a client, is taken as BitTorrent now")
-		}
+	return all
+}
+
+// actOn does with a connection that waited what its inbound says, now that its device is known.
+// One that closed meanwhile has its far end learned (outside block): the device's next connection
+// to that peer is decided at its SYN.
+func (s *Service) actOn(d due) {
+	c := d.waiting.conn.Load()
+	if c != nil {
 		c.access.Lock()
-		if keep[c] && c.confirmed == ConfirmedLearnReset {
-			c.confirmed = ConfirmedLearn
-			s.earlyKept.Add(1)
-		}
-		c.act()
-		c.access.Unlock()
+		defer c.access.Unlock()
 	}
+	if c == nil || c.gone {
+		s.earlyGone.Add(1)
+		if d.waiting.confirmed != ConfirmedReject {
+			s.learnFar(d.device, d.waiting.far)
+		}
+		return
+	}
+	c.waits = nil
+	s.earlyActed.Add(1)
+	if s.logger != nil {
+		s.logger.Info("BitTorrent: the connection of ", c.device, " to ", c.far, ", confirmed before the device was known to run a client, is taken as BitTorrent now")
+	}
+	if d.kept && c.confirmed == ConfirmedLearnReset {
+		c.confirmed = ConfirmedLearn
+		s.earlyKept.Add(1)
+	}
+	c.act()
 }
 
 func (s *Service) RoutedPacketConnection(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) N.PacketConn {

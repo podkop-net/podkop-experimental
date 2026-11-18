@@ -13,6 +13,7 @@ type counters struct {
 	known        atomic.Int64 // peers left out: written for the device within the set's timeout
 	notLearnable atomic.Int64 // peers left out: a private address, a port under 1024 or podkop's
 	capped       atomic.Int64 // peers left out: the device's cap
+	overReply    atomic.Int64 // peers left out: more than replyMost in one reply
 	late         atomic.Int64 // replies let go before the set took their peers
 	writeFailed  atomic.Int64 // replies whose write failed
 	setFull      atomic.Int64 // writes the kernel refused for a full set
@@ -21,6 +22,12 @@ type counters struct {
 	// any request
 	quietSessions atomic.Int64
 	announces     atomic.Int64 // announces to HTTP trackers seen
+	// announcesForeign: requests of an announce's path that no BitTorrent client sent (a browser's
+	// headers, no info_hash): their replies are not read
+	announcesForeign atomic.Int64
+	// writerRestarts: times another goroutine took the set's writes over from one the kernel never
+	// answered
+	writerRestarts atomic.Int64
 	// announceUnread: tracker replies that could not be read (not 200, not bencode, too long)
 	announceUnread atomic.Int64
 	// inspection
@@ -60,12 +67,15 @@ func (c *counters) snapshot() Counters {
 		"known":           c.known.Load(),
 		"not_learnable":   c.notLearnable.Load(),
 		"capped":          c.capped.Load(),
+		"over_reply":      c.overReply.Load(),
 		"late":            c.late.Load(),
 		"write_failed":    c.writeFailed.Load(),
 		"set_full":        c.setFull.Load(),
 		"utp_sessions":    c.utpSessions.Load(),
 		"quiet_sessions":  c.quietSessions.Load(),
 		"announces":       c.announces.Load(),
+		"announce_other":  c.announcesForeign.Load(),
+		"writer_restarts": c.writerRestarts.Load(),
 		"announce_unread": c.announceUnread.Load(),
 		"watched":         c.watched.Load(),
 		"far_first":       c.farFirst.Load(),

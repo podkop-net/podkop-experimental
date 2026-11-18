@@ -126,8 +126,10 @@ type conn struct {
 	early bool
 	// cnt: the counters it counts in (the service's, or its early ones)
 	cnt *counters
-	// pendingSince: when it was confirmed early and began to wait
-	pendingSince time.Time
+	// waits: its place among the connections confirmed early that wait for their device (pend)
+	waits *waiting
+	// gone: Close was called
+	gone bool
 	// routed: sing-box's sniffer named the connection BitTorrent, and its route rule of the
 	// protocol routed it as the mode says
 	routed bool
@@ -138,8 +140,13 @@ type conn struct {
 	first    int       // the length of the device's first data
 	sentAt   time.Time // when it came
 	answered time.Time
-	reply    []byte
-	done     atomic.Bool
+	// reply: what came of the reply to an announce; head: its headers, once whole; scanned: how far
+	// their end was looked for; parses: how many times its body was decoded
+	reply   []byte
+	head    *httpHead
+	scanned int
+	parses  int
+	done    atomic.Bool
 	// after counts the reads and writes that came after the conn stood aside: sing's copy makes
 	// one more transfer each way before it unwraps the conn (study A6 checks that it does)
 	after atomic.Int64
@@ -224,10 +231,13 @@ func (c *conn) sent(data []byte, now time.Time) (verdict int) {
 				return verdictNone
 			}
 			return c.confirm()
-		case httpAnnounce(data):
+		case httpAnnounce(data) && clientAnnounce(data):
 			c.cnt.announces.Add(1)
 			c.step = stepAnnounce
 			return verdictNone
+		case httpAnnounce(data):
+			// the path of an announce in a request no client sent (a browser's): not read
+			c.cnt.announcesForeign.Add(1)
 		case c.inspect && mseShaped(data):
 			c.cnt.inspected.Add(1)
 			c.step = stepAnswer
@@ -286,18 +296,68 @@ func (c *conn) answers(data []byte, now time.Time) (verdict int) {
 			c.refute(&c.cnt.refutedLong, "the answer too long", 0, now)
 		}
 	case stepAnnounce:
-		c.reply = append(c.reply, data...)
-		peers, whole, err := httpReply(c.reply)
-		switch {
-		case err != nil:
-			c.cnt.announceUnread.Add(1)
-			c.finish()
-		case whole:
-			c.service.learn(c.device, peers)
-			c.finish()
-		}
+		c.readReply(data, false)
 	}
 	return verdictNone
+}
+
+// readReply takes more of the reply to an announce (closed: its connection ends, nothing more
+// comes) and learns its peers once it is whole. The headers are read once; the body is decoded
+// when it may be whole, at most httpParsesMost times before the end. A reply longer than
+// httpReplyLimit, or one for which httpRepliesMost leaves no room, is let go unread. The caller
+// holds access.
+func (c *conn) readReply(data []byte, closed bool) {
+	if len(data) > 0 {
+		if len(c.reply)+len(data) > httpReplyLimit {
+			c.unread()
+			return
+		}
+		if c.service.replyBytes.Add(int64(len(data))) > httpRepliesMost {
+			c.service.replyBytes.Add(-int64(len(data)))
+			c.unread()
+			return
+		}
+		c.reply = append(c.reply, data...)
+	}
+	if c.head == nil {
+		head, err := readHTTPHead(c.reply, c.scanned)
+		if err != nil || (head == nil && closed) {
+			c.unread()
+			return
+		}
+		if head == nil {
+			c.scanned = max(0, len(c.reply)-3)
+			return
+		}
+		c.head = head
+	}
+	if !closed && (c.parses >= httpParsesMost || !c.head.mayBeWhole(c.reply)) {
+		return
+	}
+	c.parses++
+	peers, whole, err := c.head.peers(c.reply)
+	switch {
+	case err != nil, !whole && closed:
+		c.unread()
+	case whole:
+		c.service.learn(c.device, peers)
+		c.finish()
+	}
+}
+
+// unread counts a reply to an announce that could not be read and stands the conn aside.
+func (c *conn) unread() {
+	c.cnt.announceUnread.Add(1)
+	c.finish()
+}
+
+// dropReply lets go of what was kept of a reply.
+func (c *conn) dropReply() {
+	if c.reply != nil {
+		c.service.replyBytes.Add(-int64(len(c.reply)))
+		c.reply = nil
+	}
+	c.head = nil
 }
 
 // confirm acts on a connection confirmed as BitTorrent; an early one waits for its device (pend).
@@ -310,8 +370,7 @@ func (c *conn) confirm() int {
 			c.service.earlyActed.Add(1)
 			return c.act()
 		}
-		c.pendingSince = now
-		c.service.pend(c)
+		c.waits = c.service.pend(c, now)
 		c.finish()
 		return verdictNone
 	}
@@ -383,33 +442,71 @@ func (c *conn) verdict(why string, length int, now time.Time) {
 
 // Close ends the connection; an inspected one not decided yet gets its verdict from the step it
 // was at: no first data (a dial that failed, a device that sent nothing), no answer from the far
-// side, or no third step.
+// side, or no third step. A reply to an announce that ends with its connection is read now. One
+// that waited for its device (pend) waits no more: its far end stays, as what the device shook
+// hands with.
 func (c *conn) Close() error {
-	c.access.Lock()
-	if c.inspect && !c.done.Load() && c.step != stepDone && c.step != stepAnnounce {
-		now := time.Now()
-		switch c.step {
-		case stepFirst:
-			c.cnt.noData.Add(1)
-			c.verdict("closed before any data", 0, now)
-		case stepAnswer:
-			c.cnt.unanswered.Add(1)
-			c.verdict("closed with no answer", 0, now)
-		case stepThird:
-			c.cnt.noThird.Add(1)
-			c.verdict("closed before the third step", 0, now)
-		}
-		c.step = stepDone
-		c.reply = nil
-	}
-	c.access.Unlock()
+	c.ended(true)
 	return c.Conn.Close()
+}
+
+// CloseWrite ends the far side's way to the device and leaves the device's open, when the
+// connection under the conn can: without it, sing-box's copy closed a connection whole at the far
+// side's end while the conn had not stood aside (a connection the far side half-closes after its
+// answer lost what the device still sent; since 0.8.18 the conn wraps every connection of the
+// transparent proxy to an uncommon port). A reply to an announce that ends with its connection is
+// read first: its peers are learned before the device sees the end.
+func (c *conn) CloseWrite() error {
+	if closer, ok := N.UnwrapWriter(c.Conn).(N.WriteCloser); ok {
+		c.ended(false)
+		return closer.CloseWrite()
+	}
+	return c.Close()
+}
+
+// ended is what Close (whole) and CloseWrite do before the connection under the conn: the far side
+// sends nothing more.
+func (c *conn) ended(whole bool) {
+	c.access.Lock()
+	defer c.access.Unlock()
+	defer c.recover()
+	if whole {
+		c.gone = true
+		if c.waits != nil {
+			c.waits.conn.Store(nil)
+			c.waits = nil
+		}
+	}
+	if c.done.Load() || c.step == stepDone {
+		return
+	}
+	if c.step == stepAnnounce {
+		c.readReply(nil, true)
+		return
+	}
+	if !whole || !c.inspect {
+		// the device may still send: its steps go on
+		return
+	}
+	now := time.Now()
+	switch c.step {
+	case stepFirst:
+		c.cnt.noData.Add(1)
+		c.verdict("closed before any data", 0, now)
+	case stepAnswer:
+		c.cnt.unanswered.Add(1)
+		c.verdict("closed with no answer", 0, now)
+	case stepThird:
+		c.cnt.noThird.Add(1)
+		c.verdict("closed before the third step", 0, now)
+	}
+	c.step = stepDone
 }
 
 // close ends the connection: the copies of both ways end with it.
 func (c *conn) close() {
 	c.step = stepDone
-	c.reply = nil
+	c.dropReply()
 	c.done.Store(true)
 	_ = c.Conn.Close()
 }
@@ -420,7 +517,7 @@ func (c *conn) recover() {
 	if recover() != nil {
 		c.cnt.panics.Add(1)
 		c.step = stepDone
-		c.reply = nil
+		c.dropReply()
 		c.done.Store(true)
 	}
 }
@@ -431,7 +528,7 @@ func (c *conn) finish() {
 		return
 	}
 	c.step = stepDone
-	c.reply = nil
+	c.dropReply()
 	if !handBack {
 		return
 	}

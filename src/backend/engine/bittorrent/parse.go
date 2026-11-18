@@ -242,34 +242,81 @@ func httpAnnounce(data []byte) bool {
 	return bytes.HasPrefix(data, []byte("GET /announce?")) || bytes.HasPrefix(data, []byte("GET /announce.php?"))
 }
 
-// httpReplyLimit is the most of a tracker's reply the learner keeps: a reply of 200 compact peers
-// is about 1.3 KB, of 200 peers as dictionaries about 12 KB.
-const httpReplyLimit = 256 << 10
+// browserHeaders are headers a browser sends with a request and a BitTorrent client does not
+// (lower case, as lines of the request).
+var browserHeaders = [][]byte{[]byte("\r\naccept-language:"), []byte("\r\nreferer:"), []byte("\r\norigin:"), []byte("\r\ncookie:"),
+	[]byte("\r\nsec-"), []byte("\r\nupgrade-insecure-requests:")}
+
+// clientAnnounce tells an announce that a BitTorrent client sent: its request line carries
+// info_hash (BEP 3), and what came of its headers with it has none of a browser's. A page a device
+// opened can ask for any address with the path of an announce, and the answer of its server would
+// be learned as a tracker's: thousands of addresses whose connections of that device become
+// BitTorrent (the review of 0.8.18). A browser sends Accept-Language with every request, and a page
+// cannot take it out.
+func clientAnnounce(data []byte) bool {
+	line := data
+	if end := bytes.Index(data, []byte("\r\n")); end >= 0 {
+		line = data[:end]
+	}
+	if !bytes.Contains(line, []byte("info_hash=")) {
+		return false
+	}
+	headers := bytes.ToLower(data[len(line):])
+	for _, header := range browserHeaders {
+		if bytes.Contains(headers, header) {
+			return false
+		}
+	}
+	return true
+}
+
+// The limits of the reply of an HTTP tracker.
+const (
+	// httpReplyLimit is the most of one reply the learner keeps, and the most its body may inflate
+	// to: a reply of 200 compact peers is about 1.3 KB, of replyMost peers as dictionaries with
+	// their ids about 23 KB.
+	httpReplyLimit = 64 << 10
+	// httpRepliesMost is the most the learner keeps of all the replies it is reading: a reply that
+	// never ends is kept as long as its connection lives, and nothing bounded their sum (the
+	// review of 0.8.18). libtorrent announces to at most 50 HTTP trackers at once (its
+	// max_concurrent_http_announces): 50 replies of httpReplyLimit are 3.2 MiB.
+	httpRepliesMost = 4 << 20
+	// httpParsesMost is how many times the body of one reply is decoded before its connection
+	// ends (once more then): a reply comes in a few segments, and each that could be its last is
+	// decoded, inflated when it is compressed.
+	httpParsesMost = 8
+)
 
 var errHTTPReply = errors.New("not a tracker reply")
 
-// httpReply reads the reply of an HTTP tracker as far as it came: done when it is whole (by its
-// length, its last chunk, or a body that decodes whole), with its peers; an error when it is not
-// a reply of 200 with a bencoded body, or is longer than httpReplyLimit.
-func httpReply(data []byte) (peers []netip.AddrPort, done bool, err error) {
-	if len(data) > httpReplyLimit {
-		return nil, false, errHTTPReply
-	}
-	end := bytes.Index(data, []byte("\r\n\r\n"))
+// httpHead is the status line and the headers of a tracker's reply, read once.
+type httpHead struct {
+	// body is where the body begins; length its Content-Length, or -1
+	body     int
+	length   int
+	chunked  bool
+	encoding string
+}
+
+// readHTTPHead reads the status line and the headers of a reply once they came whole (nil until
+// then), looking for their end from from on; an error when it is not an answer of 200 whose body
+// the learner can decode.
+func readHTTPHead(data []byte, from int) (*httpHead, error) {
+	from = min(max(from, 0), len(data))
+	end := bytes.Index(data[from:], []byte("\r\n\r\n"))
 	if end < 0 {
 		if len(data) >= 12 && !bytes.HasPrefix(data, []byte("HTTP/1.")) {
-			return nil, false, errHTTPReply
+			return nil, errHTTPReply
 		}
-		return nil, false, nil
+		return nil, nil
 	}
+	end += from
 	lines := bytes.Split(data[:end], []byte("\r\n"))
 	status := bytes.Fields(lines[0])
 	if len(status) < 2 || !bytes.HasPrefix(status[0], []byte("HTTP/1.")) || string(status[1]) != "200" {
-		return nil, false, errHTTPReply
+		return nil, errHTTPReply
 	}
-	length := -1
-	var chunked bool
-	var encoding string
+	head := &httpHead{body: end + 4, length: -1}
 	for _, line := range lines[1:] {
 		colon := bytes.IndexByte(line, ':')
 		if colon < 0 {
@@ -280,59 +327,96 @@ func httpReply(data []byte) (peers []netip.AddrPort, done bool, err error) {
 		switch name {
 		case "content-length":
 			if number, err := strconv.Atoi(value); err == nil && number >= 0 {
-				length = number
+				head.length = number
 			}
 		case "transfer-encoding":
-			chunked = value == "chunked"
+			head.chunked = value == "chunked"
 		case "content-encoding":
-			encoding = value
+			head.encoding = value
 		}
 	}
-	body := data[end+4:]
-	// the reply is read again at each write that brings more of it: a part that cannot be its end
-	// is let go at once (a chunked body ends with a line, a bencoded one with "e")
+	switch head.encoding {
+	case "", "identity", "gzip", "x-gzip", "deflate":
+	default:
+		return nil, errHTTPReply
+	}
+	if head.length > httpReplyLimit {
+		return nil, errHTTPReply
+	}
+	return head, nil
+}
+
+// mayBeWhole tells, without decoding it, whether the body may have come whole: by its length, by
+// the end of its last chunk and trailers, or (a body that ends with its connection) by the "e" a
+// bencoded dictionary ends with; a compressed body with no length may always be.
+func (h *httpHead) mayBeWhole(data []byte) bool {
+	body := data[h.body:]
 	switch {
-	case chunked:
-		if !bytes.HasSuffix(body, []byte("\r\n")) {
-			return nil, false, nil
-		}
+	case h.chunked:
+		return bytes.HasSuffix(body, []byte("\r\n\r\n"))
+	case h.length >= 0:
+		return len(body) >= h.length
+	case h.encoding == "" || h.encoding == "identity":
+		return bytes.HasSuffix(bytes.TrimRight(body, " \t\r\n"), []byte("e"))
+	}
+	return true
+}
+
+// peers decodes the body as far as it came: done when it is whole, with its peers; an error when
+// it is not a bencoded dictionary (a body that ends with its connection may only not be whole
+// yet).
+func (h *httpHead) peers(data []byte) (peers []netip.AddrPort, done bool, err error) {
+	body := data[h.body:]
+	switch {
+	case h.chunked:
 		var whole bool
 		body, whole = dechunk(body)
 		if !whole {
 			return nil, false, nil
 		}
-	case length >= 0:
-		if len(body) < length {
+	case h.length >= 0:
+		if len(body) < h.length {
 			return nil, false, nil
 		}
-		body = body[:length]
+		body = body[:h.length]
 	}
-	switch encoding {
-	case "", "identity":
-		if !chunked && length < 0 && !bytes.HasSuffix(bytes.TrimRight(body, " \t\r\n"), []byte("e")) {
-			return nil, false, nil
-		}
-	case "gzip", "x-gzip", "deflate":
-		decoded, err := inflate(body, encoding)
+	endless := !h.chunked && h.length < 0
+	if h.encoding != "" && h.encoding != "identity" {
+		decoded, err := inflate(body, h.encoding)
 		if err != nil {
-			// a body without its length that does not inflate yet may not have come whole
-			if !chunked && length < 0 {
+			if endless {
 				return nil, false, nil
 			}
 			return nil, false, errHTTPReply
 		}
 		body = decoded
-	default:
-		return nil, false, errHTTPReply
 	}
 	dict, ok := bdictionary(bytes.TrimRight(body, " \t\r\n"))
 	if !ok {
-		if !chunked && length < 0 {
+		if endless {
 			return nil, false, nil
 		}
 		return nil, false, errHTTPReply
 	}
 	return httpPeers(dict), true, nil
+}
+
+// httpReply reads the reply of an HTTP tracker as far as it came, in one go: done when it is whole
+// (by its length, its last chunk, or a body that decodes whole), with its peers; an error when it
+// is not a reply of 200 with a bencoded body, or is longer than httpReplyLimit. A conn reads a
+// reply in these stages as its parts come (conn.readReply).
+func httpReply(data []byte) (peers []netip.AddrPort, done bool, err error) {
+	if len(data) > httpReplyLimit {
+		return nil, false, errHTTPReply
+	}
+	head, err := readHTTPHead(data, 0)
+	if head == nil || err != nil {
+		return nil, false, err
+	}
+	if !head.mayBeWhole(data) {
+		return nil, false, nil
+	}
+	return head.peers(data)
 }
 
 // httpPeers are the peers of a tracker's reply: a compact string (BEP 23) or a list of

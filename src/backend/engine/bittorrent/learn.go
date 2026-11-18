@@ -28,6 +28,20 @@ const pendingLife = 15 * time.Second
 // pendingMost is the most requests a session keeps; the oldest goes first.
 const pendingMost = 512
 
+// dhtIDLongest is the longest transaction id of a DHT query whose answer is paired: the id is kept
+// until the answer comes, and a query may carry one of any length (512 of 64 KB each for one
+// session, the review of 0.8.18). The clients of the stand sent 1, 2 and 4 bytes (14547 queries of
+// qBittorrent, Transmission, aria2, rTorrent and M4's clients, lab/bt17/sizes.py): four times that.
+const dhtIDLongest = 16
+
+// replyMost is the most peers learned from one reply: those past it are left out, counted. One
+// reply of a tracker or of a DHT node that names thousands (a datagram of 64 KB holds 10900) took
+// most of a device's cap, and each peer learned makes the device's TCP to it BitTorrent (the review
+// of 0.8.18). The most a reply named in the stand's captures of real swarms: 200 by a UDP tracker,
+// 100 by the DHT (lab/bt17/uports.py, 339 replies with peers); a quarter over that. A peer left out
+// is not lost: the device's connection to it is inspected, as one to a peer no reply named.
+const replyMost = 256
+
 type pendingKey struct {
 	far netip.AddrPort
 	id  string
@@ -75,6 +89,10 @@ func (c *packetConn) request(payload []byte, far netip.AddrPort, now time.Time) 
 	if transaction, ok := trackerRequest(payload); ok {
 		id = trackerID(transaction)
 	} else if transaction, ok := dhtQuery(payload); ok {
+		if len(transaction) > dhtIDLongest {
+			// its answer is not paired, so nothing is learned from it; the session goes on
+			return
+		}
 		id = "d" + transaction
 	} else {
 		// after the requests and the other discovery: an announce or a scrape begins with a
@@ -194,18 +212,26 @@ func (c *packetConn) ReaderReplaceable() bool     { return c.done.Load() }
 func (c *packetConn) WriterReplaceable() bool     { return c.done.Load() }
 func (c *packetConn) Upstream() any               { return c.PacketConn }
 
-// learnable tells a peer the set may take: an IPv4 address of the internet (not of a private
-// range, not FakeIP's 198.18.0.0/15, which the firewall sends to the proxy anyway) and a port of
-// 1024 or over that is none of the ports never learned (podkop's common ports: a connection there
-// is no peer's, and it must not go past podkop).
+// learnable tells a peer a reply names that the set may take: an address a peer may have
+// (learnableAddress) and a port of 1024 or over that is none of the ports never learned (podkop's
+// common ports: a reply's word alone does not make a connection there a peer's, and it must not go
+// past podkop). A peer on such a port is learned only by its own handshake (learnFar).
 func (s *Service) learnable(peer netip.AddrPort) bool {
-	address := peer.Addr()
-	if !address.Is4() || !address.IsGlobalUnicast() || address.IsPrivate() || fakeIPRange.Contains(address) ||
-		sharedRange.Contains(address) || peer.Port() < 1024 {
+	if !learnableAddress(peer.Addr()) || peer.Port() < 1024 {
 		return false
 	}
 	_, never := s.neverPorts[peer.Port()]
 	return !never
+}
+
+// learnableAddress tells an IPv4 address of the internet: not of a private range, not FakeIP's
+// 198.18.0.0/15 (which the firewall sends to the proxy anyway), not of 0.0.0.0/8 or 240.0.0.0/4.
+func learnableAddress(address netip.Addr) bool {
+	if !address.Is4() || !address.IsGlobalUnicast() || address.IsPrivate() || fakeIPRange.Contains(address) || sharedRange.Contains(address) {
+		return false
+	}
+	first := address.As4()[0]
+	return first != 0 && first < 240
 }
 
 var (
@@ -220,29 +246,46 @@ var (
 // userspace neither moves an element's timer nor fails on one that is there (kernel 6.6), and makes
 // one that has gone, so the module cannot tell from its own writes what the set holds.
 func (s *Service) learn(device netip.Addr, peers []netip.AddrPort) {
-	s.write(device, peers)
+	s.write(device, peers, false)
 }
 
 // learnFar learns the far end of a confirmed connection and tells whether it is in the set now, so
-// that the device's retry finds it at its SYN.
+// that the device's retry finds it at its SYN. The far end's own handshake of BitTorrent confirmed
+// it, so its port may be any: a peer that listens on 443 or another common port is learned this
+// way, for the device that shook hands with it, and no other way (since 0.8.19; the firewall
+// inspects a connection to a known peer on such a port instead of taking the peer's word).
 func (s *Service) learnFar(device netip.Addr, far netip.AddrPort) bool {
-	return s.write(device, []netip.AddrPort{far})
+	return s.write(device, []netip.AddrPort{far}, true)
 }
 
-// write writes the peers for the device and tells whether every one is in the set.
-func (s *Service) write(device netip.Addr, peers []netip.AddrPort) bool {
+// write writes the peers for the device and tells whether every one is in the set: the peers of a
+// reply (each once, at most replyMost), or the far end of a confirmed connection.
+func (s *Service) write(device netip.Addr, peers []netip.AddrPort, confirmed bool) bool {
 	if s.sink == nil || !device.Is4() {
 		return false
 	}
-	keys := make([][]byte, 0, len(peers))
+	keys := make([][]byte, 0, min(len(peers), replyMost))
+	seen := make(map[[12]byte]struct{}, min(len(peers), replyMost))
+	left := 0
 	for _, peer := range peers {
-		if !s.learnable(peer) {
+		if confirmed && (!learnableAddress(peer.Addr()) || peer.Port() == 0) || !confirmed && !s.learnable(peer) {
 			s.counters.notLearnable.Add(1)
+			left++
 			continue
 		}
-		keys = append(keys, elementKey(device, peer))
+		key := elementKey(device, peer)
+		if _, again := seen[[12]byte(key)]; again {
+			continue
+		}
+		if len(keys) >= replyMost {
+			s.counters.overReply.Add(1)
+			left++
+			continue
+		}
+		seen[[12]byte(key)] = struct{}{}
+		keys = append(keys, key)
 	}
-	whole := len(keys) == len(peers)
+	whole := left == 0
 	if len(keys) == 0 {
 		return false
 	}
@@ -288,6 +331,8 @@ type devices struct {
 	window  time.Duration
 	base    time.Time
 	counted map[netip.Addr]*deviceKeys
+	// swept: when the devices with nothing counted within the window were last forgotten
+	swept time.Duration
 }
 
 // deviceKeys are the peers counted for a device, each with the time it was counted (from base, by
@@ -306,8 +351,10 @@ type countedKey struct {
 	at  time.Duration
 }
 
-// devicesMost is how many devices devices keeps before it forgets those with nothing counted
-// within the window.
+// devicesMost is how many devices devices keeps: past it, those with nothing counted within the
+// window are forgotten, and when none is, nothing is learned for another device (addresses a host
+// of the LAN made up would add entries without end). Devices with nothing counted within the
+// window are forgotten once a window as well: one that reached its cap held a megabyte for good.
 const devicesMost = 4096
 
 // take gives the keys of the device to write: those counted within the window, and new ones as
@@ -324,13 +371,18 @@ func (d *devices) take(device netip.Addr, keys [][]byte, now time.Time) (taken [
 	}
 	at := now.Sub(d.base)
 	entry := d.counted[device]
+	if at-d.swept > d.window || (entry == nil && len(d.counted) >= devicesMost) {
+		d.swept = at
+		for address, old := range d.counted {
+			if at-old.last > d.window {
+				delete(d.counted, address)
+			}
+		}
+		entry = d.counted[device]
+	}
 	if entry == nil {
 		if len(d.counted) >= devicesMost {
-			for address, old := range d.counted {
-				if at-old.last > d.window {
-					delete(d.counted, address)
-				}
-			}
+			return nil, 0, len(keys)
 		}
 		entry = &deviceKeys{keys: make(map[[12]byte]time.Duration)}
 		d.counted[device] = entry
