@@ -7,6 +7,53 @@ What changed in each release of podkop-exp, newest first. The engine is the sing
 notes, with the measurements and the limits, are on the
 [releases page](https://github.com/podkop-net/podkop-experimental/releases).
 
+## 0.8.19 — 2026-11-19
+
+Engine r27.
+
+- **Dashboard on phones and in other themes.** The BitTorrent card was a table that did not fit: on
+  a phone its last column (sent) was out of sight, and in the themes Aurora and Argon it widened
+  the whole dashboard past the screen. Its rows now wrap: where it is narrow, the numbers go under
+  the name. "Sent" comes first, and there is a total. The grids of the dashboard follow its own
+  width, not the window's. Checked in Bootstrap, Material, OpenWrt2020, Argon and Aurora, from 360
+  to 1280 px.
+- **BitTorrent statistics for a client that seeds.** Connections from outside (a port forward,
+  UPnP) were counted only when the client answered with a plaintext handshake: encrypted ones
+  never, and with flow offloading none. They are counted from their first packet now; on the stand
+  the card matched the capture for plain and encrypted connections, offloaded or not. After a
+  restart of podkop, connections already open count from then on, not with their whole life.
+- **BitTorrent, clients that hide (new, off by default):** "Find clients that hide", for Block and
+  "Through the servers of a rule" on the whole LAN. A client with no DHT, uTP and peer exchange and
+  with encryption required went through the block of the whole LAN untouched. A device that opens
+  connections to many new addresses on uncommon ports at once now has its connections checked;
+  after three confirmed handshakes it is treated as a client and its earlier connections are
+  closed. On the stand four such clients downloaded nothing, with flow offloading too. Not found:
+  a download with only a few peers. An I2P router is taken for BitTorrent.
+- **BitTorrent, a client on the router itself (new):** "Torrent clients on the router itself"
+  names the user the client runs as (`transmission`, `aria2`); all the traffic of that user
+  follows the mode. Before, the modes did not reach the router's own programs.
+- **BitTorrent, fixes from the review of 0.8.9–0.8.18:**
+  - with BitTorrent on and 5 to 7 groups of ports in the lists, the firewall table failed to load
+    ("no buffer space available");
+  - in Block, a device not seen before with a client set up by hand passed 2–3 MB before it was
+    told: it is judged at its third handshake at once;
+  - a tracker's answer that named a site's address on port 443 sent the devices' HTTPS to it past
+    the proxy, or dropped it in Block: a peer on such a port is taken by its handshake only;
+  - 3 of 65536 DNS queries looked like a uTP connect and made their device a client;
+  - SIP over TCP and PostgreSQL without TLS on a device running a client were taken for
+    BitTorrent;
+  - a seeding client's announces to an HTTP tracker went through the rule's server; the peers of
+    an announce to a known tracker are now learned from its reply;
+  - the detector's sets have sizes (about 9 MB of kernel memory at most, 30–45 MB before); a full
+    set is told on the dashboard and in the global check; packets with made-up source addresses no
+    longer make devices.
+- **A rule chosen for BitTorrent that is switched off or deleted:** BitTorrent then goes as the
+  other traffic, and only the log said so. The selector marks such a rule, the field warns, and
+  the dashboard card says why.
+- **"Find a mask" and the block detector:** an answer of any length no longer fills memory; a
+  failed search no longer stays "running".
+- **Guide:** a BitTorrent chapter, with what it cannot do.
+
 ## 0.8.18 — 2026-11-17
 
 Engine r27.

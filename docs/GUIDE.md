@@ -75,11 +75,66 @@ The tab is one list; here its fields are grouped by topic.
 | DNS servers | rows of DoH, DoT, UDP or **The provider's DNS**, asked **in their order** or **the fastest first**; the bootstrap DNS; the TTL podkop gives in its answers |
 | Server check | the URLs, the interval and the tolerance of the delay checks of every rule; the download check |
 | uTLS-fallback | on by default: the link's fingerprint is tried first without the X25519MLKEM768 key share, then firefox, then as it is; the first that passes is kept for the server and checked again once a day |
-| BitTorrent | **As the other traffic**, **Past podkop**, **Block** or **Through the servers of a rule**; the last two apply to what podkop takes or to the whole LAN |
+| BitTorrent | **As the other traffic**, **Past podkop**, **Block** or **Through the servers of a rule**; the last two apply to what podkop takes or to the whole LAN. See [BitTorrent](#bittorrent) |
 | Public lists of masks | where "Find a mask" takes the names of whitelisted sites |
 | Interfaces | the LAN interface podkop serves, and an output interface for its own connections |
 | YACD | the YACD dashboard: on or off, the interfaces it opens from, its key |
 | Other | Disable QUIC, the update interval of the lists, Dont Touch My DHCP!, the cache file, the log level, Exclude NTP, IPs excluded from routing |
+
+## BitTorrent
+
+Settings → **BitTorrent** says what happens to the traffic of torrent clients.
+
+| Mode | What it does |
+|---|---|
+| As the other traffic | nothing special: the rules decide, as for any program |
+| Past podkop | torrents never use your servers: they go straight to the internet, and the router can offload them |
+| Block | dropped |
+| Through the servers of a rule | sent to the servers of the rule you choose, for example ones without a data cap |
+
+**Block** and **Through the servers of a rule** act on what podkop takes (the devices routed whole
+and the addresses of the lists) or on the **whole LAN**.
+
+A client is told by the first packets of the DHT, of uTP and of trackers, by the BitTorrent
+handshake, by the peers a tracker or the DHT named, and, for an encrypted connection, by the shape
+of its handshake.
+
+Two more fields:
+
+- **Find clients that hide** (for the whole LAN, off by default). A client set up without DHT, uTP
+  and peer exchange, with encryption required, shows the router no sign. With this on, a device
+  that opens connections to many new addresses on uncommon ports at once has its new connections
+  checked. When three of them turn out to be BitTorrent, the device is treated as running a client
+  and the connections it opened earlier are closed. Connections under the check go through
+  sing-box and are not offloaded.
+- **Torrent clients on the router itself.** The detector sees the devices of the LAN, not the
+  router's own programs. Name the user the client runs as (`transmission` and `aria2` in OpenWrt's
+  packages) and all the traffic of that user follows the mode. A client that speaks SOCKS5
+  (qBittorrent, Deluge) can instead be pointed at the **mixed proxy** of a rule: what it sends
+  there goes through that rule's servers, whatever the BitTorrent mode. Transmission and aria2
+  have no proxy setting for peers. A client in a container is a device of the LAN once the
+  container's bridge is among the source interfaces.
+
+What it cannot do:
+
+- **IPv6** is not looked at.
+- **A client that never connects again.** An encrypted connection is recognised only after it is
+  open; podkop then closes it so that the client opens it again, the right way. rTorrent and aria2
+  with encryption required rarely do: in "Past podkop" and "Through the servers of a rule" such
+  connections stay on the route they had, for peers that no tracker or DHT answer named.
+- **A download with a few peers** from a client that hides is not found on the whole LAN: three
+  encrypted handshakes must complete, and most addresses a tracker names do not answer.
+- **Programs that look alike.** An I2P router is taken for BitTorrent. A proxy client that keeps
+  connections to several servers on uncommon ports (Shadowsocks, VMess) on a device that also runs
+  a torrent client can be taken for it.
+- **Flow offloading.** A connection the router offloaded passes no rule. Podkop decides by the
+  first packet wherever it can. On the whole LAN, a client whose only sign is in the data of a TCP
+  connection (a plain-HTTP tracker, a plaintext handshake) is not told with offloading on, unless
+  "Find clients that hide" catches it.
+- **A client on the router that runs as root**, and programs behind an interface that is not among
+  the source interfaces, are not seen.
+- **The first announce** to an HTTP tracker of your lists, and every announce to an HTTPS tracker,
+  go by the rules, like any site.
 
 ## Dashboard
 
@@ -104,8 +159,12 @@ The tab is one list; here its fields are grouped by topic.
   A treatment belongs to the server and survives a rename. A mark on the tile opens the window,
   where the treatment can be removed.
 - The **BitTorrent** card (when BitTorrent is not "As the other traffic") shows the traffic of
-  BitTorrent clients: by kind (DHT and trackers, uTP, TCP, incoming) and by the way it went.
-  **Reset** starts the counts again, without a restart of podkop.
+  BitTorrent clients: by kind (DHT and trackers, uTP, TCP, incoming) and by the way it went, with
+  what the devices sent and received, the connections, and a total. The router counts IPv4 with
+  packet headers, so the numbers are a little over the client's own. Connections from outside (a
+  port forward) are counted when the client listens on the port its DHT or uTP uses. With hardware
+  offloading on a chip that does not report bytes per connection, offloaded connections may show
+  their first packets only. **Reset** starts the counts again, without a restart of podkop.
 
 ## Diagnostics
 
