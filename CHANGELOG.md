@@ -7,6 +7,20 @@ What changed in each release of podkop-exp, newest first. The engine is the sing
 notes, with the measurements and the limits, are on the
 [releases page](https://github.com/podkop-net/podkop-experimental/releases).
 
+## 0.8.20 — 2026-11-19
+
+Engine r27, as in 0.8.19. Only the page changed.
+
+- **Fixed: the dashboard took part of the page's width.** In most themes (Bootstrap, OpenWrt2020,
+  Argon, Aurora and others built the same way) the dashboard of 0.8.19 was as wide as its content,
+  not as the page: with short server names it took two thirds to three quarters of a desktop
+  screen, its right side empty. It now takes the whole width in every theme, and so does the
+  diagnostics tab (narrow on a tablet the same way, in earlier versions too).
+- **Install script** (already on the site since 0.8.19 came out): the output of every command is
+  shown as it comes, with download progress; a silent command gets a "still waiting" line every
+  30 s and, after a minute, what to check. `--no-ru` installs without the Russian translation and
+  without the question, `--ru` with it.
+
 ## 0.8.19 — 2026-11-19
 
 Engine r27.
