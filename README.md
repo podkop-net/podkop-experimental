@@ -37,7 +37,8 @@ package is needed.
   The provider's DNS is the fallback, on every uplink. After a reboot, dnsmasq still sends DNS queries to podkop.
   Per-domain forwardings (Tailscale) are kept.
 - **BitTorrent:** a setting sends it past podkop, blocks it or sends it through the servers of a
-  rule. Its statistics are on the dashboard.
+  rule, for what podkop takes or for the whole LAN, and for a client on the router itself. Its
+  statistics are on the dashboard. What it cannot do is in the [guide](docs/GUIDE.md#bittorrent).
 - **Dashboard and diagnostics:** the route of each rule, the servers with their delay and loss,
   and the BitTorrent traffic. The global check also covers the router's clock, the running state
   of dnsmasq, the server choice and an MTU hint for VPN interfaces.
