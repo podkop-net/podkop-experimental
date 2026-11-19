@@ -1,8 +1,15 @@
 // language=CSS
 export const styles = `
 
+/* (the field takes the whole row of its option: see the dashboard's styles) */
+#cbi-podkop-diagnostic-_mount_node > output,
 #cbi-podkop-diagnostic-_mount_node > div {
+    display: block;
+    flex: 1 1 100%;
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 #cbi-podkop-diagnostic > h3 {

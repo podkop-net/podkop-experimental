@@ -1,8 +1,15 @@
 // language=CSS
 export const styles = `
-/* The field that holds the dashboard takes the width its place gives it and no more: as a flex
-   item (the themes lay a field out so) it would be as wide as its widest unbreakable content. */
+/* The field that holds the dashboard takes the whole width of its option's row, whatever its
+   content asks, and no more. LuCI puts the field in an <output> in the row (.cbi-value), and most
+   themes (bootstrap, openwrt2020, argon, aurora) lay the row out as a flex line, where an item is
+   as wide as its content: the grids below (auto-fill) ask for little, so with short names of
+   servers the dashboard of 0.8.19 took 65-76 % of its place on a desktop, the rest empty. As a flex
+   item it could also grow to its widest unbreakable content: min-width 0. */
+#cbi-podkop-dashboard-_mount_node > output,
 #cbi-podkop-dashboard-_mount_node > div {
+    display: block;
+    flex: 1 1 100%;
     width: 100%;
     min-width: 0;
     max-width: 100%;
