@@ -11,6 +11,7 @@ under them; this guide covers what the hints do not.
 - [Rules](#rules)
 - [Settings](#settings)
 - [BitTorrent](#bittorrent)
+- [IPv6](#ipv6)
 - [Dashboard](#dashboard)
 - [Diagnostics](#diagnostics)
 - [When something does not work](#when-something-does-not-work)
@@ -49,8 +50,8 @@ A rule says which sites go through which servers. When a site is in several rule
 wins; drag ☰ to change the order. A rule has four tabs:
 
 - **Main**: the lists of the rule. They can be community lists, your own domains and subnets (a
-  **Dynamic List** or a **Text List**), lists by link, and **Fully Routed IPs**: devices whose whole traffic goes
-  by this rule.
+  **Dynamic List** or a **Text List**), lists by link, and **Fully Routed IPs**: devices whose whole IPv4 traffic goes
+  by this rule. Subnets may be IPv6 (see [IPv6](#ipv6)); devices routed whole are IPv4 addresses.
 - **Servers**: one or more rows. A row is a source with optional filters. **Name contains** and
   **Name does not contain** match the start of a word, so `NL` finds `NL-1` and `Amsterdam NL` but
   not `RU2NL`. The **Through** column connects to the row's servers via another source. A row can
@@ -73,7 +74,9 @@ The tab is one list; here its fields are grouped by topic.
 
 | Fields | What they set |
 |---|---|
-| DNS servers | rows of DoH, DoT, UDP or **The provider's DNS**, asked **in their order** or **the fastest first**; the bootstrap DNS; the TTL podkop gives in its answers |
+| DNS servers | rows of DoH, DoT, UDP or **The provider's DNS**, asked **in their order** or **the fastest first** (an IPv6 server as `[2001:4860:4860::8888]:853`); the bootstrap DNS; the TTL podkop gives in its answers |
+| Addresses in DNS answers | for names outside the lists: **Prefer IPv4** (an IPv6 address only for a name without IPv4), **IPv4 only**, or **IPv4 and IPv6**. See [IPv6](#ipv6) |
+| IPv6 traffic | **Past podkop** or **Through podkop**. See [IPv6](#ipv6) |
 | Server check | the URLs, the interval and the tolerance of the delay checks of every rule; the download check |
 | uTLS-fallback | on by default: the link's fingerprint is tried first without the X25519MLKEM768 key share, then firefox, then as it is; the first that passes is kept for the server and checked again once a day |
 | BitTorrent | **As the other traffic**, **Past podkop**, **Block** or **Through the servers of a rule**; the last two apply to what podkop takes or to the whole LAN. See [BitTorrent](#bittorrent) |
@@ -141,6 +144,26 @@ What it cannot do:
   answers only to the private addresses of the LAN.
 - **The first announce** to an HTTP tracker of your lists, and every announce to an HTTPS tracker,
   go by the rules, like any site.
+
+## IPv6
+
+podkop gives the names of the lists FakeIP addresses of IPv4, in every mode: a device reaches
+such a site over IPv4 through the rule's server, and the server resolves the name itself, in
+IPv4 or IPv6. What the settings change is the rest:
+
+- **Addresses in DNS answers** is what the devices and the router get for names outside the lists.
+  With **IPv4 and IPv6**, a device with IPv6 usually picks IPv6 for such sites; they go past podkop
+  as their IPv4 does.
+- **IPv6 traffic, Through podkop** sends IPv6 to the IPv6 subnets of the lists (Telegram, for
+  example, has IPv6 data centres; an app may connect to them without asking the DNS) by their rules,
+  as IPv4. The servers of such a rule need IPv6: a server without it fails those connections, and
+  the log of podkop says so. **Past podkop** leaves IPv6 alone, as before 0.8.20.
+
+What it does not do: devices routed whole (Fully Routed IPs) are routed by their IPv4 only; the
+BitTorrent setting looks at IPv4 only; FakeIP has no IPv6 addresses, so a device with IPv6 only
+gets no address for a name of a list. A router whose provider gives IPv6 in relay mode passes the
+provider's DNS server on to the devices: they then ask it, not podkop, and the global check warns
+of it (give them the router's DNS server in the DHCP settings of the LAN).
 
 ## Dashboard
 

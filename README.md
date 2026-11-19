@@ -33,7 +33,8 @@ package is needed.
   remembered for the server.
 - **Downloads that get through.** Lists and subscriptions that do not come directly come through
   the servers of your rules. The way that worked last time is tried first.
-- **DNS:** several servers (DoH, DoT, UDP, the provider's DNS), asked in order or fastest first.
+- **DNS:** several servers (DoH, DoT, UDP, the provider's DNS; IPv4 or IPv6), asked in order or
+  fastest first; answers with IPv4 first, IPv4 only, or both.
   The provider's DNS is the fallback, on every uplink. After a reboot, dnsmasq still sends DNS queries to podkop.
   Per-domain forwardings (Tailscale) are kept.
 - **BitTorrent:** a setting sends it past podkop, blocks it or sends it through the servers of a
@@ -42,6 +43,8 @@ package is needed.
 - **Dashboard and diagnostics:** the route of each rule, the servers with their delay and loss,
   and the BitTorrent traffic. The global check also covers the router's clock, the running state
   of dnsmasq, the server choice and an MTU hint for VPN interfaces.
+- **IPv6:** past podkop, or through it for the IPv6 subnets of the lists, as IPv4
+  ([guide](docs/GUIDE.md#ipv6)).
 - **Several uplinks:** mwan3 (balance and failover), PPPoE, routes to single hosts and Tailscale
   work.
 - **YACD in the package**, open only from the devices you choose.

@@ -9,8 +9,34 @@ notes, with the measurements and the limits, are on the
 
 ## 0.8.20 — 2026-11-19
 
-Engine r27, as in 0.8.19. Only the page changed.
+Engine r27, as in 0.8.19.
 
+- **IPv6 through podkop: the setting "IPv6 traffic".** **Past podkop** (the default, as before)
+  or **Through podkop**: IPv6 to the IPv6 subnets of the lists (your subnet lists, lists by link,
+  community lists that have IPv6) goes by their rules as IPv4 does, from the devices of the LAN
+  and from the router itself. The names of the lists are not affected: they get FakeIP IPv4
+  addresses, and the server resolves them in either family. A rule needs a server with IPv6 for
+  its IPv6 subnets. Devices routed whole are routed by IPv4 only. A router without IPv6 (no
+  `::1`) ignores the setting and says so in the log.
+- **The setting "Addresses in DNS answers"**, for names outside the lists: **Prefer IPv4** (the
+  default, as since 0.8.4: an IPv6 address only for a name without IPv4), **IPv4 only** (as podkop
+  0.7) or **IPv4 and IPv6** (the device chooses). The names of the lists get a FakeIP IPv4 address
+  in every mode, never an IPv6 one.
+- **IPv6 addresses are taken** in your subnet lists (dropped before), DNS servers and the
+  bootstrap server (`[2001:4860:4860::8888]:853`, or bare without a port) and Routing Excluded IPs.
+  Proxy links with `[IPv6]:port` were taken already.
+- **Global check:** a section on IPv6 (the router's IPv6, the two settings, the inbound and the
+  routing of IPv6, a DHCP section that relays the provider's IPv6 DNS server to the devices), and
+  the chains of other programs that write the conntrack mark.
+- **Fixed: Tailscale with the BitTorrent setting.** With Tailscale 1.96 or newer (OpenWrt 25.12
+  ships 1.104) and BitTorrent set to anything but "As the other traffic", UDP through podkop (QUIC,
+  calls, games) lost most of its packets: Tailscale copies one byte of a connection's conntrack mark
+  into the packet mark, writing the whole mark, and podkop kept its BitTorrent bits in that byte.
+  They are elsewhere now. On the stand with Tailscale's rules: 1 of 12 UDP datagrams came back
+  through the proxy with 0.8.19, 12 of 12 now.
+- **Fixed: the routing mark of an interface source** (for pbr): the connections of such a source to
+  the subnets of the lists came back into podkop, since the source's mark takes the place of
+  podkop's own. They go out now; a mark with podkop's bits (0x100000, 0x400000) is refused.
 - **Fixed: the dashboard took part of the page's width.** In most themes (Bootstrap, OpenWrt2020,
   Argon, Aurora and others built the same way) the dashboard of 0.8.19 was as wide as its content,
   not as the page: with short server names it took two thirds to three quarters of a desktop
