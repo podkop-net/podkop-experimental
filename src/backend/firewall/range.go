@@ -5,6 +5,8 @@ import (
 	"math"
 	"net/netip"
 	"slices"
+
+	"go4.org/netipx"
 )
 
 // Range is a range of IPv4 destinations, both ends included: the first address in the high
@@ -110,4 +112,23 @@ func IsMerged(ranges []Range) bool {
 		}
 	}
 	return true
+}
+
+// Merge6 makes IPv6 ranges one list in order, as Merge does IPv4 ones: overlapping and
+// adjacent ones become one range. Ranges of IPv4 among them are left out.
+func Merge6(ranges []netipx.IPRange) []netipx.IPRange {
+	var builder netipx.IPSetBuilder
+	for _, item := range ranges {
+		if item.IsValid() && item.From().Is6() {
+			builder.AddRange(item)
+		}
+	}
+	set, err := builder.IPSet()
+	if err != nil {
+		return nil
+	}
+	if merged := set.Ranges(); len(merged) > 0 {
+		return merged
+	}
+	return nil
 }

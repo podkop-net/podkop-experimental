@@ -35,13 +35,15 @@ func (Router) NTPServerNames() []string { return clock.ServerNames() }
 
 func (Router) Listening() []sockets.Listener { return sockets.Bound("/") }
 
-func (Router) ApplyRouting() error { return netcfg.Apply() }
+func (Router) ApplyRouting(ipv6 bool) error { return netcfg.Apply(ipv6) }
 
 func (Router) AllowBridgedTraffic() []string { return netcfg.AllowBridgedTraffic() }
 
 func (Router) RemoveRouting() error { return netcfg.Remove() }
 
-func (Router) RoutingPresent() (bool, error) { return netcfg.Present() }
+func (Router) RoutingPresent(ipv6 bool) (bool, error) { return netcfg.Present(ipv6) }
+
+func (Router) IPv6() bool { return netcfg.IPv6Loopback() }
 
 func (Router) RouteUplinks() ([]string, error) { return netcfg.RouteUplinks() }
 

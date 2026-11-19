@@ -48,6 +48,8 @@ type recorder struct {
 	// routing and the table look taken away
 	dnsOurs                   bool
 	routingGone, firewallGone bool
+	// ipv6 is whether the router has IPv6 (System.IPv6)
+	ipv6 bool
 	// firewallFails are the next updates of the firewall that fail, the table before them
 	// staying as it was
 	firewallFails int
@@ -85,9 +87,10 @@ func (r *recorder) AllowBridgedTraffic() []string {
 	return []string{"net.bridge.bridge-nf-call-iptables"}
 }
 
-func (r *recorder) SetClashSecret(key string) error { r.secrets = append(r.secrets, key); return nil }
-func (r *recorder) RoutingPresent() (bool, error)   { return !r.routingGone, nil }
-func (r *recorder) FirewallPresent() (bool, error)  { return !r.firewallGone, nil }
+func (r *recorder) SetClashSecret(key string) error   { r.secrets = append(r.secrets, key); return nil }
+func (r *recorder) RoutingPresent(bool) (bool, error) { return !r.routingGone, nil }
+func (r *recorder) IPv6() bool                        { return r.ipv6 }
+func (r *recorder) FirewallPresent() (bool, error)    { return !r.firewallGone, nil }
 
 func (r *recorder) RouteUplinks() ([]string, error) {
 	added := r.uplinks
@@ -103,7 +106,14 @@ func (r *recorder) LANAddress() string {
 	}
 	return cmp.Or(r.lan, "127.0.0.1")
 }
-func (r *recorder) ApplyRouting() error   { r.calls = append(r.calls, "routing"); return r.routingError }
+func (r *recorder) ApplyRouting(ipv6 bool) error {
+	call := "routing"
+	if ipv6 {
+		call = "routing ipv6"
+	}
+	r.calls = append(r.calls, call)
+	return r.routingError
+}
 func (r *recorder) RemoveRouting() error  { r.calls = append(r.calls, "no routing"); return nil }
 func (r *recorder) RemoveFirewall() error { r.calls = append(r.calls, "no firewall"); return nil }
 func (r *recorder) TakeOverDNS() (bool, error) {

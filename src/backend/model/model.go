@@ -220,6 +220,16 @@ type Settings struct {
 	DNSMode            string
 	BootstrapDNSServer string
 	DNSRewriteTTL      string // a number is expected; kept as written
+	// DNSAddresses is which addresses the DNS gives the LAN and the router's own lookups
+	// ("dns_addresses"): DNSAddressesPreferIPv4 (IPv4, and the IPv6 addresses of a name only
+	// when it has no IPv4 one: the way of 0.8.4 on), DNSAddressesIPv4Only, DNSAddressesBoth
+	// (both, the client chooses). The names of the lists get a FakeIP IPv4 address in every
+	// mode, and never an IPv6 one.
+	DNSAddresses string
+	// IPv6Routing is what becomes of the IPv6 traffic of the LAN and of the router
+	// ("ipv6_routing"): IPv6Bypass leaves it all alone (past podkop, as before 0.8.20);
+	// IPv6Podkop sends what goes to the IPv6 subnets of the lists to their rules as IPv4 is.
+	IPv6Routing string
 
 	SourceNetworkInterfaces []string
 	OutputNetworkInterface  string
@@ -278,6 +288,19 @@ type Settings struct {
 
 	Check Check
 }
+
+// The values of "dns_addresses" (Settings.DNSAddresses).
+const (
+	DNSAddressesPreferIPv4 = "prefer_ipv4"
+	DNSAddressesIPv4Only   = "ipv4_only"
+	DNSAddressesBoth       = "both"
+)
+
+// The values of "ipv6_routing" (Settings.IPv6Routing).
+const (
+	IPv6Bypass = "bypass"
+	IPv6Podkop = "podkop"
+)
 
 // The values of "bittorrent" (Settings.BitTorrent).
 const (
@@ -349,6 +372,8 @@ func Load(parsed *uci.Package) (*Config, error) {
 		DNSMode:                 get(settings, "dns_mode", DNSModeOrder),
 		BootstrapDNSServer:      get(settings, "bootstrap_dns_server", "77.88.8.8"),
 		DNSRewriteTTL:           get(settings, "dns_rewrite_ttl", "60"),
+		DNSAddresses:            get(settings, "dns_addresses", DNSAddressesPreferIPv4),
+		IPv6Routing:             get(settings, "ipv6_routing", IPv6Bypass),
 		SourceNetworkInterfaces: list(settings, "source_network_interfaces"),
 		OutputNetworkInterface:  settings.Get("output_network_interface"),
 		ExcludeNTP:              settings.Bool("exclude_ntp", false),

@@ -7,7 +7,9 @@ import (
 
 	"github.com/podkop-net/podkop-experimental/src/backend/diag"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
+	"github.com/podkop-net/podkop-experimental/src/backend/netcfg"
 	"github.com/podkop-net/podkop-experimental/src/backend/sockets"
+	"github.com/podkop-net/podkop-experimental/src/backend/uci"
 	"github.com/stretchr/testify/require"
 )
 
@@ -124,4 +126,35 @@ func TestInterfaceLines(t *testing.T) {
 	require.Equal(t, []string{"✅ Output: where the routing of the router sends it"}, interfaceLines(nil, nil, lookup))
 
 	require.Equal(t, []string{"br-lan", "lan1", "guest"}, sourceDevices(&model.Settings{SourceNetworkInterfaces: []string{"lan", "br-lan", "lan1", "guest"}}, devices))
+}
+
+func TestIPv6Lines(t *testing.T) {
+	t.Parallel()
+	dhcp, err := uci.Parse([]byte("config dhcp 'lan'\n\toption interface 'lan'\n\toption ra 'relay'\n\toption dhcpv6 'relay'\n\nconfig dhcp 'guest'\n\toption ra 'relay'\n\tlist dns 'fd00::1'\n\nconfig dhcp 'wan'\n\toption ra 'server'\n"))
+	require.NoError(t, err)
+	inbound6 := []sockets.Listener{{Protocol: "tcp", Address: netip.MustParseAddrPort("[::1]:1602"), Program: "podkop"}}
+
+	lines := ipv6Lines(&model.Settings{}, netcfg.IPv6State{}, nil, false, nil)
+	require.Equal(t, []string{"ℹ️ The router has no IPv6 (no address ::1)", "ℹ️ IPv6 traffic: past podkop",
+		"ℹ️ DNS answers: IPv4, and IPv6 for a name without IPv4 (the names of the lists: FakeIP IPv4 only)"}, lines)
+
+	lines = ipv6Lines(&model.Settings{IPv6Routing: model.IPv6Podkop, DNSAddresses: model.DNSAddressesBoth},
+		netcfg.IPv6State{Loopback: true, Global: 2, DefaultRoute: true}, inbound6, true, dhcp)
+	require.Equal(t, []string{"✅ The router has IPv6: 2 global address(es), a default route",
+		"ℹ️ IPv6 traffic: to the IPv6 subnets of the lists, through podkop",
+		"✅ Podkop listens for the transparent proxy of IPv6 on [::1]:1602",
+		"✅ The rules and the route of IPv6 of the routing table",
+		"ℹ️ DNS answers: IPv4 and IPv6 (the names of the lists: FakeIP IPv4 only)",
+		"⚠️ dhcp.lan relays IPv6 from the provider: its devices get the provider's DNS server and resolve the names of the lists past podkop (give them the router's: list dns in that section)"}, lines)
+
+	lines = ipv6Lines(&model.Settings{IPv6Routing: model.IPv6Podkop, DNSAddresses: model.DNSAddressesIPv4Only},
+		netcfg.IPv6State{Loopback: true}, nil, false, nil)
+	require.Equal(t, []string{"ℹ️ The router has no global IPv6 address",
+		"ℹ️ IPv6 traffic: to the IPv6 subnets of the lists, through podkop",
+		"❌ Podkop listens for the transparent proxy of IPv6 on [::1]:1602",
+		"❌ The rules and the route of IPv6 of the routing table",
+		"ℹ️ DNS answers: IPv4 only"}, lines)
+
+	lines = ipv6Lines(&model.Settings{IPv6Routing: model.IPv6Podkop}, netcfg.IPv6State{}, nil, false, nil)
+	require.Contains(t, lines, "❌ IPv6 traffic is set to go through podkop, but the router has no IPv6: it goes past podkop")
 }

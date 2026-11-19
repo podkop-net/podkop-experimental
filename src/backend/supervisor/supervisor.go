@@ -61,14 +61,20 @@ type System interface {
 	// Listening are the sockets of the system that listen (sockets.Bound); nil when they
 	// cannot be read, and then they are not looked at.
 	Listening() []sockets.Listener
-	ApplyRouting() error
+	// ApplyRouting makes the rules and the route that hand marked packets to the proxy, of
+	// IPv6 as well with ipv6 (and without it removes those of IPv6); RemoveRouting removes
+	// those of both.
+	ApplyRouting(ipv6 bool) error
 	RemoveRouting() error
 	// AllowBridgedTraffic keeps bridged packets out of the IP firewall hooks and names
 	// the switches it had to turn off (netcfg.AllowBridgedTraffic).
 	AllowBridgedTraffic() []string
-	// RoutingPresent tells whether the rule and the route of ApplyRouting are both there,
-	// FirewallPresent whether the table is.
-	RoutingPresent() (bool, error)
+	// RoutingPresent tells whether the rule and the route of ApplyRouting are both there (of
+	// IPv6 as well with ipv6), FirewallPresent whether the table is.
+	RoutingPresent(ipv6 bool) (bool, error)
+	// IPv6 tells whether the router has IPv6: the address ::1 on its loopback, where the
+	// inbound of IPv6 listens (netcfg.IPv6Loopback).
+	IPv6() bool
 	FirewallPresent() (bool, error)
 	// RouteUplinks keeps the rules that route the sockets of sing-box bound to an uplink by
 	// the main table, and tells the devices it added a rule for (netcfg.RouteUplinks);
@@ -783,11 +789,12 @@ func (s *Supervisor) restoreRouting() string {
 	if s.allowBridged() {
 		restored = append(restored, "bridged packets out of the IP firewall (br_netfilter)")
 	}
-	present, err := s.options.System.RoutingPresent()
+	ipv6 := current.result.Dataplane.IPv6
+	present, err := s.options.System.RoutingPresent(ipv6)
 	if err != nil {
 		s.log("warn", "look at the routing: ", err)
 	} else if !present {
-		err = s.options.System.ApplyRouting()
+		err = s.options.System.ApplyRouting(ipv6)
 		if err != nil {
 			s.log("error", "put the routing back: ", err)
 		} else {
@@ -1284,7 +1291,7 @@ func (s *Supervisor) prepare(checked bool) (next *candidate, err error) {
 	}
 	servers := s.servers()
 	facts := plan.Facts{LANAddress: s.options.System.LANAddress(), Devices: s.options.System.Devices(plan.InterfaceNames(settings)), NTPServerNames: s.options.System.NTPServerNames(),
-		UserIDs: userIDs(settings.Settings.BitTorrentRouterUsers)}
+		UserIDs: userIDs(settings.Settings.BitTorrentRouterUsers), IPv6: settings.Settings.IPv6Routing == model.IPv6Podkop && s.options.System.IPv6()}
 	if facts.Devices == nil && s.current != nil {
 		// netifd did not answer: the devices the names stood for so far, not the names
 		facts.Devices = s.current.result.Facts.Devices
@@ -1649,7 +1656,7 @@ func retryPause(failures int) time.Duration {
 func (s *Supervisor) surround(previousFirewall *firewall.Plan) error {
 	current := s.current
 	s.allowBridged()
-	err := s.options.System.ApplyRouting()
+	err := s.options.System.ApplyRouting(current.result.Dataplane.IPv6)
 	if err != nil {
 		return E.Cause(err, "set up the routing")
 	}
@@ -1724,7 +1731,7 @@ func userIDs(names []string) map[string]uint32 {
 // sets from what the rule sets hold now.
 func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
 	wanted := &current.result.Dataplane
-	result := &firewall.Plan{Interfaces: wanted.Interfaces, ExcludeNTP: wanted.ExcludeNTP, Sources: wanted.Sources, ClashAPIInterfaces: wanted.ClashAPIInterfaces,
+	result := &firewall.Plan{Interfaces: wanted.Interfaces, ExcludeNTP: wanted.ExcludeNTP, Sources: wanted.Sources, ClashAPIInterfaces: wanted.ClashAPIInterfaces, IPv6: wanted.IPv6,
 		BitTorrent: firewall.BitTorrent{Mode: wanted.BitTorrent, LAN: wanted.BitTorrentLAN, Sources: wanted.Sources, Fan: wanted.BitTorrentFan,
 			RouterUsers: wanted.BitTorrentRouterUsers}}
 	s.bitTorrentRule = ""
@@ -1762,6 +1769,9 @@ func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
 		s.log("warn", "firewall sets: ", problem)
 	}
 	result.Subnets, result.Groups = destinations.Subnets, destinations.Groups
+	if result.IPv6 {
+		result.Subnets6 = destinations.Subnets6
+	}
 	return result
 }
 

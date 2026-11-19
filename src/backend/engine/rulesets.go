@@ -48,6 +48,8 @@ type AddressRule struct {
 	// them (cidrset.Set.Ranges4): the first address in the high 32 bits, the last in the
 	// low ones. They may be the slice of the set they were read from: not to be changed.
 	Ranges []uint64
+	// Ranges6 are the IPv6 destinations the rule names, in order.
+	Ranges6 []netipx.IPRange
 	// Nested tells that the rule is a part of a logical rule.
 	Nested bool
 	// Narrow tells that the rule has, besides its addresses, exactly one protocol and
@@ -116,11 +118,11 @@ func collectAddresses(rules []option.HeadlessRule, nested bool, result *[]Addres
 		if fields.Invert {
 			continue
 		}
-		ranges := addresses(fields)
-		if len(ranges) == 0 {
+		ranges, ranges6 := addresses(fields)
+		if len(ranges) == 0 && len(ranges6) == 0 {
 			continue
 		}
-		entry := AddressRule{Ranges: ranges, Nested: nested}
+		entry := AddressRule{Ranges: ranges, Ranges6: ranges6, Nested: nested}
 		entry.Network, entry.Ports, entry.Narrow = portsOnly(fields)
 		*result = append(*result, entry)
 	}
@@ -128,8 +130,8 @@ func collectAddresses(rules []option.HeadlessRule, nested bool, result *[]Addres
 
 // addresses returns the IPv4 destinations of a rule, packed (AddressRule.Ranges): the ranges
 // of its set as the set keeps them, when that is all it has; written as text, they are read.
-func addresses(fields *option.DefaultHeadlessRule) []uint64 {
-	var ranges []uint64
+// And its IPv6 destinations (AddressRule.Ranges6), which only a set that has some copies.
+func addresses(fields *option.DefaultHeadlessRule) (ranges []uint64, ranges6 []netipx.IPRange) {
 	for _, text := range fields.IPCIDR {
 		prefix, err := netip.ParsePrefix(text)
 		if err != nil {
@@ -141,22 +143,30 @@ func addresses(fields *option.DefaultHeadlessRule) []uint64 {
 		}
 		if prefix.Addr().Is4() {
 			ranges = append(ranges, packRange(netipx.RangeOfPrefix(prefix.Masked())))
+		} else if !prefix.Addr().Is4In6() {
+			ranges6 = append(ranges6, netipx.RangeOfPrefix(prefix.Masked()))
 		}
 	}
 	if fields.IPSet != nil {
 		for _, item := range fields.IPSet.Ranges() {
 			if item.From().Is4() {
 				ranges = append(ranges, packRange(item))
+			} else if !item.From().Is4In6() {
+				ranges6 = append(ranges6, item)
 			}
 		}
 	}
 	if fields.IPRanges != nil {
+		// the set keeps IPv4 first: what follows its IPv4 ranges is IPv6
+		if four := fields.IPRanges.Ranges4(); fields.IPRanges.Len() > len(four) {
+			ranges6 = append(ranges6, fields.IPRanges.Ranges()[len(four):]...)
+		}
 		if len(ranges) == 0 {
-			return fields.IPRanges.Ranges4()
+			return fields.IPRanges.Ranges4(), ranges6
 		}
 		ranges = append(ranges, fields.IPRanges.Ranges4()...)
 	}
-	return ranges
+	return ranges, ranges6
 }
 
 func packRange(item netipx.IPRange) uint64 {

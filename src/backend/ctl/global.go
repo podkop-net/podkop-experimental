@@ -238,6 +238,13 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 		}
 	}
 
+	add(rule, "🌐 IPv6")
+	ipv6Routed := false
+	if settings.IPv6Routing == model.IPv6Podkop {
+		ipv6Routed, _ = netcfg.Present(true)
+	}
+	add(ipv6Lines(settings, netcfg.IPv6Now(), listeners, ipv6Routed, dhcp)...)
+
 	if len(bitTorrentLines) > 0 {
 		add(rule, "🧲 BitTorrent")
 		add(bitTorrentLines...)
@@ -524,6 +531,56 @@ func dnsServerLines(dns *diag.DNS) []string {
 	lines := []string{"ℹ️ DNS servers: " + strconv.Itoa(len(dns.Upstreams)) + ", asked " + mode}
 	for index, upstream := range dns.Upstreams {
 		lines = append(lines, flag(upstream.Answers, "DNS "+strconv.Itoa(index+1)+": "+line(upstream)))
+	}
+	return lines
+}
+
+// ipv6Lines are the lines of IPv6 of the global check: what the router has of it, what the
+// settings make of IPv6 traffic and of the DNS answers, whether the inbound of IPv6 listens and
+// the routing of IPv6 is there while IPv6 goes through podkop, and the interfaces of the DHCP
+// that relay the router's IPv6 from the provider, whose devices get the provider's DNS server.
+func ipv6Lines(settings *model.Settings, state netcfg.IPv6State, listeners []sockets.Listener, routed bool, dhcp *uci.Package) []string {
+	var lines []string
+	switch {
+	case !state.Loopback:
+		lines = append(lines, "ℹ️ The router has no IPv6 (no address ::1)")
+	case state.Global == 0:
+		lines = append(lines, "ℹ️ The router has no global IPv6 address"+mark(state.DefaultRoute, ", a default route of IPv6", ""))
+	default:
+		lines = append(lines, "✅ The router has IPv6: "+strconv.Itoa(state.Global)+" global address(es)"+mark(state.DefaultRoute, ", a default route", ", no default route"))
+	}
+	switch settings.IPv6Routing {
+	case model.IPv6Podkop:
+		if !state.Loopback {
+			lines = append(lines, "❌ IPv6 traffic is set to go through podkop, but the router has no IPv6: it goes past podkop")
+			break
+		}
+		lines = append(lines, "ℹ️ IPv6 traffic: to the IPv6 subnets of the lists, through podkop")
+		listening := false
+		inbound := netip.AddrPortFrom(netip.MustParseAddr(dataplane.TProxyAddress6), dataplane.TProxyPort)
+		for _, listener := range listeners {
+			listening = listening || listener.Protocol == "tcp" && listener.Address == inbound
+		}
+		lines = append(lines, flag(listening, "Podkop listens for the transparent proxy of IPv6 on "+inbound.String()),
+			flag(routed, "The rules and the route of IPv6 of the routing table"))
+	default:
+		lines = append(lines, "ℹ️ IPv6 traffic: past podkop")
+	}
+	switch settings.DNSAddresses {
+	case model.DNSAddressesIPv4Only:
+		lines = append(lines, "ℹ️ DNS answers: IPv4 only")
+	case model.DNSAddressesBoth:
+		lines = append(lines, "ℹ️ DNS answers: IPv4 and IPv6 (the names of the lists: FakeIP IPv4 only)")
+	default:
+		lines = append(lines, "ℹ️ DNS answers: IPv4, and IPv6 for a name without IPv4 (the names of the lists: FakeIP IPv4 only)")
+	}
+	if dhcp != nil {
+		for _, section := range dhcp.SectionsOfType("dhcp") {
+			relayed := section.Get("ra") == "relay" || section.Get("dhcpv6") == "relay"
+			if relayed && len(section.List("dns")) == 0 {
+				lines = append(lines, "⚠️ dhcp."+section.Name+" relays IPv6 from the provider: its devices get the provider's DNS server and resolve the names of the lists past podkop (give them the router's: list dns in that section)")
+			}
+		}
 	}
 	return lines
 }

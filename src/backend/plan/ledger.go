@@ -82,7 +82,9 @@ import (
 //     podkop-engine r17): the strategy stays ipv4_only, and an AAAA question goes out only
 //     when the A question of its name is answered without an A record. FakeIP answers no
 //     AAAA question, so a name of a list is not affected. The shell backend answered every
-//     AAAA question empty.
+//     AAAA question empty. That is the default of "dns_addresses" (prefer_ipv4); ipv4_only
+//     answers as the shell backend did, both gives the addresses of both kinds (0.8.20,
+//     builder.dnsAddresses).
 // 16. The names of the NTP servers of the router's NTP service (Facts.NTPServerNames) have
 //     a DNS rule of their own before the lists: they get their own addresses, never FakeIP
 //     ones, and the NTP of the router goes past the proxy (firewall). The shell backend had

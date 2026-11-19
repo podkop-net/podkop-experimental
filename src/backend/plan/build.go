@@ -27,6 +27,7 @@ const (
 	tagBlockOutbound      = "block" // no "-out": the outbound of a section is "<name>-out", and a section may be named block
 	tagListsHTTPClient    = "lists"
 	tagTProxyInbound      = "tproxy-in"
+	tagTProxyInbound6     = "tproxy-in6"
 	tagDNSInbound         = "dns-in"
 	tagDNSServer          = "dns-server"
 	tagBootstrapDNSServer = "bootstrap-dns-server"
@@ -86,6 +87,9 @@ type Facts struct {
 	// ("bittorrent_router_users": the supervisor reads the router's user database); a name that
 	// is not in it is no user there.
 	UserIDs map[string]uint32
+	// IPv6 tells that the router has IPv6: the address ::1 on its loopback, where the
+	// transparent proxy inbound of IPv6 listens (netcfg.IPv6Loopback).
+	IPv6 bool
 }
 
 // Options are the builder's ways to the outside.
@@ -338,6 +342,10 @@ type Dataplane struct {
 	// BitTorrentRouterUsers are the users (their numbers) of the router's own programs whose
 	// traffic the mode takes as BitTorrent's (firewall.BitTorrent.RouterUsers)
 	BitTorrentRouterUsers []uint32
+	// IPv6 tells that the IPv6 traffic to the subnets of the lists goes to their rules: the
+	// settings ask for it (model.IPv6Podkop) and the router has IPv6 (Facts.IPv6). The
+	// firewall and the routing then have their IPv6 rules, and sing-box the inbound of IPv6.
+	IPv6 bool
 }
 
 // defaultInterface is the interface the firewall takes traffic from when the settings
@@ -394,6 +402,7 @@ func (b *builder) dataplane() Dataplane {
 	result := Dataplane{Interfaces: b.devices(settings.SourceNetworkInterfaces), ExcludeNTP: settings.ExcludeNTP, TakeDNS: !settings.DontTouchDHCP, ClashAPI: b.clashAPI, ClashSecret: b.clashSecret}
 	result.BitTorrent, result.BitTorrentLAN, result.BitTorrentFan = b.bitTorrentDataplane()
 	result.BitTorrentRouterUsers = b.bitTorrentRouterUsers()
+	result.IPv6 = b.ipv6
 	if len(result.Interfaces) == 0 {
 		result.Interfaces = []string{defaultInterface}
 	}
@@ -454,6 +463,8 @@ type builder struct {
 	config  *model.Config
 	facts   Facts
 	options Options
+	// ipv6 tells that IPv6 goes through podkop (Dataplane.IPv6)
+	ipv6 bool
 	// bitTorrentMode and bitTorrentSection are what becomes of BitTorrent (bittorrent.go)
 	bitTorrentMode    string
 	bitTorrentSection *model.Section
@@ -528,6 +539,7 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 		names: config.Names(), owners: make(map[string]string), tagOf: make(map[string]string),
 		tags: Tags{Rules: make(map[string]RuleTags), Outbounds: make(map[string]TagOf)}}
 	b.claimRuleTags()
+	b.ipv6 = b.ipv6Routing()
 	b.bitTorrentMode, b.bitTorrentSection = b.bitTorrent()
 	b.buildInbounds()
 	err := b.buildOutbounds()
@@ -622,7 +634,36 @@ func (b *builder) buildInbounds() {
 		newObject("type", "tproxy", "tag", tagTProxyInbound, "listen", dataplane.TProxyAddress, "listen_port", dataplane.TProxyPort, "tcp_fast_open", true, "udp_fragment", true),
 		newObject("type", "direct", "tag", tagDNSInbound, "listen", dataplane.DNSAddress, "listen_port", dataplane.DNSPort),
 	)
+	if b.ipv6 {
+		b.inbounds = append(b.inbounds, newObject("type", "tproxy", "tag", tagTProxyInbound6, "listen", dataplane.TProxyAddress6, "listen_port", dataplane.TProxyPort, "tcp_fast_open", true, "udp_fragment", true))
+	}
 	b.buildBitTorrentInbound()
+}
+
+// ipv6Routing tells whether IPv6 goes through podkop (Dataplane.IPv6), and warns of settings
+// that ask for it where it cannot.
+func (b *builder) ipv6Routing() bool {
+	switch b.config.Settings.IPv6Routing {
+	case model.IPv6Bypass:
+		return false
+	case model.IPv6Podkop:
+		if !b.facts.IPv6 {
+			b.warn("IPv6 is set to go through podkop, but the router has no IPv6 (no address ::1): IPv6 goes past podkop")
+			return false
+		}
+		return true
+	}
+	b.warn("IPv6 traffic \"", b.config.Settings.IPv6Routing, "\" is no mode (bypass, podkop): IPv6 goes past podkop")
+	return false
+}
+
+// tproxyInbounds are the transparent proxy inbounds of the traffic the firewall marks: that of
+// IPv4, and that of IPv6 while it goes through podkop. A tag alone while there is one.
+func (b *builder) tproxyInbounds() []any {
+	if b.ipv6 {
+		return []any{tagTProxyInbound, tagTProxyInbound6}
+	}
+	return []any{tagTProxyInbound}
 }
 
 // ruleTag is the tag of an outbound of a rule of the name: its selector (kind ""), the URL
@@ -729,7 +770,9 @@ func SplitServer(server string) (host string, port string, path string) {
 }
 
 // splitServer takes "scheme://user@host:port/path?query" apart the way the shell backend
-// does: the host ends at the first colon, the path at the first question mark.
+// does: the host ends at the first colon, the path at the first question mark. An IPv6 host
+// is in brackets ("[2001:db8::1]:853") or, without a port, bare ("2001:db8::1"); it is
+// returned without them.
 func splitServer(server string) (host string, port string, path string) {
 	rest := server
 	if _, after, found := strings.Cut(rest, "://"); found {
@@ -742,7 +785,16 @@ func splitServer(server string) (host string, port string, path string) {
 	if end := strings.IndexAny(authority, "/?#"); end >= 0 {
 		authority = authority[:end]
 	}
-	host, port, _ = strings.Cut(authority, ":")
+	switch {
+	case strings.HasPrefix(authority, "["):
+		inside, after, _ := strings.Cut(authority[1:], "]")
+		host = inside
+		port = strings.TrimPrefix(after, ":")
+	case model.IsIPv6(authority):
+		host = authority
+	default:
+		host, port, _ = strings.Cut(authority, ":")
+	}
 	if slash := strings.IndexByte(rest, '/'); slash >= 0 {
 		path = rest[slash:]
 		if question := strings.IndexByte(path, '?'); question >= 0 {
@@ -764,7 +816,7 @@ func upstreamServer(upstream model.DNSUpstream, tag string) (*object, error) {
 		return nil, E.New("a DNS server of the list has no address")
 	}
 	var resolver string
-	if !model.IsIPv4(host) {
+	if !model.IsIP(host) {
 		resolver = tagBootstrapDNSServer
 	}
 	return dnsServer(upstream.Type, tag, upstream.Server, resolver, "")
@@ -814,7 +866,12 @@ func (b *builder) buildDNSServers() error {
 
 func (b *builder) buildDNS() (*object, error) {
 	settings := &b.config.Settings
-	b.dnsServers = append(b.dnsServers, newObject("type", "udp", "tag", tagBootstrapDNSServer, "server", settings.BootstrapDNSServer, "server_port", 53))
+	// the bootstrap server is an address, IPv6 too ("[2001:db8::1]" or bare), on port 53
+	bootstrap := settings.BootstrapDNSServer
+	if host, _, _ := splitServer(bootstrap); model.IsIPv6(host) {
+		bootstrap = host
+	}
+	b.dnsServers = append(b.dnsServers, newObject("type", "udp", "tag", tagBootstrapDNSServer, "server", bootstrap, "server_port", 53))
 	if err := b.buildDNSServers(); err != nil {
 		return nil, err
 	}
@@ -842,9 +899,35 @@ func (b *builder) buildDNS() (*object, error) {
 	if suffix := b.options.CheckNames.Suffix; suffix != "" {
 		b.dnsRules = append(b.dnsRules, &rule{fields: newObject("action", "route", "server", tagFakeIPServer, "rewrite_ttl", ttl, "domain_suffix", suffix)})
 	}
-	// IPv4 only, as FakeIP and the firewall are; a name without an IPv4 address gets its
-	// IPv6 addresses, which go past the proxy (ledger item 15)
-	return newObject("servers", listOrEmpty(b.dnsServers), "rules", nil, "final", tagDNSServer, "strategy", "ipv4_only", "ipv6_if_no_ipv4", true), nil
+	result := newObject("servers", listOrEmpty(b.dnsServers), "rules", nil, "final", tagDNSServer)
+	b.dnsAddresses(result)
+	return result, nil
+}
+
+// dnsAddresses sets which addresses the DNS answers with (model.Settings.DNSAddresses). The
+// names of the lists get a FakeIP IPv4 address in every mode and an empty answer to AAAA:
+// FakeIP has no range of IPv6, and the strategy of the DNS is the only one (sing-box 1.14
+// refuses a strategy of a rule beside the rule of query_type above).
+//
+//   - prefer_ipv4: IPv4 only, and a name without an IPv4 address gets its IPv6 addresses
+//     (ledger item 15; the engine's ipv6_if_no_ipv4), as from 0.8.4 on;
+//   - ipv4_only: IPv4 only, a name without an IPv4 address gets none (podkop 0.7);
+//   - both: the addresses of both kinds, the client chooses; sing-box's own lookups (the
+//     names of servers, of the connections it opens) take IPv4 first (prefer_ipv4 orders
+//     them and changes no answer).
+func (b *builder) dnsAddresses(dns *object) {
+	switch mode := b.config.Settings.DNSAddresses; mode {
+	case model.DNSAddressesIPv4Only:
+		dns.set("strategy", "ipv4_only")
+	case model.DNSAddressesBoth:
+		dns.set("strategy", "prefer_ipv4")
+	default:
+		if mode != model.DNSAddressesPreferIPv4 {
+			b.warn("DNS addresses \"", mode, "\" is no mode (prefer_ipv4, ipv4_only, both): ", model.DNSAddressesPreferIPv4, " is used")
+		}
+		dns.set("strategy", "ipv4_only")
+		dns.set("ipv6_if_no_ipv4", true)
+	}
 }
 
 func (b *builder) addRouteRule(name string, fields *object) *rule {
@@ -873,10 +956,14 @@ func (b *builder) buildRoute() (*object, error) {
 		route.set("default_interface", b.device(settings.OutputNetworkInterface))
 	}
 
-	b.addRouteRule("", newObject("action", "sniff", "inbound", append([]any{tagTProxyInbound, tagDNSInbound}, b.bitTorrentSniffed()...)))
+	b.addRouteRule("", newObject("action", "sniff", "inbound", append(append(b.tproxyInbounds(), tagDNSInbound), b.bitTorrentSniffed()...)))
 	b.addRouteRule("", newObject("action", "hijack-dns", "protocol", "dns"))
 	if settings.DisableQUIC {
-		b.addRouteRule("", newObject("action", "reject", "inbound", tagTProxyInbound, "protocol", "quic"))
+		var inbound any = tagTProxyInbound
+		if b.ipv6 {
+			inbound = b.tproxyInbounds()
+		}
+		b.addRouteRule("", newObject("action", "reject", "inbound", inbound, "protocol", "quic"))
 	}
 	if names := b.options.CheckNames; names.Suffix != "" {
 		// Before every rule of a section and of a proxy inbound: a connection to a check

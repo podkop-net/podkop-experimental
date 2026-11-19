@@ -11,6 +11,7 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/firewall"
 	E "github.com/sagernet/sing/common/exceptions"
 
+	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 )
 
@@ -25,8 +26,9 @@ type Source struct {
 // Destinations is what the firewall has to send to the proxy by address, merged
 // (firewall.Merge).
 type Destinations struct {
-	// Subnets go there whatever the port is.
-	Subnets []firewall.Range
+	// Subnets go there whatever the port is; Subnets6 are those of IPv6 (firewall.Merge6).
+	Subnets  []firewall.Range
+	Subnets6 []netipx.IPRange
 	// Groups go there for some ports of one protocol.
 	Groups []firewall.Group
 }
@@ -54,6 +56,7 @@ func Derive(sources []Source) (*Destinations, []error) {
 func DeriveWith(sources []Source, read func(Source) ([]engine.AddressRule, error)) (*Destinations, []error) {
 	var problems []error
 	var subnets []firewall.Range
+	var subnets6 []netipx.IPRange
 	groups := make(map[string]*firewall.Group)
 	for _, source := range sources {
 		rules, err := read(source)
@@ -66,6 +69,7 @@ func DeriveWith(sources []Source, read func(Source) ([]engine.AddressRule, error
 			// for the common set
 			if rule.Nested || !rule.Narrow {
 				subnets = append(subnets, rule.Ranges...)
+				subnets6 = append(subnets6, rule.Ranges6...)
 				continue
 			}
 			protocol := byte(unix.IPPROTO_TCP)
@@ -83,11 +87,12 @@ func DeriveWith(sources []Source, read func(Source) ([]engine.AddressRule, error
 				groups[key] = group
 			}
 			group.Ranges = append(group.Ranges, rule.Ranges...)
+			group.Ranges6 = append(group.Ranges6, rule.Ranges6...)
 		}
 	}
 	// merged here, in the copies collected above: the firewall takes them as they are, and
 	// the plans of the firewall and what is kept of this derivation share one list
-	result := &Destinations{Subnets: firewall.Merge(subnets)}
+	result := &Destinations{Subnets: firewall.Merge(subnets), Subnets6: firewall.Merge6(subnets6)}
 	keys := make([]string, 0, len(groups))
 	for key := range groups {
 		keys = append(keys, key)
@@ -98,6 +103,7 @@ func DeriveWith(sources []Source, read func(Source) ([]engine.AddressRule, error
 		// the name tells the protocol; the ports are in the rule
 		group.Set = fmt.Sprintf("podkop_subnets_%s_%d", protocolName(group.Protocol), index+1)
 		group.Ranges = firewall.Merge(group.Ranges)
+		group.Ranges6 = firewall.Merge6(group.Ranges6)
 		result.Groups = append(result.Groups, *group)
 	}
 	return result, problems

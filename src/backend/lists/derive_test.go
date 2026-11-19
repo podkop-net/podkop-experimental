@@ -76,12 +76,13 @@ func TestDerive(t *testing.T) {
 		got, problems := Derive([]Source{source("discord", discord), source("telegram", telegram), source("user", user), source("names", names), source("odd", odd),
 			{Tag: "broken", Content: []byte("{")}, {Tag: "not binary", Format: C.RuleSetFormatBinary, Content: []byte("text")}})
 		require.Len(t, problems, 2, "compiled %v", compiled)
-		// the addresses of rules with more than ports go to the common set, IPv6 is left out;
+		// the addresses of rules with more than ports go to the common set, IPv6 to its own;
 		// neighbours are one range, as the set has them (198.18.5.0-198.18.7.255)
 		require.Equal(t, []string{"149.154.160.0/20", "198.18.5.0/24", "198.18.6.0/23", "198.18.9.0/24", "198.51.100.20/32", "198.51.100.8/30", "91.108.4.0/22"},
 			texts(got.Subnets), "compiled %v", compiled)
 		require.True(t, firewall.IsMerged(got.Subnets))
 		require.Len(t, got.Subnets, 6)
+		require.Equal(t, []string{"2001:67c:4e8::/48"}, texts6(got.Subnets6), "compiled %v", compiled)
 		require.Len(t, got.Groups, 3)
 		byPorts := map[string]firewall.Group{}
 		for _, group := range got.Groups {
@@ -97,10 +98,30 @@ func TestDerive(t *testing.T) {
 		require.Equal(t, []firewall.PortRange{{From: 0, To: 1023}, {From: 8443, To: 8443}, {From: 9000, To: 65535}}, byPorts["podkop_subnets_tcp_3"].Ports)
 	}
 
-	// a list written as text: its IPv4 addresses go to the common set
-	got, problems := Derive([]Source{{Tag: "text", Format: C.RuleSetFormatText, Content: []byte("one.lab.example\n100.71.62.0/24\n2001:db8::/32\n")}})
+	// a list written as text: its IPv4 addresses go to the common set, its IPv6 ones to theirs
+	got, problems := Derive([]Source{{Tag: "text", Format: C.RuleSetFormatText, Content: []byte("one.lab.example\n100.71.62.0/24\n2001:db8::/32\n2001:db9::/32\n")}})
 	require.Empty(t, problems)
 	require.Equal(t, []string{"100.71.62.0/24"}, texts(got.Subnets))
+	require.Equal(t, []string{"2001:db8::/31"}, texts6(got.Subnets6))
+	// a group of ports takes the IPv6 addresses of its rules too
+	got, problems = Derive([]Source{{Tag: "voice", Content: []byte(`{"version": 3, "rules": [{"network": "udp", "port_range": "50000:65535", "ip_cidr": ["66.22.192.0/18", "2606:4700::/32"]}]}`)}})
+	require.Empty(t, problems)
+	require.Len(t, got.Groups, 1)
+	require.Equal(t, []string{"2606:4700::/32"}, texts6(got.Groups[0].Ranges6))
+	require.Empty(t, got.Subnets6)
+}
+
+func texts6(ranges []netipx.IPRange) []string {
+	var result []string
+	for _, item := range ranges {
+		prefix, ok := item.Prefix()
+		if !ok {
+			result = append(result, item.String())
+			continue
+		}
+		result = append(result, prefix.String())
+	}
+	return result
 }
 
 func TestDeriveNothing(t *testing.T) {

@@ -22,6 +22,11 @@ const (
 	// firewall sends the traffic it marks there.
 	TProxyAddress = "127.0.0.1"
 	TProxyPort    = 1602
+	// TProxyAddress6 is where the transparent proxy inbound of IPv6 listens, on the same port:
+	// a socket of 127.0.0.1 takes no IPv6 packet. It is there only while IPv6 goes through
+	// podkop (model.IPv6Podkop) and the router has ::1 (a kernel with IPv6 turned off has none,
+	// and sing-box would not start with an inbound that cannot listen).
+	TProxyAddress6 = "::1"
 
 	// ProxyMark is the mark the firewall gives the traffic of the LAN that goes to the
 	// proxy; the rule of the routing table sends what has it to the table.

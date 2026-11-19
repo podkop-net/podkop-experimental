@@ -33,6 +33,11 @@ const (
 	SetLocal      = "localv4"
 	SetSubnets    = "podkop_subnets"
 	SetInterfaces = "interfaces"
+	// the sets of IPv6, there while IPv6 goes through podkop (Plan.IPv6); the set of IPv6 of a
+	// group is named as the group's with suffix6
+	SetLocal6   = "localv6"
+	SetSubnets6 = "podkop_subnets_v6"
+	suffix6     = "_v6"
 
 	markProxy    = dataplane.ProxyMark
 	markRouter   = dataplane.RouterMark
@@ -60,8 +65,23 @@ const (
 )
 
 var (
-	rangeFakeIP  = dataplane.FakeIPPrefix
-	addressProxy = netip.MustParseAddr(dataplane.TProxyAddress)
+	rangeFakeIP   = dataplane.FakeIPPrefix
+	addressProxy  = netip.MustParseAddr(dataplane.TProxyAddress)
+	addressProxy6 = netip.MustParseAddr(dataplane.TProxyAddress6)
+	// what of IPv6 never goes to the proxy, from the LAN or from the router itself: the
+	// unspecified address and the loopback, IPv4 in IPv6 forms, NAT64's prefix, the prefix
+	// of discards, documentation, the unique local addresses, the link-local ones, multicast
+	localRanges6 = []netipx.IPRange{
+		netipx.RangeOfPrefix(netip.MustParsePrefix("::/127")),
+		netipx.RangeOfPrefix(netip.MustParsePrefix("::ffff:0:0/96")),
+		netipx.RangeOfPrefix(netip.MustParsePrefix("64:ff9b::/96")),
+		netipx.RangeOfPrefix(netip.MustParsePrefix("64:ff9b:1::/48")),
+		netipx.RangeOfPrefix(netip.MustParsePrefix("100::/64")),
+		netipx.RangeOfPrefix(netip.MustParsePrefix("2001:db8::/32")),
+		netipx.RangeOfPrefix(netip.MustParsePrefix("fc00::/7")),
+		netipx.RangeOfPrefix(netip.MustParsePrefix("fe80::/10")),
+		netipx.RangeOfPrefix(netip.MustParsePrefix("ff00::/8")),
+	}
 	// what never goes to the proxy from the router itself
 	localRanges = []netipx.IPRange{
 		netipx.RangeOfPrefix(netip.MustParsePrefix("0.0.0.0/8")),
@@ -143,6 +163,11 @@ type Plan struct {
 	ClashAPIInterfaces []string
 	// BitTorrent is what becomes of the traffic of BitTorrent clients (bittorrent_linux.go).
 	BitTorrent BitTorrent
+	// IPv6 sends the IPv6 traffic to Subnets6 (and to the IPv6 ranges of the groups) to the
+	// proxy, from the LAN and from the router itself, as IPv4 to Subnets. Without it the table
+	// has nothing of IPv6, and IPv6 goes past the proxy.
+	IPv6     bool
+	Subnets6 []netipx.IPRange
 
 	// the ranges of Subnets, merged once
 	subnets merged
@@ -188,6 +213,8 @@ type Group struct {
 	// Ports are the destination ports the group is about.
 	Ports  []PortRange
 	Ranges []Range
+	// Ranges6 are the IPv6 destinations of the group (Plan.IPv6), merged (Merge6).
+	Ranges6 []netipx.IPRange
 
 	spans merged
 }
@@ -201,7 +228,7 @@ type PortRange struct {
 // structure tells the rules of two plans apart: everything but what the sets hold.
 func (p *Plan) structure() string {
 	var text strings.Builder
-	fmt.Fprint(&text, p.Interfaces, p.ExcludeNTP, p.Sources, p.ClashAPIInterfaces, p.BitTorrent)
+	fmt.Fprint(&text, p.Interfaces, p.ExcludeNTP, p.Sources, p.ClashAPIInterfaces, p.BitTorrent, p.IPv6)
 	for _, group := range p.Groups {
 		fmt.Fprint(&text, group.Set, group.Protocol, group.Ports)
 	}
@@ -225,6 +252,26 @@ func Update(previous *Plan, next *Plan) error {
 		err = updateSet(after.Set, before.spans.of(before.Ranges), after.spans.of(after.Ranges))
 		if err != nil {
 			return err
+		}
+	}
+	if !next.IPv6 {
+		return nil
+	}
+	// the sets of IPv6 are small (the lists name few IPv6 subnets): one that changed is filled
+	// anew, in one transaction
+	if !slices.Equal(previous.Subnets6, next.Subnets6) {
+		err = replaceRanges6(SetSubnets6, next.Subnets6)
+		if err != nil {
+			return err
+		}
+	}
+	for index := range next.Groups {
+		before, after := &previous.Groups[index], &next.Groups[index]
+		if !slices.Equal(before.Ranges6, after.Ranges6) {
+			err = replaceRanges6(after.Set+suffix6, after.Ranges6)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -385,6 +432,26 @@ func Apply(plan *Plan) error {
 	if err != nil {
 		return E.Cause(err, "add the set ", SetInterfaces)
 	}
+	// the sets of IPv6, small: filled at once
+	addSet6 := func(name string, ranges []netipx.IPRange) (uint32, error) {
+		nextID++
+		set := &nftables.Set{Table: table, ID: nextID, Name: name, Interval: true, AutoMerge: true, KeyType: nftables.TypeIP6Addr}
+		err := conn.AddSet(set, nil)
+		if err != nil {
+			return 0, E.Cause(err, "add the set ", name)
+		}
+		return nextID, addElements(conn, set, intervals6(ranges))
+	}
+	var idLocal6, idSubnets6 uint32
+	if plan.IPv6 {
+		idLocal6, err = addSet6(SetLocal6, Merge6(slices.Clone(localRanges6)))
+		if err == nil {
+			idSubnets6, err = addSet6(SetSubnets6, plan.Subnets6)
+		}
+		if err != nil {
+			return err
+		}
+	}
 
 	accept := nftables.ChainPolicyAccept
 	mangle := conn.AddChain(&nftables.Chain{Name: "mangle", Table: table, Type: nftables.ChainTypeFilter, Hooknum: nftables.ChainHookPrerouting, Priority: nftables.ChainPriorityMangle, Policy: &accept})
@@ -447,6 +514,13 @@ func Apply(plan *Plan) error {
 			add(mangle, fromInterfaces, destination, protocol(transport), mark)
 		}
 	}
+	// IPv6 to the subnets of the lists, as IPv4 (FakeIP has no IPv6 range)
+	toSubnets6 := append(ipv6(), address6In(offset6Destination, SetSubnets6, idSubnets6)...)
+	if plan.IPv6 {
+		for _, transport := range transports {
+			add(mangle, fromInterfaces, toSubnets6, protocol(transport), mark)
+		}
+	}
 	// proxy: what is marked goes to the transparent proxy inbound (BitTorrent to its own inbounds
 	// first, by the conntrack mark of the detector); what the router sent comes here through the
 	// loopback with its own mark
@@ -465,6 +539,24 @@ func Apply(plan *Plan) error {
 				&expr.TProxy{Family: byte(nftables.TableFamilyIPv4), TableFamily: byte(nftables.TableFamilyINet), RegAddr: 1, RegPort: 2},
 				&expr.Counter{},
 			})
+		}
+	}
+	// IPv6 to the inbound of IPv6 (a socket of 127.0.0.1 takes no IPv6 packet: the rules above
+	// do not act on one)
+	if plan.IPv6 {
+		for _, value := range []uint32{markProxy, markRouter} {
+			for _, transport := range transports {
+				add(proxy, []expr.Any{
+					&expr.Meta{Key: expr.MetaKeyMARK, Register: 1},
+					&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(value), Xor: binaryutil.NativeEndian.PutUint32(0)},
+					&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(value)},
+				}, protocol(transport), []expr.Any{
+					&expr.Immediate{Register: 1, Data: addressProxy6.AsSlice()},
+					&expr.Immediate{Register: 2, Data: binaryutil.BigEndian.PutUint16(portTProxy)},
+					&expr.TProxy{Family: byte(nftables.TableFamilyIPv6), TableFamily: byte(nftables.TableFamilyINet), RegAddr: 1, RegPort: 2},
+					&expr.Counter{},
+				})
+			}
 		}
 	}
 	// mangle_output: the same marking for what the router itself sends, with the mark of
@@ -518,6 +610,15 @@ func Apply(plan *Plan) error {
 			add(mangleOutput, destination, protocol(transport), markWith(markRouter))
 		}
 	}
+	// the router's own IPv6, as its IPv4: nothing local, nothing of sing-box (the return of
+	// the mark above has no family), not its NTP
+	if plan.IPv6 {
+		add(mangleOutput, ipv6(), address6In(offset6Destination, SetLocal6, idLocal6), returns)
+		add(mangleOutput, ipv6(), protocol(unix.IPPROTO_UDP), destinationPort(123), returns)
+		for _, transport := range transports {
+			add(mangleOutput, toSubnets6, protocol(transport), markWith(markRouter))
+		}
+	}
 	// the groups: a set each, and a rule of the LAN chain with the ports of the group
 	for index := range plan.Groups {
 		group := &plan.Groups[index]
@@ -544,6 +645,25 @@ func Apply(plan *Plan) error {
 		add(mangle, fromInterfaces, ipv4(), addressIn(offsetDestination, group.Set, groupID), protocol(group.Protocol), []expr.Any{
 			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseTransportHeader, Offset: 2, Len: 2},
 			&expr.Lookup{SourceRegister: 1, SetName: portSet.Name, SetID: portSet.ID},
+		}, mark)
+		if !plan.IPv6 {
+			continue
+		}
+		// the IPv6 of the group: a set of its own, and an anonymous set of the ports of its own
+		// (one belongs to one rule)
+		groupID6, err := addSet6(group.Set+suffix6, group.Ranges6)
+		if err != nil {
+			return err
+		}
+		nextID++
+		portSet6 := &nftables.Set{Table: table, ID: nextID, Name: "__set%d", Anonymous: true, Constant: true, Interval: true, KeyType: nftables.TypeInetService}
+		err = conn.AddSet(portSet6, ports)
+		if err != nil {
+			return E.Cause(err, "add the ports of the set ", group.Set+suffix6)
+		}
+		add(mangle, fromInterfaces, ipv6(), address6In(offset6Destination, group.Set+suffix6, groupID6), protocol(group.Protocol), []expr.Any{
+			&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseTransportHeader, Offset: 2, Len: 2},
+			&expr.Lookup{SourceRegister: 1, SetName: portSet6.Name, SetID: portSet6.ID},
 		}, mark)
 	}
 	// the BitTorrent detector, after the sets of the groups
@@ -722,6 +842,60 @@ func ipv4() []expr.Any {
 		&expr.Meta{Key: expr.MetaKeyNFPROTO, Register: 1},
 		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{unix.NFPROTO_IPV4}},
 	}
+}
+
+// where the addresses are in an IPv6 header
+const (
+	offset6Source      = 8
+	offset6Destination = 24
+)
+
+// ipv6 tells the packet is IPv6, as ipv4 tells IPv4.
+func ipv6() []expr.Any {
+	return []expr.Any{
+		&expr.Meta{Key: expr.MetaKeyNFPROTO, Register: 1},
+		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{unix.NFPROTO_IPV6}},
+	}
+}
+
+// address6In matches an IPv6 address of the header against a set.
+func address6In(offset uint32, setName string, setID uint32) []expr.Any {
+	return []expr.Any{
+		&expr.Payload{DestRegister: 1, Base: expr.PayloadBaseNetworkHeader, Offset: offset, Len: 16},
+		&expr.Lookup{SourceRegister: 1, SetName: setName, SetID: setID},
+	}
+}
+
+// intervals6 writes IPv6 ranges as intervals does IPv4 ones.
+func intervals6(ranges []netipx.IPRange) []nftables.SetElement {
+	elements := make([]nftables.SetElement, 0, 2*len(ranges))
+	for _, item := range ranges {
+		elements = append(elements, nftables.SetElement{Key: item.From().AsSlice()})
+		// nothing follows ffff:...:ffff: such a range has no end element
+		if next := item.To().Next(); next.IsValid() {
+			elements = append(elements, nftables.SetElement{Key: next.AsSlice(), IntervalEnd: true})
+		}
+	}
+	return elements
+}
+
+// replaceRanges6 makes a set of IPv6 hold exactly these ranges, in one transaction.
+func replaceRanges6(name string, ranges []netipx.IPRange) error {
+	conn, err := newConn()
+	if err != nil {
+		return E.Cause(err, "open netlink")
+	}
+	set := &nftables.Set{Table: &nftables.Table{Name: tableName, Family: nftables.TableFamilyINet}, Name: name, Interval: true, AutoMerge: true, KeyType: nftables.TypeIP6Addr}
+	conn.FlushSet(set)
+	err = addElements(conn, set, intervals6(ranges))
+	if err != nil {
+		return err
+	}
+	err = conn.Flush()
+	if err != nil {
+		return E.Cause(err, "fill the set ", name)
+	}
+	return nil
 }
 
 func addressLoad(offset uint32) expr.Any {

@@ -1,6 +1,9 @@
 package model
 
-import "strings"
+import (
+	"net/netip"
+	"strings"
+)
 
 // IsIPv4 tells whether the text is an IPv4 address in dotted form, octets without leading
 // zeros: what the shell backend takes for one.
@@ -31,6 +34,36 @@ func IsIPv4CIDR(text string) bool {
 			prefix[0] == '3' && prefix[1] >= '0' && prefix[1] <= '2'
 	}
 	return false
+}
+
+// IsIPv6 tells whether the text is an IPv6 address as netip reads one, without a zone and
+// not an IPv4 address in IPv6 form (::ffff:a.b.c.d).
+func IsIPv6(text string) bool {
+	if !strings.Contains(text, ":") {
+		return false
+	}
+	address, err := netip.ParseAddr(text)
+	return err == nil && address.Is6() && !address.Is4In6() && address.Zone() == ""
+}
+
+// IsIPv6CIDR tells whether the text is an IPv6 address with a prefix length of 0 to 128.
+func IsIPv6CIDR(text string) bool {
+	address, _, found := strings.Cut(text, "/")
+	if !found || !IsIPv6(address) {
+		return false
+	}
+	_, err := netip.ParsePrefix(text)
+	return err == nil
+}
+
+// IsIP tells whether the text is an IPv4 address (IsIPv4) or an IPv6 one (IsIPv6).
+func IsIP(text string) bool {
+	return IsIPv4(text) || IsIPv6(text)
+}
+
+// IsCIDR tells whether the text is an IPv4 or an IPv6 address with a prefix length.
+func IsCIDR(text string) bool {
+	return IsIPv4CIDR(text) || IsIPv6CIDR(text)
 }
 
 func isOctet(part string) bool {

@@ -44,9 +44,22 @@ var TableNamesPath = "/etc/iproute2/rt_tables"
 // NetworkConfigPath is the UCI file of netifd.
 var NetworkConfigPath = "/etc/config/network"
 
-// Apply makes the route and the rules; what is there already is left as it is.
-func Apply() error {
+// Apply makes the route and the rules; what is there already is left as it is. With ipv6
+// those of IPv6 as well; without it those of IPv6 are removed, if a run with IPv6 left them.
+func Apply(ipv6 bool) error {
 	nameTable()
+	err := applyFamily(unix.AF_INET)
+	if err != nil {
+		return err
+	}
+	if ipv6 {
+		return applyFamily(unix.AF_INET6)
+	}
+	return removeFamily(unix.AF_INET6)
+}
+
+// applyFamily makes the route and the rules of one family.
+func applyFamily(family int) error {
 	loopback, err := netlink.LinkByName("lo")
 	if err != nil {
 		return E.Cause(err, "find the loopback interface")
@@ -54,15 +67,15 @@ func Apply() error {
 	// every marked packet is for this host: the transparent proxy inbound takes it
 	err = netlink.RouteReplace(&netlink.Route{
 		LinkIndex: loopback.Attrs().Index,
-		Dst:       &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)},
+		Dst:       anyAddress(family),
 		Table:     tableID,
 		Type:      unix.RTN_LOCAL,
 		Scope:     netlink.SCOPE_HOST,
 	})
 	if err != nil {
-		return E.Cause(err, "add the route of the table ", tableID)
+		return E.Cause(err, "add the route of the table ", tableID, familyText(family))
 	}
-	for _, rule := range backendRules() {
+	for _, rule := range backendRules(family) {
 		exists, err := ruleExists(rule)
 		if err != nil {
 			return err
@@ -72,40 +85,77 @@ func Apply() error {
 		}
 		err = netlink.RuleAdd(rule)
 		if err != nil && !errors.Is(err, unix.EEXIST) {
-			return E.Cause(err, "add the rule of priority ", rule.Priority, " for marked packets")
+			return E.Cause(err, "add the rule of priority ", rule.Priority, " for marked packets", familyText(family))
 		}
 	}
 	return nil
 }
 
-// Present tells whether the rules and the route are all there. netifd, when it is
-// restarted, flushes the rules it does not own, and a loopback that goes down takes the
-// route with it.
-func Present() (bool, error) {
-	for _, rule := range backendRules() {
-		exists, err := ruleExists(rule)
-		if err != nil || !exists {
-			return false, err
-		}
+// anyAddress is the destination of every address of a family: 0.0.0.0/0 or ::/0.
+func anyAddress(family int) *net.IPNet {
+	if family == unix.AF_INET6 {
+		return &net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)}
 	}
-	routes, err := netlink.RouteListFiltered(unix.AF_INET, &netlink.Route{Table: tableID}, netlink.RT_FILTER_TABLE)
-	if err != nil {
-		return false, E.Cause(err, "list the routes of the table ", tableID)
-	}
-	return len(routes) > 0, nil
+	return &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)}
 }
 
-// Remove deletes the rules and the routes of the table, and the rules of the uplinks
-// (RouteUplinks); what is not there is no error.
+func familyText(family int) string {
+	if family == unix.AF_INET6 {
+		return " (IPv6)"
+	}
+	return ""
+}
+
+// Present tells whether the rules and the route are all there, of IPv6 too with ipv6.
+// netifd, when it is restarted, flushes the rules it does not own, and a loopback that goes
+// down takes the route with it.
+func Present(ipv6 bool) (bool, error) {
+	families := []int{unix.AF_INET}
+	if ipv6 {
+		families = append(families, unix.AF_INET6)
+	}
+	for _, family := range families {
+		for _, rule := range backendRules(family) {
+			exists, err := ruleExists(rule)
+			if err != nil || !exists {
+				return false, err
+			}
+		}
+		routes, err := netlink.RouteListFiltered(family, &netlink.Route{Table: tableID}, netlink.RT_FILTER_TABLE)
+		if err != nil {
+			return false, E.Cause(err, "list the routes of the table ", tableID, familyText(family))
+		}
+		if len(routes) == 0 {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// Remove deletes the rules and the routes of the table, of both families, and the rules of
+// the uplinks (RouteUplinks); what is not there is no error.
 func Remove() error {
 	_, err := syncUplinkRules(nil)
 	if err != nil {
 		return err
 	}
-	for _, rule := range backendRules() {
+	err = removeFamily(unix.AF_INET)
+	if err != nil {
+		return err
+	}
+	return removeFamily(unix.AF_INET6)
+}
+
+// removeFamily deletes the rules and the routes of the table of one family. A kernel without
+// IPv6 has none of IPv6 to list: no error.
+func removeFamily(family int) error {
+	for _, rule := range backendRules(family) {
 		for {
 			exists, err := ruleExists(rule)
 			if err != nil {
+				if family == unix.AF_INET6 && errors.Is(err, unix.EAFNOSUPPORT) {
+					return nil
+				}
 				return err
 			}
 			if !exists {
@@ -113,23 +163,26 @@ func Remove() error {
 			}
 			err = netlink.RuleDel(rule)
 			if err != nil && !errors.Is(err, unix.ENOENT) {
-				return E.Cause(err, "delete the rule of priority ", rule.Priority, " for marked packets")
+				return E.Cause(err, "delete the rule of priority ", rule.Priority, " for marked packets", familyText(family))
 			}
 		}
 	}
-	routes, err := netlink.RouteListFiltered(unix.AF_INET, &netlink.Route{Table: tableID}, netlink.RT_FILTER_TABLE)
+	routes, err := netlink.RouteListFiltered(family, &netlink.Route{Table: tableID}, netlink.RT_FILTER_TABLE)
 	if err != nil {
-		return E.Cause(err, "list the routes of the table ", tableID)
+		if family == unix.AF_INET6 && errors.Is(err, unix.EAFNOSUPPORT) {
+			return nil
+		}
+		return E.Cause(err, "list the routes of the table ", tableID, familyText(family))
 	}
 	for index := range routes {
 		if routes[index].Dst == nil {
 			// the list gives a default route without its destination, and a route
 			// without one cannot be named for deletion
-			routes[index].Dst = &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)}
+			routes[index].Dst = anyAddress(family)
 		}
 		err = netlink.RouteDel(&routes[index])
 		if err != nil && !errors.Is(err, unix.ESRCH) {
-			return E.Cause(err, "delete a route of the table ", tableID)
+			return E.Cause(err, "delete a route of the table ", tableID, familyText(family))
 		}
 	}
 	return nil
@@ -143,16 +196,17 @@ func Remove() error {
 // of the LAN device for the router's own and drop the packet. So the first rule sends a
 // lookup from the loopback with the mark of the LAN to the main table. What the router
 // sends is looked up from the loopback too: it has a mark of its own, which that rule
-// leaves to the table.
-func backendRules() []*netlink.Rule {
-	reverse := markRule(reverseRulePriority, markProxy, unix.RT_TABLE_MAIN)
+// leaves to the table. IPv6 has the same rules (a check of the source by fib, such as fw4's
+// rpfilter, looks up the way back as well).
+func backendRules(family int) []*netlink.Rule {
+	reverse := markRule(family, reverseRulePriority, markProxy, unix.RT_TABLE_MAIN)
 	reverse.IifName = "lo"
-	return []*netlink.Rule{reverse, markRule(rulePriority, markProxy, tableID), markRule(rulePriority, markRouter, tableID)}
+	return []*netlink.Rule{reverse, markRule(family, rulePriority, markProxy, tableID), markRule(family, rulePriority, markRouter, tableID)}
 }
 
-func markRule(priority int, mark uint32, table int) *netlink.Rule {
+func markRule(family int, priority int, mark uint32, table int) *netlink.Rule {
 	rule := netlink.NewRule()
-	rule.Family = unix.AF_INET
+	rule.Family = family
 	rule.Priority = priority
 	rule.Table = table
 	rule.Mark = mark
@@ -162,9 +216,9 @@ func markRule(priority int, mark uint32, table int) *netlink.Rule {
 }
 
 func ruleExists(want *netlink.Rule) (bool, error) {
-	rules, err := netlink.RuleList(unix.AF_INET)
+	rules, err := netlink.RuleList(want.Family)
 	if err != nil {
-		return false, E.Cause(err, "list the routing rules")
+		return false, E.Cause(err, "list the routing rules", familyText(want.Family))
 	}
 	for _, rule := range rules {
 		if rule.Table == want.Table && rule.Priority == want.Priority && rule.Mark == want.Mark && rule.Mask == want.Mask && rule.IifName == want.IifName {
@@ -172,6 +226,65 @@ func ruleExists(want *netlink.Rule) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// IPv6State is what the router has of IPv6: ::1 on its loopback (IPv6Loopback), its global
+// unicast addresses (2000::/3; unique local ones are not counted) and whether the main table
+// has a default route of IPv6.
+type IPv6State struct {
+	Loopback     bool
+	Global       int
+	DefaultRoute bool
+}
+
+// IPv6Now reads the IPv6State of the router.
+func IPv6Now() IPv6State {
+	state := IPv6State{Loopback: IPv6Loopback()}
+	if !state.Loopback {
+		return state
+	}
+	globalUnicast := netip.MustParsePrefix("2000::/3")
+	if addresses, err := netlink.AddrList(nil, unix.AF_INET6); err == nil {
+		for _, address := range addresses {
+			if parsed, ok := netip.AddrFromSlice(address.IP); ok && globalUnicast.Contains(parsed) {
+				state.Global++
+			}
+		}
+	}
+	if routes, err := netlink.RouteListFiltered(unix.AF_INET6, &netlink.Route{Table: unix.RT_TABLE_MAIN}, netlink.RT_FILTER_TABLE); err == nil {
+		for _, route := range routes {
+			if route.Dst == nil || route.Dst.IP.IsUnspecified() && maskBits(route.Dst) == 0 {
+				state.DefaultRoute = true
+			}
+		}
+	}
+	return state
+}
+
+func maskBits(network *net.IPNet) int {
+	ones, _ := network.Mask.Size()
+	return ones
+}
+
+// IPv6LoopbackPath is where the kernel lists the IPv6 addresses of the interfaces; a kernel
+// without IPv6 (ipv6.disable=1) has no such file.
+var IPv6LoopbackPath = "/proc/net/if_inet6"
+
+// IPv6Loopback tells whether the router has IPv6: the address ::1 on the loopback, where the
+// transparent proxy inbound of IPv6 listens. IPv6 turned off by sysctl
+// (net.ipv6.conf.all.disable_ipv6 or that of lo) takes it away as well.
+func IPv6Loopback() bool {
+	content, err := os.ReadFile(IPv6LoopbackPath)
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(content), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 6 && fields[0] == "00000000000000000000000000000001" && fields[5] == "lo" {
+			return true
+		}
+	}
+	return false
 }
 
 // nameTable writes the name of the table where iproute2 looks for it, once. A system

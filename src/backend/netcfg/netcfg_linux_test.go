@@ -66,7 +66,7 @@ func TestRulesAndRouteAsTheShellBackendMakesThem(t *testing.T) {
 	}
 	for attempt := 1; attempt <= 2; attempt++ {
 		// twice: what is there already is not doubled
-		if err := Apply(); err != nil {
+		if err := Apply(false); err != nil {
 			t.Fatal(err)
 		}
 		if got := state(t); got != want {
@@ -141,7 +141,7 @@ func TestMarkedRoute(t *testing.T) {
 	if route, err := MarkedRoute("pdktest0", source, destination, dataplane.ProxyMark); err == nil && route.Local {
 		t.Fatalf("local without the rule of the backend: %+v", route)
 	}
-	if err := Apply(); err != nil {
+	if err := Apply(false); err != nil {
 		t.Fatal(err)
 	}
 	defer Remove()
@@ -176,10 +176,10 @@ func TestMarkedRoute(t *testing.T) {
 		if route, err = MarkedRoute("pdktest0", source, destination, dataplane.ProxyMark); err == nil {
 			t.Fatalf("with src_valid_mark and without the rule of priority 104: %+v", route)
 		}
-		if present, _ := Present(); present {
+		if present, _ := Present(false); present {
 			t.Fatal("Present without the rule of priority 104")
 		}
-		if err = Apply(); err != nil {
+		if err = Apply(false); err != nil {
 			t.Fatal(err)
 		}
 		if route, err = MarkedRoute("pdktest0", source, destination, dataplane.ProxyMark); err != nil || !route.Local {
@@ -191,5 +191,104 @@ func TestMarkedRoute(t *testing.T) {
 	defer exec.Command("ip", "rule", "del", "priority", "50").Run()
 	if route, err := MarkedRoute("pdktest0", source, destination, dataplane.ProxyMark); err == nil && route.Local {
 		t.Fatalf("local past a rule of priority 50: %+v", route)
+	}
+}
+
+func state6(t *testing.T) string {
+	routes, _ := exec.Command("ip", "-6", "route", "show", "table", "105").Output()
+	return ip(t, "-6", "rule", "list") + string(routes)
+}
+
+// With IPv6 the same rules and route of IPv6, as the ip program makes them (as homeproxy's
+// "ip -6 rule add fwmark ... table ..." and "ip -6 route add local ::/0 dev lo table ..."), and
+// those of IPv4 as before; without it again, those of IPv6 are gone.
+func TestRulesAndRouteOfIPv6(t *testing.T) {
+	needIP(t)
+	if !IPv6Loopback() {
+		t.Skip("no ::1 here (IPv6 turned off in the namespace)")
+	}
+	TableNamesPath = filepath.Join(t.TempDir(), "rt_tables")
+	if err := Remove(); err != nil {
+		t.Fatal(err)
+	}
+	clean4, clean6 := state(t), state6(t)
+	ip(t, "-6", "route", "add", "local", "::/0", "dev", "lo", "table", "105")
+	ip(t, "-6", "rule", "add", "fwmark", "0x00100000/0x00100000", "table", "105", "priority", "105")
+	ip(t, "-6", "rule", "add", "fwmark", "0x00400000/0x00400000", "table", "105", "priority", "105")
+	ip(t, "-6", "rule", "add", "iif", "lo", "fwmark", "0x00100000/0x00100000", "lookup", "main", "priority", "104")
+	want6 := state6(t)
+	if err := Remove(); err != nil {
+		t.Fatal(err)
+	}
+	if after := state6(t); after != clean6 {
+		t.Fatalf("Remove left something of IPv6:\n%s", after)
+	}
+	if err := Apply(false); err != nil {
+		t.Fatal(err)
+	}
+	want4 := state(t)
+	if after := state6(t); after != clean6 {
+		t.Fatalf("Apply without IPv6 made something of IPv6:\n%s", after)
+	}
+	for attempt := 1; attempt <= 2; attempt++ {
+		if err := Apply(true); err != nil {
+			t.Fatal(err)
+		}
+		if got := state6(t); got != want6 {
+			t.Fatalf("run %d:\n--- over netlink\n%s--- by the ip program\n%s", attempt, got, want6)
+		}
+		if got := state(t); got != want4 {
+			t.Fatalf("run %d, IPv4:\n%s\nwant\n%s", attempt, got, want4)
+		}
+	}
+	if present, err := Present(true); !present || err != nil {
+		t.Fatalf("Present(true) after Apply(true): %v %v", present, err)
+	}
+	ip(t, "-6", "rule", "del", "priority", "104")
+	if present, _ := Present(true); present {
+		t.Fatal("Present(true) without the rule of IPv6 of priority 104")
+	}
+	if present, _ := Present(false); !present {
+		t.Fatal("Present(false) wants nothing of IPv6")
+	}
+	// back without IPv6: those of IPv6 go, those of IPv4 stay
+	if err := Apply(false); err != nil {
+		t.Fatal(err)
+	}
+	if after := state6(t); after != clean6 {
+		t.Fatalf("Apply(false) left something of IPv6:\n%s", after)
+	}
+	if got := state(t); got != want4 {
+		t.Fatalf("Apply(false) changed IPv4:\n%s", got)
+	}
+	if err := Remove(); err != nil {
+		t.Fatal(err)
+	}
+	if state(t) != clean4 || state6(t) != clean6 {
+		t.Fatal("Remove left something")
+	}
+}
+
+func TestIPv6Loopback(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "if_inet6")
+	saved := IPv6LoopbackPath
+	IPv6LoopbackPath = path
+	defer func() { IPv6LoopbackPath = saved }()
+	if IPv6Loopback() {
+		t.Fatal("no file: IPv6")
+	}
+	for content, want := range map[string]bool{
+		"00000000000000000000000000000001 01 80 10 80       lo\n":                                                        true,
+		"fe800000000000000000000000000001 02 40 20 80     eth0\n00000000000000000000000000000001 01 80 10 80       lo\n": true,
+		"fe800000000000000000000000000001 02 40 20 80     eth0\n":                                                        false,
+		"00000000000000000000000000000001 01 80 10 80     eth0\n":                                                        false,
+		"": false,
+	} {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if got := IPv6Loopback(); got != want {
+			t.Errorf("%q: %v", content, got)
+		}
 	}
 }

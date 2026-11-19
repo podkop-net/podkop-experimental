@@ -83,6 +83,25 @@ func shellBackendTable(t *testing.T, plan *Plan) {
 		"add rule "+table+" mangle_output ip daddr 198.18.0.0/15 meta l4proto tcp meta mark set 0x00400000 counter",
 		"add rule "+table+" mangle_output ip daddr 198.18.0.0/15 meta l4proto udp meta mark set 0x00400000 counter",
 	)
+	// IPv6 (Plan.IPv6, the backend's own): its sets, and its rules after those of IPv4 in each
+	// chain
+	if plan.IPv6 {
+		lines = append(lines,
+			"add set "+table+" localv6 { type ipv6_addr; flags interval; auto-merge; }",
+			"add element "+table+" localv6 { ::/127, ::ffff:0:0/96, 64:ff9b::/96, 64:ff9b:1::/48, 100::/64, 2001:db8::/32, fc00::/7, fe80::/10, ff00::/8 }",
+			"add set "+table+" podkop_subnets_v6 { type ipv6_addr; flags interval; auto-merge; }",
+			"add rule "+table+" mangle iifname @interfaces ip6 daddr @podkop_subnets_v6 meta l4proto tcp meta mark set 0x00100000 counter",
+			"add rule "+table+" mangle iifname @interfaces ip6 daddr @podkop_subnets_v6 meta l4proto udp meta mark set 0x00100000 counter",
+			"add rule "+table+" proxy meta mark & 0x00100000 == 0x00100000 meta l4proto tcp tproxy ip6 to [::1]:1602 counter",
+			"add rule "+table+" proxy meta mark & 0x00100000 == 0x00100000 meta l4proto udp tproxy ip6 to [::1]:1602 counter",
+			"add rule "+table+" proxy meta mark & 0x00400000 == 0x00400000 meta l4proto tcp tproxy ip6 to [::1]:1602 counter",
+			"add rule "+table+" proxy meta mark & 0x00400000 == 0x00400000 meta l4proto udp tproxy ip6 to [::1]:1602 counter",
+			"add rule "+table+" mangle_output ip6 daddr @localv6 return",
+			"add rule "+table+" mangle_output meta nfproto ipv6 udp dport 123 return",
+			"add rule "+table+" mangle_output ip6 daddr @podkop_subnets_v6 meta l4proto tcp meta mark set 0x00400000 counter",
+			"add rule "+table+" mangle_output ip6 daddr @podkop_subnets_v6 meta l4proto udp meta mark set 0x00400000 counter",
+		)
+	}
 	if plan.ExcludeNTP {
 		lines = append(lines, "insert rule "+table+" mangle udp dport 123 return")
 	}
@@ -106,6 +125,20 @@ func shellBackendTable(t *testing.T, plan *Plan) {
 		texts := RangeStrings(ranges)
 		lines = append(lines, "add element "+table+" "+set+" { "+strings.Join(texts, ", ")+" }")
 	}
+	elements6 := func(set string, ranges []netipx.IPRange) {
+		if len(ranges) == 0 {
+			return
+		}
+		var texts []string
+		for _, item := range ranges {
+			if prefix, ok := item.Prefix(); ok {
+				texts = append(texts, prefix.String())
+			} else {
+				texts = append(texts, item.From().String()+"-"+item.To().String())
+			}
+		}
+		lines = append(lines, "add element "+table+" "+set+" { "+strings.Join(texts, ", ")+" }")
+	}
 	for _, group := range plan.Groups {
 		var ports []string
 		for _, item := range group.Ports {
@@ -116,8 +149,18 @@ func shellBackendTable(t *testing.T, plan *Plan) {
 			"add rule "+table+" mangle iifname @interfaces ip daddr @"+group.Set+" udp dport { "+strings.Join(ports, ", ")+" } meta mark set 0x00100000 counter",
 		)
 		elements(group.Set, group.Ranges)
+		if plan.IPv6 {
+			lines = append(lines,
+				"add set "+table+" "+group.Set+"_v6 { type ipv6_addr; flags interval; auto-merge; }",
+				"add rule "+table+" mangle iifname @interfaces ip6 daddr @"+group.Set+"_v6 udp dport { "+strings.Join(ports, ", ")+" } meta mark set 0x00100000 counter",
+			)
+			elements6(group.Set+"_v6", group.Ranges6)
+		}
 	}
 	elements(SetSubnets, plan.Subnets)
+	if plan.IPv6 {
+		elements6(SetSubnets6, plan.Subnets6)
+	}
 	for _, line := range lines {
 		nft(t, line)
 	}
@@ -127,6 +170,14 @@ var handles = regexp.MustCompile(` # handle \d+`)
 
 func dump(t *testing.T) string {
 	return handles.ReplaceAllString(nft(t, "list", "table", "inet", tableName), "")
+}
+
+func ranges6(texts ...string) []netipx.IPRange {
+	var result []netipx.IPRange
+	for _, prefix := range prefixes(texts...) {
+		result = append(result, netipx.RangeOfPrefix(prefix))
+	}
+	return result
 }
 
 func prefixes(texts ...string) []netip.Prefix {
@@ -143,6 +194,8 @@ func TestTableAsTheShellBackendMakesIt(t *testing.T) {
 	needNft(t)
 	discord := Group{Set: "podkop_discord_subnets", Protocol: 17, Ports: []PortRange{{19000, 20000}, {50000, 65535}},
 		Ranges: RangesOf(prefixes("104.16.0.0/12", "138.128.136.0/21", "162.158.0.0/15", "66.22.192.0/18"))}
+	discord6 := discord
+	discord6.Ranges6 = Merge6(ranges6("2606:4700::/32", "2a06:98c0::/29"))
 	for name, plan := range map[string]*Plan{
 		"one interface":    {Interfaces: []string{"br-lan"}},
 		"nothing":          {},
@@ -153,6 +206,12 @@ func TestTableAsTheShellBackendMakesIt(t *testing.T) {
 		"a group of ports": {Interfaces: []string{"br-lan"}, Groups: []Group{discord}},
 		"everything at once": {Interfaces: []string{"br-lan", "eth1"}, ExcludeNTP: true, Sources: prefixes("192.168.1.60/32", "10.7.0.0/24"),
 			Subnets: RangesOf(prefixes("149.154.160.0/20", "91.108.4.0/22", "91.108.8.0/22", "91.108.12.0/22")), Groups: []Group{discord}},
+		"IPv6, no subnets": {Interfaces: []string{"br-lan"}, IPv6: true},
+		"IPv6": {Interfaces: []string{"br-lan"}, IPv6: true, Subnets: RangesOf(prefixes("149.154.160.0/20")),
+			Subnets6: Merge6(ranges6("2001:67c:4e8::/48", "2001:b28:f23d::/48", "2001:b28:f23f::/48", "2a0a:f280::/32"))},
+		"IPv6, everything at once": {Interfaces: []string{"br-lan", "eth1"}, ExcludeNTP: true, Sources: prefixes("192.168.1.60/32"), IPv6: true,
+			Subnets: RangesOf(prefixes("149.154.160.0/20")), Subnets6: Merge6(ranges6("2001:67c:4e8::/48", "2a0a:f280::/32")),
+			Groups: []Group{discord6}},
 	} {
 		_ = Remove()
 		shellBackendTable(t, plan)
@@ -248,6 +307,40 @@ func TestUpdate(t *testing.T) {
 	}
 	if after := rules(); after == before || !strings.Contains(after, "udp dport 123") {
 		t.Error("the table was not replaced for a change of the rules")
+	}
+	// IPv6: turning it on replaces the table; a change of its sets refills them, the rules
+	// staying
+	fourth := &Plan{Interfaces: []string{"br-lan"}, IPv6: true, Subnets: second.Subnets, Subnets6: Merge6(ranges6("2001:67c:4e8::/48")),
+		Groups: []Group{{Set: "voice", Protocol: 17, Ports: []PortRange{{50000, 65535}}, Ranges: second.Groups[0].Ranges, Ranges6: Merge6(ranges6("2606:4700::/32"))}}}
+	if err := Update(third, fourth); err != nil {
+		t.Fatal(err)
+	}
+	before = rules()
+	if !strings.Contains(before, "ip6 daddr @podkop_subnets_v6") || !strings.Contains(before, "ip6 daddr @voice_v6") {
+		t.Fatalf("no rules of IPv6:\n%s", before)
+	}
+	fifth := &Plan{Interfaces: []string{"br-lan"}, IPv6: true, Subnets: second.Subnets, Subnets6: Merge6(ranges6("2001:67c:4e8::/48", "2001:b28:f23d::/48")),
+		Groups: []Group{{Set: "voice", Protocol: 17, Ports: []PortRange{{50000, 65535}}, Ranges: second.Groups[0].Ranges, Ranges6: Merge6(ranges6("2a06:98c0::/29"))}}}
+	if err := Update(fourth, fifth); err != nil {
+		t.Fatal(err)
+	}
+	if rules() != before {
+		t.Error("the rules were made anew for a change of the sets of IPv6 only")
+	}
+	for set, want := range map[string]string{SetSubnets6: "2001:b28:f23d::/48", "voice_v6": "2a06:98c0::/29"} {
+		if text := nft(t, "list", "set", "inet", tableName, set); !strings.Contains(text, want) {
+			t.Errorf("the set %s was not refilled: %s", set, text)
+		}
+	}
+	if text := nft(t, "list", "set", "inet", tableName, "voice_v6"); strings.Contains(text, "2606:4700") {
+		t.Errorf("the set voice_v6 keeps what went: %s", text)
+	}
+	// and off again: nothing of IPv6
+	if err := Update(fifth, third); err != nil {
+		t.Fatal(err)
+	}
+	if after := nft(t, "list", "table", "inet", tableName); strings.Contains(after, "ip6") || strings.Contains(after, "_v6") {
+		t.Errorf("IPv6 off left its rules or sets:\n%s", after)
 	}
 	_ = Remove()
 }

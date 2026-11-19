@@ -90,8 +90,11 @@ func (b *builder) buildSectionLists(section *model.Section) error {
 	return nil
 }
 
+// isSubnet tells whether an item of a user subnet list is an address or a subnet: IPv4 or
+// IPv6. sing-box matches both; the firewall sends the IPv6 ones to sing-box while IPv6 goes
+// through podkop (model.IPv6Podkop), and past it otherwise.
 func isSubnet(text string) bool {
-	return model.IsIPv4(text) || model.IsIPv4CIDR(text)
+	return model.IsIP(text) || model.IsCIDR(text)
 }
 
 // addRemoteRuleSet names a rule set sing-box downloads. It downloads with the HTTP

@@ -122,7 +122,9 @@ func (p *probe) check(ctx context.Context, settings DNSSettings, dhcp *uci.Packa
 		results <- func() { report.RouterAnswers = ok }
 	}()
 	go func() {
-		ok := settings.Bootstrap != "" && p.plain(ctx, net.JoinHostPort(settings.Bootstrap, "53"))
+		// an IPv6 bootstrap server may be written in brackets
+		bootstrap, _, _ := plan.SplitServer(settings.Bootstrap)
+		ok := bootstrap != "" && p.plain(ctx, net.JoinHostPort(bootstrap, "53"))
 		results <- func() { report.BootstrapAnswers = ok }
 	}()
 	for range len(settings.Upstreams) + 2 {

@@ -141,9 +141,12 @@ func (b *builder) bitTorrentLANInbounds() []any {
 // the transparent proxy, and the inspection inbound of BitTorrent when it is on.
 func (b *builder) proxyInbounds() any {
 	if b.bitTorrentMode == model.BitTorrentOff {
-		return tagTProxyInbound
+		if !b.ipv6 {
+			return tagTProxyInbound
+		}
+		return b.tproxyInbounds()
 	}
-	return []any{tagTProxyInbound, tagBitTorrentCheckInbound}
+	return append(b.tproxyInbounds(), tagBitTorrentCheckInbound)
 }
 
 // bitTorrentSniffed are the inbounds of BitTorrent whose connections sing-box sniffs as those of
