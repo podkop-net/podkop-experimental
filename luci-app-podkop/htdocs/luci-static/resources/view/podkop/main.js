@@ -192,7 +192,7 @@ function validateSubnet6(value) {
     return { valid: false, message: _("IP address :: is not allowed") };
   }
   if (parts.length === 2) {
-    if (!/^\d{1,3}$/.test(parts[1]) || parseInt(parts[1], 10) > 128) {
+    if (!/^(0|[1-9]\d{0,2})$/.test(parts[1]) || parseInt(parts[1], 10) > 128) {
       return {
         valid: false,
         message: _("The prefix length of IPv6 must be between 0 and 128")

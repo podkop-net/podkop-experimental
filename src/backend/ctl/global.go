@@ -584,7 +584,8 @@ func ipv6Lines(settings *model.Settings, state netcfg.IPv6State, listeners []soc
 	}
 	if dhcp != nil {
 		for _, section := range dhcp.SectionsOfType("dhcp") {
-			relayed := section.Get("ra") == "relay" || section.Get("dhcpv6") == "relay"
+			// the master of the relay is the side of the provider (wan6), not one of devices
+			relayed := (section.Get("ra") == "relay" || section.Get("dhcpv6") == "relay") && section.Get("master") != "1"
 			if relayed && len(section.List("dns")) == 0 {
 				lines = append(lines, "⚠️ dhcp."+section.Name+" relays IPv6 from the provider: its devices get the provider's DNS server and resolve the names of the lists past podkop (give them the router's: list dns in that section)")
 			}

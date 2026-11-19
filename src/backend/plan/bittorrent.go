@@ -227,7 +227,9 @@ func (b *builder) buildBitTorrentService() {
 // BitTorrent inbound to the mode's way; what the sniffer names BitTorrent where the proxy or the
 // inspection took it, to the same; then the inbound of the LAN straight out.
 func (b *builder) addBitTorrentRoutes() {
-	taken := []any{tagTProxyInbound, tagBitTorrentCheckInbound}
+	// the inbound of IPv6 too: what the sniffer names BitTorrent there (the IPv6 subnets of the
+	// lists) goes the mode's way as well; the detector and the module learn of IPv4 alone
+	taken := append(b.tproxyInbounds(), tagBitTorrentCheckInbound)
 	switch b.bitTorrentMode {
 	case model.BitTorrentOff:
 		return

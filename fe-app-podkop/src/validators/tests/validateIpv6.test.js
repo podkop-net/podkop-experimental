@@ -65,6 +65,7 @@ describe('validateSubnet with IPv6', () => {
     '2001:db8::/abc',
     '2001:db8::/32/1',
     '2001:db8:::/32',
+    '2001:db8::/032',
   ])('invalid %s', (value) => {
     expect(validateSubnet(value).valid).toBe(false);
   });

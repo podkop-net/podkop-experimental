@@ -210,3 +210,23 @@ func normalized(value any) string {
 	}
 	return text
 }
+
+// BitTorrent through the inbound of IPv6: what the sniffer names BitTorrent there goes the
+// mode's way (bypass: straight out), as on the inbound of IPv4.
+func TestIPv6BitTorrent(t *testing.T) {
+	for _, mode := range []string{"bypass", "block"} {
+		settings := ipv6Head + "\toption ipv6_routing 'podkop'\n\toption bittorrent '" + mode + "'\n"
+		_, document := ipv6Build(t, settings+ipv6Section, Facts{IPv6: true})
+		found := false
+		for _, entry := range document.Route.Rules {
+			if entry["protocol"] != "bittorrent" {
+				continue
+			}
+			inbounds, _ := entry["inbound"].([]any)
+			require.Contains(t, inbounds, any("tproxy-in6"), mode)
+			require.Contains(t, inbounds, any("tproxy-in"), mode)
+			found = true
+		}
+		require.True(t, found, mode)
+	}
+}

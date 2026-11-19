@@ -3891,7 +3891,7 @@
     "call": "The prefix length of IPv6 must be between 0 and 128",
     "key": "The prefix length of IPv6 must be between 0 and 128",
     "places": [
-      "src/validators/validateSubnet.ts:67"
+      "src/validators/validateSubnet.ts:68"
     ]
   },
   {
@@ -4781,7 +4781,7 @@
       "src/validators/validateOutboundJson.ts:7",
       "src/validators/validatePath.ts:16",
       "src/validators/validateSubnet.ts:47",
-      "src/validators/validateSubnet.ts:71",
+      "src/validators/validateSubnet.ts:72",
       "src/validators/validateUrl.ts:28"
     ]
   },

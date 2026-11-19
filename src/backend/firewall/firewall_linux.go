@@ -436,13 +436,22 @@ func Apply(plan *Plan) error {
 	if err != nil {
 		return E.Cause(err, "add the set ", SetInterfaces)
 	}
-	// the sets of IPv6, small: filled at once
+	// the sets of IPv6, as those of IPv4: what is beyond fillLot ranges is added after the table
+	type rest6 struct {
+		set    *nftables.Set
+		ranges []netipx.IPRange
+	}
+	var later6 []rest6
 	addSet6 := func(name string, ranges []netipx.IPRange) (uint32, error) {
 		nextID++
 		set := &nftables.Set{Table: table, ID: nextID, Name: name, Interval: true, AutoMerge: true, KeyType: nftables.TypeIP6Addr}
 		err := conn.AddSet(set, nil)
 		if err != nil {
 			return 0, E.Cause(err, "add the set ", name)
+		}
+		if len(ranges) > fillLot {
+			later6 = append(later6, rest6{&nftables.Set{Table: table, Name: name, Interval: true, AutoMerge: true, KeyType: nftables.TypeIP6Addr}, ranges[fillLot:]})
+			ranges = ranges[:fillLot]
 		}
 		return nextID, addElements(conn, set, intervals6(ranges))
 	}
@@ -518,9 +527,12 @@ func Apply(plan *Plan) error {
 			add(mangle, fromInterfaces, destination, protocol(transport), mark)
 		}
 	}
-	// IPv6 to the subnets of the lists, as IPv4 (FakeIP has no IPv6 range)
+	// IPv6 to the subnets of the lists, as IPv4 (FakeIP has no IPv6 range). The LAN of IPv6 has
+	// global addresses, the router's among them, and a list may hold its prefix (a rule of the
+	// provider's addresses straight out): nothing to the router itself goes to the proxy
 	toSubnets6 := append(ipv6(), address6In(offset6Destination, SetSubnets6, idSubnets6)...)
 	if plan.IPv6 {
+		add(mangle, ipv6(), localDestination(), returns)
 		for _, transport := range transports {
 			add(mangle, fromInterfaces, toSubnets6, protocol(transport), mark)
 		}
@@ -624,9 +636,21 @@ func Apply(plan *Plan) error {
 		}
 	}
 	// the router's own IPv6, as its IPv4: nothing local, nothing of sing-box (the return of
-	// the mark above has no family), not its NTP
+	// the mark above has no family), not its NTP. And, the LAN's addresses being global (in a
+	// list, the provider's prefix may hold them): no answer of a connection (sing-box's answers to
+	// what it took transparently, dnsmasq's, LuCI's), nothing to the router itself, nothing the
+	// router sends into the LAN
 	if plan.IPv6 {
 		add(mangleOutput, ipv6(), address6In(offset6Destination, SetLocal6, idLocal6), returns)
+		add(mangleOutput, ipv6(), []expr.Any{
+			&expr.Ct{Register: 1, Key: expr.CtKeyDIRECTION},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{ctDirectionReply}},
+		}, returns)
+		add(mangleOutput, ipv6(), localDestination(), returns)
+		add(mangleOutput, ipv6(), []expr.Any{
+			&expr.Meta{Key: expr.MetaKeyOIFNAME, Register: 1},
+			&expr.Lookup{SourceRegister: 1, SetName: SetInterfaces, SetID: idInterfaces},
+		}, returns)
 		add(mangleOutput, ipv6(), protocol(unix.IPPROTO_UDP), destinationPort(123), returns)
 		for _, transport := range transports {
 			add(mangleOutput, toSubnets6, protocol(transport), markWith(markRouter))
@@ -709,6 +733,19 @@ func Apply(plan *Plan) error {
 		for len(item.ranges) > 0 {
 			count := min(fillLot, len(item.ranges))
 			err = addElements(conn, item.set, intervals(item.ranges[:count]))
+			if err == nil {
+				err = conn.Flush()
+			}
+			if err != nil {
+				return E.Cause(err, "fill the set ", item.set.Name)
+			}
+			item.ranges = item.ranges[count:]
+		}
+	}
+	for _, item := range later6 {
+		for len(item.ranges) > 0 {
+			count := min(fillLot, len(item.ranges))
+			err = addElements(conn, item.set, intervals6(item.ranges[:count]))
 			if err == nil {
 				err = conn.Flush()
 			}
@@ -857,6 +894,14 @@ func ipv4() []expr.Any {
 	}
 }
 
+// localDestination matches a packet to an address of the router itself (fib daddr type local).
+func localDestination() []expr.Any {
+	return []expr.Any{
+		&expr.Fib{Register: 1, FlagDADDR: true, ResultADDRTYPE: true},
+		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(unix.RTN_LOCAL)},
+	}
+}
+
 // where the addresses are in an IPv6 header
 const (
 	offset6Source      = 8
@@ -892,7 +937,8 @@ func intervals6(ranges []netipx.IPRange) []nftables.SetElement {
 	return elements
 }
 
-// replaceRanges6 makes a set of IPv6 hold exactly these ranges, in one transaction.
+// replaceRanges6 makes a set of IPv6 hold exactly these ranges: in one transaction up to fillLot
+// ranges, in lots of fillLot beyond (as replaceRanges).
 func replaceRanges6(name string, ranges []netipx.IPRange) error {
 	conn, err := newConn()
 	if err != nil {
@@ -900,15 +946,20 @@ func replaceRanges6(name string, ranges []netipx.IPRange) error {
 	}
 	set := &nftables.Set{Table: &nftables.Table{Name: tableName, Family: nftables.TableFamilyINet}, Name: name, Interval: true, AutoMerge: true, KeyType: nftables.TypeIP6Addr}
 	conn.FlushSet(set)
-	err = addElements(conn, set, intervals6(ranges))
-	if err != nil {
-		return err
+	for {
+		count := min(fillLot, len(ranges))
+		err = addElements(conn, set, intervals6(ranges[:count]))
+		if err == nil {
+			err = conn.Flush()
+		}
+		if err != nil {
+			return E.Cause(err, "fill the set ", name)
+		}
+		ranges = ranges[count:]
+		if len(ranges) == 0 {
+			return nil
+		}
 	}
-	err = conn.Flush()
-	if err != nil {
-		return E.Cause(err, "fill the set ", name)
-	}
-	return nil
 }
 
 func addressLoad(offset uint32) expr.Any {
@@ -964,8 +1015,9 @@ type State struct {
 	Proxy        ChainState
 	// ForeignMarks names the chains of other tables that set a packet mark: the place
 	// to look when another program's rules and the backend's get in each other's way.
-	// ForeignConntrackMarks those that set a conntrack mark (Tailscale's connmark rules,
-	// qosmate, mwan3), where the detector of BitTorrent keeps its bits.
+	// ForeignConntrackMarks those that set a conntrack mark by nftables' own expression
+	// (Tailscale's connmark rules, qosmate), where the detector of BitTorrent keeps its bits; a
+	// CONNMARK target of iptables-nft (mwan3) is not seen.
 	ForeignMarks          []string
 	ForeignConntrackMarks []string
 }

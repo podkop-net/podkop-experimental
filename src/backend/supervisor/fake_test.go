@@ -765,3 +765,42 @@ func TestRetryPause(t *testing.T) {
 	}
 	require.Equal(t, []time.Duration{0, 0, 0, time.Minute, 2 * time.Minute, 4 * time.Minute, 8 * time.Minute, 16 * time.Minute, 32 * time.Minute, time.Hour, time.Hour}, pauses)
 }
+
+// IPv6 through podkop: the routing and the firewall of IPv6 when the router has it; what fails of
+// IPv6 alone (the routing, then the firewall) does not take the start with it: IPv6 goes past
+// podkop, IPv4 as the settings say.
+func TestFakeIPv6FallsBack(t *testing.T) {
+	for _, test := range []struct {
+		name            string
+		routing, nftIP6 bool
+		want            []string
+		ipv6            bool
+	}{
+		{"works", false, false, []string{"routing ipv6", "firewall", "dns"}, true},
+		{"routing fails", true, false, []string{"routing ipv6", "routing", "firewall", "dns"}, false},
+		{"firewall fails", false, true, []string{"routing ipv6", "firewall", "routing", "firewall", "dns"}, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			s, _, system, settings := fakeFixture(t)
+			settings("one.lab.example", "60")
+			content, err := os.ReadFile(s.options.SettingsPath)
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(s.options.SettingsPath, []byte(strings.Replace(string(content), "config settings 'settings'\n", "config settings 'settings'\n\toption ipv6_routing 'podkop'\n", 1)), 0o644))
+			system.ipv6 = true
+			if test.routing {
+				system.routingErrorIPv6 = os.ErrPermission
+			}
+			system.firewallFailsIPv6 = test.nftIP6
+			require.True(t, s.Boot().OK)
+			require.Equal(t, stateRunning, state(t, s))
+			require.Equal(t, test.want, system.take())
+			require.Equal(t, test.ipv6, system.plans[len(system.plans)-1].IPv6)
+			// the routing put back later (netifd flushed it) is that of the state: no IPv6 after a failure
+			system.routingGone = true
+			s.restoreRouting()
+			calls := system.take()
+			require.Contains(t, calls, map[bool]string{true: "routing ipv6", false: "routing"}[test.ipv6], calls)
+			s.Stop()
+		})
+	}
+}

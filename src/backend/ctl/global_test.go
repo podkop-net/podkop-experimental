@@ -130,7 +130,7 @@ func TestInterfaceLines(t *testing.T) {
 
 func TestIPv6Lines(t *testing.T) {
 	t.Parallel()
-	dhcp, err := uci.Parse([]byte("config dhcp 'lan'\n\toption interface 'lan'\n\toption ra 'relay'\n\toption dhcpv6 'relay'\n\nconfig dhcp 'guest'\n\toption ra 'relay'\n\tlist dns 'fd00::1'\n\nconfig dhcp 'wan'\n\toption ra 'server'\n"))
+	dhcp, err := uci.Parse([]byte("config dhcp 'lan'\n\toption interface 'lan'\n\toption ra 'relay'\n\toption dhcpv6 'relay'\n\nconfig dhcp 'guest'\n\toption ra 'relay'\n\tlist dns 'fd00::1'\n\nconfig dhcp 'wan'\n\toption ra 'server'\n\nconfig dhcp 'wan6'\n\toption ra 'relay'\n\toption master '1'\n"))
 	require.NoError(t, err)
 	inbound6 := []sockets.Listener{{Protocol: "tcp", Address: netip.MustParseAddrPort("[::1]:1602"), Program: "podkop"}}
 

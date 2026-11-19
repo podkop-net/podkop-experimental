@@ -48,8 +48,12 @@ type recorder struct {
 	// routing and the table look taken away
 	dnsOurs                   bool
 	routingGone, firewallGone bool
-	// ipv6 is whether the router has IPv6 (System.IPv6)
-	ipv6 bool
+	// ipv6 is whether the router has IPv6 (System.IPv6); routingErrorIPv6 is what setting up the
+	// routing with IPv6 fails with, firewallFailsIPv6 makes the updates of the firewall with IPv6
+	// fail
+	ipv6              bool
+	routingErrorIPv6  error
+	firewallFailsIPv6 bool
 	// firewallFails are the next updates of the firewall that fail, the table before them
 	// staying as it was
 	firewallFails int
@@ -112,6 +116,9 @@ func (r *recorder) ApplyRouting(ipv6 bool) error {
 		call = "routing ipv6"
 	}
 	r.calls = append(r.calls, call)
+	if ipv6 && r.routingErrorIPv6 != nil {
+		return r.routingErrorIPv6
+	}
 	return r.routingError
 }
 func (r *recorder) RemoveRouting() error  { r.calls = append(r.calls, "no routing"); return nil }
@@ -147,6 +154,9 @@ func (r *recorder) UpdateFirewall(previous *firewall.Plan, next *firewall.Plan) 
 	if r.firewallFails > 0 {
 		r.firewallFails--
 		return errors.New("the firewall fails")
+	}
+	if r.firewallFailsIPv6 && next.IPv6 {
+		return errors.New("the firewall of IPv6 fails")
 	}
 	r.plans = append(r.plans, next)
 	return nil

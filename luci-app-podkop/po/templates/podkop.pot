@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-19 16:46+0000\n"
-"PO-Revision-Date: 2026-11-19 16:46+0000\n"
+"POT-Creation-Date: 2026-11-19 18:13+0000\n"
+"PO-Revision-Date: 2026-11-19 18:13+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -2296,7 +2296,7 @@ msgstr ""
 msgid "The port of the server does not answer from this router. The cause cannot be told from here."
 msgstr ""
 
-#: src/validators/validateSubnet.ts:67
+#: src/validators/validateSubnet.ts:68
 msgid "The prefix length of IPv6 must be between 0 and 128"
 msgstr ""
 
@@ -2820,7 +2820,7 @@ msgstr ""
 #: src/validators/validateOutboundJson.ts:7
 #: src/validators/validatePath.ts:16
 #: src/validators/validateSubnet.ts:47
-#: src/validators/validateSubnet.ts:71
+#: src/validators/validateSubnet.ts:72
 #: src/validators/validateUrl.ts:28
 msgid "Valid"
 msgstr ""

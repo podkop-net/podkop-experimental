@@ -442,6 +442,15 @@ type running struct {
 	instance Instance
 	// firewall is the plan the table was last brought to
 	firewall *firewall.Plan
+	// noIPv6 tells that the routing or the firewall of IPv6 failed when the state was brought up
+	// (surround): IPv6 goes past podkop for its life, IPv4 as the settings say
+	noIPv6 bool
+}
+
+// ipv6 tells whether IPv6 goes through podkop in a state: the settings and the router allow it
+// (Dataplane.IPv6), and its routing and firewall did not fail.
+func (r *running) ipv6() bool {
+	return r.result.Dataplane.IPv6 && !r.noIPv6
 }
 
 // what an update of the lists asked for from outside may take
@@ -789,7 +798,7 @@ func (s *Supervisor) restoreRouting() string {
 	if s.allowBridged() {
 		restored = append(restored, "bridged packets out of the IP firewall (br_netfilter)")
 	}
-	ipv6 := current.result.Dataplane.IPv6
+	ipv6 := current.ipv6()
 	present, err := s.options.System.RoutingPresent(ipv6)
 	if err != nil {
 		s.log("warn", "look at the routing: ", err)
@@ -924,6 +933,10 @@ func (s *Supervisor) drift(current *running) (changes []string, lost bool) {
 	// it is back, and one that is not there cannot be listened on
 	if address := s.options.System.LANAddress(); address != "" && address != built.LANAddress {
 		changes = append(changes, "the address of the LAN: "+address+" (was "+cmp.Or(built.LANAddress, "none")+")")
+	}
+	// IPv6 of the router (::1) that came or went since, while the settings send IPv6 through podkop
+	if current.settings != nil && current.settings.Settings.IPv6Routing == model.IPv6Podkop && s.options.System.IPv6() != built.IPv6 {
+		changes = append(changes, "the IPv6 of the router (::1): "+map[bool]string{true: "there", false: "gone"}[s.options.System.IPv6()])
 	}
 	// a user of the router's torrent clients that the router has gained or lost since (the package
 	// of the client installed after the setting was made): its number is in the firewall's rules
@@ -1656,7 +1669,14 @@ func retryPause(failures int) time.Duration {
 func (s *Supervisor) surround(previousFirewall *firewall.Plan) error {
 	current := s.current
 	s.allowBridged()
-	err := s.options.System.ApplyRouting(current.result.Dataplane.IPv6)
+	err := s.options.System.ApplyRouting(current.ipv6())
+	if err != nil && current.ipv6() {
+		// what fails of IPv6 alone (a kernel without rules of IPv6, a module of nftables
+		// missing) does not take IPv4 with it: IPv6 goes past podkop
+		s.log("warn", "the routing of IPv6 failed (", err, "): IPv6 goes past podkop")
+		current.noIPv6 = true
+		err = s.options.System.ApplyRouting(false)
+	}
 	if err != nil {
 		return E.Cause(err, "set up the routing")
 	}
@@ -1665,6 +1685,15 @@ func (s *Supervisor) surround(previousFirewall *firewall.Plan) error {
 	// update sets the whole table up
 	plan := s.firewallPlan(current)
 	err = s.updateFirewall(previousFirewall, plan)
+	if err != nil && plan.IPv6 {
+		s.log("warn", "the firewall of IPv6 failed (", err, "): IPv6 goes past podkop")
+		current.noIPv6 = true
+		if routingErr := s.options.System.ApplyRouting(false); routingErr != nil {
+			s.log("error", "remove the routing of IPv6: ", routingErr)
+		}
+		plan = s.firewallPlan(current)
+		err = s.updateFirewall(previousFirewall, plan)
+	}
 	if err != nil {
 		return E.Cause(err, "set up the firewall")
 	}
@@ -1731,7 +1760,7 @@ func userIDs(names []string) map[string]uint32 {
 // sets from what the rule sets hold now.
 func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
 	wanted := &current.result.Dataplane
-	result := &firewall.Plan{Interfaces: wanted.Interfaces, ExcludeNTP: wanted.ExcludeNTP, Sources: wanted.Sources, ClashAPIInterfaces: wanted.ClashAPIInterfaces, IPv6: wanted.IPv6, OwnMarks: wanted.OwnMarks,
+	result := &firewall.Plan{Interfaces: wanted.Interfaces, ExcludeNTP: wanted.ExcludeNTP, Sources: wanted.Sources, ClashAPIInterfaces: wanted.ClashAPIInterfaces, IPv6: current.ipv6(), OwnMarks: wanted.OwnMarks,
 		BitTorrent: firewall.BitTorrent{Mode: wanted.BitTorrent, LAN: wanted.BitTorrentLAN, Sources: wanted.Sources, Fan: wanted.BitTorrentFan,
 			RouterUsers: wanted.BitTorrentRouterUsers}}
 	s.bitTorrentRule = ""
@@ -1757,7 +1786,7 @@ func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
 		if has, told := current.instance.RuleSetHasAddresses(ruleSet.Tag); told && !has {
 			continue
 		}
-		source, stamp, found := s.ruleSetSource(current.instance, ruleSet)
+		source, stamp, found := s.ruleSetSource(current.instance, ruleSet, result.IPv6)
 		if found {
 			sources = append(sources, source)
 			known[ruleSet.Tag] = stamp
@@ -1826,6 +1855,8 @@ type derivationKey struct {
 	tag    string
 	format string
 	sum    [sha256.Size]byte
+	// ipv6: its IPv6 ranges read too (engine.RuleSetAddressesOf)
+	ipv6 bool
 }
 
 type readRules struct {
@@ -1860,7 +1891,7 @@ func (k knownSource) same(other knownSource) bool {
 // ruleSetSource is a rule set as the firewall reads it: its content is read only when it
 // may have changed since the last read, or when what was read of it is not kept. A big
 // list that did not change is not copied from the cache file and hashed at every refill.
-func (s *Supervisor) ruleSetSource(instance Instance, ruleSet plan.RuleSet) (keyedSource, knownSource, bool) {
+func (s *Supervisor) ruleSetSource(instance Instance, ruleSet plan.RuleSet, ipv6 bool) (keyedSource, knownSource, bool) {
 	source := lists.Source{Tag: ruleSet.Tag, Format: ruleSet.Format}
 	var stamp knownSource
 	if ruleSet.Path != "" {
@@ -1873,7 +1904,7 @@ func (s *Supervisor) ruleSetSource(instance Instance, ruleSet plan.RuleSet) (key
 		// taken before the content: a load meanwhile has the content read again
 		stamp = knownSource{instance: instance, loads: s.loads.count(instance, ruleSet.Tag)}
 	}
-	if previous, seen := s.known[ruleSet.Tag]; seen && previous.same(stamp) && previous.key.format == ruleSet.Format {
+	if previous, seen := s.known[ruleSet.Tag]; seen && previous.same(stamp) && previous.key.format == ruleSet.Format && previous.key.ipv6 == ipv6 {
 		if _, kept := s.read[previous.key]; kept {
 			return keyedSource{source, previous.key}, previous, true
 		}
@@ -1891,7 +1922,7 @@ func (s *Supervisor) ruleSetSource(instance Instance, ruleSet plan.RuleSet) (key
 		}
 		source.Content = content
 	}
-	stamp.key = derivationKey{ruleSet.Tag, ruleSet.Format, sha256.Sum256(source.Content)}
+	stamp.key = derivationKey{ruleSet.Tag, ruleSet.Format, sha256.Sum256(source.Content), ipv6}
 	return keyedSource{source, stamp.key}, stamp, true
 }
 
@@ -1923,7 +1954,7 @@ func (s *Supervisor) deriveSets(sources []keyedSource) (*lists.Destinations, []e
 		if found, known := s.read[key]; known {
 			return found.rules, found.err
 		}
-		rules, err := engine.RuleSetAddresses(source.Format, source.Content)
+		rules, err := engine.RuleSetAddressesOf(source.Format, source.Content, key.ipv6)
 		s.read[key] = readRules{rules, err}
 		return rules, err
 	})

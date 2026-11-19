@@ -69,12 +69,20 @@ type PortRange struct {
 // rules that name addresses, in their order. The names of domains are not built: a rule
 // keeps the first of them, which tell that it has some.
 func RuleSetAddresses(format string, content []byte) ([]AddressRule, error) {
+	return RuleSetAddressesOf(format, content, true)
+}
+
+// RuleSetAddressesOf is RuleSetAddresses with the IPv6 destinations only when ipv6 is on: the
+// IPv6 ranges of a set come from a copy of all its ranges (cidrset exports its IPv4 ones alone
+// without one), 48 bytes a range of a list that may have a million, and a rule that names IPv6
+// addresses only is left out, as before IPv6 went through podkop.
+func RuleSetAddressesOf(format string, content []byte, ipv6 bool) ([]AddressRule, error) {
 	rules, err := readRuleSet(format, content, true)
 	if err != nil {
 		return nil, err
 	}
 	var result []AddressRule
-	collectAddresses(rules, false, &result)
+	collectAddresses(rules, false, ipv6, &result)
 	return result, nil
 }
 
@@ -105,12 +113,12 @@ func readRuleSet(format string, content []byte, addresses bool) ([]option.Headle
 	return ruleSet.Rules, nil
 }
 
-func collectAddresses(rules []option.HeadlessRule, nested bool, result *[]AddressRule) {
+func collectAddresses(rules []option.HeadlessRule, nested bool, ipv6 bool, result *[]AddressRule) {
 	for index := range rules {
 		rule := &rules[index]
 		if rule.Type == C.RuleTypeLogical {
 			if !rule.LogicalOptions.Invert {
-				collectAddresses(rule.LogicalOptions.Rules, true, result)
+				collectAddresses(rule.LogicalOptions.Rules, true, ipv6, result)
 			}
 			continue
 		}
@@ -118,7 +126,7 @@ func collectAddresses(rules []option.HeadlessRule, nested bool, result *[]Addres
 		if fields.Invert {
 			continue
 		}
-		ranges, ranges6 := addresses(fields)
+		ranges, ranges6 := addresses(fields, ipv6)
 		if len(ranges) == 0 && len(ranges6) == 0 {
 			continue
 		}
@@ -131,7 +139,7 @@ func collectAddresses(rules []option.HeadlessRule, nested bool, result *[]Addres
 // addresses returns the IPv4 destinations of a rule, packed (AddressRule.Ranges): the ranges
 // of its set as the set keeps them, when that is all it has; written as text, they are read.
 // And its IPv6 destinations (AddressRule.Ranges6), which only a set that has some copies.
-func addresses(fields *option.DefaultHeadlessRule) (ranges []uint64, ranges6 []netipx.IPRange) {
+func addresses(fields *option.DefaultHeadlessRule, ipv6 bool) (ranges []uint64, ranges6 []netipx.IPRange) {
 	for _, text := range fields.IPCIDR {
 		prefix, err := netip.ParsePrefix(text)
 		if err != nil {
@@ -143,7 +151,7 @@ func addresses(fields *option.DefaultHeadlessRule) (ranges []uint64, ranges6 []n
 		}
 		if prefix.Addr().Is4() {
 			ranges = append(ranges, packRange(netipx.RangeOfPrefix(prefix.Masked())))
-		} else if !prefix.Addr().Is4In6() {
+		} else if ipv6 && !prefix.Addr().Is4In6() {
 			ranges6 = append(ranges6, netipx.RangeOfPrefix(prefix.Masked()))
 		}
 	}
@@ -151,15 +159,19 @@ func addresses(fields *option.DefaultHeadlessRule) (ranges []uint64, ranges6 []n
 		for _, item := range fields.IPSet.Ranges() {
 			if item.From().Is4() {
 				ranges = append(ranges, packRange(item))
-			} else if !item.From().Is4In6() {
+			} else if ipv6 && !item.From().Is4In6() {
 				ranges6 = append(ranges6, item)
 			}
 		}
 	}
 	if fields.IPRanges != nil {
 		// the set keeps IPv4 first: what follows its IPv4 ranges is IPv6
-		if four := fields.IPRanges.Ranges4(); fields.IPRanges.Len() > len(four) {
-			ranges6 = append(ranges6, fields.IPRanges.Ranges()[len(four):]...)
+		if four := fields.IPRanges.Ranges4(); ipv6 && fields.IPRanges.Len() > len(four) {
+			for _, item := range fields.IPRanges.Ranges()[len(four):] {
+				if !item.From().Is4In6() {
+					ranges6 = append(ranges6, item)
+				}
+			}
 		}
 		if len(ranges) == 0 {
 			return fields.IPRanges.Ranges4(), ranges6

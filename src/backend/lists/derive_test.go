@@ -6,6 +6,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/engine"
 	"github.com/podkop-net/podkop-experimental/src/backend/firewall"
 	"github.com/sagernet/sing-box/common/srs"
 	C "github.com/sagernet/sing-box/constant"
@@ -109,6 +110,22 @@ func TestDerive(t *testing.T) {
 	require.Len(t, got.Groups, 1)
 	require.Equal(t, []string{"2606:4700::/32"}, texts6(got.Groups[0].Ranges6))
 	require.Empty(t, got.Subnets6)
+}
+
+// Without IPv6 through podkop the IPv6 addresses are not read: a rule of IPv6 addresses only
+// gives nothing, as before 0.8.20.
+func TestDeriveWithoutIPv6(t *testing.T) {
+	read := func(source Source) ([]engine.AddressRule, error) {
+		return engine.RuleSetAddressesOf(source.Format, source.Content, false)
+	}
+	got, problems := DeriveWith([]Source{
+		{Tag: "voice", Content: []byte(`{"version": 3, "rules": [{"network": "udp", "port_range": "50000:65535", "ip_cidr": ["2606:4700::/32"]}, {"ip_cidr": ["66.22.192.0/18", "2001:67c:4e8::/48"]}]}`)},
+		{Tag: "text", Format: C.RuleSetFormatText, Content: []byte("100.71.62.0/24\n2001:db8::/32\n")},
+	}, read)
+	require.Empty(t, problems)
+	require.Empty(t, got.Subnets6)
+	require.Empty(t, got.Groups)
+	require.Equal(t, []string{"100.71.62.0/24", "66.22.192.0/18"}, texts(got.Subnets))
 }
 
 func texts6(ranges []netipx.IPRange) []string {

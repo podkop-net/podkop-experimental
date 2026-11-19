@@ -58,13 +58,31 @@ func Apply(ipv6 bool) error {
 	return removeFamily(unix.AF_INET6)
 }
 
-// applyFamily makes the route and the rules of one family.
+// applyFamily makes the route and the rules of one family. Those of IPv6 rules first: a kernel
+// without rules of IPv6 (no IPV6_MULTIPLE_TABLES) refuses them, and puts a route of any table into
+// its main one, where "local ::/0" would take all of IPv6 to the router itself.
 func applyFamily(family int) error {
+	if family == unix.AF_INET6 {
+		err := addRules(family)
+		if err != nil {
+			return err
+		}
+		return addRoute(family)
+	}
+	err := addRoute(family)
+	if err != nil {
+		return err
+	}
+	return addRules(family)
+}
+
+// addRoute makes the route of the table: every marked packet is for this host, the transparent
+// proxy inbound takes it.
+func addRoute(family int) error {
 	loopback, err := netlink.LinkByName("lo")
 	if err != nil {
 		return E.Cause(err, "find the loopback interface")
 	}
-	// every marked packet is for this host: the transparent proxy inbound takes it
 	err = netlink.RouteReplace(&netlink.Route{
 		LinkIndex: loopback.Attrs().Index,
 		Dst:       anyAddress(family),
@@ -75,6 +93,11 @@ func applyFamily(family int) error {
 	if err != nil {
 		return E.Cause(err, "add the route of the table ", tableID, familyText(family))
 	}
+	return nil
+}
+
+// addRules makes the rules of the marks of one family; what is there is left.
+func addRules(family int) error {
 	for _, rule := range backendRules(family) {
 		exists, err := ruleExists(rule)
 		if err != nil {
