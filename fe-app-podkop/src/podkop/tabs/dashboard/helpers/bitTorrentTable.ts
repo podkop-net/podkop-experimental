@@ -115,9 +115,13 @@ export function bitTorrentTable(
       blocked: [],
       notes: [],
       caption: '',
-      problem: _(
-        'The rule «%s» chosen for BitTorrent in the settings is switched off, deleted or has no servers: BitTorrent goes as the other traffic',
-      ).format(report.rule || ''),
+      problem: report.rule
+        ? _(
+            'The rule «%s» chosen for BitTorrent in the settings is switched off, deleted or has no servers: BitTorrent goes as the other traffic',
+          ).format(report.rule)
+        : _(
+            'No rule is chosen for BitTorrent in the settings: BitTorrent goes as the other traffic',
+          ),
     };
   }
   const rows = (report.rows || []).map((row) => ({

@@ -492,11 +492,20 @@ func Apply(plan *Plan) error {
 		// and by the connection: what the kernel still sends for a socket the client has closed
 		// (the last ACK, a FIN again, data left in the queue) has no owner to tell it by, and left
 		// directly, from the router's own address, where the connection went through the rule
+		// (TCP and UDP only: an ICMP error the router sends about a device's flow is related to that
+		// flow and carries its mark); and the answers of a connection from outside to the client
+		// (bt_router's mark of it), whose socket is closed
 		if plan.BitTorrent.Mode != BitTorrentBlock {
+			for _, transport := range transports {
+				add(mangleOutput, ipv4(), protocol(transport), []expr.Any{
+					&expr.Ct{Register: 1, Key: expr.CtKeyDIRECTION},
+					&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{ctDirectionOriginal}},
+				}, ctMarkTest(ctBitTorrent, expr.CmpOpNeq), []expr.Any{&expr.Verdict{Kind: expr.VerdictJump, Chain: router.Name}})
+			}
 			add(mangleOutput, ipv4(), []expr.Any{
 				&expr.Ct{Register: 1, Key: expr.CtKeyDIRECTION},
-				&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{ctDirectionOriginal}},
-			}, ctMarkTest(ctBitTorrent, expr.CmpOpNeq), []expr.Any{&expr.Verdict{Kind: expr.VerdictJump, Chain: router.Name}})
+				&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: []byte{ctDirectionReply}},
+			}, ctMarkAll(dataplane.BitTorrentInboundCt), []expr.Any{&expr.Verdict{Kind: expr.VerdictJump, Chain: router.Name}})
 		}
 	}
 	// the NTP of the router itself (sysntpd, the clock check of the backend) never goes to

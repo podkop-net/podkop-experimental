@@ -440,9 +440,12 @@ func (u undecided) isUndecided(device [4]byte) bool {
 	if !u.tcp || u.source != device || u.port < firstFreePort || u.mark&(ctBitTorrent|ctLate|ctInspect|ctIntercepted) != 0 {
 		return false
 	}
-	// (to the router or to a network of its own: no peer's, and the detector does not look there)
-	if far := netip.AddrFrom4(u.far); far.IsPrivate() || far.IsLoopback() || far.IsLinkLocalUnicast() || far.IsMulticast() || far.IsUnspecified() {
-		return false
+	// (to an address the detector does not look at: localRanges, as bt_tcp's return for @local)
+	far := netip.AddrFrom4(u.far)
+	for _, local := range localRanges {
+		if local.Contains(far) {
+			return false
+		}
 	}
 	for _, port := range commonPorts {
 		if u.port == port {
@@ -462,7 +465,11 @@ func EndUndecidedFlows(device netip.Addr) (int, error) {
 	if !device.Is4() {
 		return 0, nil
 	}
-	_ = renewElement(setBitTorrentEnded, device, bitTorrentEndedFor)
+	// (nothing is ended when the reset of its next packets cannot follow: those would go on as
+	// forwarded, and as not BitTorrent)
+	if err := renewElement(setBitTorrentEnded, device, bitTorrentEndedFor); err != nil {
+		return 0, E.Cause(err, "put the device in ", setBitTorrentEnded)
+	}
 	conn, err := netlink.Dial(unix.NETLINK_NETFILTER, nil)
 	if err != nil {
 		return 0, E.Cause(err, "open netlink of netfilter")

@@ -312,15 +312,16 @@ func verdict(kind expr.VerdictKind, chain string) []expr.Any {
 
 // bitTorrentSetNames are the sets of the detector whose elements a table made anew keeps, in the
 // order they are kept when not all can be (keepBitTorrent).
-var bitTorrentSetNames = []string{SetBitTorrentHosts, SetBitTorrentSockets, SetBitTorrentUTP, SetBitTorrentTrackers, SetBitTorrentLearned, SetBitTorrentPeers}
+var bitTorrentSetNames = []string{SetBitTorrentHosts, SetBitTorrentSockets, SetBitTorrentUTP, SetBitTorrentTrackers, SetBitTorrentLearned, SetBitTorrentPeers,
+	setBitTorrentEnded}
 
 // bitTorrentKeys is the length of a key of each set of the detector, and bitTorrentTimeouts the
 // longest an element of it has left: what is kept of a set is checked against them (a file of
 // another version, or one changed, must not give the kernel a key of another length).
 var (
 	bitTorrentKeys = map[string]int{SetBitTorrentHosts: 4, SetBitTorrentSockets: 8, SetBitTorrentUTP: 8, SetBitTorrentPeers: 8,
-		SetBitTorrentLearned: 12, SetBitTorrentTrackers: 12}
-	bitTorrentTimeouts = map[string]time.Duration{SetBitTorrentTrackers: trackerTimeout}
+		SetBitTorrentLearned: 12, SetBitTorrentTrackers: 12, setBitTorrentEnded: 4}
+	bitTorrentTimeouts = map[string]time.Duration{SetBitTorrentTrackers: trackerTimeout, setBitTorrentEnded: bitTorrentEndedFor}
 )
 
 // bitTorrentSizes is how many elements each set of the detector holds. With no size the kernel
@@ -353,7 +354,7 @@ const (
 // end of a run of one client (lab/bt17/sizes.py); the ones left out are learned again from the
 // next replies and handshakes.
 var bitTorrentKeptMost = map[string]int{SetBitTorrentHosts: 500, SetBitTorrentSockets: 500, SetBitTorrentUTP: 500, SetBitTorrentTrackers: 500,
-	SetBitTorrentLearned: 4000, SetBitTorrentPeers: 4000}
+	SetBitTorrentLearned: 4000, SetBitTorrentPeers: 3900, setBitTorrentEnded: 100}
 
 // keepBitTorrent leaves of the elements read of the sets (or of a file) what a new table takes:
 // the sets of the detector only, keys of their length, a time left of a second to the set's
@@ -508,7 +509,8 @@ func renewElement(name string, address netip.Addr, timeout time.Duration) error 
 	}
 	table := &nftables.Table{Name: tableName, Family: nftables.TableFamilyINet}
 	element := []nftables.SetElement{{Key: address.AsSlice(), Timeout: timeout}}
-	for _, renew := range []bool{true, false} {
+	// (an ENOENT of a set made anew meanwhile is not of the delete: one more try with it first)
+	for _, renew := range []bool{true, true, false} {
 		conn, err := newConn()
 		if err != nil {
 			return err
@@ -757,6 +759,11 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 		fanPairs = newSet(setBitTorrentFanPairs, nftables.MustConcatSetType(nftables.TypeIPAddr, nftables.TypeIPAddr), true, fan.Pair, bitTorrentFanPairsSize)
 		fanMeter = newSet(setBitTorrentFan, nftables.TypeIPAddr, false, 2*fan.Refill(), bitTorrentSuspectsSize)
 		ended = newSet(setBitTorrentEnded, nftables.TypeIPAddr, false, bitTorrentEndedFor, bitTorrentSuspectsSize)
+		// (a table made anew within bitTorrentEndedFor of an ending keeps it: the connections ended
+		// are reset still)
+		if err := addElements(conn, ended, kept[setBitTorrentEnded]); err != nil && portsErr == nil {
+			portsErr = err
+		}
 	}
 	accept := nftables.ChainPolicyAccept
 	detect := conn.AddChain(&nftables.Chain{Name: chainBitTorrentDetect, Table: table, Type: nftables.ChainTypeFilter,

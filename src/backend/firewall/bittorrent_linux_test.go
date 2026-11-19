@@ -229,7 +229,10 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 			lines = append(lines, fmt.Sprintf("add rule %s mangle_output index %d meta nfproto ipv4 meta skuid %d jump bt_router", table, index+1, user))
 		}
 		if mode != BitTorrentBlock {
-			lines = append(lines, fmt.Sprintf("add rule %s mangle_output index %d meta nfproto ipv4 ct direction original ct mark & 0x00010000 != 0 jump bt_router", table, len(users)+1))
+			for index, transport := range []string{"tcp", "udp"} {
+				lines = append(lines, fmt.Sprintf("add rule %s mangle_output index %d meta nfproto ipv4 meta l4proto %s ct direction original ct mark & 0x00010000 != 0 jump bt_router", table, len(users)+index+1, transport))
+			}
+			lines = append(lines, fmt.Sprintf("add rule %s mangle_output index %d meta nfproto ipv4 ct direction reply ct mark & 0x00050000 == 0x00050000 jump bt_router", table, len(users)+3))
 		}
 		lines = append(lines, rule("bt_router", "fib daddr type local accept"))
 		switch mode {

@@ -91,6 +91,23 @@ func TestParseFlow(t *testing.T) {
 	if !ok || !flow.Incoming {
 		t.Errorf("to the router's client: %v %+v", ok, flow)
 	}
+	// the one bit or the other alone is not
+	for _, mark := range []uint32{ctBitTorrent, ctNot} {
+		encoder = netlink.NewAttributeEncoder()
+		encoder.ByteOrder = binary.BigEndian
+		encoder.Nested(ctaTupleOrig, func(tuple *netlink.AttributeEncoder) error {
+			tuple.Nested(ctaTupleProto, func(proto *netlink.AttributeEncoder) error {
+				proto.Uint8(ctaProtoNum, unix.IPPROTO_TCP)
+				return nil
+			})
+			return nil
+		})
+		encoder.Uint32(ctaMark, mark)
+		data, _ = encoder.Encode()
+		if flow, ok = parseFlow(append([]byte{unix.AF_INET, 0, 0, 0}, data...)); !ok || flow.Incoming {
+			t.Errorf("the mark %#x alone: %v %+v", mark, ok, flow)
+		}
+	}
 }
 
 // The kernel's entries with a mark of the detector, and none other: a UDP flow over loopback that
@@ -256,10 +273,13 @@ func TestParseUndecided(t *testing.T) {
 		}
 		return netlink.Attribute{Type: kind | unix.NLA_F_NESTED, Data: data}
 	}
-	entry := func(source [4]byte, protocol byte, port uint16, mark uint32) []byte {
+	// (the far end 100.80.0.9: of 100.64/10, which is not of localRanges; a TEST-NET is, and the
+	// detector leaves it alone)
+	far := [4]byte{100, 80, 0, 9}
+	entryTo := func(source [4]byte, to [4]byte, protocol byte, port uint16, mark uint32) []byte {
 		data, err := netlink.MarshalAttributes([]netlink.Attribute{
 			nested(ctaTupleOrig,
-				nested(ctaTupleIP, netlink.Attribute{Type: ctaIPv4Src, Data: source[:]}, netlink.Attribute{Type: 2, Data: []byte{203, 0, 113, 9}}),
+				nested(ctaTupleIP, netlink.Attribute{Type: ctaIPv4Src, Data: source[:]}, netlink.Attribute{Type: 2, Data: to[:]}),
 				nested(ctaTupleProto, netlink.Attribute{Type: ctaProtoNum, Data: []byte{protocol}},
 					netlink.Attribute{Type: 2, Data: []byte{0xa4, 0x10}}, netlink.Attribute{Type: ctaProtoDstPort, Data: []byte{byte(port >> 8), byte(port)}})),
 			{Type: ctaMark, Data: []byte{byte(mark >> 24), byte(mark >> 16), byte(mark >> 8), byte(mark)}},
@@ -268,6 +288,9 @@ func TestParseUndecided(t *testing.T) {
 			t.Fatal(err)
 		}
 		return append([]byte{unix.AF_INET, 0, 0, 0}, data...)
+	}
+	entry := func(source [4]byte, protocol byte, port uint16, mark uint32) []byte {
+		return entryTo(source, far, protocol, port, mark)
 	}
 	device := [4]byte{192, 168, 80, 10}
 	for _, test := range []struct {
@@ -278,6 +301,8 @@ func TestParseUndecided(t *testing.T) {
 		{"not BitTorrent, an uncommon port", entry(device, unix.IPPROTO_TCP, 51413, ctNot), true},
 		{"no mark (offloaded before its first data)", entry(device, unix.IPPROTO_TCP, 6881, 0), true},
 		{"another device", entry([4]byte{192, 168, 80, 11}, unix.IPPROTO_TCP, 51413, 0), false},
+		{"to a network of the router's own", entryTo(device, [4]byte{192, 168, 1, 5}, unix.IPPROTO_TCP, 51413, 0), false},
+		{"to a TEST-NET (localRanges)", entryTo(device, [4]byte{203, 0, 113, 9}, unix.IPPROTO_TCP, 51413, 0), false},
 		{"UDP", entry(device, unix.IPPROTO_UDP, 51413, 0), false},
 		{"port 443", entry(device, unix.IPPROTO_TCP, 443, 0), false},
 		{"a port under 1024", entry(device, unix.IPPROTO_TCP, 990, 0), false},

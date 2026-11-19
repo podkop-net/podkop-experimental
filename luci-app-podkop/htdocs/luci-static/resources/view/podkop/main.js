@@ -3467,9 +3467,11 @@ function bitTorrentTable(report) {
       blocked: [],
       notes: [],
       caption: "",
-      problem: _(
+      problem: report.rule ? _(
         "The rule \xAB%s\xBB chosen for BitTorrent in the settings is switched off, deleted or has no servers: BitTorrent goes as the other traffic"
-      ).format(report.rule || "")
+      ).format(report.rule) : _(
+        "No rule is chosen for BitTorrent in the settings: BitTorrent goes as the other traffic"
+      )
     };
   }
   const rows = (report.rows || []).map((row) => ({
@@ -4699,7 +4701,7 @@ var styles = `
     margin-top: 10px;
     display: grid;
     grid-template-columns: repeat(var(--dashboard-grid-columns), minmax(0, 1fr));
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(150px, calc((100% - 30px) / 4), min(calc((100% - 10px) / 2), calc((630px - 100%) * 999)))), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(150px, calc((100% - 30px) / 4), min(calc((100% - 10px) / 2), calc((630px - 100%) * 99999)))), 1fr));
     grid-gap: 10px;
 }
 

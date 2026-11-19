@@ -36,7 +36,7 @@ export const styles = `
     margin-top: 10px;
     display: grid;
     grid-template-columns: repeat(var(--dashboard-grid-columns), minmax(0, 1fr));
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(150px, calc((100% - 30px) / 4), min(calc((100% - 10px) / 2), calc((630px - 100%) * 999)))), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(150px, calc((100% - 30px) / 4), min(calc((100% - 10px) / 2), calc((630px - 100%) * 99999)))), 1fr));
     grid-gap: 10px;
 }
 

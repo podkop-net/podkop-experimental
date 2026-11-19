@@ -422,8 +422,11 @@ type Supervisor struct {
 	bitTorrentNoRule atomic.Pointer[string]
 	// bitTorrentWake tells the reads of BitTorrent's traffic that a table was applied
 	// (updateFirewall): a detector that came is read at once (pollBitTorrent)
-	bitTorrentWake  chan struct{}
-	bitTorrentStats btstats.Stats
+	bitTorrentWake chan struct{}
+	// routerUsersTried: the users of the router's torrent clients an apply was made for by the
+	// clock (Run), so that one that fails is not made again for the same users
+	routerUsersTried map[string]uint32
+	bitTorrentStats  btstats.Stats
 }
 
 // running is a state of the router that was brought up.
@@ -917,10 +920,8 @@ func (s *Supervisor) drift(current *running) (changes []string, lost bool) {
 	}
 	// a user of the router's torrent clients that the router has gained or lost since (the package
 	// of the client installed after the setting was made): its number is in the firewall's rules
-	if current.settings != nil {
-		if names := current.settings.Settings.BitTorrentRouterUsers; len(names) > 0 && !maps.Equal(userIDs(names), built.UserIDs) {
-			changes = append(changes, "the users of the router's torrent clients")
-		}
+	if s.routerUsersChanged(current) {
+		changes = append(changes, "the users of the router's torrent clients")
 	}
 	if listening := s.options.System.Listening(); listening != nil {
 		for _, inbound := range inboundSockets(current.result.Config) {
@@ -1104,6 +1105,16 @@ func (s *Supervisor) Run(ctx context.Context, reload <-chan struct{}) error {
 		case <-bridged.C:
 			if s.current != nil {
 				s.allowBridged()
+				// a user of the router's torrent clients that came or went: its number is in the
+				// firewall's rules (an apply again: the same configuration takes the table anew)
+				// (once for each state of them: an apply that fails is not tried again every tick)
+				if s.routerUsersChanged(s.current) {
+					if now := userIDs(s.current.settings.Settings.BitTorrentRouterUsers); !maps.Equal(now, s.routerUsersTried) {
+						s.routerUsersTried = now
+						s.log("info", "the users of the router's torrent clients changed: the settings are applied again")
+						s.Apply()
+					}
+				}
 			}
 		case now := <-subscriptionTicker.C:
 			s.downloadDue(now, "")
@@ -1673,6 +1684,18 @@ func (s *Supervisor) surround(previousFirewall *firewall.Plan) error {
 		}
 	}
 	return nil
+}
+
+// routerUsersChanged tells whether the users of the router's torrent clients the settings name are
+// not those the configuration running was built with: one gained or lost since (the package of the
+// client installed after the setting was made creates its user and fires no event). Only with
+// BitTorrent on: off, the plan uses none.
+func (s *Supervisor) routerUsersChanged(current *running) bool {
+	if current == nil || current.settings == nil || current.result.Dataplane.BitTorrent == "" {
+		return false
+	}
+	names := current.settings.Settings.BitTorrentRouterUsers
+	return len(names) > 0 && !maps.Equal(userIDs(names), current.result.Facts.UserIDs)
 }
 
 // userIDs are the numbers of the users of the router with these names (the system's user

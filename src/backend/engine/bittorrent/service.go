@@ -160,9 +160,11 @@ type Service struct {
 	// kept: when a device was kept known last (keepKnown; under pendingMu); earlyKeptKnown counts
 	kept           map[netip.Addr]time.Time
 	earlyKeptKnown atomic.Int64
-	neverPorts     map[uint16]struct{}
-	wait           time.Duration
-	thirdStep      time.Duration
+	// toldDevices: the suspects told so far (earlySuspects counts each once; under pendingMu)
+	toldDevices map[netip.Addr]struct{}
+	neverPorts  map[uint16]struct{}
+	wait        time.Duration
+	thirdStep   time.Duration
 	// thirdStepLate: see Options.ThirdStepLate
 	thirdStepLate time.Duration
 	devices       devices
@@ -580,18 +582,22 @@ func (s *Service) keepKnown(device netip.Addr) {
 	s.kept[device] = now
 	s.pendingMu.Unlock()
 	go func() {
-		defer func() {
-			if recover() != nil {
-				s.counters.panics.Add(1)
-			}
-		}()
-		if err := KeepKnown(device); err != nil {
+		forget := func() {
 			// not kept: the next confirmed connection tries again, not one keepKnownEvery later
 			s.pendingMu.Lock()
 			delete(s.kept, device)
 			s.pendingMu.Unlock()
+		}
+		defer func() {
+			if recover() != nil {
+				s.counters.panics.Add(1)
+				forget()
+			}
+		}()
+		if err := KeepKnown(device); err != nil {
+			forget()
 			if s.logger != nil {
-				s.logger.Debug("BitTorrent: ", device, " was not kept in the set of devices: ", err)
+				s.logger.Warn("BitTorrent: ", device, " was not kept in the set of devices: ", err)
 			}
 			return
 		}
@@ -623,7 +629,11 @@ func (s *Service) tell(device netip.Addr) {
 	if s.kept == nil {
 		s.kept = make(map[netip.Addr]time.Time)
 	}
-	_, before := s.kept[device]
+	if s.toldDevices == nil || len(s.toldDevices) >= keptMost {
+		s.toldDevices = make(map[netip.Addr]struct{})
+	}
+	_, before := s.toldDevices[device]
+	s.toldDevices[device] = struct{}{}
 	if written {
 		s.kept[device] = time.Now()
 	}

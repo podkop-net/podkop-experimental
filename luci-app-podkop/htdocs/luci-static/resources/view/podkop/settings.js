@@ -424,11 +424,14 @@ function createSettingsContent(section, singBoxFeatures = []) {
     this.keylist = [];
     this.vallist = [];
     let off = false;
-    uci.sections("podkop", "section").forEach((rule) => {
+    const rules = uci.sections("podkop", "section");
+    // (with none saved the select shows the first rule: the line under it is of that one)
+    const shown = cfgvalue || (rules[0] && rules[0][".name"]);
+    rules.forEach((rule) => {
       const label = String(rule.label || "").trim() || rule[".name"];
       const isOff = rule.enabled === "0";
       this.value(rule[".name"], isOff ? _("%s (off)").format(label) : label);
-      off = off || (isOff && rule[".name"] === cfgvalue);
+      off = off || (isOff && rule[".name"] === shown);
     });
     const gone = cfgvalue && !this.keylist.includes(cfgvalue);
     if (gone) {
