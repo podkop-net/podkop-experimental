@@ -370,6 +370,7 @@ const (
 // direction (given back to the kernel to end it), its source, protocol, destination port and mark.
 type undecided struct {
 	tuple  []byte
+	id     uint32
 	source [4]byte
 	far    [4]byte
 	tcp    bool
@@ -425,6 +426,8 @@ func parseUndecided(data []byte) (undecided, bool) {
 			})
 		case ctaMark:
 			entry.mark = decoder.Uint32()
+		case ctaID:
+			entry.id = decoder.Uint32()
 		}
 	}
 	return entry, decoder.Err() == nil && len(entry.tuple) > 0
@@ -480,7 +483,12 @@ func EndUndecidedFlows(device netip.Addr) (int, error) {
 		if !ok || !entry.isUndecided(device.As4()) {
 			continue
 		}
-		attributes, err := netlink.MarshalAttributes([]netlink.Attribute{{Type: ctaTupleOrig | unix.NLA_F_NESTED, Data: entry.tuple}})
+		// (with the entry's id: a connection that took the same tuple since the dump is not ended)
+		list := []netlink.Attribute{{Type: ctaTupleOrig | unix.NLA_F_NESTED, Data: entry.tuple}}
+		if entry.id != 0 {
+			list = append(list, netlink.Attribute{Type: ctaID, Data: binary.BigEndian.AppendUint32(nil, entry.id)})
+		}
+		attributes, err := netlink.MarshalAttributes(list)
 		if err != nil {
 			return ended, err
 		}

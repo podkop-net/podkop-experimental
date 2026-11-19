@@ -113,8 +113,7 @@ Two more fields:
   packages) and all the traffic of that user follows the mode. A client that speaks SOCKS5
   (qBittorrent, Deluge) can instead be pointed at the **mixed proxy** of a rule: what it sends
   there goes through that rule's servers, whatever the BitTorrent mode. Transmission and aria2
-  have no proxy setting for peers. A client in a container is a device of the LAN once the
-  container's bridge is among the source interfaces.
+  have no proxy setting for peers.
 
 What it cannot do:
 
