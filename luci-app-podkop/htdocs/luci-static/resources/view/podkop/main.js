@@ -14,6 +14,39 @@ function validateIPV4(ip) {
   }
   return { valid: false, message: _("Invalid IP address") };
 }
+function isIPv6(value) {
+  if (!value || !value.includes(":") || value.includes("%")) {
+    return false;
+  }
+  const halves = value.split("::");
+  if (halves.length > 2) {
+    return false;
+  }
+  const groups = (text) => text === "" ? [] : text.split(":");
+  const all = [
+    ...groups(halves[0]),
+    ...halves.length === 2 ? groups(halves[1]) : []
+  ];
+  if (!all.every((group) => /^[0-9a-fA-F]{1,4}$/.test(group))) {
+    return false;
+  }
+  return halves.length === 2 ? all.length <= 7 : all.length === 8;
+}
+function isUnspecifiedIPv6(value) {
+  return isIPv6(value) && value.split(":").filter(Boolean).every((group) => /^0+$/.test(group));
+}
+function validateIPV6(ip) {
+  if (isIPv6(ip)) {
+    return { valid: true, message: _("Valid") };
+  }
+  return { valid: false, message: _("Invalid IPv6 address") };
+}
+function validateIP(ip) {
+  if (validateIPV4(ip).valid || isIPv6(ip)) {
+    return { valid: true, message: _("Valid") };
+  }
+  return { valid: false, message: _("Invalid IP address") };
+}
 
 // src/validators/validateDomain.ts
 function validateDomain(domain, allowDotTLD = false) {
@@ -37,9 +70,25 @@ function validateDomain(domain, allowDotTLD = false) {
 }
 
 // src/validators/validateDns.ts
+function invalidDNS() {
+  return {
+    valid: false,
+    message: _(
+      "Invalid DNS server format. Examples: 8.8.8.8, [2001:4860:4860::8888]:853, dns.example.com or dns.example.com/nicedns for DoH"
+    )
+  };
+}
 function validateDNS(value) {
   if (!value) {
     return { valid: false, message: _("DNS server address cannot be empty") };
+  }
+  const bracketed = value.match(/^\[([^\]]*)\](?::(\d{1,5}))?(\/.*)?$/);
+  if (bracketed) {
+    const port = bracketed[2] === void 0 ? 1 : parseInt(bracketed[2], 10);
+    return isIPv6(bracketed[1]) && port >= 1 && port <= 65535 ? { valid: true, message: _("Valid") } : invalidDNS();
+  }
+  if (isIPv6(value.split("/")[0])) {
+    return { valid: true, message: _("Valid") };
   }
   const cleanedValueWithoutPort = value.replace(/:(\d+)(?=\/|$)/, "");
   const cleanedIpWithoutPath = cleanedValueWithoutPort.split("/")[0];
@@ -49,12 +98,7 @@ function validateDNS(value) {
   if (validateDomain(cleanedValueWithoutPort).valid) {
     return { valid: true, message: _("Valid") };
   }
-  return {
-    valid: false,
-    message: _(
-      "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH"
-    )
-  };
+  return invalidDNS();
 }
 
 // src/validators/validateUrl.ts
@@ -102,6 +146,12 @@ function validatePath(value) {
 
 // src/validators/validateSubnet.ts
 function validateSubnet(value) {
+  if (value.includes(":")) {
+    return validateSubnet6(value);
+  }
+  return validateSubnet4(value);
+}
+function validateSubnet4(value) {
   const subnetRegex = /^(\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?$/;
   if (!subnetRegex.test(value)) {
     return {
@@ -123,6 +173,29 @@ function validateSubnet(value) {
       return {
         valid: false,
         message: _("CIDR must be between 0 and 32")
+      };
+    }
+  }
+  return { valid: true, message: _("Valid") };
+}
+function validateSubnet6(value) {
+  const parts = value.split("/");
+  if (parts.length > 2 || !isIPv6(parts[0])) {
+    return {
+      valid: false,
+      message: _(
+        "Invalid format. Use X.X.X.X, X.X.X.X/Y, an IPv6 address or IPv6/Y"
+      )
+    };
+  }
+  if (isUnspecifiedIPv6(parts[0])) {
+    return { valid: false, message: _("IP address :: is not allowed") };
+  }
+  if (parts.length === 2) {
+    if (!/^\d{1,3}$/.test(parts[1]) || parseInt(parts[1], 10) > 128) {
+      return {
+        valid: false,
+        message: _("The prefix length of IPv6 must be between 0 and 128")
       };
     }
   }
@@ -7991,7 +8064,9 @@ return baseclass.extend({
   injectGlobalStyles,
   insertIf,
   insertIfObj,
+  isIPv6,
   isMultiServer,
+  isUnspecifiedIPv6,
   linkBatches,
   linkHost,
   linkLabel,
@@ -8026,7 +8101,9 @@ return baseclass.extend({
   validateHttpProxyUrl,
   validateHysteria2Url,
   validateHysteriaUrl,
+  validateIP,
   validateIPV4,
+  validateIPV6,
   validateNaiveUrl,
   validateOutboundJson,
   validatePath,
@@ -8035,6 +8112,7 @@ return baseclass.extend({
   validateShadowsocksUrl,
   validateSocksUrl,
   validateSubnet,
+  validateSubnet4,
   validateTrojanUrl,
   validateTuicUrl,
   validateUrl,

@@ -177,6 +177,25 @@ function createSettingsContent(section, singBoxFeatures = []) {
   o.default = "order";
   o.rmempty = false;
 
+  // The names of the lists get a FakeIP IPv4 address in every mode, and never an IPv6 one:
+  // the servers resolve them, in either family
+  o = section.option(
+    form.ListValue,
+    "dns_addresses",
+    _("Addresses in DNS answers"),
+    _(
+      "Which addresses the devices and the router get for names outside the lists. The names of the lists always get an IPv4 address of podkop (FakeIP), never an IPv6 one",
+    ),
+  );
+  o.value(
+    "prefer_ipv4",
+    _("Prefer IPv4: IPv6 only for a name without IPv4 (default)"),
+  );
+  o.value("ipv4_only", _("IPv4 only"));
+  o.value("both", _("IPv4 and IPv6: the device chooses"));
+  o.default = "prefer_ipv4";
+  o.rmempty = false;
+
   o = section.option(
     form.Value,
     "bootstrap_dns_server",
@@ -253,6 +272,19 @@ function createSettingsContent(section, singBoxFeatures = []) {
   o.multiple = false;
   o.depends("enable_output_network_interface", "1");
   devices.forRole(o, "out");
+
+  o = section.option(
+    form.ListValue,
+    "ipv6_routing",
+    _("IPv6 traffic"),
+    _(
+      "Through podkop: IPv6 to the IPv6 subnets of the lists goes by their rules, as IPv4 does (the servers of a rule need IPv6 for it). The names of the lists are not affected: their traffic goes as IPv4. Devices routed whole are routed by IPv4 only",
+    ),
+  );
+  o.value("bypass", _("Past podkop (default)"));
+  o.value("podkop", _("Through podkop"));
+  o.default = "bypass";
+  o.rmempty = false;
 
   o = section.option(
     form.Flag,
@@ -801,7 +833,7 @@ function createSettingsContent(section, singBoxFeatures = []) {
       return true;
     }
 
-    const validation = main.validateIPV4(value);
+    const validation = main.validateIP(value);
 
     if (validation.valid) {
       return true;

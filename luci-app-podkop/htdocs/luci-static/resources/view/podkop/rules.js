@@ -802,7 +802,7 @@ function createRulesContent(section, singBoxFeatures = []) {
     "user_subnets",
     _("User Subnets"),
     _(
-      "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses",
+      "Enter subnets in CIDR notation (e.g. 103.21.244.0/22 or 2001:67c:4e8::/48) or single IP addresses",
     ),
   );
   o.modalonly = true;
@@ -866,7 +866,9 @@ function createRulesContent(section, singBoxFeatures = []) {
     form.DynamicList,
     "fully_routed_ips",
     _("Fully Routed IPs"),
-    _("All the traffic of these devices of the network goes by this rule"),
+    _(
+      "All the IPv4 traffic of these devices of the network goes by this rule (IPv4 addresses; their IPv6 goes past podkop)",
+    ),
   );
   o.modalonly = true;
   o.placeholder = "192.168.1.2 or 192.168.1.0/24";
@@ -875,7 +877,7 @@ function createRulesContent(section, singBoxFeatures = []) {
     if (!value || value.length === 0) {
       return true;
     }
-    const validation = main.validateSubnet(value);
+    const validation = main.validateSubnet4(value);
     return validation.valid ? true : validation.message;
   };
 

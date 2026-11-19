@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-19 02:09+0000\n"
-"PO-Revision-Date: 2026-11-19 02:09+0000\n"
+"POT-Creation-Date: 2026-11-19 16:32+0000\n"
+"PO-Revision-Date: 2026-11-19 16:32+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -182,14 +182,17 @@ msgstr "Найдены дополнительные правила маркир�
 msgid "Address"
 msgstr "Адрес"
 
+msgid "Addresses in DNS answers"
+msgstr "Адреса в ответах DNS"
+
 msgid "Addresses of the lists of masks"
 msgstr "Адреса списков масок"
 
 msgid "all"
 msgstr "все"
 
-msgid "All the traffic of these devices of the network goes by this rule"
-msgstr "Весь трафик этих устройств сети идёт по этому правилу"
+msgid "All the IPv4 traffic of these devices of the network goes by this rule (IPv4 addresses; their IPv6 goes past podkop)"
+msgstr "Весь трафик IPv4 этих устройств сети идёт по этому правилу (адреса IPv4; их IPv6 идёт мимо podkop)"
 
 msgid "Also check the clock of the router."
 msgstr "Также проверьте часы роутера."
@@ -569,8 +572,8 @@ msgstr "Введите доменные имена, разделяя их зап
 msgid "Enter domain names without protocols, e.g. example.com or sub.example.com"
 msgstr "Введите доменные имена без протоколов, например example.com или sub.example.com"
 
-msgid "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses"
-msgstr "Введите подсети в нотации CIDR (например, 103.21.244.0/22) или отдельные IP-адреса"
+msgid "Enter subnets in CIDR notation (e.g. 103.21.244.0/22 or 2001:67c:4e8::/48) or single IP addresses"
+msgstr "Введите подсети в нотации CIDR (например, 103.21.244.0/22 или 2001:67c:4e8::/48) или отдельные IP-адреса"
 
 msgid "Enter subnets in CIDR notation or single IP addresses, separated by commas, spaces, or newlines. You can add comments using //"
 msgstr "Введите подсети в нотации CIDR или отдельные IP-адреса через запятую, пробел или с новой строки. Комментарии начинаются с //"
@@ -731,8 +734,8 @@ msgstr "Входящие через проброс порта"
 msgid "Interface"
 msgstr "Интерфейс"
 
-msgid "Invalid DNS server format. Examples: 8.8.8.8 or dns.example.com or dns.example.com/nicedns for DoH"
-msgstr "Неверный формат DNS-сервера. Примеры: 8.8.8.8, dns.example.com или dns.example.com/nicedns для DoH"
+msgid "Invalid DNS server format. Examples: 8.8.8.8, [2001:4860:4860::8888]:853, dns.example.com or dns.example.com/nicedns for DoH"
+msgstr "Неверный формат DNS-сервера. Примеры: 8.8.8.8, [2001:4860:4860::8888]:853, dns.example.com или dns.example.com/nicedns для DoH"
 
 msgid "Invalid domain address"
 msgstr "Неверный домен"
@@ -743,8 +746,14 @@ msgstr "неверное экранирование в имени пользов
 msgid "Invalid format. Use X.X.X.X or X.X.X.X/Y"
 msgstr "Неверный формат. Используйте X.X.X.X или X.X.X.X/Y"
 
+msgid "Invalid format. Use X.X.X.X, X.X.X.X/Y, an IPv6 address or IPv6/Y"
+msgstr "Неверный формат. Используйте X.X.X.X, X.X.X.X/Y, адрес IPv6 или IPv6/Y"
+
 msgid "Invalid IP address"
 msgstr "Неверный IP-адрес"
+
+msgid "Invalid IPv6 address"
+msgstr "Неверный адрес IPv6"
 
 msgid "Invalid JSON format"
 msgstr "Неверный формат JSON"
@@ -764,8 +773,20 @@ msgstr "Неверный формат URL"
 msgid "invalid UUID"
 msgstr "неверный UUID"
 
+msgid "IP address :: is not allowed"
+msgstr "IP-адрес :: не допускается"
+
 msgid "IP address 0.0.0.0 is not allowed"
 msgstr "IP-адрес 0.0.0.0 не допускается"
+
+msgid "IPv4 and IPv6: the device chooses"
+msgstr "IPv4 и IPv6: выбирает устройство"
+
+msgid "IPv4 only"
+msgstr "Только IPv4"
+
+msgid "IPv6 traffic"
+msgstr "Трафик IPv6"
 
 msgid "Issues detected"
 msgstr "Обнаружены проблемы"
@@ -1103,6 +1124,9 @@ msgstr "Пакетов: отправлено %d, получено %d"
 msgid "Past podkop"
 msgstr "Мимо podkop"
 
+msgid "Past podkop (default)"
+msgstr "Мимо podkop (по умолчанию)"
+
 msgid "Path cannot be empty"
 msgstr "Путь не может быть пустым"
 
@@ -1141,6 +1165,9 @@ msgstr "Настройки podkop"
 
 msgid "Podkop will not modify your DHCP configuration"
 msgstr "Podkop не будет изменять вашу конфигурацию DHCP."
+
+msgid "Prefer IPv4: IPv6 only for a name without IPv4 (default)"
+msgstr "Предпочитать IPv4: IPv6 только для имени без IPv4 (по умолчанию)"
 
 msgid "preliminary: too few probes yet"
 msgstr "предварительно: проб пока мало"
@@ -1598,6 +1625,9 @@ msgstr "Порт открыт, но на TLS-приветствие нет от�
 msgid "The port of the server does not answer from this router. The cause cannot be told from here."
 msgstr "Порт сервера не отвечает с этого роутера. Причину отсюда не определить."
 
+msgid "The prefix length of IPv6 must be between 0 and 128"
+msgstr "Длина префикса IPv6 должна быть от 0 до 128"
+
 msgid "The provider advises to update every %d h"
 msgstr "Провайдер советует обновлять каждые %d ч"
 
@@ -1820,6 +1850,12 @@ msgstr "Через"
 msgid "through %s"
 msgstr "через %s"
 
+msgid "Through podkop"
+msgstr "Через podkop"
+
+msgid "Through podkop: IPv6 to the IPv6 subnets of the lists goes by their rules, as IPv4 does (the servers of a rule need IPv6 for it). The names of the lists are not affected: their traffic goes as IPv4. Devices routed whole are routed by IPv4 only"
+msgstr "Через podkop: IPv6 к подсетям IPv6 из списков идёт по их правилам, как IPv4 (для этого серверам правила нужен IPv6). Имён из списков это не касается: их трафик идёт как IPv4. Устройства, направляемые целиком, направляются только по IPv4"
+
 msgid "Through sing-box, being checked"
 msgstr "Через sing-box, на проверке"
 
@@ -1999,6 +2035,9 @@ msgstr "Что делать с трафиком BitTorrent-клиентов, к�
 
 msgid "Where to block BitTorrent"
 msgstr "Где блокировать BitTorrent"
+
+msgid "Which addresses the devices and the router get for names outside the lists. The names of the lists always get an IPv4 address of podkop (FakeIP), never an IPv6 one"
+msgstr "Какие адреса получают устройства и роутер для имён вне списков. Имена из списков всегда получают адрес IPv4 от podkop (FakeIP), никогда не IPv6"
 
 msgid "Which sites go through which servers. When a site is in several rules, the upper one works. Drag ☰ to change the order. The server in use is shown on the dashboard."
 msgstr "Какие сайты через какие серверы идут. Если сайт есть в нескольких правилах, работает верхнее. Порядок меняется перетаскиванием за ☰. Какой сервер работает сейчас, видно на дашборде."
