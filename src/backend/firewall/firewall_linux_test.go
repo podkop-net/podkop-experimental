@@ -83,6 +83,11 @@ func shellBackendTable(t *testing.T, plan *Plan) {
 		"add rule "+table+" mangle_output ip daddr 198.18.0.0/15 meta l4proto tcp meta mark set 0x00400000 counter",
 		"add rule "+table+" mangle_output ip daddr 198.18.0.0/15 meta l4proto udp meta mark set 0x00400000 counter",
 	)
+	// the routing marks of the interface sources (Plan.OwnMarks, the backend's own), after the
+	// return of OutboundMark
+	for index, own := range plan.OwnMarks {
+		lines = append(lines, fmt.Sprintf("add rule %s mangle_output index %d meta mark & 0x%08x == 0x%08x counter return", table, 1+index, own, own))
+	}
 	// IPv6 (Plan.IPv6, the backend's own): its sets, and its rules after those of IPv4 in each
 	// chain
 	if plan.IPv6 {
@@ -207,6 +212,7 @@ func TestTableAsTheShellBackendMakesIt(t *testing.T) {
 		"everything at once": {Interfaces: []string{"br-lan", "eth1"}, ExcludeNTP: true, Sources: prefixes("192.168.1.60/32", "10.7.0.0/24"),
 			Subnets: RangesOf(prefixes("149.154.160.0/20", "91.108.4.0/22", "91.108.8.0/22", "91.108.12.0/22")), Groups: []Group{discord}},
 		"IPv6, no subnets": {Interfaces: []string{"br-lan"}, IPv6: true},
+		"routing marks":    {Interfaces: []string{"br-lan"}, OwnMarks: []uint32{0x10000, 0x80000000}},
 		"IPv6": {Interfaces: []string{"br-lan"}, IPv6: true, Subnets: RangesOf(prefixes("149.154.160.0/20")),
 			Subnets6: Merge6(ranges6("2001:67c:4e8::/48", "2001:b28:f23d::/48", "2001:b28:f23f::/48", "2a0a:f280::/32"))},
 		"IPv6, everything at once": {Interfaces: []string{"br-lan", "eth1"}, ExcludeNTP: true, Sources: prefixes("192.168.1.60/32"), IPv6: true,

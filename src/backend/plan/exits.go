@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/serverid"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -836,6 +837,11 @@ func (b *builder) interfaceServers(source *model.Source) ([]sourceServer, error)
 		mark, err := strconv.ParseUint(source.RoutingMark, 0, 32)
 		if err != nil {
 			return nil, E.New("the routing mark of the source ", b.names.SourceText(source.Name), " is not a number")
+		}
+		// the marks of podkop: what has ProxyMark or RouterMark goes to the transparent proxy by
+		// the rules of the routing table, its own connections included
+		if mark&(dataplane.ProxyMark|dataplane.RouterMark) != 0 {
+			return nil, E.New("the routing mark of the source ", b.names.SourceText(source.Name), " has the bits of podkop's marks (0x100000, 0x400000): its connections would come back into sing-box")
 		}
 		outbound.set("routing_mark", mark)
 	}

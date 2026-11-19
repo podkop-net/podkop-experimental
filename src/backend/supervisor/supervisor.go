@@ -1731,7 +1731,7 @@ func userIDs(names []string) map[string]uint32 {
 // sets from what the rule sets hold now.
 func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
 	wanted := &current.result.Dataplane
-	result := &firewall.Plan{Interfaces: wanted.Interfaces, ExcludeNTP: wanted.ExcludeNTP, Sources: wanted.Sources, ClashAPIInterfaces: wanted.ClashAPIInterfaces, IPv6: wanted.IPv6,
+	result := &firewall.Plan{Interfaces: wanted.Interfaces, ExcludeNTP: wanted.ExcludeNTP, Sources: wanted.Sources, ClashAPIInterfaces: wanted.ClashAPIInterfaces, IPv6: wanted.IPv6, OwnMarks: wanted.OwnMarks,
 		BitTorrent: firewall.BitTorrent{Mode: wanted.BitTorrent, LAN: wanted.BitTorrentLAN, Sources: wanted.Sources, Fan: wanted.BitTorrentFan,
 			RouterUsers: wanted.BitTorrentRouterUsers}}
 	s.bitTorrentRule = ""

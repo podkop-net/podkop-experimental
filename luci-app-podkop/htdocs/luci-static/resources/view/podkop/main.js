@@ -1051,8 +1051,10 @@ function validateRoutingMark(value) {
   if (isNaN(number) || number <= 0 || number > 4294967295) {
     return _("A number is expected, as 0x10000");
   }
-  if (number & 6291456) {
-    return _("The bits 0x200000 and 0x400000 are the marks of podkop");
+  if (number & 7340032) {
+    return _(
+      "The bits 0x100000, 0x200000 and 0x400000 are the marks of podkop"
+    );
   }
   if (number & 16128) {
     return _("The bits 0x3F00 are the mask of mwan3");

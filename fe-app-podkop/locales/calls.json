@@ -175,8 +175,8 @@
     "call": "%s via %s",
     "key": "%s via %s",
     "places": [
-      "src/podkop/sources.ts:530",
-      "src/podkop/sources.ts:548"
+      "src/podkop/sources.ts:533",
+      "src/podkop/sources.ts:551"
     ]
   },
   {
@@ -295,7 +295,7 @@
     "call": "A number is expected, as 0x10000",
     "key": "A number is expected, as 0x10000",
     "places": [
-      "src/podkop/sources.ts:420"
+      "src/podkop/sources.ts:421"
     ]
   },
   {
@@ -460,7 +460,7 @@
     "call": "An interface does not connect through another source",
     "key": "An interface does not connect through another source",
     "places": [
-      "src/podkop/sources.ts:493"
+      "src/podkop/sources.ts:496"
     ]
   },
   {
@@ -543,7 +543,7 @@
     "key": "At most 64 characters",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:595",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1562"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1564"
     ]
   },
   {
@@ -1130,7 +1130,7 @@
     "key": "DNS over HTTPS (DoH)",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:137",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1508"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1510"
     ]
   },
   {
@@ -1138,14 +1138,14 @@
     "key": "DNS over TLS (DoT)",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:138",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1507"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1509"
     ]
   },
   {
     "call": "DNS Protocol Type",
     "key": "DNS Protocol Type",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1502"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1504"
     ]
   },
   {
@@ -1159,7 +1159,7 @@
     "call": "DNS Server",
     "key": "DNS Server",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1515"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1517"
     ]
   },
   {
@@ -1187,14 +1187,14 @@
     "call": "Do not use for downloading lists and subscriptions",
     "key": "Do not use for downloading lists and subscriptions",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1534"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1536"
     ]
   },
   {
     "call": "Domain Resolver",
     "key": "Domain Resolver",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1490"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1492"
     ]
   },
   {
@@ -1273,7 +1273,7 @@
     "call": "Empty: the name is made from the address, the link or the interface",
     "key": "Empty: the name is made from the address, the link or the interface",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1548"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1550"
     ]
   },
   {
@@ -1992,7 +1992,7 @@
     "call": "Lists and subscriptions download directly first, then through the servers of the rules, those that brought them before first. Mark a source that should not carry them: a subscription with little traffic, a test one kept as the last reserve, a tunnel to a closed network, a local helper",
     "key": "Lists and subscriptions download directly first, then through the servers of the rules, those that brought them before first. Mark a source that should not carry them: a subscription with little traffic, a test one kept as the last reserve, a tunnel to a closed network, a local helper",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1535"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1537"
     ]
   },
   {
@@ -2189,7 +2189,7 @@
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:540",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:581",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1088",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1547"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1549"
     ]
   },
   {
@@ -3070,7 +3070,7 @@
     "call": "Select or enter DNS server address",
     "key": "Select or enter DNS server address",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1516"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1518"
     ]
   },
   {
@@ -3084,7 +3084,7 @@
     "call": "Select the DNS protocol type for the domain resolver",
     "key": "Select the DNS protocol type for the domain resolver",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1503"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1505"
     ]
   },
   {
@@ -3608,17 +3608,17 @@
     ]
   },
   {
-    "call": "The bits 0x200000 and 0x400000 are the marks of podkop",
-    "key": "The bits 0x200000 and 0x400000 are the marks of podkop",
+    "call": "The bits 0x100000, 0x200000 and 0x400000 are the marks of podkop",
+    "key": "The bits 0x100000, 0x200000 and 0x400000 are the marks of podkop",
     "places": [
-      "src/podkop/sources.ts:423"
+      "src/podkop/sources.ts:424"
     ]
   },
   {
     "call": "The bits 0x3F00 are the mask of mwan3",
     "key": "The bits 0x3F00 are the mask of mwan3",
     "places": [
-      "src/podkop/sources.ts:426"
+      "src/podkop/sources.ts:429"
     ]
   },
   {
@@ -3853,8 +3853,8 @@
     ]
   },
   {
-    "call": "The mark of the connections for mwan3 or pbr. Empty: no mark",
-    "key": "The mark of the connections for mwan3 or pbr. Empty: no mark",
+    "call": "The mark of the connections for pbr or the router's own routing rules (not the bits of mwan3, 0x3F00, nor those of podkop). Empty: no mark",
+    "key": "The mark of the connections for pbr or the router's own routing rules (not the bits of mwan3, 0x3F00, nor those of podkop). Empty: no mark",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1478"
     ]
@@ -4031,7 +4031,7 @@
     "call": "The real IP of a site is resolved by a DNS server reached through this interface",
     "key": "The real IP of a site is resolved by a DNS server reached through this interface",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1491"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1493"
     ]
   },
   {
@@ -4100,7 +4100,7 @@
     "call": "The row connects through its own source",
     "key": "The row connects through its own source",
     "places": [
-      "src/podkop/sources.ts:495"
+      "src/podkop/sources.ts:498"
     ]
   },
   {
@@ -4269,14 +4269,14 @@
     "call": "The source %s to connect through is deleted",
     "key": "The source %s to connect through is deleted",
     "places": [
-      "src/podkop/sources.ts:497"
+      "src/podkop/sources.ts:500"
     ]
   },
   {
     "call": "The source %s to connect through is not filled",
     "key": "The source %s to connect through is not filled",
     "places": [
-      "src/podkop/sources.ts:499"
+      "src/podkop/sources.ts:502"
     ]
   },
   {
@@ -4612,7 +4612,7 @@
     "key": "UDP (Unprotected DNS)",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:139",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1506"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1508"
     ]
   },
   {

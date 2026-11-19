@@ -223,6 +223,14 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 	} else {
 		add("✅ Additional marking rules found")
 	}
+	// the conntrack mark: the detector of BitTorrent keeps 0x0000c000 and 0x0f000000 in it, and
+	// a program that writes it whole takes them away
+	if len(tables.ForeignConntrackMarks) > 0 {
+		add("ℹ️ Chains of other programs that set the conntrack mark (podkop's BitTorrent mode keeps 0x0f00c000 in it):")
+		for _, chain := range tables.ForeignConntrackMarks {
+			add("\tchain " + chain + " sets a conntrack mark")
+		}
+	}
 	// where the kernel sends what the firewall marked: to the router itself, where the
 	// transparent proxy inbound is
 	if running {

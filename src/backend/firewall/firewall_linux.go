@@ -163,6 +163,10 @@ type Plan struct {
 	ClashAPIInterfaces []string
 	// BitTorrent is what becomes of the traffic of BitTorrent clients (bittorrent_linux.go).
 	BitTorrent BitTorrent
+	// OwnMarks are the routing marks sing-box gives the outbounds of interface sources in place of
+	// dataplane.OutboundMark: what the router sends with one of them goes by, as what has
+	// OutboundMark does (a mark under its own mask: pbr and mwan3 add their bits).
+	OwnMarks []uint32
 	// IPv6 sends the IPv6 traffic to Subnets6 (and to the IPv6 ranges of the groups) to the
 	// proxy, from the LAN and from the router itself, as IPv4 to Subnets. Without it the table
 	// has nothing of IPv6, and IPv6 goes past the proxy.
@@ -228,7 +232,7 @@ type PortRange struct {
 // structure tells the rules of two plans apart: everything but what the sets hold.
 func (p *Plan) structure() string {
 	var text strings.Builder
-	fmt.Fprint(&text, p.Interfaces, p.ExcludeNTP, p.Sources, p.ClashAPIInterfaces, p.BitTorrent, p.IPv6)
+	fmt.Fprint(&text, p.Interfaces, p.ExcludeNTP, p.Sources, p.ClashAPIInterfaces, p.BitTorrent, p.IPv6, p.OwnMarks)
 	for _, group := range p.Groups {
 		fmt.Fprint(&text, group.Set, group.Protocol, group.Ports)
 	}
@@ -570,6 +574,15 @@ func Apply(plan *Plan) error {
 		&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(markOutbound)},
 		&expr.Counter{},
 	}, returns)
+	// the same for the routing marks of the interface sources, which take the place of that mark
+	for _, own := range plan.OwnMarks {
+		add(mangleOutput, []expr.Any{
+			&expr.Meta{Key: expr.MetaKeyMARK, Register: 1},
+			&expr.Bitwise{SourceRegister: 1, DestRegister: 1, Len: 4, Mask: binaryutil.NativeEndian.PutUint32(own), Xor: binaryutil.NativeEndian.PutUint32(0)},
+			&expr.Cmp{Op: expr.CmpOpEq, Register: 1, Data: binaryutil.NativeEndian.PutUint32(own)},
+			&expr.Counter{},
+		}, returns)
+	}
 	// the programs of the router that run as a user the settings name for BitTorrent (bt_router)
 	if plan.BitTorrent.Mode != "" && len(plan.BitTorrent.RouterUsers) > 0 {
 		router := addBitTorrentRouter(conn, table, add, plan.BitTorrent)
@@ -951,7 +964,10 @@ type State struct {
 	Proxy        ChainState
 	// ForeignMarks names the chains of other tables that set a packet mark: the place
 	// to look when another program's rules and the backend's get in each other's way.
-	ForeignMarks []string
+	// ForeignConntrackMarks those that set a conntrack mark (Tailscale's connmark rules,
+	// qosmate, mwan3), where the detector of BitTorrent keeps its bits.
+	ForeignMarks          []string
+	ForeignConntrackMarks []string
 }
 
 // Exists tells whether the table is there.
@@ -1003,14 +1019,29 @@ func Inspect() (*State, error) {
 		if err != nil {
 			continue
 		}
+		name := familyName(chain.Table.Family) + " " + chain.Table.Name + " " + chain.Name
+		packet, conntrack := false, false
 		for _, rule := range rules {
-			if setsMark(rule) {
-				state.ForeignMarks = append(state.ForeignMarks, familyName(chain.Table.Family)+" "+chain.Table.Name+" "+chain.Name)
-				break
-			}
+			packet = packet || setsMark(rule)
+			conntrack = conntrack || setsConntrackMark(rule)
+		}
+		if packet {
+			state.ForeignMarks = append(state.ForeignMarks, name)
+		}
+		if conntrack {
+			state.ForeignConntrackMarks = append(state.ForeignConntrackMarks, name)
 		}
 	}
 	return state, nil
+}
+
+func setsConntrackMark(rule *nftables.Rule) bool {
+	for _, expression := range rule.Exprs {
+		if ct, isCt := expression.(*expr.Ct); isCt && ct.SourceRegister && ct.Key == expr.CtKeyMARK {
+			return true
+		}
+	}
+	return false
 }
 
 func chainState(conn *nftables.Conn, table *nftables.Table, name string) ChainState {

@@ -342,6 +342,11 @@ type Dataplane struct {
 	// BitTorrentRouterUsers are the users (their numbers) of the router's own programs whose
 	// traffic the mode takes as BitTorrent's (firewall.BitTorrent.RouterUsers)
 	BitTorrentRouterUsers []uint32
+	// OwnMarks are the routing marks of the interface sources (routing_mark): sing-box gives an
+	// outbound with one that mark in place of dataplane.OutboundMark (route.default_mark), so
+	// the firewall lets what the router sends with it go by as it does what has OutboundMark
+	// (firewall.Plan.OwnMarks).
+	OwnMarks []uint32
 	// IPv6 tells that the IPv6 traffic to the subnets of the lists goes to their rules: the
 	// settings ask for it (model.IPv6Podkop) and the router has IPv6 (Facts.IPv6). The
 	// firewall and the routing then have their IPv6 rules, and sing-box the inbound of IPv6.
@@ -403,6 +408,15 @@ func (b *builder) dataplane() Dataplane {
 	result.BitTorrent, result.BitTorrentLAN, result.BitTorrentFan = b.bitTorrentDataplane()
 	result.BitTorrentRouterUsers = b.bitTorrentRouterUsers()
 	result.IPv6 = b.ipv6
+	for index := range b.config.Sources {
+		source := &b.config.Sources[index]
+		if source.Type != "interface" || source.RoutingMark == "" {
+			continue
+		}
+		if mark, err := strconv.ParseUint(source.RoutingMark, 0, 32); err == nil && mark != 0 && !slices.Contains(result.OwnMarks, uint32(mark)) {
+			result.OwnMarks = append(result.OwnMarks, uint32(mark))
+		}
+	}
 	if len(result.Interfaces) == 0 {
 		result.Interfaces = []string{defaultInterface}
 	}

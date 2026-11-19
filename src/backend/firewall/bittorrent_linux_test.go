@@ -59,7 +59,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_detect", "iifname != @interfaces return"),
 		rule("bt_detect", "meta nfproto != ipv4 return"),
 		rule("bt_detect", "fib daddr type local return"),
-		rule("bt_detect", "ct mark & 0x000f0000 != 0 goto bt_decided"),
+		rule("bt_detect", "ct mark & 0x0f000000 != 0 goto bt_decided"),
 		rule("bt_detect", "fib saddr . iif oif missing counter return"),
 		rule("bt_detect", "meta l4proto udp goto bt_udp"),
 		rule("bt_detect", "meta l4proto tcp goto bt_tcp"),
@@ -76,7 +76,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_udp", "@ih,0,48 0x64313a656c69 counter goto bt_discovery"),
 		rule("bt_udp", "@ih,0,96 0x000004172710198000000000 counter goto bt_discovery"),
 		rule("bt_udp", "ip saddr . udp sport @bt_sockets goto bt_flow"),
-		rule("bt_udp", "ct mark set ct mark | 0x00040000"),
+		rule("bt_udp", "ct mark set ct mark | 0x04000000"),
 		rule("bt_discovery", "update @bt_sockets { ip saddr . udp sport }"),
 		rule("bt_discovery", "update @bt_hosts { ip saddr }"),
 		rule("bt_discovery", "ip saddr . udp sport @bt_utp goto bt_flow"),
@@ -85,31 +85,31 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		rule("bt_socket", "update @bt_hosts { ip saddr }"),
 		rule("bt_socket", "goto bt_flow"),
 		rule("bt_flow", "update @bt_peers { ip daddr . udp dport }"),
-		rule("bt_flow", "ct mark set ct mark | 0x00010000 counter"),
+		rule("bt_flow", "ct mark set ct mark | 0x01000000 counter"),
 		rule("bt_flow", "goto bt_decided"),
 		rule("bt_tcp", "ip daddr @localv4 return"),
 		rule("bt_tcp", "tcp flags & (syn | ack) == syn goto bt_syn"),
 		rule("bt_tcp", "@ih,0,96 0x13426974546f7272656e7420 @ih,96,64 0x70726f746f636f6c counter goto bt_handshake"),
 		// "GET /announce?", and "GET /announc" "e.php?"
 		rule("bt_tcp", "@ih,0,112 0x474554202f616e6e6f756e63653f tcp dport != "+ports+" update @bt_trackers { ip saddr . ip daddr . tcp dport }"),
-		rule("bt_tcp", "@ih,0,112 0x474554202f616e6e6f756e63653f update @bt_hosts { ip saddr } ct mark set ct mark | 0x00040000 counter return"),
+		rule("bt_tcp", "@ih,0,112 0x474554202f616e6e6f756e63653f update @bt_hosts { ip saddr } ct mark set ct mark | 0x04000000 counter return"),
 		rule("bt_tcp", "@ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f tcp dport != "+ports+" update @bt_trackers { ip saddr . ip daddr . tcp dport }"),
-		rule("bt_tcp", "@ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f update @bt_hosts { ip saddr } ct mark set ct mark | 0x00040000 counter return"),
+		rule("bt_tcp", "@ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f update @bt_hosts { ip saddr } ct mark set ct mark | 0x04000000 counter return"),
 		rule("bt_tcp", "ip saddr . ip daddr . tcp dport @bt_learned counter goto bt_handshake"),
 		rule("bt_tcp", "ip saddr @bt_hosts tcp dport >= 1024 tcp dport != "+ports+" ip daddr . tcp dport @bt_peers counter goto bt_handshake"),
-		rule("bt_tcp", "@ih,0,8 0x0-0xff ct mark set ct mark | 0x00040000"),
-		rule("bt_syn", "ip saddr . ip daddr . tcp dport @bt_learned update @bt_learned { ip saddr . ip daddr . tcp dport } ct mark set ct mark | 0x00010000 counter goto bt_decided"),
-		rule("bt_syn", "ip saddr . ip daddr . tcp dport @bt_trackers update @bt_trackers { ip saddr . ip daddr . tcp dport } update @bt_hosts { ip saddr } ct mark set ct mark | 0x00014000 counter goto bt_decided"),
-		rule("bt_syn", "ip saddr @bt_hosts tcp dport >= 1024 tcp dport != "+ports+" ip daddr . tcp dport @bt_peers ct mark set ct mark | 0x00010000 counter goto bt_decided"),
-		rule("bt_syn", "ip saddr @bt_hosts ip daddr . tcp dport @bt_peers ct mark set ct mark | 0x00080000 counter return"),
-		rule("bt_syn", "ip saddr @bt_hosts tcp dport != "+ports+" ct mark set ct mark | 0x00080000 counter return"),
+		rule("bt_tcp", "@ih,0,8 0x0-0xff ct mark set ct mark | 0x04000000"),
+		rule("bt_syn", "ip saddr . ip daddr . tcp dport @bt_learned update @bt_learned { ip saddr . ip daddr . tcp dport } ct mark set ct mark | 0x01000000 counter goto bt_decided"),
+		rule("bt_syn", "ip saddr . ip daddr . tcp dport @bt_trackers update @bt_trackers { ip saddr . ip daddr . tcp dport } update @bt_hosts { ip saddr } ct mark set ct mark | 0x01004000 counter goto bt_decided"),
+		rule("bt_syn", "ip saddr @bt_hosts tcp dport >= 1024 tcp dport != "+ports+" ip daddr . tcp dport @bt_peers ct mark set ct mark | 0x01000000 counter goto bt_decided"),
+		rule("bt_syn", "ip saddr @bt_hosts ip daddr . tcp dport @bt_peers ct mark set ct mark | 0x08000000 counter return"),
+		rule("bt_syn", "ip saddr @bt_hosts tcp dport != "+ports+" ct mark set ct mark | 0x08000000 counter return"),
 		rule("bt_handshake", "update @bt_hosts { ip saddr }"),
 		rule("bt_handshake", "ct direction original update @bt_peers { ip daddr . tcp dport }"),
-		rule("bt_handshake", "ct mark & 0x00008000 != 0 ct mark set ct mark | 0x00020000 counter return"),
-		rule("bt_handshake", "ct mark set ct mark | 0x00010000 counter goto bt_decided"),
-		rule("bt_decided", "ct mark & 0x00090000 != 0 @ih,0,112 0x474554202f616e6e6f756e63653f tcp dport != "+ports+" update @bt_trackers { ip saddr . ip daddr . tcp dport }"),
-		rule("bt_decided", "ct mark & 0x00090000 != 0 @ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f tcp dport != "+ports+" update @bt_trackers { ip saddr . ip daddr . tcp dport }"),
-		rule("bt_decided", "ct mark & 0x00010000 == 0 return"),
+		rule("bt_handshake", "ct mark & 0x00008000 != 0 ct mark set ct mark | 0x02000000 counter return"),
+		rule("bt_handshake", "ct mark set ct mark | 0x01000000 counter goto bt_decided"),
+		rule("bt_decided", "ct mark & 0x09000000 != 0 @ih,0,112 0x474554202f616e6e6f756e63653f tcp dport != "+ports+" update @bt_trackers { ip saddr . ip daddr . tcp dport }"),
+		rule("bt_decided", "ct mark & 0x09000000 != 0 @ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f tcp dport != "+ports+" update @bt_trackers { ip saddr . ip daddr . tcp dport }"),
+		rule("bt_decided", "ct mark & 0x01000000 == 0 return"),
 		rule("bt_decided", "ip saddr != @bt_hosts jump bt_add_hosts"),
 		rule("bt_decided", "ip saddr . udp sport != @bt_sockets jump bt_add_sockets"),
 		rule("bt_decided", "ip daddr . udp dport != @bt_peers jump bt_add_peers"),
@@ -133,8 +133,8 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 	lines = append(lines,
 		rule("bt_act", "meta mark & 0x00100000 == 0 goto bt_free"),
 		rule("bt_act", "ct mark & 0x00008000 == 0 ct mark set ct mark | 0x00008000"),
-		rule("bt_act", "ct mark & 0x00080000 != 0 return"),
-		rule("bt_act", "ct mark & 0x00010000 == 0 return"),
+		rule("bt_act", "ct mark & 0x08000000 != 0 return"),
+		rule("bt_act", "ct mark & 0x01000000 == 0 return"),
 	)
 	switch mode {
 	case BitTorrentBypass:
@@ -147,9 +147,9 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 	}
 	lines = append(lines, rule("bt_free", "iifname != @interfaces return"), rule("bt_free", "ct direction reply return"))
 	if detector.LAN {
-		lines = append(lines, rule("bt_free", "ct mark & 0x00080000 != 0 meta mark set meta mark | 0x00100000 counter return"))
+		lines = append(lines, rule("bt_free", "ct mark & 0x08000000 != 0 meta mark set meta mark | 0x00100000 counter return"))
 	}
-	lines = append(lines, rule("bt_free", "ct mark & 0x00010000 == 0 return"))
+	lines = append(lines, rule("bt_free", "ct mark & 0x01000000 == 0 return"))
 	switch {
 	case mode == BitTorrentSection && detector.LAN:
 		lines = append(lines, rule("bt_free", "meta mark set meta mark | 0x00100000 counter"))
@@ -181,7 +181,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 	// a connection from outside to a client's socket that is not dropped is told as BitTorrent
 	if mode != BitTorrentBlock || !detector.LAN {
 		for _, transport := range []string{"tcp", "udp"} {
-			lines = append(lines, rule("bt_incoming", "ip daddr . "+transport+" dport @bt_sockets ct mark set ct mark | 0x00010000 counter"))
+			lines = append(lines, rule("bt_incoming", "ip daddr . "+transport+" dport @bt_sockets ct mark set ct mark | 0x01000000 counter"))
 		}
 	}
 	// the first rules of proxy, before the transparent proxy's: the last one inserted is the first
@@ -189,16 +189,16 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		marks string
 		port  int
 	}
-	routes := []route{{"ct mark & 0x00080000 != 0 ct mark & 0x00008000 != 0", 1606}}
+	routes := []route{{"ct mark & 0x08000000 != 0 ct mark & 0x00008000 != 0", 1606}}
 	if detector.LAN {
-		routes = append(routes, route{"ct mark & 0x00080000 != 0 ct mark & 0x00008000 == 0", 1605})
+		routes = append(routes, route{"ct mark & 0x08000000 != 0 ct mark & 0x00008000 == 0", 1605})
 	}
 	if mode != BitTorrentBlock {
 		free := 1605
 		if mode == BitTorrentSection && detector.LAN {
 			free = 1604
 		}
-		routes = append(routes, route{"ct mark & 0x00010000 != 0 ct mark & 0x00008000 != 0", 1604}, route{"ct mark & 0x00010000 != 0 ct mark & 0x00008000 == 0", free})
+		routes = append(routes, route{"ct mark & 0x01000000 != 0 ct mark & 0x00008000 != 0", 1604}, route{"ct mark & 0x01000000 != 0 ct mark & 0x00008000 == 0", free})
 	}
 	for index := len(routes) - 1; index >= 0; index-- {
 		for _, transport := range []string{"udp", "tcp"} {
@@ -230,9 +230,9 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		}
 		if mode != BitTorrentBlock {
 			for index, transport := range []string{"tcp", "udp"} {
-				lines = append(lines, fmt.Sprintf("add rule %s mangle_output index %d meta nfproto ipv4 meta l4proto %s ct direction original ct mark & 0x00010000 != 0 jump bt_router", table, len(users)+index+1, transport))
+				lines = append(lines, fmt.Sprintf("add rule %s mangle_output index %d meta nfproto ipv4 meta l4proto %s ct direction original ct mark & 0x01000000 != 0 jump bt_router", table, len(users)+index+1, transport))
 			}
-			lines = append(lines, fmt.Sprintf("add rule %s mangle_output index %d meta nfproto ipv4 ct direction reply ct mark & 0x00050000 == 0x00050000 jump bt_router", table, len(users)+3))
+			lines = append(lines, fmt.Sprintf("add rule %s mangle_output index %d meta nfproto ipv4 ct direction reply ct mark & 0x05000000 == 0x05000000 jump bt_router", table, len(users)+3))
 		}
 		lines = append(lines, rule("bt_router", "fib daddr type local accept"))
 		switch mode {
@@ -240,17 +240,17 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 			lines = append(lines, rule("bt_router", "meta l4proto udp counter drop"), rule("bt_router", "counter drop"))
 		case BitTorrentSection:
 			lines = append(lines,
-				rule("bt_router", "ct direction reply ct mark set ct mark | 0x00050000 accept"),
-				rule("bt_router", "ct mark set ct mark | 0x00018000"),
+				rule("bt_router", "ct direction reply ct mark set ct mark | 0x05000000 accept"),
+				rule("bt_router", "ct mark set ct mark | 0x01008000"),
 				rule("bt_router", "meta l4proto tcp meta mark set 0x00400000 counter accept"),
 				rule("bt_router", "meta l4proto udp meta mark set 0x00400000 counter accept"))
 		default:
-			lines = append(lines, rule("bt_router", "ct direction reply ct mark set ct mark | 0x00050000 accept"),
-				rule("bt_router", "ct mark set ct mark | 0x00010000"), rule("bt_router", "ip daddr != 198.18.0.0/15 counter accept"))
+			lines = append(lines, rule("bt_router", "ct direction reply ct mark set ct mark | 0x05000000 accept"),
+				rule("bt_router", "ct mark set ct mark | 0x01000000"), rule("bt_router", "ip daddr != 198.18.0.0/15 counter accept"))
 		}
 		if mode != BitTorrentBlock {
 			for _, transport := range []string{"udp", "tcp"} {
-				lines = append(lines, fmt.Sprintf("insert rule %s proxy ct mark & 0x00010000 != 0 meta mark & 0x00400000 == 0x00400000 meta l4proto %s tproxy ip to 127.0.0.1:1604 counter accept", table, transport))
+				lines = append(lines, fmt.Sprintf("insert rule %s proxy ct mark & 0x01000000 != 0 meta mark & 0x00400000 == 0x00400000 meta l4proto %s tproxy ip to 127.0.0.1:1604 counter accept", table, transport))
 			}
 		}
 	}
@@ -276,11 +276,11 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 			"add set "+table+" bt_ended { type ipv4_addr; size 1024; flags dynamic,timeout; timeout 5m; }")
 		before("bt_tcp @ih,0,8 0x0-0xff", rule("bt_tcp", "ip saddr @bt_ended "+free+"ct state new counter reject with tcp reset"))
 		before("bt_handshake update @bt_hosts",
-			rule("bt_syn", "ip saddr @bt_suspects "+free+"ct mark set ct mark | 0x000a0000 counter return"),
+			rule("bt_syn", "ip saddr @bt_suspects "+free+"ct mark set ct mark | 0x0a000000 counter return"),
 			rule("bt_syn", free+"ip saddr . ip daddr @bt_fan_pairs update @bt_fan_pairs { ip saddr . ip daddr } return"),
-			rule("bt_syn", free+"add @bt_fan_pairs { ip saddr . ip daddr } update @bt_fan { ip saddr "+limit+" } update @bt_suspects { ip saddr } ct mark set ct mark | 0x000a0000 counter return"))
-		before("bt_act ct mark & 0x00008000 == 0 ct mark set", rule("bt_act", "ct mark & 0x000a0000 == 0x000a0000 ct mark set ct mark & 0xfff5ffff counter"))
-		lines = append(lines, "insert rule "+table+" proxy ct mark & 0x000a0000 == 0x000a0000 ct mark & 0x00008000 == 0 meta mark & 0x00100000 == 0x00100000 meta l4proto tcp tproxy ip to 127.0.0.1:1607 counter accept")
+			rule("bt_syn", free+"add @bt_fan_pairs { ip saddr . ip daddr } update @bt_fan { ip saddr "+limit+" } update @bt_suspects { ip saddr } ct mark set ct mark | 0x0a000000 counter return"))
+		before("bt_act ct mark & 0x00008000 == 0 ct mark set", rule("bt_act", "ct mark & 0x0a000000 == 0x0a000000 ct mark set ct mark & 0xf5ffffff counter"))
+		lines = append(lines, "insert rule "+table+" proxy ct mark & 0x0a000000 == 0x0a000000 ct mark & 0x00008000 == 0 meta mark & 0x00100000 == 0x00100000 meta l4proto tcp tproxy ip to 127.0.0.1:1607 counter accept")
 	}
 	for _, line := range lines {
 		nft(t, line)

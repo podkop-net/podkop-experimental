@@ -62,8 +62,10 @@ type Firewall struct {
 	MangleOutputCounted bool
 	Proxy               bool
 	ProxyCounted        bool
-	// ForeignMarks are the chains of other tables that set a packet mark.
-	ForeignMarks []string
+	// ForeignMarks are the chains of other tables that set a packet mark, ForeignConntrackMarks
+	// those that set a conntrack mark.
+	ForeignMarks          []string
+	ForeignConntrackMarks []string
 }
 
 // how often the table is read while the requests of CheckFirewall are on their way
@@ -122,6 +124,7 @@ func CheckFirewall(ctx context.Context, awaitDevice func(context.Context)) *Fire
 	report.MangleOutput, report.MangleOutputCounted = state.MangleOutput.Exists, state.MangleOutput.Counted
 	report.Proxy, report.ProxyCounted = state.Proxy.Exists, state.Proxy.Counted
 	report.ForeignMarks = state.ForeignMarks
+	report.ForeignConntrackMarks = state.ForeignConntrackMarks
 	return report
 }
 

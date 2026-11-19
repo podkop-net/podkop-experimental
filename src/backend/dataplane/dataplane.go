@@ -87,9 +87,15 @@ const (
 	// route them.
 	BitTorrentCheckTProxyPort = 1606
 	// The bits of the conntrack mark the BitTorrent detector of the firewall keeps of a
-	// connection, 0x000fc000: above the bits of mwan3 (its default mask is 0x3F00), below the
-	// top byte, where the example of act_ctinfo (tc-ctinfo(8): dscp 0xfc000000 0x01000000)
-	// keeps the DSCP of a connection, and an egress rule of such a setup rewrites it whole.
+	// connection: 0x0000c000 and 0x0f000000. The conntrack mark is shared: mwan3 keeps its
+	// interface in 0x3F00 (its default mask), Tailscale (1.96 on, in its default nftables mode)
+	// keeps 0x00ff0000 and copies that byte of an established connection's conntrack mark into
+	// the packet's mark, the whole mark (ts-connmark-restore: "meta mark set ct mark &
+	// 0xff0000"), which took ProxyMark off the packets the proxy takes while the detector's bits
+	// were in that byte (0.8.17-0.8.19), zapret keeps 0x40000000, and the setups of act_ctinfo
+	// keep a DSCP in the low byte (qosmate, which rewrites the whole mark) or, as the example of
+	// tc-ctinfo(8) ("dscp 0xfc000000 0x01000000"), in the top six bits: the four bits of 0x0f000000
+	// meet only that example, which a person writes by hand.
 	// BitTorrentCt the detector told it as BitTorrent; BitTorrentLateCt it told so by the
 	// first data, after the connection was handed to sing-box already (the route rule of the
 	// protocol takes it there); BitTorrentNotCt it looked at its first packet or data and it
@@ -97,10 +103,10 @@ const (
 	// program uses, and the module inspects it; BitTorrentDiscoveryCt it is discovery (the DHT,
 	// a UDP tracker) of a socket that has not spoken uTP, which goes through sing-box for the
 	// module to learn its peers; InterceptedCt the connection was marked for the proxy.
-	BitTorrentCt          = 0x00010000
-	BitTorrentLateCt      = 0x00020000
-	BitTorrentNotCt       = 0x00040000
-	BitTorrentInspectCt   = 0x00080000
+	BitTorrentCt          = 0x01000000
+	BitTorrentLateCt      = 0x02000000
+	BitTorrentNotCt       = 0x04000000
+	BitTorrentInspectCt   = 0x08000000
 	BitTorrentDiscoveryCt = 0x00004000
 	InterceptedCt         = 0x00008000
 	// BitTorrentInboundCt: a connection from outside to a torrent client on the router itself

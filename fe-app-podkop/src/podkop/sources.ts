@@ -407,7 +407,8 @@ export function detectPasted(text: string): PastedText {
 }
 
 // validateRoutingMark checks a routing mark of an interface: a number whose bits are not
-// the marks of podkop (0x200000, 0x400000) or the mask of mwan3 (0x3F00); '' when it is fine
+// the marks of podkop (0x100000, 0x200000, 0x400000: a connection with 0x100000 or 0x400000
+// would come back into sing-box) or the mask of mwan3 (0x3F00); '' when it is fine
 export function validateRoutingMark(value: string): string {
   const text = String(value ?? '').trim();
   if (!text) return '';
@@ -419,8 +420,10 @@ export function validateRoutingMark(value: string): string {
   if (isNaN(number) || number <= 0 || number > 0xffffffff) {
     return _('A number is expected, as 0x10000');
   }
-  if (number & 0x600000) {
-    return _('The bits 0x200000 and 0x400000 are the marks of podkop');
+  if (number & 0x700000) {
+    return _(
+      'The bits 0x100000, 0x200000 and 0x400000 are the marks of podkop',
+    );
   }
   if (number & 0x3f00) {
     return _('The bits 0x3F00 are the mask of mwan3');

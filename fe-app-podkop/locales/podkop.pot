@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-19 16:32+0000\n"
-"PO-Revision-Date: 2026-11-19 16:32+0000\n"
+"POT-Creation-Date: 2026-11-19 16:46+0000\n"
+"PO-Revision-Date: 2026-11-19 16:46+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -116,8 +116,8 @@ msgstr ""
 msgid "%s since the reset"
 msgstr ""
 
-#: src/podkop/sources.ts:530
-#: src/podkop/sources.ts:548
+#: src/podkop/sources.ts:533
+#: src/podkop/sources.ts:551
 msgid "%s via %s"
 msgstr ""
 
@@ -185,7 +185,7 @@ msgstr ""
 msgid "A list of outbounds"
 msgstr ""
 
-#: src/podkop/sources.ts:420
+#: src/podkop/sources.ts:421
 msgid "A number is expected, as 0x10000"
 msgstr ""
 
@@ -281,7 +281,7 @@ msgstr ""
 msgid "An HTTP proxy. If it is a subscription, choose the type by hand"
 msgstr ""
 
-#: src/podkop/sources.ts:493
+#: src/podkop/sources.ts:496
 msgid "An interface does not connect through another source"
 msgstr ""
 
@@ -331,7 +331,7 @@ msgid "At least one valid subnet or IP must be specified. Comments-only content 
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:595
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1562
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1564
 msgid "At most 64 characters"
 msgstr ""
 
@@ -678,16 +678,16 @@ msgid "DNS on router"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:137
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1508
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1510
 msgid "DNS over HTTPS (DoH)"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:138
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1507
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1509
 msgid "DNS over TLS (DoT)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1502
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1504
 msgid "DNS Protocol Type"
 msgstr ""
 
@@ -695,7 +695,7 @@ msgstr ""
 msgid "DNS Rewrite TTL"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1515
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1517
 msgid "DNS Server"
 msgstr ""
 
@@ -711,11 +711,11 @@ msgstr ""
 msgid "Do not panic, everything can be fixed, just..."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1534
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1536
 msgid "Do not use for downloading lists and subscriptions"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1490
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1492
 msgid "Domain Resolver"
 msgstr ""
 
@@ -761,7 +761,7 @@ msgstr ""
 msgid "Empty: the name in the settings"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1548
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1550
 msgid "Empty: the name is made from the address, the link or the interface"
 msgstr ""
 
@@ -1186,7 +1186,7 @@ msgstr ""
 msgid "Lists"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1535
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1537
 msgid "Lists and subscriptions download directly first, then through the servers of the rules, those that brought them before first. Mark a source that should not carry them: a subscription with little traffic, a test one kept as the last reserve, a tunnel to a closed network, a local helper"
 msgstr ""
 
@@ -1302,7 +1302,7 @@ msgstr ""
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:540
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:581
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1088
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1547
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1549
 msgid "Name"
 msgstr ""
 
@@ -1820,7 +1820,7 @@ msgstr ""
 msgid "Select how often the domain or subnet lists are updated automatically. A list is downloaded directly first, then through the servers of the rules, those that brought it before first; a source marked “Do not use for downloading lists and subscriptions” never carries it"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1516
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1518
 msgid "Select or enter DNS server address"
 msgstr ""
 
@@ -1828,7 +1828,7 @@ msgstr ""
 msgid "Select or enter path for the cache file: FakeIP addresses and downloaded lists. Change this ONLY if you know what you are doing"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1503
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1505
 msgid "Select the DNS protocol type for the domain resolver"
 msgstr ""
 
@@ -2136,11 +2136,11 @@ msgstr ""
 msgid "the base64 of the link is no JSON"
 msgstr ""
 
-#: src/podkop/sources.ts:423
-msgid "The bits 0x200000 and 0x400000 are the marks of podkop"
+#: src/podkop/sources.ts:424
+msgid "The bits 0x100000, 0x200000 and 0x400000 are the marks of podkop"
 msgstr ""
 
-#: src/podkop/sources.ts:426
+#: src/podkop/sources.ts:429
 msgid "The bits 0x3F00 are the mask of mwan3"
 msgstr ""
 
@@ -2277,7 +2277,7 @@ msgid "The list is not downloaded yet"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1478
-msgid "The mark of the connections for mwan3 or pbr. Empty: no mark"
+msgid "The mark of the connections for pbr or the router's own routing rules (not the bits of mwan3, 0x3F00, nor those of podkop). Empty: no mark"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:176
@@ -2376,7 +2376,7 @@ msgstr ""
 msgid "The provider's server failed (HTTP %s): the router tries again later"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1491
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1493
 msgid "The real IP of a site is resolved by a DNS server reached through this interface"
 msgstr ""
 
@@ -2418,7 +2418,7 @@ msgstr ""
 msgid "The router seems to have no internet connection: the uplink check failed."
 msgstr ""
 
-#: src/podkop/sources.ts:495
+#: src/podkop/sources.ts:498
 msgid "The row connects through its own source"
 msgstr ""
 
@@ -2515,11 +2515,11 @@ msgstr ""
 msgid "The source %s is not filled yet"
 msgstr ""
 
-#: src/podkop/sources.ts:497
+#: src/podkop/sources.ts:500
 msgid "The source %s to connect through is deleted"
 msgstr ""
 
-#: src/podkop/sources.ts:499
+#: src/podkop/sources.ts:502
 msgid "The source %s to connect through is not filled"
 msgstr ""
 
@@ -2714,7 +2714,7 @@ msgid "Type"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:139
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1506
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1508
 msgid "UDP (Unprotected DNS)"
 msgstr ""
 

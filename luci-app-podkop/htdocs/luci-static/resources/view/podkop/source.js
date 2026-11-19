@@ -1475,7 +1475,9 @@ function createSourceContent(section) {
     form.Value,
     "routing_mark",
     _("Routing mark"),
-    _("The mark of the connections for mwan3 or pbr. Empty: no mark"),
+    _(
+      "The mark of the connections for pbr or the router's own routing rules (not the bits of mwan3, 0x3F00, nor those of podkop). Empty: no mark",
+    ),
   );
   o.modalonly = true;
   o.depends("type", "interface");

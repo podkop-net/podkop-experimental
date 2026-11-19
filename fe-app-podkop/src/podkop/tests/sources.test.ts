@@ -234,6 +234,8 @@ describe('validateRoutingMark', () => {
     expect(validateRoutingMark('mark')).not.toBe('');
     expect(validateRoutingMark('0')).not.toBe('');
     expect(validateRoutingMark('0x200000')).not.toBe('');
+    expect(validateRoutingMark('0x100000')).not.toBe('');
+    expect(validateRoutingMark('0x110000')).not.toBe('');
     expect(validateRoutingMark('0x400000')).not.toBe('');
     expect(validateRoutingMark('0x100')).not.toBe('');
   });

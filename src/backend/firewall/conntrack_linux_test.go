@@ -118,7 +118,7 @@ func TestBitTorrentFlowsFromKernel(t *testing.T) {
 	nft(t, "add table inet pdk_cttest")
 	t.Cleanup(func() { _ = exec.Command("nft", "delete table inet pdk_cttest").Run() })
 	nft(t, "add chain inet pdk_cttest out { type filter hook output priority 0; policy accept; }")
-	nft(t, "add rule inet pdk_cttest out udp dport 39001 ct mark set 0x00018000")
+	nft(t, "add rule inet pdk_cttest out udp dport 39001 ct mark set 0x01008000")
 	for _, port := range []string{"39001", "39002"} {
 		// a socket that takes them: without one the second write would fail (ICMP unreachable)
 		listener, err := net.ListenPacket("udp4", "127.0.0.1:"+port)
@@ -217,7 +217,7 @@ func TestBitTorrentPollCost(t *testing.T) {
 	nft(t, "add table inet pdk_cttest")
 	t.Cleanup(func() { _ = exec.Command("nft", "delete table inet pdk_cttest").Run() })
 	nft(t, "add chain inet pdk_cttest out { type filter hook output priority 0; policy accept; }")
-	nft(t, "add rule inet pdk_cttest out udp dport 40000-49999 ct mark set 0x00018000")
+	nft(t, "add rule inet pdk_cttest out udp dport 40000-49999 ct mark set 0x01008000")
 	count := 200
 	if n, err := strconv.Atoi(os.Getenv("FLOWS")); err == nil {
 		count = n

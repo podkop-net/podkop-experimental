@@ -439,6 +439,13 @@ func TestExitsOfRows(t *testing.T) {
 	result, err := buildRules(t, settings, map[string][]SubscriptionServer{"prov1": subscriptionList("🇳🇱 NL 1", "🇩🇪 DE 1", "🇩🇪 DE 2", "🇺🇸 USA AI-1", "🇪🇸 Spain")})
 	require.NoError(t, err)
 	config, outbounds := outboundsOf(t, result)
+	// the routing mark of warp takes the place of OutboundMark: the firewall lets it go by
+	require.Equal(t, []uint32{0x10000}, result.Dataplane.OwnMarks)
+	// a routing mark with a bit of podkop's marks would send warp's connections back into sing-box
+	for _, bad := range []string{"0x100000", "0x410000"} {
+		_, err := buildRules(t, strings.Replace(settings, "routing_mark '0x10000'", "routing_mark '"+bad+"'", 1), map[string][]SubscriptionServer{"prov1": subscriptionList("🇳🇱 NL 1")})
+		require.ErrorContains(t, err, "podkop's marks", bad)
+	}
 
 	nl, de1, de2, spain := "prov1: 🇳🇱 NL 1", "prov1: 🇩🇪 DE 1", "prov1: 🇩🇪 DE 2", "prov1: 🇪🇸 Spain"
 	require.Equal(t, "vless", outbounds[nl].Type)
