@@ -59,6 +59,9 @@ The installer checks the router. It offers to remove podkop and the packages tha
 podkop-exp; if the flash is short, it also offers to remove sing-box packages that podkop-exp
 does not need. Then it installs podkop-exp and its page, with the Russian translation if you want
 it. podkop's settings are converted; the file as it was stays as `/etc/config/podkop.pre-0.8.8`.
+It shows the output of every command as it goes, and says so when a server does not answer.
+Without the Russian translation, and without the question about it: add `--no-ru` at the end of
+the command (`--ru` installs it without the question).
 
 To upgrade, run the same command. Clear the browser's cache of the LuCI page after an upgrade.
 
