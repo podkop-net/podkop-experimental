@@ -202,6 +202,99 @@ function validateSubnet6(value) {
   return { valid: true, message: _("Valid") };
 }
 
+// src/validators/validateDevice.ts
+function addressBits(address) {
+  if (!address.includes(":")) {
+    if (!validateIPV4(address).valid) return null;
+    const bits2 = address.split(".").reduce(
+      (sum, octet) => sum << BigInt(8) | BigInt(Number(octet)),
+      BigInt(0)
+    );
+    return { bits: bits2, width: 32 };
+  }
+  if (!isIPv6(address)) return null;
+  const halves = address.split("::");
+  const groups = (text) => text === "" ? [] : text.split(":");
+  const head = groups(halves[0]);
+  const tail = halves.length === 2 ? groups(halves[1]) : [];
+  const all = [
+    ...head,
+    ...Array(8 - head.length - tail.length).fill("0"),
+    ...tail
+  ];
+  const bits = all.reduce(
+    (sum, group) => sum << BigInt(16) | BigInt(parseInt(group, 16)),
+    BigInt(0)
+  );
+  return { bits, width: 128 };
+}
+function parsePrefix(value) {
+  const parts = String(value || "").trim().split("/");
+  if (parts.length > 2) return null;
+  const address = addressBits(parts[0]);
+  if (!address) return null;
+  let length = address.width;
+  if (parts.length === 2) {
+    if (!/^(0|[1-9]\d{0,2})$/.test(parts[1])) return null;
+    length = Number(parts[1]);
+    if (length > address.width) return null;
+  }
+  const host = (BigInt(1) << BigInt(address.width - length)) - BigInt(1);
+  return { bits: address.bits & ~host, width: address.width, length };
+}
+function subnetContains(outer, inner) {
+  const big = parsePrefix(outer);
+  const small = parsePrefix(inner);
+  if (!big || !small || big.width !== small.width || big.length > small.length) {
+    return false;
+  }
+  const host = (BigInt(1) << BigInt(big.width - big.length)) - BigInt(1);
+  return (small.bits & ~host) === big.bits;
+}
+var LINK_LOCAL = "fe80::/10";
+var MAPPED = "::ffff:0:0/96";
+var UNIQUE_LOCAL = "fc00::/7";
+function validateDevice(value) {
+  const base = validateSubnet(value);
+  if (!base.valid) {
+    return base;
+  }
+  const [address, length] = value.split("/");
+  if (length !== void 0 && !/^(0|[1-9]\d{0,2})$/.test(length)) {
+    return {
+      valid: false,
+      message: _("The prefix length is written without a leading zero")
+    };
+  }
+  if (length === "0") {
+    return {
+      valid: false,
+      message: _("A subnet of the whole internet is no device")
+    };
+  }
+  if (address.includes(":")) {
+    if (subnetContains(MAPPED, address)) {
+      return {
+        valid: false,
+        message: _("An IPv4 address in IPv6 form: write it as IPv4")
+      };
+    }
+    if (subnetContains(LINK_LOCAL, address)) {
+      return {
+        valid: false,
+        message: _(
+          "A link-local address (fe80::) is never the source of a connection to the internet"
+        )
+      };
+    }
+  }
+  return { valid: true, message: _("Valid") };
+}
+function isUniqueLocal(value) {
+  const address = String(value || "").split("/")[0];
+  return address.includes(":") && subnetContains(UNIQUE_LOCAL, address);
+}
+
 // src/validators/bulkValidate.ts
 function bulkValidate(values, validate) {
   const results = values.map((value) => ({ ...validate(value), value }));
@@ -520,6 +613,247 @@ function validateProxyUrl(url) {
   return validator(link);
 }
 
+// src/validators/validateMixedProxyLogin.ts
+var PRINTABLE = /^[\x21-\x7e]+$/;
+var LONGEST = 255;
+var SHORTEST_PASSWORD = 8;
+function ok() {
+  return { valid: true, message: _("Valid") };
+}
+function validatePart(value) {
+  if (!PRINTABLE.test(value)) {
+    return {
+      valid: false,
+      message: _("Latin letters, digits and signs only, without spaces")
+    };
+  }
+  if (value.length > LONGEST) {
+    return { valid: false, message: _("At most 255 characters") };
+  }
+  return ok();
+}
+function validateMixedProxyUser(value) {
+  if (!value) {
+    return ok();
+  }
+  const part = validatePart(value);
+  if (!part.valid) {
+    return part;
+  }
+  if (value.includes(":")) {
+    return {
+      valid: false,
+      message: _("No \u201C:\u201D in the user name: HTTP cannot send it")
+    };
+  }
+  return ok();
+}
+function validateMixedProxyPassword(value, user, kept = false) {
+  if (!value) {
+    return user ? {
+      valid: false,
+      message: _("Set the password too, or clear the user name")
+    } : ok();
+  }
+  if (!user) {
+    return {
+      valid: false,
+      message: _("Set the user name too, or clear the password")
+    };
+  }
+  const part = validatePart(value);
+  if (!part.valid) {
+    return part;
+  }
+  if (!kept && value.length < SHORTEST_PASSWORD) {
+    return { valid: false, message: _("At least 8 characters") };
+  }
+  return ok();
+}
+
+// src/validators/validateRequestHeader.ts
+var MAX_AGENT = 256;
+var MAX_NAME = 64;
+var MAX_VALUE = 1024;
+var MAX_HEADERS = 8;
+var MAX_CUSTOM = 4096;
+var CONNECTION_NAMES = [
+  "host",
+  "content-length",
+  "transfer-encoding",
+  "connection",
+  "keep-alive",
+  "proxy-connection",
+  "upgrade",
+  "te",
+  "trailer",
+  "expect",
+  "accept-encoding"
+];
+var PARTIAL_NAMES = [
+  "range",
+  "if-range",
+  "if-match",
+  "if-none-match",
+  "if-modified-since",
+  "if-unmodified-since"
+];
+function deniedHeader(name) {
+  const lower = name.toLowerCase();
+  if (lower.includes("hwid") || lower.startsWith("x-device") || lower === "x-ver-os")
+    return "device";
+  if (lower.includes("forwarded") || lower.endsWith("-ip") || lower.endsWith("-addr"))
+    return "client";
+  if (lower === "user-agent") return "agent";
+  if (CONNECTION_NAMES.includes(lower)) return "connection";
+  if (PARTIAL_NAMES.includes(lower)) return "partial";
+  if (lower.startsWith("proxy-")) return "proxy";
+  return "";
+}
+var SPACE = /^[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+|[\t\n\v\f\r \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+$/g;
+function trimmed(text) {
+  return String(text ?? "").replace(SPACE, "");
+}
+function printable(text) {
+  return /^[\x20-\x7e]*$/.test(text);
+}
+function headerLines(value) {
+  if (value == null) return [];
+  return (Array.isArray(value) ? value : [value]).map(
+    (item) => String(item ?? "")
+  );
+}
+function parseRequest(agent, lines) {
+  const problems = [];
+  let userAgent = "";
+  const text = trimmed(agent);
+  if (text) {
+    if (!printable(text)) problems.push({ line: 0, code: "chars" });
+    else if (text.length > MAX_AGENT)
+      problems.push({ line: 0, code: "long", args: [String(MAX_AGENT)] });
+    else userAgent = text;
+  }
+  const headers = [];
+  const seen = /* @__PURE__ */ new Set();
+  let size = 0;
+  headerLines(lines).forEach((raw, index) => {
+    const item = trimmed(raw);
+    if (!item) return;
+    const line = index + 1;
+    const colon = item.indexOf(":");
+    const name = colon < 0 ? "" : trimmed(item.slice(0, colon));
+    const value = colon < 0 ? "" : trimmed(item.slice(colon + 1));
+    const left = (code, named, limit) => problems.push({
+      line,
+      code,
+      ...named ? { name } : {},
+      ...limit ? { args: [String(limit)] } : {}
+    });
+    if (colon < 0 || !name) return left("syntax", false);
+    if (!/^[A-Za-z0-9-]+$/.test(name)) return left("name", false);
+    if (name.length > MAX_NAME) return left("name-long", false, MAX_NAME);
+    const denied2 = deniedHeader(name);
+    if (denied2) return left(denied2, true);
+    const lower = name.toLowerCase();
+    if (!value) return left("empty", true);
+    if (!printable(value)) return left("chars", true);
+    if (value.length > MAX_VALUE) return left("long", true, MAX_VALUE);
+    if (seen.has(lower)) return left("twice", true);
+    if (headers.length >= MAX_HEADERS) return left("count", true, MAX_HEADERS);
+    if (size + name.length + 2 + value.length > MAX_CUSTOM)
+      return left("size", true, MAX_CUSTOM);
+    seen.add(lower);
+    size += name.length + 2 + value.length;
+    headers.push({ name, value });
+  });
+  return { userAgent, headers, problems };
+}
+function requestProblemText(problem) {
+  const name = problem.name || "";
+  const limit = Number(problem.args?.[0]) || 0;
+  switch (problem.code) {
+    case "device":
+      return _(
+        "The router sends the device identifier itself: %s cannot be set"
+      ).format(name);
+    case "client":
+      return _(
+        "The address of the client is the router's own: %s cannot be set"
+      ).format(name);
+    case "agent":
+      return _("The User-Agent has its own field");
+    case "connection":
+      return _("%s belongs to the connection: podkop sets it itself").format(
+        name
+      );
+    case "partial":
+      return _(
+        "With %s the provider would send a part of the list or none: podkop needs the whole list"
+      ).format(name);
+    case "proxy":
+      return _(
+        "%s is for a proxy on the way: the router has none, and the value would go to the provider"
+      ).format(name);
+    case "syntax":
+      return _("Name: value is expected");
+    case "name":
+      return _("A header name has Latin letters, digits and dashes only");
+    case "name-long":
+      return _("The name is longer than %d characters").format(limit);
+    case "empty":
+      return _("The value is empty");
+    case "chars":
+      return _(
+        "Only Latin letters, digits, spaces and the signs of the keyboard"
+      );
+    case "long":
+      return _("At most %d characters").format(limit);
+    case "twice":
+      return _("%s is given twice").format(name);
+    case "count":
+      return _("At most %d headers").format(limit);
+    case "size":
+      return _("The headers together are longer than %d bytes").format(limit);
+  }
+  return problem.text || "";
+}
+function requestProblemLine(problem) {
+  const where = problem.line > 0 ? _("Header %d").format(problem.line) : "User-Agent";
+  return where + ": " + requestProblemText(problem);
+}
+function requestProblem(agent, lines) {
+  const first = parseRequest(agent, lines).problems[0];
+  return first ? requestProblemLine(first) : "";
+}
+function validateUserAgent(value) {
+  const problem = parseRequest(value, []).problems[0];
+  return problem ? { valid: false, message: requestProblemText(problem) } : { valid: true, message: "" };
+}
+function validateRequestHeader(value, added) {
+  if (!trimmed(value)) return { valid: true, message: "" };
+  const lines = headerLines(added).concat(String(value));
+  const problem = parseRequest("", lines).problems.find(
+    (item) => item.line === lines.length
+  );
+  return problem ? { valid: false, message: requestProblemText(problem) } : { valid: true, message: "" };
+}
+function listRequest(agent, lines) {
+  const request = {};
+  const userAgent = trimmed(agent);
+  const headers = headerLines(lines);
+  if (userAgent) request.user_agent = userAgent;
+  if (headers.some((line) => trimmed(line))) request.headers = headers;
+  return request;
+}
+function sameRequest(agent, lines, otherAgent, otherLines) {
+  const normal = (value) => headerLines(value).map(trimmed).filter(Boolean).join("\n");
+  return trimmed(agent) === trimmed(otherAgent) && normal(lines) === normal(otherLines);
+}
+function loadArguments(address, request) {
+  const asked = request?.user_agent || request?.headers?.length;
+  return asked ? [address, JSON.stringify(request)] : [address];
+}
+
 // src/helpers/parseValueList.ts
 function parseValueList(value) {
   return value.split(/\n/).map((line) => line.split("//")[0]).join(" ").split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
@@ -646,12 +980,16 @@ var PodkopShellMethods = {
   getClashApiProxies: async () => callBaseMethod(Podkop.AvailableMethods.CLASH_API, [
     Podkop.AvailableClashAPIMethods.GET_PROXIES
   ]),
+  // the wait of each check URL: the backend tries a second one when the first does not answer,
+  // one after the other, both within 12 s (oneOffBudget), under the 15 s of the call
   getClashApiProxyLatency: async (tag) => callBaseMethod(
     Podkop.AvailableMethods.CLASH_API,
     [Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag, "5000"]
   ),
-  // the deadline of the whole round in sing-box, as groupWaitMax of the backend: dead servers
-  // first in a long list hold the slots, and a shorter round never reaches the live ones
+  // the test of a rule's selector is a round of the rule's URL test (or its one server alone,
+  // 5 s a URL); this is the deadline of the whole round in sing-box, as groupWaitMax of the
+  // backend: dead servers first in a long list hold the slots, and a shorter round never
+  // reaches the live ones
   getClashApiGroupLatency: async (tag) => callBaseMethod(
     Podkop.AvailableMethods.CLASH_API,
     [Podkop.AvailableClashAPIMethods.GET_GROUP_LATENCY, tag, "12000"]
@@ -707,17 +1045,17 @@ var PodkopShellMethods = {
   getSingBoxFeatures: async () => callBaseMethod(Podkop.AvailableMethods.GET_SING_BOX_FEATURES),
   // the router downloads the list of an address of the form: directly, or through its
   // servers when the provider is blocked; LuCI aborts a call after 20 s
-  subscriptionLoad: async (address) => callBaseMethod(
+  subscriptionLoad: async (address, request) => callBaseMethod(
     Podkop.AvailableMethods.SUBSCRIPTION_LOAD,
-    [address],
+    loadArguments(address, request),
     "/usr/bin/podkop",
     19e3
   ),
   // the same as a job of the router the page asks about: a download is not bound by the 20 s
   // of a call (start, state, cancel; each answers at once)
-  subscriptionLoadStart: async (address) => callBaseMethod(
+  subscriptionLoadStart: async (address, request) => callBaseMethod(
     Podkop.AvailableMethods.SUBSCRIPTION_LOAD_START,
-    [address],
+    loadArguments(address, request),
     "/usr/bin/podkop",
     5e3
   ),
@@ -875,12 +1213,13 @@ var WRAPPERS = [
   [/^streisand:\/\/import\/(.+)$/i, "Streisand"],
   [/^v2rayng:\/\/install-config\?url=([^&#]+)/i, "v2rayNG"],
   [/^clash:\/\/install-config\?url=([^&#]+)/i, "Clash"],
-  [/^sing-box:\/\/import-remote-profile\?url=([^&#]+)/i, "sing-box"]
+  [/^sing-box:\/\/import-remote-profile\?url=([^&#]+)/i, "sing-box"],
+  [/^incy:\/\/import\/(.+)$/i, "INCY"]
 ];
 function unwrapSubscription(text) {
-  const trimmed = String(text ?? "").trim();
+  const trimmed2 = String(text ?? "").trim();
   for (const [pattern, app] of WRAPPERS) {
-    const match = trimmed.match(pattern);
+    const match = trimmed2.match(pattern);
     if (!match) continue;
     const url = decoded(match[1]).trim();
     if (/^https?:\/\/\S+$/i.test(url)) return { url, app };
@@ -920,20 +1259,24 @@ function linksFound(links, note) {
   };
 }
 function detectPasted(text) {
-  const trimmed = String(text ?? "").replace(/^\uFEFF/, "").trim();
-  if (!trimmed) return { kind: "", title: "" };
-  const wrapped = unwrapSubscription(trimmed);
+  const trimmed2 = String(text ?? "").replace(/^\uFEFF/, "").trim();
+  if (!trimmed2) return { kind: "", title: "" };
+  const wrapped = unwrapSubscription(trimmed2);
   if (wrapped) {
     return {
       kind: "subscription",
       url: wrapped.url,
       title: _("Subscription: %s").format(hostOf(wrapped.url)),
-      note: _("The address is taken from the link that adds it to %s").format(
+      // a provider whose page has a button for INCY may give the list to INCY only: the
+      // field is the user's to fill, the page does not fill it
+      note: wrapped.app === "INCY" ? _(
+        "The address is taken from the link that adds it to INCY. If the provider gives the list to INCY only, type INCY in User-Agent"
+      ) : _("The address is taken from the link that adds it to %s").format(
         wrapped.app
       )
     };
   }
-  if (/^happ:\/\/crypt/i.test(trimmed)) {
+  if (/^happ:\/\/crypt/i.test(trimmed2)) {
     return {
       kind: "error",
       title: _("An encrypted link of Happ"),
@@ -942,7 +1285,7 @@ function detectPasted(text) {
       )
     };
   }
-  if (/^vpn:\/\//i.test(trimmed)) {
+  if (/^vpn:\/\//i.test(trimmed2)) {
     return {
       kind: "error",
       title: _("A key of AmneziaVPN"),
@@ -951,8 +1294,8 @@ function detectPasted(text) {
       )
     };
   }
-  if (/^ssconf:\/\//i.test(trimmed)) {
-    const url = "https://" + trimmed.slice("ssconf://".length);
+  if (/^ssconf:\/\//i.test(trimmed2)) {
+    const url = "https://" + trimmed2.slice("ssconf://".length);
     return {
       kind: "subscription",
       url,
@@ -960,10 +1303,10 @@ function detectPasted(text) {
       note: _("A dynamic key of Outline: it is loaded as a subscription")
     };
   }
-  if (trimmed[0] === "{" || trimmed[0] === "[") {
+  if (trimmed2[0] === "{" || trimmed2[0] === "[") {
     let value;
     try {
-      value = JSON.parse(trimmed);
+      value = JSON.parse(trimmed2);
     } catch (err) {
       return {
         kind: "error",
@@ -996,15 +1339,15 @@ function detectPasted(text) {
     const server = typeof outbound.server === "string" ? outbound.server + (outbound.server_port ? ":" + outbound.server_port : "") : "";
     return {
       kind: "json",
-      json: trimmed,
+      json: trimmed2,
       title: _("Outbound JSON: %s").format(
         [outbound.type, server].filter(Boolean).join(", ")
       )
     };
   }
-  const lines = trimmed.split(/\s+/).filter(Boolean);
-  if (lines.length === 1 && /^https?:\/\//i.test(trimmed)) {
-    if (isHttpProxy(trimmed)) {
+  const lines = trimmed2.split(/\s+/).filter(Boolean);
+  if (lines.length === 1 && /^https?:\/\//i.test(trimmed2)) {
+    if (isHttpProxy(trimmed2)) {
       return linksFound(
         lines,
         _("An HTTP proxy. If it is a subscription, choose the type by hand")
@@ -1012,8 +1355,8 @@ function detectPasted(text) {
     }
     return {
       kind: "subscription",
-      url: trimmed,
-      title: _("Subscription: %s").format(hostOf(trimmed))
+      url: trimmed2,
+      title: _("Subscription: %s").format(hostOf(trimmed2))
     };
   }
   const links = lines.filter(isServerLink);
@@ -1030,7 +1373,7 @@ function detectPasted(text) {
       )
     };
   }
-  const decodedText = fromBase64(trimmed);
+  const decodedText = fromBase64(trimmed2);
   if (decodedText.includes("://")) {
     const decodedLines = decodedText.split(/\s+/).filter(Boolean);
     const decodedLinks = decodedLines.filter(isServerLink);
@@ -1317,6 +1660,60 @@ function routeLabel(route) {
   return route.tier ? `${first} \u2192 ${_("Fallback %s").format(route.tier)}` : first;
 }
 
+// src/podkop/devices.ts
+function deviceItems(value) {
+  const values = Array.isArray(value) ? value : value == null ? [] : [value];
+  return values.flatMap((item) => String(item).split(/[\s,]+/)).filter((item) => item !== "");
+}
+function ruleDevices(rule) {
+  const items = deviceItems(rule?.only_devices);
+  return {
+    limited: items.length > 0,
+    devices: items.filter((item) => validateDevice(item).valid)
+  };
+}
+function routedOutside(devices, fullyRouted) {
+  if (!devices.length) return [];
+  return deviceItems(fullyRouted).filter(
+    (ip) => !devices.some((device) => subnetContains(device, ip))
+  );
+}
+function routedWhole(rule) {
+  const { limited, devices } = ruleDevices(rule);
+  return deviceItems(rule?.fully_routed_ips).filter(
+    (ip) => !limited || devices.some((device) => subnetContains(device, ip))
+  );
+}
+function narrower(first, second) {
+  if (subnetContains(first, second)) return second;
+  return subnetContains(second, first) ? first : null;
+}
+function devicesShadowed(upper, lower) {
+  if (!upper.limited) return "all";
+  if (!upper.devices.length) return "none";
+  if (!lower.limited) return "some";
+  if (!lower.devices.length) return "none";
+  const within = (device) => upper.devices.some((above) => subnetContains(above, device));
+  if (lower.devices.every(within)) return "all";
+  const overlaps = (device) => upper.devices.some((above) => narrower(above, device) !== null);
+  return lower.devices.some(overlaps) ? "some" : "none";
+}
+function hostChoices(hints) {
+  const hosts = hints?.hosts ?? {};
+  const seen = /* @__PURE__ */ new Set();
+  const choices = [];
+  Object.keys(hosts).forEach((mac) => {
+    const host = hosts[mac] ?? {};
+    deviceItems(host.ipaddrs ?? host.ipv4).forEach((address) => {
+      if (!validateIPV4(address).valid || seen.has(address)) return;
+      seen.add(address);
+      choices.push([address, `${address} (${host.name || mac})`]);
+    });
+  });
+  const key = (address) => address.split(".").reduce((sum, octet) => sum * 256 + Number(octet), 0);
+  return choices.sort((a, b) => key(a[0]) - key(b[0]));
+}
+
 // src/podkop/methods/custom/getDashboardSections.ts
 function usedTags(proxies, selectors) {
   const used = /* @__PURE__ */ new Set();
@@ -1357,13 +1754,15 @@ async function getDashboardSections() {
     const code = ruleOutbounds(name, tags).selector;
     const selector = proxies[code];
     const displayName = String(rule.label ?? "").trim() || name;
+    const devices = deviceItems(rule.only_devices);
     if (!selector) {
       return {
         withTagSelect: false,
         rule: name,
         code,
         displayName,
-        outbounds: []
+        outbounds: [],
+        ...devices.length ? { devices } : {}
       };
     }
     return {
@@ -1371,7 +1770,8 @@ async function getDashboardSections() {
       rule: name,
       code,
       displayName,
-      ...ruleTiles(proxies, name, sources, members, used, tags)
+      ...ruleTiles(proxies, name, sources, members, used, tags),
+      ...devices.length ? { devices } : {}
     };
   });
   return {
@@ -2827,7 +3227,7 @@ function renderLatencyNow(delay) {
       {
         class: "pdk_dashboard-page__outbound-grid__item__latency-now",
         title: _(
-          "Your test just now. The group chooses by the median of its own rounds, shown above."
+          "Your test just now. For a rule of several servers, a round of its server check, as the group makes them: each server with the URL of the round, the next one when it does not answer; the number is the median the group chooses by, with this round. A server tested alone (a rule of one server, or a group busy with its own round): one request with the first server check URL that answered."
         )
       },
       [delay > 0 ? _("now %d ms").format(delay) : _("now: no answer")]
@@ -3076,6 +3476,15 @@ function renderDefaultState({
       ])
     ];
   }
+  function renderDevices() {
+    const devices = section.devices ?? [];
+    if (!devices.length) return [];
+    return [
+      E("div", { class: "pdk_dashboard-page__outbound-section__devices" }, [
+        _("Only for: %s").format(devices.join(", "))
+      ])
+    ];
+  }
   function renderRoute() {
     const route = section.route;
     if (!route || route.mode === "single") return [];
@@ -3177,6 +3586,7 @@ function renderDefaultState({
           )
         ]
       ),
+      ...renderDevices(),
       E(
         "div",
         {
@@ -5188,6 +5598,14 @@ button.pdk_dashboard-page__outbound-grid__item__block--neutral {
   overflow-wrap: anywhere;
 }
 
+/* the devices of a rule only for some devices, under its name */
+.pdk_dashboard-page__outbound-section__devices {
+  font-size: 0.85em;
+  opacity: 0.75;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
 .pdk_dashboard-page__outbound-grid__item__latency--empty {
     color: var(--primary-color-low, rgba(128, 128, 128, 0.6));
 }
@@ -6575,6 +6993,14 @@ function renderRunAction({
   ]);
 }
 
+// src/helpers/insertIf.ts
+function insertIf(condition, elements) {
+  return condition ? elements : [];
+}
+function insertIfObj(condition, object) {
+  return condition ? object : {};
+}
+
 // src/podkop/tabs/diagnostic/partials/renderSystemInfo.ts
 function renderSystemInfo({ items }) {
   return E("div", { class: "pdk_diagnostic-page__right-bar__system-info" }, [
@@ -6591,6 +7017,9 @@ function renderSystemInfo({ items }) {
         ]),
         ...insertIf(item.tag?.kind === "success", [
           "pdk_diagnostic-page__right-bar__system-info__row__tag--success"
+        ]),
+        ...insertIf(item.tag?.kind === "neutral", [
+          "pdk_diagnostic-page__right-bar__system-info__row__tag--neutral"
         ])
       ].filter(Boolean).join(" ");
       return E(
@@ -6653,14 +7082,37 @@ function renderWikiDisclaimer(kind) {
 
 // src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts
 function responded(answer) {
-  return answer.success && !answer.data.message ? answer.data.delay : 0;
+  if (!answer.success || !answer.data || answer.data.message) return 0;
+  const delay = Number(answer.data.delay);
+  return Number.isFinite(delay) && delay > 0 ? delay : 0;
+}
+function hostOf2(link) {
+  try {
+    return new URL(link).host || link;
+  } catch (_e) {
+    return link;
+  }
+}
+function directRow(answer) {
+  const key = _("Direct (without a proxy)");
+  const delay = responded(answer);
+  if (!delay || !answer.success) {
+    return { state: "error", key, value: _("Not responding") };
+  }
+  const silent = answer.data.silent ?? [];
+  if (!silent.length) return { state: "success", key, value: `${delay} ms` };
+  return {
+    state: "warning",
+    key,
+    value: `${delay} ms \u2014 ${_("no answer from %s").format(silent.map(hostOf2).join(", "))}`
+  };
 }
 function oncePerTag() {
   const runs = /* @__PURE__ */ new Map();
   return (tag) => {
     let run = runs.get(tag);
     if (!run) {
-      run = PodkopShellMethods.getClashApiProxyLatency(tag).then(responded);
+      run = PodkopShellMethods.getClashApiProxyLatency(tag);
       runs.set(tag, run);
     }
     return run;
@@ -6733,8 +7185,9 @@ async function runSectionsCheck() {
     throw new Error("Sections checks failed");
   }
   const model = await getConfigModel();
-  const measure = oncePerTag();
-  const direct = measure("direct-out");
+  const ask2 = oncePerTag();
+  const measure = (tag) => ask2(tag).then(responded);
+  const direct = ask2("direct-out");
   const items = await Promise.all(
     sections.data.map(async (section) => {
       async function getLatency() {
@@ -6747,12 +7200,7 @@ async function runSectionsCheck() {
       return { key: section.displayName, ...await getLatency() };
     })
   );
-  const directDelay = await direct;
-  items.push({
-    state: directDelay ? "success" : "error",
-    key: _("Direct (without a proxy)"),
-    value: directDelay ? `${directDelay} ms` : _("Not responding")
-  });
+  items.push(directRow(await direct));
   const allGood = items.every((item) => item.state === "success");
   const atLeastOneGood = items.some((item) => item.state !== "error");
   const { state, description } = getMeta({ atLeastOneGood, allGood });
@@ -6769,9 +7217,25 @@ async function runSectionsCheck() {
   }
 }
 
-// src/helpers/removeVersionPrefix.ts
-function removeVersionPrefix(version) {
-  return version.replace(/^v/, "");
+// src/helpers/compareVersions.ts
+var VERSION = /^v?(\d+(?:\.\d+)*)(?:-r\d+)?$/;
+function releaseNumbers(version) {
+  const match = VERSION.exec(version.trim());
+  return match ? match[1].split(".").map(Number) : void 0;
+}
+function isRelease(version) {
+  return releaseNumbers(version)?.length === 3;
+}
+function compareVersions(a, b) {
+  const left = releaseNumbers(a);
+  const right = releaseNumbers(b);
+  if (!left || !right) return void 0;
+  for (let i = 0; i < Math.max(left.length, right.length); i++) {
+    const x = left[i] ?? 0;
+    const y = right[i] ?? 0;
+    if (x !== y) return x < y ? -1 : 1;
+  }
+  return 0;
 }
 
 // src/podkop/tabs/diagnostic/helpers/getPodkopVersionRow.ts
@@ -6781,24 +7245,36 @@ function isUnknownVersion(version) {
 function getPodkopVersionRow(diagnosticsSystemInfo) {
   const loading = diagnosticsSystemInfo.loading;
   const unknown = isUnknownVersion(diagnosticsSystemInfo.podkop_version);
-  const hasActualVersion = Boolean(diagnosticsSystemInfo.podkop_latest_version) && !isUnknownVersion(diagnosticsSystemInfo.podkop_latest_version);
+  const latest = diagnosticsSystemInfo.podkop_latest_version;
+  const hasActualVersion = Boolean(latest) && !isUnknownVersion(latest);
   const version = normalizeCompiledVersion(
     diagnosticsSystemInfo.podkop_version
   );
   const isDevVersion = version === "dev";
-  if (loading || unknown || !hasActualVersion || isDevVersion) {
+  const order = loading || unknown || !hasActualVersion || isDevVersion ? void 0 : compareVersions(version, latest);
+  if (order === void 0) {
     return {
       key: "Podkop",
       value: version
     };
   }
-  if (removeVersionPrefix(version) !== removeVersionPrefix(diagnosticsSystemInfo.podkop_latest_version)) {
+  if (order < 0) {
     return {
       key: "Podkop",
       value: version,
       tag: {
-        label: _("Outdated"),
+        label: _("Update available: %s").format(latest),
         kind: "warning"
+      }
+    };
+  }
+  if (order > 0 && !isRelease(version)) {
+    return {
+      key: "Podkop",
+      value: version,
+      tag: {
+        label: _("Test build"),
+        kind: "neutral"
       }
     };
   }
@@ -6817,13 +7293,14 @@ var RELEASE_URL = "https://api.github.com/repos/podkop-net/podkop-experimental/r
 var CACHE_KEY = "podkop-latest-release";
 var CACHE_MS = 60 * 60 * 1e3;
 var FAILURE_MS = 10 * 60 * 1e3;
-function readCachedRelease(now, raw) {
+function readCachedRelease(now, raw, page) {
   if (!raw) return void 0;
   try {
     const cached = JSON.parse(raw);
     if (typeof cached.tag !== "string" || typeof cached.at !== "number") {
       return void 0;
     }
+    if (cached.page !== page) return void 0;
     if (now - cached.at < (cached.tag ? CACHE_MS : FAILURE_MS)) {
       return cached.tag;
     }
@@ -6831,9 +7308,10 @@ function readCachedRelease(now, raw) {
   }
   return void 0;
 }
-function keep(tag) {
+function keep(tag, page) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ tag, at: Date.now() }));
+    const cached = { tag, at: Date.now(), page };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
   } catch {
   }
 }
@@ -6841,7 +7319,10 @@ async function ask() {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5e3);
   try {
-    const response = await fetch(RELEASE_URL, { signal: controller.signal });
+    const response = await fetch(RELEASE_URL, {
+      signal: controller.signal,
+      cache: "no-cache"
+    });
     if (!response.ok) return "";
     const tag = (await response.json()).tag_name;
     return typeof tag === "string" ? tag : "";
@@ -6851,16 +7332,17 @@ async function ask() {
     clearTimeout(timer);
   }
 }
-async function getLatestRelease() {
+async function getLatestRelease(page) {
+  if (normalizeCompiledVersion(page) === "dev") return ask();
   let stored = null;
   try {
     stored = localStorage.getItem(CACHE_KEY);
   } catch {
   }
-  const cached = readCachedRelease(Date.now(), stored);
+  const cached = readCachedRelease(Date.now(), stored, page);
   if (cached !== void 0) return cached;
   const tag = await ask();
-  keep(tag);
+  keep(tag, page);
   return tag;
 }
 
@@ -6868,7 +7350,7 @@ async function getLatestRelease() {
 async function fetchSystemInfo() {
   const [systemInfo, latest] = await Promise.all([
     PodkopShellMethods.getSystemInfo(),
-    getLatestRelease()
+    getLatestRelease(PODKOP_LUCI_APP_VERSION)
   ]);
   if (systemInfo.success) {
     store.set({
@@ -7456,6 +7938,13 @@ var styles4 = `
     color: var(--success-color-medium, green);
 }
 
+/* in the colour of text, its border too (the base border is transparent); a theme without the
+   variable gives the colour the text has */
+.pdk_diagnostic-page__right-bar__system-info__row__tag--neutral {
+    border: 1px var(--text-color-medium, currentColor) solid;
+    color: var(--text-color-medium, inherit);
+}
+
 .pdk_diagnostic-page__left-bar {
     display: grid;
     grid-template-columns: 1fr;
@@ -8010,12 +8499,19 @@ function svgEl(tag, attrs = {}, children = []) {
   return el;
 }
 
-// src/helpers/insertIf.ts
-function insertIf(condition, elements) {
-  return condition ? elements : [];
-}
-function insertIfObj(condition, object) {
-  return condition ? object : {};
+// src/helpers/generateProxyPassword.ts
+var SIGNS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+var FAIR_BELOW = 248;
+function generateProxyPassword(length = 16) {
+  let password = "";
+  while (password.length < length) {
+    for (const byte of crypto.getRandomValues(new Uint8Array(length))) {
+      if (byte < FAIR_BELOW && password.length < length) {
+        password += SIGNS[byte % SIGNS.length];
+      }
+    }
+  }
+  return password;
 }
 
 // src/main.ts
@@ -8040,6 +8536,11 @@ return baseclass.extend({
   FAKEIP_CHECK_SUFFIX,
   FETCH_TIMEOUT,
   Logger,
+  MAX_AGENT,
+  MAX_CUSTOM,
+  MAX_HEADERS,
+  MAX_NAME,
+  MAX_VALUE,
   PODKOP_LUCI_APP_VERSION,
   PROXY_LINK_SCHEMES,
   PodkopShellMethods,
@@ -8058,32 +8559,50 @@ return baseclass.extend({
   bulkValidate,
   checkLinksBeforeSave,
   coreService,
+  deniedHeader,
   detectPasted,
+  deviceItems,
+  devicesShadowed,
   executeShellCommand,
   filterWords,
+  generateProxyPassword,
   getProxyUrlName,
   getYacdLinks,
+  headerLines,
+  hostChoices,
   injectGlobalStyles,
   insertIf,
   insertIfObj,
   isIPv6,
   isMultiServer,
+  isUniqueLocal,
   isUnspecifiedIPv6,
   linkBatches,
   linkHost,
   linkLabel,
   linkName,
   linkPlaces,
+  listRequest,
+  loadArguments,
   logger,
   maskIP,
   nameHas,
+  narrower,
   onMount,
   parseQueryString,
+  parseRequest,
   parseValueList,
   preserveScrollForPage,
+  requestProblem,
+  requestProblemLine,
+  requestProblemText,
+  routedOutside,
+  routedWhole,
   rowTakes,
+  ruleDevices,
   ruleExit,
   ruleRowProblems,
+  sameRequest,
   serverDisplayName,
   showLinkProblems,
   showSaveProblems,
@@ -8095,10 +8614,12 @@ return baseclass.extend({
   sourceServerNames,
   splitProxyString,
   store,
+  subnetContains,
   svgEl,
   unwrapSubscription,
   validateAnytlsUrl,
   validateDNS,
+  validateDevice,
   validateDomain,
   validateHttpProxyUrl,
   validateHysteria2Url,
@@ -8106,10 +8627,13 @@ return baseclass.extend({
   validateIP,
   validateIPV4,
   validateIPV6,
+  validateMixedProxyPassword,
+  validateMixedProxyUser,
   validateNaiveUrl,
   validateOutboundJson,
   validatePath,
   validateProxyUrl,
+  validateRequestHeader,
   validateRoutingMark,
   validateShadowsocksUrl,
   validateSocksUrl,
@@ -8118,6 +8642,7 @@ return baseclass.extend({
   validateTrojanUrl,
   validateTuicUrl,
   validateUrl,
+  validateUserAgent,
   validateVlessUrl,
   validateVmessUrl,
   withTimeout

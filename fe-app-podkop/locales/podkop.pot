@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-19 18:13+0000\n"
-"PO-Revision-Date: 2026-11-19 18:13+0000\n"
+"POT-Creation-Date: 2026-11-20 20:44+0000\n"
+"PO-Revision-Date: 2026-11-20 20:44+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -24,11 +24,11 @@ msgstr ""
 msgid "“Find a mask” on the dashboard also tries the names of public whitelists, downloaded for each search directly or through your servers. Off: only the built-in names"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:648
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:736
 msgid "(data as of %s)"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:340
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:343
 msgid "%: the loss its checks counted"
 msgstr ""
 
@@ -40,12 +40,12 @@ msgstr ""
 msgid "%d min"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:231
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:291
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:383
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:294
 msgid "%d of %d"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:285
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:288
 msgid "%d of %d, first %d of %d"
 msgstr ""
 
@@ -57,7 +57,7 @@ msgstr ""
 msgid "%d s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:762
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:850
 msgid "%d servers, %d can be used"
 msgstr ""
 
@@ -65,10 +65,10 @@ msgstr ""
 msgid "%dh"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:57
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:82
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:341
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:406
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:74
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:99
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:496
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:561
 msgid "%s (deleted)"
 msgstr ""
 
@@ -84,19 +84,55 @@ msgstr ""
 msgid "%s at %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:764
+#: src/validators/validateRequestHeader.ts:176
+msgid "%s belongs to the connection: podkop sets it itself"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:852
 msgid "%s in %s s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:143
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:175
+msgid "%s is a unique local IPv6 address: a device sends from it to the internet only when it has no global IPv6 address and the router translates its IPv6 (NAT66)"
+msgstr ""
+
+#: src/validators/validateRequestHeader.ts:184
+msgid "%s is for a proxy on the way: the router has none, and the value would go to the provider"
+msgstr ""
+
+#: src/validators/validateRequestHeader.ts:202
+msgid "%s is given twice"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:201
+msgid "%s is in Routing Excluded IPs: this rule does not take it"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:254
 msgid "%s is in Russia inside of the rule %s above"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:133
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:255
+msgid "%s is in Russia inside of the rule %s above, for its devices only"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:244
 msgid "%s is in the rule %s above already"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:940
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:245
+msgid "%s is in the rule %s above, for its devices only"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1046
+msgid "%s is not among the devices of “Only for devices”: the rule would never take it"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:221
+msgid "%s is routed whole by the rule %s: this rule does not take it"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1033
 msgid "%s of %s"
 msgstr ""
 
@@ -104,11 +140,11 @@ msgstr ""
 msgid "%s open"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:311
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:347
 msgid "%s received"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:480
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:568
 msgid "%s s"
 msgstr ""
 
@@ -116,8 +152,8 @@ msgstr ""
 msgid "%s since the reset"
 msgstr ""
 
-#: src/podkop/sources.ts:533
-#: src/podkop/sources.ts:551
+#: src/podkop/sources.ts:541
+#: src/podkop/sources.ts:559
 msgid "%s via %s"
 msgstr ""
 
@@ -125,11 +161,11 @@ msgstr ""
 msgid "%s: %d packets (%s) dropped"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:342
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:345
 msgid "⇄N: devices in the balance on the server"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:341
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:344
 msgid "~: too few checks yet"
 msgstr ""
 
@@ -137,23 +173,23 @@ msgstr ""
 msgid "⚠️ This rule is switched off or deleted: BitTorrent goes as the other traffic until the rule is on again or another one is chosen"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:1098
+#: src/podkop/tabs/dashboard/initController.ts:1101
 msgid "✔ Enabled"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:1087
+#: src/podkop/tabs/dashboard/initController.ts:1090
 msgid "✔ Running"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:1099
+#: src/podkop/tabs/dashboard/initController.ts:1102
 msgid "✘ Disabled"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:1088
+#: src/podkop/tabs/dashboard/initController.ts:1091
 msgid "✘ Stopped"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:232
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:384
 msgid "0 of %d, check the words"
 msgstr ""
 
@@ -165,27 +201,35 @@ msgstr ""
 msgid "A client set up without DHT, uTP and peer exchange, with encryption required, shows the router no sign of BitTorrent. With this on, a device that opens connections to many new addresses on uncommon ports at once has its new connections checked through sing-box; when three of them turn out to be BitTorrent, the device is taken as running a client and the connections it opened before are closed. Not found: a download whose tracker names about 20 peers or fewer. An I2P router is taken for BitTorrent. Connections under the check are not offloaded"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:940
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1259
 msgid "A domain is resolved to its real IP before the rule is chosen, so that the lists of subnets match"
 msgstr ""
 
-#: src/podkop/sources.ts:313
+#: src/podkop/sources.ts:321
 msgid "A dynamic key of Outline: it is loaded as a subscription"
 msgstr ""
 
-#: src/podkop/sources.ts:301
+#: src/validators/validateRequestHeader.ts:190
+msgid "A header name has Latin letters, digits and dashes only"
+msgstr ""
+
+#: src/podkop/sources.ts:309
 msgid "A key of AmneziaVPN"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:471
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:626
 msgid "A link https:// is downloaded, a path /… is read from a file on the router"
 msgstr ""
 
-#: src/podkop/sources.ts:330
+#: src/validators/validateDevice.ts:113
+msgid "A link-local address (fe80::) is never the source of a connection to the internet"
+msgstr ""
+
+#: src/podkop/sources.ts:338
 msgid "A list of outbounds"
 msgstr ""
 
-#: src/podkop/sources.ts:421
+#: src/podkop/sources.ts:429
 msgid "A number is expected, as 0x10000"
 msgstr ""
 
@@ -193,7 +237,7 @@ msgstr ""
 msgid "A probe of this server ran recently; try again in %d s."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:429
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:584
 msgid "A row cannot connect through its own source"
 msgstr ""
 
@@ -201,15 +245,19 @@ msgstr ""
 msgid "A search for another server is running; try again when it ends."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:988
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1307
 msgid "A server losing more than this, beyond the loss every server shows, gets no devices"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1138
+#: src/validators/validateDevice.ts:100
+msgid "A subnet of the whole internet is no device"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1246
 msgid "A subscription address, links of servers (one per line) or an outbound JSON"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1468
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1638
 msgid "A tunnel, a modem or a second WAN. Empty: the main route"
 msgstr ""
 
@@ -218,18 +266,18 @@ msgid "A user name: letters, digits, ., - and _"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:222
-msgid "A web page came instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP"
+msgid "A web page came instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP. If the provider gives the list only to some apps, type the name of one in User-Agent"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:188
 msgid "a web page instead of the list"
 msgstr ""
 
-#: src/podkop/sources.ts:338
+#: src/podkop/sources.ts:346
 msgid "A whole configuration of sing-box"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:1048
+#: src/podkop/tabs/dashboard/initController.ts:1051
 msgid "Active Connections"
 msgstr ""
 
@@ -238,8 +286,8 @@ msgid "Additional marking rules found"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:145
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:776
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:788
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:864
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:876
 msgid "Address"
 msgstr ""
 
@@ -251,11 +299,11 @@ msgstr ""
 msgid "Addresses of the lists of masks"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:387
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:542
 msgid "all"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:869
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1024
 msgid "All the IPv4 traffic of these devices of the network goes by this rule (IPv4 addresses; their IPv6 goes past podkop)"
 msgstr ""
 
@@ -263,9 +311,9 @@ msgstr ""
 msgid "Also check the clock of the router."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:276
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1267
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1270
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:312
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1375
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1378
 msgid "An address of HTTP or HTTPS is expected"
 msgstr ""
 
@@ -273,24 +321,28 @@ msgstr ""
 msgid "an address with a path is a page, not a proxy"
 msgstr ""
 
-#: src/podkop/sources.ts:292
+#: src/podkop/sources.ts:300
 msgid "An encrypted link of Happ"
 msgstr ""
 
-#: src/podkop/sources.ts:368
+#: src/podkop/sources.ts:376
 msgid "An HTTP proxy. If it is a subscription, choose the type by hand"
 msgstr ""
 
-#: src/podkop/sources.ts:496
+#: src/podkop/sources.ts:504
 msgid "An interface does not connect through another source"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1459
-#: src/podkop/sources.ts:346
+#: src/validators/validateDevice.ts:107
+msgid "An IPv4 address in IPv6 form: write it as IPv4"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1629
+#: src/podkop/sources.ts:354
 msgid "An outbound of sing-box is expected: {\"type\": \"vless\", …}"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:323
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:326
 msgid "Another section is being checked."
 msgstr ""
 
@@ -298,7 +350,7 @@ msgstr ""
 msgid "another way brought the list first"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1432
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1602
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr ""
 
@@ -318,32 +370,48 @@ msgstr ""
 msgid "Asked in the order of the list or the fastest first, as chosen below. Drag a row by its handle to move it."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:242
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:394
 msgid "asking…"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:760
+#: src/validators/validateMixedProxyLogin.ts:75
+msgid "At least 8 characters"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:915
 msgid "At least one valid domain must be specified. Comments-only content is not allowed."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:841
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:996
 msgid "At least one valid subnet or IP must be specified. Comments-only content is not allowed."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:595
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1564
+#: src/validators/validateRequestHeader.ts:200
+msgid "At most %d characters"
+msgstr ""
+
+#: src/validators/validateRequestHeader.ts:204
+msgid "At most %d headers"
+msgstr ""
+
+#: src/validators/validateMixedProxyLogin.ts:26
+msgid "At most 255 characters"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:750
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1734
 msgid "At most 64 characters"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1298
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1406
 msgid "Automatically"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1290
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1398
 msgid "Automatically: as the provider advises, otherwise once a day"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:1096
+#: src/podkop/tabs/dashboard/initController.ts:1099
 msgid "Autostart"
 msgstr ""
 
@@ -351,7 +419,7 @@ msgstr ""
 msgid "Available actions"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:381
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:395
 msgid "Back to automatic choice"
 msgstr ""
 
@@ -359,7 +427,7 @@ msgstr ""
 msgid "Balance"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:963
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1282
 msgid "Balance between the best"
 msgstr ""
 
@@ -371,7 +439,7 @@ msgstr ""
 msgid "Before switching to a server, 64 KiB is downloaded through it, so a server that freezes connections after about 16 KB is skipped"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:267
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:422
 msgid "best of %s"
 msgstr ""
 
@@ -379,8 +447,8 @@ msgstr ""
 msgid "BitTorrent"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:52
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:338
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:69
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:493
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:424
 #: src/podkop/methods/custom/ruleTiles.ts:146
 #: src/podkop/tabs/dashboard/helpers/bitTorrentTable.ts:85
@@ -431,19 +499,19 @@ msgstr ""
 msgid "Cache file path cannot be empty"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:843
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:936
 #: src/podkop/tabs/dashboard/initController.ts:329
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:311
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:314
 msgid "Cancel"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:792
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:880
 msgid "cannot be used: %s"
 msgstr ""
 
 #: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:73
 #: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:25
-#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:121
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:150
 #: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:25
 msgid "Cannot receive checks result"
 msgstr ""
@@ -452,17 +520,17 @@ msgstr ""
 msgid "certificate"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:326
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:329
 msgid "Check problem servers"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/initController.ts:341
 #: src/podkop/tabs/dashboard/initController.ts:780
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:156
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:159
 msgid "Check server"
 msgstr ""
 
-#: src/podkop/sources.ts:405
+#: src/podkop/sources.ts:413
 msgid "Check that the text is copied whole, or choose the type by hand"
 msgstr ""
 
@@ -474,7 +542,7 @@ msgstr ""
 msgid "Checked just now"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:449
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:537
 #: src/podkop/tabs/dashboard/initController.ts:730
 msgid "Checking now…"
 msgstr ""
@@ -482,7 +550,7 @@ msgstr ""
 #: src/podkop/tabs/diagnostic/checks/runDnsCheck.ts:61
 #: src/podkop/tabs/diagnostic/checks/runFakeIPCheck.ts:13
 #: src/podkop/tabs/diagnostic/checks/runNftCheck.ts:13
-#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:109
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:138
 #: src/podkop/tabs/diagnostic/checks/runSingBoxCheck.ts:13
 msgid "Checking, please wait"
 msgstr ""
@@ -507,7 +575,7 @@ msgstr ""
 msgid "Choose the devices YACD is opened from"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:218
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:221
 msgid "Chosen inside the fallback"
 msgstr ""
 
@@ -525,11 +593,11 @@ msgstr ""
 msgid "Close"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:602
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:757
 msgid "Community Lists"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:214
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:219
 msgid "Configuration for Podkop service"
 msgstr ""
 
@@ -537,7 +605,7 @@ msgstr ""
 msgid "Connect through %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:300
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:336
 msgid "connecting…"
 msgstr ""
 
@@ -553,7 +621,7 @@ msgstr ""
 msgid "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. Another server or a disguise as a whitelisted site may help; where the network also limits by address, the disguise will not."
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:50
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:79
 msgid "connections are refused"
 msgstr ""
 
@@ -565,16 +633,16 @@ msgstr ""
 msgid "Connections to this server will go through %s, whose operator will see the address of this server."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:707
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:795
 msgid "Copied"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:800
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:888
 #: src/partials/modal/renderModal.ts:20
 msgid "Copy"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:748
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:836
 msgid "Copy all links"
 msgstr ""
 
@@ -586,11 +654,11 @@ msgstr ""
 msgid "Custom URL"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:295
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:300
 msgid "Dashboard"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:61
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:64
 msgid "Dashboard currently unavailable"
 msgstr ""
 
@@ -607,11 +675,11 @@ msgstr ""
 msgid "details"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1116
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1224
 msgid "Detect from the pasted text"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1113
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1221
 msgid "Detect: the type follows the pasted text"
 msgstr ""
 
@@ -627,21 +695,21 @@ msgstr ""
 msgid "DHT and trackers"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:279
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:284
 msgid "Diagnostics"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:155
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:34
 msgid "Direct (without a proxy)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:394
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:549
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:153
 msgid "directly"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:49
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:337
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:66
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:492
 #: src/podkop/methods/custom/ruleTiles.ts:145
 msgid "Directly"
 msgstr ""
@@ -658,8 +726,8 @@ msgstr ""
 msgid "Disable the QUIC protocol to improve compatibility or fix issues with video streaming"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:712
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:793
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:867
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:948
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:396
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:705
 msgid "Disabled"
@@ -678,16 +746,16 @@ msgid "DNS on router"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:137
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1510
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1680
 msgid "DNS over HTTPS (DoH)"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:138
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1509
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1679
 msgid "DNS over TLS (DoT)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1504
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1674
 msgid "DNS Protocol Type"
 msgstr ""
 
@@ -695,7 +763,7 @@ msgstr ""
 msgid "DNS Rewrite TTL"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1517
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1687
 msgid "DNS Server"
 msgstr ""
 
@@ -711,19 +779,19 @@ msgstr ""
 msgid "Do not panic, everything can be fixed, just..."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1536
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1706
 msgid "Do not use for downloading lists and subscriptions"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1492
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1662
 msgid "Domain Resolver"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:779
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:934
 msgid "Domains by link"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:314
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:350
 msgid "done in %s s"
 msgstr ""
 
@@ -731,8 +799,8 @@ msgstr ""
 msgid "Dont Touch My DHCP!"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:982
-#: src/podkop/tabs/dashboard/initController.ts:1016
+#: src/podkop/tabs/dashboard/initController.ts:985
+#: src/podkop/tabs/dashboard/initController.ts:1019
 msgid "Downlink"
 msgstr ""
 
@@ -748,20 +816,24 @@ msgstr ""
 msgid "Download Check URL"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:927
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1020
 msgid "Downloaded after Save & Apply"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:713
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:794
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:868
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:949
 msgid "Dynamic List"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:582
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1432
+msgid "Empty: podkop with its version. Some providers give the list only to the apps they name: type the name of such an app alone, without a version (for example INCY). It is the name of an app, not a secret: the global check shows it. The router still sends its own device identifier (HWID) and keeps its own place among the devices of the subscription. Load shows what the provider sends to this name"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:737
 msgid "Empty: the name in the settings"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1550
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1720
 msgid "Empty: the name is made from the address, the link or the interface"
 msgstr ""
 
@@ -769,7 +841,7 @@ msgstr ""
 msgid "Enable autostart"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:913
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1127
 msgid "Enable Mixed Proxy"
 msgstr ""
 
@@ -789,23 +861,23 @@ msgstr ""
 msgid "Enter a whitelisted name, or press “Find a mask”."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1443
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1613
 msgid "Enter complete outbound configuration in JSON format"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:744
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:899
 msgid "Enter domain names separated by commas, spaces, or newlines. You can add comments using //"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:723
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:878
 msgid "Enter domain names without protocols, e.g. example.com or sub.example.com"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:804
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:959
 msgid "Enter subnets in CIDR notation (e.g. 103.21.244.0/22 or 2001:67c:4e8::/48) or single IP addresses"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:825
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:980
 msgid "Enter subnets in CIDR notation or single IP addresses, separated by commas, spaces, or newlines. You can add comments using //"
 msgstr ""
 
@@ -813,15 +885,15 @@ msgstr ""
 msgid "Every 1 minute"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1304
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1412
 msgid "Every 12 hours"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1299
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1407
 msgid "Every 20 minutes"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1301
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1409
 msgid "Every 3 hours"
 msgstr ""
 
@@ -837,11 +909,11 @@ msgstr ""
 msgid "Every 5 minutes"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1302
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1410
 msgid "Every 6 hours"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1303
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1411
 msgid "Every 9 hours"
 msgstr ""
 
@@ -849,11 +921,11 @@ msgstr ""
 msgid "Every connection of podkop goes out through this WAN or tunnel, whatever the routing of the router says"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1305
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1413
 msgid "Every day"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1300
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1408
 msgid "Every hour"
 msgstr ""
 
@@ -865,12 +937,20 @@ msgstr ""
 msgid "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:574
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:662
 msgid "Expired on %s (%s)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:531
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:686
 msgid "Extra"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1455
+msgid "Extra headers"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:388
+msgid "Extra headers: %s"
 msgstr ""
 
 #: src/helpers/copyToClipboard.ts:12
@@ -881,20 +961,20 @@ msgstr ""
 #: src/podkop/tabs/dashboard/initController.ts:449
 #: src/podkop/tabs/dashboard/initController.ts:484
 #: src/podkop/tabs/dashboard/initController.ts:499
-#: src/podkop/tabs/diagnostic/initController.ts:239
-#: src/podkop/tabs/diagnostic/initController.ts:243
-#: src/podkop/tabs/diagnostic/initController.ts:274
-#: src/podkop/tabs/diagnostic/initController.ts:278
-#: src/podkop/tabs/diagnostic/initController.ts:315
-#: src/podkop/tabs/diagnostic/initController.ts:319
+#: src/podkop/tabs/diagnostic/initController.ts:241
+#: src/podkop/tabs/diagnostic/initController.ts:245
+#: src/podkop/tabs/diagnostic/initController.ts:276
+#: src/podkop/tabs/diagnostic/initController.ts:280
+#: src/podkop/tabs/diagnostic/initController.ts:317
+#: src/podkop/tabs/diagnostic/initController.ts:321
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:380
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:558
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:590
 msgid "Failed to execute!"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:348
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:529
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:353
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:684
 msgid "Fallback"
 msgstr ""
 
@@ -904,23 +984,23 @@ msgstr ""
 msgid "Fallback %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:569
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:724
 msgid "Fallback: %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:961
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1280
 #: src/podkop/methods/custom/ruleTiles.ts:39
 #: src/podkop/methods/custom/ruleTiles.ts:212
 #: src/podkop/methods/custom/ruleTiles.ts:262
 msgid "Fastest"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:962
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1281
 #: src/podkop/methods/custom/ruleTiles.ts:263
 msgid "Fastest, avoiding loss"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:956
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1275
 msgid "Fastest: by the delay of the server check. Avoid loss: the delay is weighed by the loss that downloads of 256 KB through the servers count, and a faster server is checked with 1 MB before the switch. Balance: the devices are spread over the best servers by their address, a device keeps its server, servers with loss are left out. Loss checks download about 50 MB a day per rule at the interval of 30 minutes"
 msgstr ""
 
@@ -952,35 +1032,47 @@ msgstr ""
 msgid "freeze"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:533
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:621
 msgid "From the provider"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:641
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:729
 msgid "From the provider: %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:868
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1023
 msgid "Fully Routed IPs"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:117
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:280
+msgid "Fully Routed IPs %s are not among the devices of “Only for devices”: the rule would never take them. Add their devices here or take them off Fully Routed IPs"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:153
 msgid "fully routed IPs: %d"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1215
+msgid "Generate"
 msgstr ""
 
 #: src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:98
 msgid "Get global check"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:234
+#: src/podkop/tabs/diagnostic/initController.ts:236
 msgid "Global check"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:742
+#: src/validators/validateRequestHeader.ts:214
+msgid "Header %d"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:830
 msgid "Hide links"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:972
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1291
 msgid "How often the servers the rule may use are checked for loss: four servers, 256 KB each. The traffic grows as the interval shrinks: about 300 MB a day at 5 minutes"
 msgstr ""
 
@@ -992,7 +1084,7 @@ msgstr ""
 msgid "HTTP %s came by one way only (%s); the other ways did not reach the provider (%s)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:914
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1128
 msgid "HTTP and SOCKS on this port of the router go through the servers of this rule"
 msgstr ""
 
@@ -1008,7 +1100,7 @@ msgstr ""
 msgid "In all"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:220
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:223
 msgid "In the balance: %d devices"
 msgstr ""
 
@@ -1024,7 +1116,7 @@ msgstr ""
 msgid "In their order: a server is asked only when the ones above it do not answer. The fastest first: the server that answered fastest lately is asked, the next fastest when it does not answer."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:901
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1115
 msgid "In this order, while no server of the rule answers. Directly here: blocked sites do not open, and the provider sees the addresses."
 msgstr ""
 
@@ -1032,8 +1124,8 @@ msgstr ""
 msgid "Incoming through a port forward"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:913
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1120
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1006
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1228
 msgid "Interface"
 msgstr ""
 
@@ -1067,7 +1159,7 @@ msgstr ""
 msgid "Invalid IPv6 address"
 msgstr ""
 
-#: src/podkop/sources.ts:323
+#: src/podkop/sources.ts:331
 #: src/validators/validateOutboundJson.ts:9
 msgid "Invalid JSON format"
 msgstr ""
@@ -1141,24 +1233,32 @@ msgstr ""
 msgid "Keep the fingerprint, split the TLS record"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:484
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:572
 msgid "Last check: %s, %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:455
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:543
 msgid "Last check: %s, failed"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:490
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:578
 msgid "Last check: none since podkop started"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/helpers/getPodkopVersionRow.ts:48
+#: src/podkop/tabs/diagnostic/helpers/getPodkopVersionRow.ts:67
 msgid "Latest"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:987
+#: src/validators/validateMixedProxyLogin.ts:22
+msgid "Latin letters, digits and signs only, without spaces"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1306
 msgid "Leave out servers with loss above, %"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:392
+msgid "Left out of the request: %s"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:61
@@ -1169,12 +1269,12 @@ msgstr ""
 msgid "limit?"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:778
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:799
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:866
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:887
 msgid "Link"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1137
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1245
 msgid "Link or subscription"
 msgstr ""
 
@@ -1182,19 +1282,19 @@ msgstr ""
 msgid "List Update Frequency"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:546
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:701
 msgid "Lists"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1537
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1707
 msgid "Lists and subscriptions download directly first, then through the servers of the rules, those that brought them before first. Mark a source that should not carry them: a subscription with little traffic, a test one kept as the last reserve, a tunnel to a closed network, a local helper"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:114
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:150
 msgid "lists by link: %d"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1374
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1531
 msgid "Load"
 msgstr ""
 
@@ -1206,11 +1306,11 @@ msgstr ""
 msgid "Loss"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:971
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1290
 msgid "Loss check interval, minutes"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:526
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:681
 msgid "Main"
 msgstr ""
 
@@ -1218,16 +1318,16 @@ msgstr ""
 msgid "Main DNS"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:965
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1058
 #: src/podkop/sources.ts:146
 msgid "Main route"
 msgstr ""
 
-#: src/podkop/sources.ts:302
+#: src/podkop/sources.ts:310
 msgid "Make an AmneziaWG interface in Network, Interfaces, then choose the type Interface here"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:927
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1141
 msgid "Make sure the port is not used by another service"
 msgstr ""
 
@@ -1235,7 +1335,7 @@ msgstr ""
 msgid "Manual"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:967
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1060
 msgid "mark %s"
 msgstr ""
 
@@ -1247,11 +1347,11 @@ msgstr ""
 msgid "mask: %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:443
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:598
 msgid "Matched"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:1052
+#: src/podkop/tabs/dashboard/initController.ts:1055
 msgid "Memory Usage"
 msgstr ""
 
@@ -1279,8 +1379,16 @@ msgstr ""
 msgid "missing UUID"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:926
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1186
+msgid "Mixed Proxy Password"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1140
 msgid "Mixed Proxy Port"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1158
+msgid "Mixed Proxy User Name"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:692
@@ -1299,23 +1407,27 @@ msgstr ""
 msgid "My servers (%d)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:540
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:581
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1088
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1549
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:695
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:736
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1196
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1719
 msgid "Name"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:535
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:623
 msgid "Name at the provider: %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:387
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:542
 msgid "Name contains"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:388
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:543
 msgid "Name does not contain"
+msgstr ""
+
+#: src/validators/validateRequestHeader.ts:188
+msgid "Name: value is expected"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:542
@@ -1326,7 +1438,7 @@ msgstr ""
 msgid "neither method:password@server nor base64 of it"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1467
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1637
 msgid "Network Interface"
 msgstr ""
 
@@ -1334,12 +1446,16 @@ msgstr ""
 msgid "New connections through this server may hang for a couple of minutes after the check starts."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:518
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:606
 msgid "Next check: %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:518
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:606
 msgid "Next try: %s"
+msgstr ""
+
+#: src/validators/validateMixedProxyLogin.ts:42
+msgid "No “:” in the user name: HTTP cannot send it"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:50
@@ -1347,6 +1463,10 @@ msgstr ""
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:87
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:91
 msgid "no answer"
+msgstr ""
+
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:44
+msgid "no answer from %s"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:162
@@ -1365,11 +1485,11 @@ msgstr ""
 msgid "No DNS server: add one."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:588
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:676
 msgid "No end date"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:904
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1118
 msgid "No fallbacks"
 msgstr ""
 
@@ -1377,19 +1497,23 @@ msgstr ""
 msgid "no IPv4 address now"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:257
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:168
+msgid "No item of “Only for devices” is an address: the rule takes nothing"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:412
 msgid "no list yet"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:930
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1023
 msgid "No list yet"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:475
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:563
 msgid "No list yet: the rows of this source name no server"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:119
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:156
 msgid "no lists"
 msgstr ""
 
@@ -1405,7 +1529,7 @@ msgstr ""
 msgid "No rule is chosen for BitTorrent in the settings: BitTorrent goes as the other traffic"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:523
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:678
 msgid "No rule yet: press Add"
 msgstr ""
 
@@ -1413,8 +1537,8 @@ msgstr ""
 msgid "no secure connection in %d s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:563
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:893
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:718
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1107
 msgid "No servers: the rule does nothing"
 msgstr ""
 
@@ -1430,22 +1554,22 @@ msgstr ""
 msgid "No whitelisted name lifted the limit on this server. The network may limit by address too, where masking does not help."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:708
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:796
 msgid "Not copied: show the links and copy them by hand"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:438
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:526
 msgid "Not downloaded yet: the router downloads the list after Save & Apply"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:61
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:221
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:334
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:405
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:78
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:373
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:489
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:560
 msgid "not filled"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:915
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1008
 msgid "Not filled"
 msgstr ""
 
@@ -1457,15 +1581,15 @@ msgstr ""
 msgid "Not queued: %d of %d. Their addresses were checked recently or are already in the queue, or they are gone."
 msgstr ""
 
-#: src/podkop/sources.ts:385
-#: src/podkop/sources.ts:404
+#: src/podkop/sources.ts:393
+#: src/podkop/sources.ts:412
 msgid "Not recognized"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:56
-#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:79
-#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:145
-#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:156
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:37
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:85
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:108
+#: src/podkop/tabs/diagnostic/checks/runSectionsCheck.ts:175
 msgid "Not responding"
 msgstr ""
 
@@ -1481,20 +1605,20 @@ msgstr ""
 msgid "Not through podkop"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:777
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:791
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:865
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:879
 msgid "Note"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1083
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1191
 msgid "Nothing yet: press Add and paste a subscription or a link"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:49
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:52
 msgid "now %d ms"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:49
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:52
 msgid "now: no answer"
 msgstr ""
 
@@ -1502,7 +1626,7 @@ msgstr ""
 msgid "ok"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:534
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:689
 msgid "On"
 msgstr ""
 
@@ -1513,7 +1637,7 @@ msgid "On the whole LAN"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:594
-msgid "One check for the servers of every rule. Each round tests every server with the next URL of the list; the delay of a server is the median of a full cycle, so one slow URL or one stray test does not change the server in use. A server is unavailable when two URLs do not answer through it. URLs of different companies are best"
+msgid "One check for the servers of every rule. Each round tests every server with the next URL of the list; the delay of a server is the median of a full cycle, so one slow URL or one stray test does not change the server in use. A server is unavailable when two URLs do not answer through it. URLs of different companies are best. “Test latency” on the dashboard runs a round of this check; a server tested alone, there and in the global check, gets the first https:// URL of the list, and the next one when it does not answer. Without a proxy, Diagnostics and the global check ask all the https:// URLs at once and show their median"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:123
@@ -1532,8 +1656,8 @@ msgstr ""
 msgid "One of these servers is in use. New connections through it may hang for a couple of minutes after its check starts."
 msgstr ""
 
-#: src/podkop/sources.ts:331
 #: src/podkop/sources.ts:339
+#: src/podkop/sources.ts:347
 msgid "One outbound is expected: {\"type\": \"vless\", …}"
 msgstr ""
 
@@ -1541,8 +1665,24 @@ msgstr ""
 msgid "One request passes, the requests after it do not. It looks like a limit of the server or the line."
 msgstr ""
 
-#: src/podkop/sources.ts:293
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1061
+msgid "Only for devices"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:159
+msgid "only for devices: %d"
+msgstr ""
+
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:359
+msgid "Only for: %s"
+msgstr ""
+
+#: src/podkop/sources.ts:301
 msgid "Only Happ opens it. Paste the plain subscription address https://… from the account at your provider"
+msgstr ""
+
+#: src/validators/validateRequestHeader.ts:196
+msgid "Only Latin letters, digits, spaces and the signs of the keyboard"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:434
@@ -1551,40 +1691,40 @@ msgstr ""
 msgid "Only what podkop takes"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1456
+msgid "Only when the provider asks for them: one a line, as Name: value. A key of the provider goes here, not in User-Agent: the global check hides the values, and they go to the host of the subscription address only. The device identifier (x-hwid, x-device-…), the address of the client (X-Forwarded-For…) and the headers of the connection (Host, Connection, Accept-Encoding…) are the router's own and are not set here"
+msgstr ""
+
 #: src/helpers/withTimeout.ts:7
 msgid "Operation timed out"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:511
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:599
 msgid "Options that changed: %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1442
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1612
 msgid "Outbound Configuration"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:911
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1119
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1004
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1227
 msgid "Outbound JSON"
 msgstr ""
 
-#: src/podkop/sources.ts:357
+#: src/podkop/sources.ts:365
 msgid "Outbound JSON: %s"
-msgstr ""
-
-#: src/podkop/tabs/diagnostic/helpers/getPodkopVersionRow.ts:38
-msgid "Outdated"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:267
 msgid "Output Network Interface"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:99
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:135
 msgid "own domains"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:106
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:142
 msgid "own subnets"
 msgstr ""
 
@@ -1635,11 +1775,11 @@ msgstr ""
 msgid "Pending"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:1085
+#: src/podkop/tabs/dashboard/initController.ts:1088
 msgid "Podkop"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:282
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:318
 msgid "podkop is not running: start it to load the list"
 msgstr ""
 
@@ -1657,7 +1797,7 @@ msgstr ""
 msgid "Podkop listens for the DNS of the LAN and the transparent proxy"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:213
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:218
 msgid "Podkop Settings"
 msgstr ""
 
@@ -1673,8 +1813,8 @@ msgstr ""
 msgid "preliminary: too few probes yet"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:775
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:785
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:863
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:873
 msgid "Protocol"
 msgstr ""
 
@@ -1686,12 +1826,12 @@ msgstr ""
 msgid "queued"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:293
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:296
 msgid "Queued: %d"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:959
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:971
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1052
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1064
 msgid "Ready"
 msgstr ""
 
@@ -1699,7 +1839,7 @@ msgstr ""
 msgid "Received"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1208
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1316
 msgid "Recognized: %s"
 msgstr ""
 
@@ -1715,7 +1855,7 @@ msgstr ""
 msgid "Refused: the rule has no server now"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:635
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:790
 msgid "Regional options cannot be used together"
 msgstr ""
 
@@ -1735,7 +1875,7 @@ msgstr ""
 msgid "Reset"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:939
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1258
 msgid "Resolve real IP for routing"
 msgstr ""
 
@@ -1755,12 +1895,12 @@ msgstr ""
 msgid "Routing Excluded IPs"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1477
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1647
 msgid "Routing mark"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:243
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:518
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:248
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:673
 msgid "Rules"
 msgstr ""
 
@@ -1792,11 +1932,15 @@ msgstr ""
 msgid "Run Diagnostic"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:654
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:809
 msgid "Russia inside restrictions"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:363
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:449
+msgid "Save & Apply first: the router asks with the User-Agent and headers it runs with"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:443
 msgid "Save & Apply first: the router downloads the address it runs with"
 msgstr ""
 
@@ -1808,11 +1952,11 @@ msgstr ""
 msgid "Searching…"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:303
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:339
 msgid "secure connection…"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:603
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:758
 msgid "Select a predefined list for routing"
 msgstr ""
 
@@ -1820,7 +1964,7 @@ msgstr ""
 msgid "Select how often the domain or subnet lists are updated automatically. A list is downloaded directly first, then through the servers of the rules, those that brought it before first; a source marked “Do not use for downloading lists and subscriptions” never carries it"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1518
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1688
 msgid "Select or enter DNS server address"
 msgstr ""
 
@@ -1828,15 +1972,15 @@ msgstr ""
 msgid "Select or enter path for the cache file: FakeIP addresses and downloaded lists. Change this ONLY if you know what you are doing"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1505
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1675
 msgid "Select the DNS protocol type for the domain resolver"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:709
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:864
 msgid "Select the list type for adding custom domains"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:790
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:945
 msgid "Select the list type for adding custom subnets"
 msgstr ""
 
@@ -1856,8 +2000,12 @@ msgstr ""
 msgid "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is counted only when its user is named in the settings."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:774
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:782
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1187
+msgid "Sent unencrypted: never the router's password. Generate fills in 16 random letters and digits"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:862
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:870
 msgid "Server"
 msgstr ""
 
@@ -1877,66 +2025,74 @@ msgstr ""
 msgid "Server check URLs"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:955
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1274
 msgid "Server choice"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:907
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1000
 msgid "Server link"
 msgstr ""
 
-#: src/podkop/sources.ts:263
+#: src/podkop/sources.ts:264
 msgid "Server link: %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1118
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1411
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1226
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1581
 msgid "Server links"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:908
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1001
 msgid "Server links: %d"
 msgstr ""
 
-#: src/podkop/sources.ts:266
+#: src/podkop/sources.ts:267
 msgid "Server links: %d (%s)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:223
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:348
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:527
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:556
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1072
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1367
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:228
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:353
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:682
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:711
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1180
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1524
 msgid "Servers"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:495
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:583
 msgid "Servers changed: %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1322
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1479
 msgid "Servers changed: when a check last found other servers or names. A new order alone does not count. The router takes the new servers without a restart"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:930
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:960
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1023
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1053
 msgid "Servers: %d"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:445
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:533
 msgid "Servers: %d, usable: %d"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:1081
+#: src/podkop/tabs/dashboard/initController.ts:1084
 msgid "Services info"
+msgstr ""
+
+#: src/validators/validateMixedProxyLogin.ts:60
+msgid "Set the password too, or clear the user name"
+msgstr ""
+
+#: src/validators/validateMixedProxyLogin.ts:67
+msgid "Set the user name too, or clear the password"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:76
 msgid "settings"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:262
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:267
 msgid "Settings"
 msgstr ""
 
@@ -1948,7 +2104,7 @@ msgstr ""
 msgid "Several connections were cut at about %d KB, and none went further. It looks like the DPI limit, but short responses of sites look the same. Press “Check server”."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1412
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1582
 msgid "Share links: vless, ss, trojan, socks, http(s), hysteria2, tuic, and vmess, anytls, hysteria, naive where the engine has them"
 msgstr ""
 
@@ -1956,12 +2112,12 @@ msgstr ""
 msgid "Show"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:742
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:745
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:830
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:833
 msgid "Show links"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:303
+#: src/podkop/tabs/diagnostic/initController.ts:305
 #: src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:116
 msgid "Show sing-box config"
 msgstr ""
@@ -1982,15 +2138,15 @@ msgstr ""
 msgid "Some proxy links cannot be used"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:340
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:345
 msgid "Some rows of the rules cannot be used"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:325
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:480
 msgid "Source"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:218
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:370
 msgid "source deleted"
 msgstr ""
 
@@ -2010,8 +2166,8 @@ msgstr ""
 msgid "Start the statistics again from now"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1101
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1321
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1209
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1478
 msgid "State"
 msgstr ""
 
@@ -2019,30 +2175,30 @@ msgstr ""
 msgid "Stop podkop"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:858
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1013
 msgid "Subnets by link"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:903
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1117
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:996
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1225
 msgid "Subscription"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1245
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1353
 msgid "Subscription address"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:631
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:719
 msgid "Subscription page"
 msgstr ""
 
-#: src/podkop/sources.ts:283
-#: src/podkop/sources.ts:312
-#: src/podkop/sources.ts:374
+#: src/podkop/sources.ts:284
+#: src/podkop/sources.ts:320
+#: src/podkop/sources.ts:382
 msgid "Subscription: %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:224
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:229
 msgid "Subscriptions, links of servers and interfaces. The rules take their servers from here. Drag ☰ to put them in the order you like: it changes nothing else."
 msgstr ""
 
@@ -2050,7 +2206,7 @@ msgstr ""
 msgid "Successfully copied!"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:615
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:703
 msgid "Support"
 msgstr ""
 
@@ -2058,11 +2214,11 @@ msgstr ""
 msgid "Supported"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:1045
+#: src/podkop/tabs/dashboard/initController.ts:1048
 msgid "System info"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/partials/renderSystemInfo.ts:21
+#: src/podkop/tabs/diagnostic/partials/renderSystemInfo.ts:22
 msgid "System information"
 msgstr ""
 
@@ -2094,53 +2250,69 @@ msgstr ""
 msgid "TCP told by its handshake in podkop"
 msgstr ""
 
+#: src/podkop/tabs/diagnostic/helpers/getPodkopVersionRow.ts:57
+msgid "Test build"
+msgstr ""
+
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:92
 msgid "test failed"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:462
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:476
 msgid "Test latency"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:714
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:795
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:869
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:950
 msgid "Text List"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1257
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1387
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1365
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1544
 msgid "The address is not set"
 msgstr ""
 
-#: src/podkop/sources.ts:284
+#: src/podkop/sources.ts:292
 msgid "The address is taken from the link that adds it to %s"
+msgstr ""
+
+#: src/podkop/sources.ts:289
+msgid "The address is taken from the link that adds it to INCY. If the provider gives the list to INCY only, type INCY in User-Agent"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:327
 msgid "The address of the check did not answer, the server is not at fault."
 msgstr ""
 
+#: src/validators/validateRequestHeader.ts:170
+msgid "The address of the client is the router's own: %s cannot be set"
+msgstr ""
+
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:293
 msgid "The address of the server could not be resolved by its name."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1246
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1354
 msgid "The address your provider gave for apps (often /sub/… or /api/sub/…). It is a secret: podkop masks it where it shows the settings"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:262
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:298
 msgid "The answer of the provider has no links of servers"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:248
+msgid "The answer of the provider to this User-Agent has no links of servers. Try another name, or clear the field"
 msgstr ""
 
 #: src/validators/validateVmessUrl.ts:30
 msgid "the base64 of the link is no JSON"
 msgstr ""
 
-#: src/podkop/sources.ts:424
+#: src/podkop/sources.ts:432
 msgid "The bits 0x100000, 0x200000 and 0x400000 are the marks of podkop"
 msgstr ""
 
-#: src/podkop/sources.ts:429
+#: src/podkop/sources.ts:437
 msgid "The bits 0x3F00 are the mask of mwan3"
 msgstr ""
 
@@ -2168,7 +2340,7 @@ msgstr ""
 msgid "the connection is reset"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1024
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1117
 msgid "The deleted source was used by the rules: %s. Their rows show it as deleted: choose another source there"
 msgstr ""
 
@@ -2184,15 +2356,15 @@ msgstr ""
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:284
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:320
 msgid "The download is lost: podkop restarted, or it ended long ago. Press Load again"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:280
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:316
 msgid "The download stopped on a fault of podkop: see the log"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:419
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:507
 msgid "The download takes long: the state tells what it came to once it ends"
 msgstr ""
 
@@ -2204,7 +2376,7 @@ msgstr ""
 msgid "The download test of the group stopped at about %d KB. It looks like the DPI limit. Press “Check server”."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:290
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:326
 msgid "The download was canceled"
 msgstr ""
 
@@ -2220,7 +2392,7 @@ msgstr ""
 msgid "The fastest first"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:890
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1104
 msgid "The fastest of all the servers of these rows is used. Words of a filter go by commas; a word finds the start of a word of the name: “AI” finds “USA AI-1”, but not “Spain”. Directly or Block works here only as the one row."
 msgstr ""
 
@@ -2228,15 +2400,23 @@ msgstr ""
 msgid "The fingerprint of the link was not tested: this one stood in for it, so real connections may not be affected."
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:182
+msgid "The fully routed IP %s is not among the devices: left out"
+msgstr ""
+
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:323
 msgid "The handshake with the server completes, but it did not answer a request during the check. The cause may be on the server or on the way to it, a check from here cannot tell. Try the server from another network, or ask whoever runs it."
+msgstr ""
+
+#: src/validators/validateRequestHeader.ts:206
+msgid "The headers together are longer than %d bytes"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:644
 msgid "The interval between connectivity tests"
 msgstr ""
 
-#: src/podkop/sources.ts:345
+#: src/podkop/sources.ts:353
 msgid "The JSON has no field type"
 msgstr ""
 
@@ -2244,7 +2424,7 @@ msgstr ""
 msgid "The key YACD asks for; the links below carry it"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:933
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1026
 msgid "The last check failed"
 msgstr ""
 
@@ -2264,27 +2444,31 @@ msgstr ""
 msgid "the list broke off"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:470
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:558
 msgid "The list from %s stays in use"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:258
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:294
 msgid "The list is larger than %s MiB"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:492
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:580
 msgid "The list is not downloaded yet"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1478
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1648
 msgid "The mark of the connections for pbr or the router's own routing rules (not the bits of mwan3, 0x3F00, nor those of podkop). Empty: no mark"
+msgstr ""
+
+#: src/validators/validateRequestHeader.ts:192
+msgid "The name is longer than %d characters"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:176
 msgid "the name is not found in DNS"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1012
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1105
 msgid "The outbound JSON of %s connects through the deleted source (detour): change its detour"
 msgstr ""
 
@@ -2296,27 +2480,31 @@ msgstr ""
 msgid "The port of the server does not answer from this router. The cause cannot be told from here."
 msgstr ""
 
+#: src/validators/validateDevice.ts:94
+msgid "The prefix length is written without a leading zero"
+msgstr ""
+
 #: src/validators/validateSubnet.ts:68
 msgid "The prefix length of IPv6 must be between 0 and 128"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:600
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:688
 msgid "The provider advises to update every %d h"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:246
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:282
 msgid "The provider answered HTTP %s instead of the list"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:238
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:274
 msgid "The provider asks to wait (HTTP 429): the router tries again later"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:250
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:286
 msgid "The provider did not accept this device (HWID)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:230
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:266
 msgid "The provider has no subscription at this address (HTTP %s): the address is wrong, or the subscription was removed"
 msgstr ""
 
@@ -2324,31 +2512,51 @@ msgstr ""
 msgid "the provider redirects to plain HTTP, which goes directly only"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:226
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:262
 msgid "The provider refused the address (HTTP %s): it is wrong or out of date, or the subscription is blocked"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:240
+msgid "The provider refused the address (HTTP %s): it is wrong or out of date, or the subscription is blocked, or the provider does not accept this User-Agent: try another name, or clear the field"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:205
 msgid "The provider says: %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:264
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:232
+msgid "The provider sent a configuration in JSON (sing-box or Xray) to this User-Agent: podkop reads only a list of links so far. Try another name, or clear the field"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:300
 msgid "The provider sent a configuration in JSON (sing-box or Xray): podkop reads only a list of links so far"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:268
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:236
+msgid "The provider sent a configuration of Clash (YAML) to this User-Agent: podkop reads only a list of links so far. Try another name, or clear the field"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:304
 msgid "The provider sent a configuration of Clash (YAML): podkop reads only a list of links so far"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:260
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:228
+msgid "The provider sent a web page to this User-Agent: providers show their page to browsers. Try the name of an app, or clear the field. It may also be the address of the provider's site, not of the subscription"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:296
 msgid "The provider sent an empty list"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:272
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:244
+msgid "The provider sent notes instead of servers to this User-Agent: %s. Try another name, or clear the field"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:308
 msgid "The provider sent notes instead of servers: %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:234
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:270
 msgid "The provider sent nothing (HTTP 204): the address is wrong, or the subscription was removed"
 msgstr ""
 
@@ -2368,25 +2576,25 @@ msgstr ""
 msgid "The provider's DNS: the router knows none now"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:253
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:289
 msgid "The provider's limit of devices is reached: delete an old device in the provider's bot or account, then check again"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:242
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:278
 msgid "The provider's server failed (HTTP %s): the router tries again later"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1493
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1663
 msgid "The real IP of a site is resolved by a DNS server reached through this interface"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:253
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:375
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:389
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:408
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:868
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:876
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:888
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:408
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:463
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:477
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:496
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:961
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:969
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:981
 msgid "The router did not answer"
 msgstr ""
 
@@ -2394,19 +2602,19 @@ msgstr ""
 msgid "The router does not count the bytes of connections (net.netfilter.nf_conntrack_acct is 0)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1368
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1525
 msgid "The router downloads the list of the address above to show it here, first directly, then through the working servers. It is taken after Save & Apply"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1352
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1509
 msgid "The router downloads the list of the saved address now and takes it, as at its time. When a list comes, the next download is counted from now; when the download fails, the list in use and the planned time stay"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:885
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:978
 msgid "The router downloads the list…"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:853
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:946
 msgid "The router downloads the list… %s s"
 msgstr ""
 
@@ -2418,7 +2626,11 @@ msgstr ""
 msgid "The router seems to have no internet connection: the uplink check failed."
 msgstr ""
 
-#: src/podkop/sources.ts:498
+#: src/validators/validateRequestHeader.ts:166
+msgid "The router sends the device identifier itself: %s cannot be set"
+msgstr ""
+
+#: src/podkop/sources.ts:506
 msgid "The row connects through its own source"
 msgstr ""
 
@@ -2428,6 +2640,10 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:442
 msgid "The rule for BitTorrent"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1062
+msgid "The rule takes the traffic of these devices only: IPv4 or IPv6 addresses and subnets. The other devices go on to the rules below, and directly when none takes them. The DNS answers stay the same for all. Give a device a fixed address (a static DHCP lease). IPv6 addresses matter only with IPv6 traffic: Through podkop. Does not limit the mixed proxy."
 msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:580
@@ -2490,7 +2706,7 @@ msgstr ""
 msgid "The server works through the fallback fingerprint %s. Sometimes this is the trace of a block; a check will tell for sure."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:592
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:680
 msgid "The servers may refuse connections until the subscription is renewed"
 msgstr ""
 
@@ -2502,24 +2718,24 @@ msgstr ""
 msgid "The settings are not saved. The engine of the router refuses these links:"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:341
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:346
 msgid "The settings are not saved. These rows connect through a source that cannot be used:"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:352
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:433
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:507
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:588
 msgid "The source %s is deleted: choose another one"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:436
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:591
 msgid "The source %s is not filled yet"
 msgstr ""
 
-#: src/podkop/sources.ts:500
+#: src/podkop/sources.ts:508
 msgid "The source %s to connect through is deleted"
 msgstr ""
 
-#: src/podkop/sources.ts:502
+#: src/podkop/sources.ts:510
 msgid "The source %s to connect through is not filled"
 msgstr ""
 
@@ -2531,7 +2747,7 @@ msgstr ""
 msgid "The test download went through in full."
 msgstr ""
 
-#: src/podkop/sources.ts:399
+#: src/podkop/sources.ts:407
 msgid "The text was decoded from base64"
 msgstr ""
 
@@ -2559,15 +2775,28 @@ msgstr ""
 msgid "the user must be a UUID and a password"
 msgstr ""
 
+#: src/validators/validateRequestHeader.ts:174
+msgid "The User-Agent has its own field"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:253
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1555
+msgid "The User-Agent or a header cannot be sent: %s"
+msgstr ""
+
+#: src/validators/validateRequestHeader.ts:194
+msgid "The value is empty"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:293
 msgid "The web panel of sing-box, opened from the devices chosen below; without it the panel's API is reached from the router only"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:278
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:314
 msgid "There is no way to the provider to try"
 msgstr ""
 
-#: src/podkop/sources.ts:386
+#: src/podkop/sources.ts:394
 msgid "These are not links of servers: %s"
 msgstr ""
 
@@ -2595,7 +2824,7 @@ msgstr ""
 msgid "This server's TLS hello will be split into two records."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:390
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:545
 msgid "Through"
 msgstr ""
 
@@ -2640,28 +2869,28 @@ msgstr ""
 msgid "Torrent clients on the router itself"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:979
+#: src/podkop/tabs/dashboard/initController.ts:982
 #: src/podkop/tabs/dashboard/partials/renderBitTorrent.ts:73
 msgid "Traffic"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:596
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:684
 msgid "Traffic resets %s"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:1009
+#: src/podkop/tabs/dashboard/initController.ts:1012
 msgid "Traffic Total"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:547
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:635
 msgid "Traffic: %s of %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:546
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:634
 msgid "Traffic: %s of %s, used up"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:565
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:653
 msgid "Traffic: %s, no limit"
 msgstr ""
 
@@ -2671,7 +2900,7 @@ msgstr ""
 
 #: src/podkop/tabs/dashboard/initController.ts:588
 #: src/podkop/tabs/dashboard/initController.ts:680
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:178
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:181
 msgid "Treatment for this server"
 msgstr ""
 
@@ -2703,22 +2932,22 @@ msgstr ""
 msgid "Turn on the uTLS fallback in Settings; it switches the fingerprint for every server, not just this one."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:288
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:324
 msgid "Two lists are being downloaded for the page: wait for them"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:136
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1095
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1112
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1203
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1220
 msgid "Type"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:139
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1508
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1678
 msgid "UDP (Unprotected DNS)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1431
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1601
 msgid "UDP over TCP"
 msgstr ""
 
@@ -2726,14 +2955,14 @@ msgstr ""
 msgid "unavailable through a relay"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:37
-#: src/podkop/tabs/diagnostic/initController.ts:44
-#: src/podkop/tabs/diagnostic/initController.ts:45
+#: src/podkop/tabs/diagnostic/initController.ts:39
 #: src/podkop/tabs/diagnostic/initController.ts:46
 #: src/podkop/tabs/diagnostic/initController.ts:47
 #: src/podkop/tabs/diagnostic/initController.ts:48
 #: src/podkop/tabs/diagnostic/initController.ts:49
-#: src/podkop/tabs/diagnostic/helpers/getPodkopVersionRow.ts:7
+#: src/podkop/tabs/diagnostic/initController.ts:50
+#: src/podkop/tabs/diagnostic/initController.ts:51
+#: src/podkop/tabs/diagnostic/helpers/getPodkopVersionRow.ts:10
 msgid "unknown"
 msgstr ""
 
@@ -2745,21 +2974,25 @@ msgstr ""
 msgid "Unsupported link type"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:947
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1040
 msgid "until %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1289
+#: src/podkop/tabs/diagnostic/helpers/getPodkopVersionRow.ts:46
+msgid "Update available: %s"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1397
 msgid "Update interval"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1351
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1358
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1508
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1515
 msgid "Update now"
 msgstr ""
 
-#: src/podkop/tabs/dashboard/initController.ts:981
-#: src/podkop/tabs/dashboard/initController.ts:1012
+#: src/podkop/tabs/dashboard/initController.ts:984
+#: src/podkop/tabs/dashboard/initController.ts:1015
 msgid "Uplink"
 msgstr ""
 
@@ -2767,28 +3000,36 @@ msgstr ""
 msgid "URL must use one of the following protocols:"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:708
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:863
 msgid "User Domain List Type"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:722
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:877
 msgid "User Domains"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:743
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:898
 msgid "User Domains List"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:789
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:944
 msgid "User Subnet List Type"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:803
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:958
 msgid "User Subnets"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:824
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:979
 msgid "User Subnets List"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1431
+msgid "User-Agent"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:385
+msgid "User-Agent: %s"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:389
@@ -2808,6 +3049,7 @@ msgid "uTP connects turned to TCP (on a flow of the DHT): %d"
 msgstr ""
 
 #: src/validators/linkAddress.ts:25
+#: src/validators/validateDevice.ts:119
 #: src/validators/validateDns.ts:25
 #: src/validators/validateDns.ts:29
 #: src/validators/validateDns.ts:36
@@ -2817,6 +3059,7 @@ msgstr ""
 #: src/validators/validateIp.ts:8
 #: src/validators/validateIp.ts:48
 #: src/validators/validateIp.ts:57
+#: src/validators/validateMixedProxyLogin.ts:15
 #: src/validators/validateOutboundJson.ts:7
 #: src/validators/validatePath.ts:16
 #: src/validators/validateSubnet.ts:47
@@ -2825,20 +3068,20 @@ msgstr ""
 msgid "Valid"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:581
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:669
 msgid "Valid until %s (%s)"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:771
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:850
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:926
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1005
 msgid "Validation errors:"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:81
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:98
 msgid "via %s"
 msgstr ""
 
-#: src/podkop/tabs/diagnostic/initController.ts:269
+#: src/podkop/tabs/diagnostic/initController.ts:271
 #: src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts:107
 msgid "View logs"
 msgstr ""
@@ -2847,7 +3090,7 @@ msgstr ""
 msgid "Visit Wiki"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:922
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1015
 msgid "Waiting for a link"
 msgstr ""
 
@@ -2855,15 +3098,15 @@ msgstr ""
 msgid "Waiting for its turn."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:306
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:342
 msgid "waiting for the provider: %s s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:637
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:792
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:656
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:811
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr ""
 
@@ -2871,7 +3114,7 @@ msgstr ""
 msgid "Way"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:500
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:588
 msgid "What changed: renamed %d, other server under the name %d, removed %d, added %d"
 msgstr ""
 
@@ -2887,7 +3130,7 @@ msgstr ""
 msgid "Which addresses the devices and the router get for names outside the lists. The names of the lists always get an IPv4 address of podkop (FakeIP), never an IPv6 one"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:244
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:249
 msgid "Which sites go through which servers. When a site is in several rules, the upper one works. Drag ☰ to change the order. The server in use is shown on the dashboard."
 msgstr ""
 
@@ -2895,7 +3138,15 @@ msgstr ""
 msgid "Whose BitTorrent goes through the rule"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:70
+#: src/validators/validateRequestHeader.ts:180
+msgid "With %s the provider would send a part of the list or none: podkop needs the whole list"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1159
+msgid "With a user name and a password, apps sign in to the proxy (SOCKS5 or HTTP; SOCKS4 no longer works). Both empty: any device that reaches the port can use it"
+msgstr ""
+
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:87
 msgid "without %s"
 msgstr ""
 
@@ -2927,6 +3178,6 @@ msgstr ""
 msgid "Your account may view this page but may not start a search."
 msgstr ""
 
-#: src/podkop/tabs/dashboard/partials/renderSections.ts:45
-msgid "Your test just now. The group chooses by the median of its own rounds, shown above."
+#: src/podkop/tabs/dashboard/partials/renderSections.ts:48
+msgid "Your test just now. For a rule of several servers, a round of its server check, as the group makes them: each server with the URL of the round, the next one when it does not answer; the number is the median the group chooses by, with this round. A server tested alone (a rule of one server, or a group busy with its own round): one request with the first server check URL that answered."
 msgstr ""

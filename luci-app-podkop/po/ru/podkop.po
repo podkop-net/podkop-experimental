@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-19 18:13+0000\n"
-"PO-Revision-Date: 2026-11-19 18:13+0000\n"
+"POT-Creation-Date: 2026-11-20 20:44+0000\n"
+"PO-Revision-Date: 2026-11-20 20:44+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -65,14 +65,41 @@ msgstr "%s (удалено)"
 msgid "%s at %s"
 msgstr "%s в %s"
 
+msgid "%s belongs to the connection: podkop sets it itself"
+msgstr "%s относится к самому соединению: podkop задаёт его сам"
+
 msgid "%s in %s s"
 msgstr "%s за %s с"
+
+msgid "%s is a unique local IPv6 address: a device sends from it to the internet only when it has no global IPv6 address and the router translates its IPv6 (NAT66)"
+msgstr "%s — уникальный локальный адрес IPv6: устройство выходит с него в интернет, только если у него нет глобального адреса IPv6 и роутер транслирует его IPv6 (NAT66)"
+
+msgid "%s is for a proxy on the way: the router has none, and the value would go to the provider"
+msgstr "%s — для прокси на пути: у роутера его нет, а значение ушло бы провайдеру"
+
+msgid "%s is given twice"
+msgstr "%s указан дважды"
+
+msgid "%s is in Routing Excluded IPs: this rule does not take it"
+msgstr "%s есть в «Исключённых из маршрутизации IP-адресах»: это правило его не берёт"
 
 msgid "%s is in Russia inside of the rule %s above"
 msgstr "%s уже входит в Russia inside правила «%s» выше"
 
+msgid "%s is in Russia inside of the rule %s above, for its devices only"
+msgstr "%s уже входит в Russia inside правила «%s» выше, но только для его устройств"
+
 msgid "%s is in the rule %s above already"
 msgstr "%s уже есть в правиле «%s» выше"
+
+msgid "%s is in the rule %s above, for its devices only"
+msgstr "%s есть в правиле «%s» выше, но только для его устройств"
+
+msgid "%s is not among the devices of “Only for devices”: the rule would never take it"
+msgstr "%s нет среди устройств поля «Только для устройств»: правило никогда его не возьмёт"
+
+msgid "%s is routed whole by the rule %s: this rule does not take it"
+msgstr "%s целиком направляется правилом «%s»: это правило его не берёт"
 
 msgid "%s of %s"
 msgstr "%s из %s"
@@ -131,11 +158,17 @@ msgstr "Домен превращается в настоящий IP до выб
 msgid "A dynamic key of Outline: it is loaded as a subscription"
 msgstr "Динамический ключ Outline: загружается как подписка"
 
+msgid "A header name has Latin letters, digits and dashes only"
+msgstr "В имени заголовка — только латинские буквы, цифры и дефисы"
+
 msgid "A key of AmneziaVPN"
 msgstr "Ключ AmneziaVPN"
 
 msgid "A link https:// is downloaded, a path /… is read from a file on the router"
 msgstr "Ссылка https:// скачивается, путь /… читается из файла на роутере"
+
+msgid "A link-local address (fe80::) is never the source of a connection to the internet"
+msgstr "Локальный адрес канала (fe80::) никогда не бывает источником соединения с интернетом"
 
 msgid "A list of outbounds"
 msgstr "Список outbound"
@@ -155,6 +188,9 @@ msgstr "Идёт поиск для другого сервера; повтори
 msgid "A server losing more than this, beyond the loss every server shows, gets no devices"
 msgstr "Сервер, который теряет больше (сверх потерь, общих для всех серверов), не получает устройств"
 
+msgid "A subnet of the whole internet is no device"
+msgstr "Подсеть всего интернета — не устройство"
+
 msgid "A subscription address, links of servers (one per line) or an outbound JSON"
 msgstr "Адрес подписки, ссылки на серверы (по одной в строке) или outbound JSON"
 
@@ -164,8 +200,8 @@ msgstr "Туннель, модем или второй WAN. Пусто: осно
 msgid "A user name: letters, digits, ., - and _"
 msgstr "Имя пользователя: буквы, цифры, ., - и _"
 
-msgid "A web page came instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP"
-msgstr "Вместо списка пришла веб-страница: возможно, это адрес сайта провайдера, а не подписки, или страница интернет-провайдера"
+msgid "A web page came instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP. If the provider gives the list only to some apps, type the name of one in User-Agent"
+msgstr "Вместо списка пришла веб-страница: возможно, это адрес сайта провайдера, а не подписки, или страница интернет-провайдера. Если провайдер отдаёт список только некоторым приложениям, впишите название одного из них в User-Agent"
 
 msgid "a web page instead of the list"
 msgstr "веб-страница вместо списка"
@@ -212,6 +248,9 @@ msgstr "HTTP-прокси. Если это подписка, выберите т
 msgid "An interface does not connect through another source"
 msgstr "Интерфейс не подключается через другой источник"
 
+msgid "An IPv4 address in IPv6 form: write it as IPv4"
+msgstr "Адрес IPv4 в форме IPv6: запишите его как IPv4"
+
 msgid "An outbound of sing-box is expected: {\"type\": \"vless\", …}"
 msgstr "Нужен outbound sing-box: {\"type\": \"vless\", …}"
 
@@ -236,11 +275,23 @@ msgstr "Опрашиваются по порядку списка или сна�
 msgid "asking…"
 msgstr "спрашиваю…"
 
+msgid "At least 8 characters"
+msgstr "Не меньше 8 символов"
+
 msgid "At least one valid domain must be specified. Comments-only content is not allowed."
 msgstr "Необходимо указать хотя бы один действительный домен. Содержимое только из комментариев не допускается."
 
 msgid "At least one valid subnet or IP must be specified. Comments-only content is not allowed."
 msgstr "Необходимо указать хотя бы одну действительную подсеть или IP. Только комментарии недопустимы."
+
+msgid "At most %d characters"
+msgstr "Не больше %d символов"
+
+msgid "At most %d headers"
+msgstr "Не больше %d заголовков"
+
+msgid "At most 255 characters"
+msgstr "Не больше 255 символов"
 
 msgid "At most 64 characters"
 msgstr "Не больше 64 символов"
@@ -539,6 +590,9 @@ msgstr "Загрузится после «Сохранить и применит
 msgid "Dynamic List"
 msgstr "Динамический список"
 
+msgid "Empty: podkop with its version. Some providers give the list only to the apps they name: type the name of such an app alone, without a version (for example INCY). It is the name of an app, not a secret: the global check shows it. The router still sends its own device identifier (HWID) and keeps its own place among the devices of the subscription. Load shows what the provider sends to this name"
+msgstr "Пусто — podkop с его версией. Некоторые провайдеры отдают список только названным ими приложениям: впишите одно название такого приложения, без версии (например, INCY). Это название приложения, а не секрет: глобальная проверка его показывает. Роутер по-прежнему отправляет свой идентификатор устройства (HWID) и занимает своё место среди устройств подписки. «Загрузить» покажет, что провайдер присылает на это название"
+
 msgid "Empty: the name in the settings"
 msgstr "Пусто: имя из настроек"
 
@@ -626,6 +680,12 @@ msgstr "Срок истёк %s (%s)"
 msgid "Extra"
 msgstr "Доп. настройки"
 
+msgid "Extra headers"
+msgstr "Дополнительные заголовки"
+
+msgid "Extra headers: %s"
+msgstr "Дополнительные заголовки: %s"
+
 msgid "Failed to copy!"
 msgstr "Не удалось скопировать!"
 
@@ -680,14 +740,23 @@ msgstr "Сообщение провайдера: %s"
 msgid "Fully Routed IPs"
 msgstr "Полностью маршрутизированные IP-адреса"
 
+msgid "Fully Routed IPs %s are not among the devices of “Only for devices”: the rule would never take them. Add their devices here or take them off Fully Routed IPs"
+msgstr "Полностью маршрутизированных IP-адресов %s нет среди устройств поля «Только для устройств»: правило никогда их не возьмёт. Добавьте сюда их устройства или уберите их из «Полностью маршрутизированных IP-адресов»"
+
 msgid "fully routed IPs: %d"
 msgstr "IP целиком: %d"
+
+msgid "Generate"
+msgstr "Создать"
 
 msgid "Get global check"
 msgstr "Получить глобальную проверку"
 
 msgid "Global check"
 msgstr "Глобальная проверка"
+
+msgid "Header %d"
+msgstr "Заголовок %d"
 
 msgid "Hide links"
 msgstr "Скрыть ссылки"
@@ -815,8 +884,14 @@ msgstr "Последняя проверка: после запуска podkop е
 msgid "Latest"
 msgstr "Последняя"
 
+msgid "Latin letters, digits and signs only, without spaces"
+msgstr "Только латинские буквы, цифры и знаки, без пробелов"
+
 msgid "Leave out servers with loss above, %"
 msgstr "Исключать серверы с потерями выше, %"
+
+msgid "Left out of the request: %s"
+msgstr "Не входит в запрос: %s"
 
 msgid "limit"
 msgstr "лимит"
@@ -902,8 +977,14 @@ msgstr "нет порта сервера"
 msgid "missing UUID"
 msgstr "нет UUID"
 
+msgid "Mixed Proxy Password"
+msgstr "Пароль смешанного прокси"
+
 msgid "Mixed Proxy Port"
 msgstr "Порт смешанного прокси"
+
+msgid "Mixed Proxy User Name"
+msgstr "Имя пользователя смешанного прокси"
 
 msgid "Must be a number in the range of 50 - 1000"
 msgstr "Должно быть числом от 50 до 1000"
@@ -929,6 +1010,9 @@ msgstr "Имя содержит"
 msgid "Name does not contain"
 msgstr "Имя не содержит"
 
+msgid "Name: value is expected"
+msgstr "Нужно Имя: значение"
+
 msgid "Nearly every program of the router runs as root: it cannot be told apart"
 msgstr "От root работает почти всё на роутере: его трафик отличить нельзя"
 
@@ -947,8 +1031,14 @@ msgstr "Следующая проверка: %s"
 msgid "Next try: %s"
 msgstr "Следующая попытка: %s"
 
+msgid "No “:” in the user name: HTTP cannot send it"
+msgstr "Без «:» в имени — по HTTP его не передать"
+
 msgid "no answer"
 msgstr "нет ответа"
+
+msgid "no answer from %s"
+msgstr "нет ответа от %s"
 
 msgid "no answer in %d s"
 msgstr "нет ответа за %d с"
@@ -970,6 +1060,9 @@ msgstr "Нет запасных"
 
 msgid "no IPv4 address now"
 msgstr "сейчас без IPv4-адреса"
+
+msgid "No item of “Only for devices” is an address: the rule takes nothing"
+msgstr "Ни один элемент поля «Только для устройств» не является адресом: правило ничего не берёт"
 
 msgid "no list yet"
 msgstr "списка ещё нет"
@@ -1061,8 +1154,8 @@ msgstr "Вкл."
 msgid "On the whole LAN"
 msgstr "Во всей локальной сети"
 
-msgid "One check for the servers of every rule. Each round tests every server with the next URL of the list; the delay of a server is the median of a full cycle, so one slow URL or one stray test does not change the server in use. A server is unavailable when two URLs do not answer through it. URLs of different companies are best"
-msgstr "Одна проверка для серверов всех правил. Каждый раунд проверяет все серверы следующей ссылкой списка; задержка сервера — медиана за полный круг, поэтому одна медленная ссылка или случайный выброс не меняют сервер. Сервер недоступен, если через него не ответили две ссылки. Лучше брать ссылки разных компаний"
+msgid "One check for the servers of every rule. Each round tests every server with the next URL of the list; the delay of a server is the median of a full cycle, so one slow URL or one stray test does not change the server in use. A server is unavailable when two URLs do not answer through it. URLs of different companies are best. “Test latency” on the dashboard runs a round of this check; a server tested alone, there and in the global check, gets the first https:// URL of the list, and the next one when it does not answer. Without a proxy, Diagnostics and the global check ask all the https:// URLs at once and show their median"
+msgstr "Одна проверка для серверов всех правил. Каждый раунд проверяет все серверы следующей ссылкой списка; задержка сервера — медиана за полный круг, поэтому одна медленная ссылка или случайный выброс не меняют сервер. Сервер недоступен, если через него не ответили две ссылки. Лучше брать ссылки разных компаний. «Тестирование задержки» на дашборде запускает раунд этой проверки; сервер, проверяемый отдельно, — там и в глобальной проверке — получает первую ссылку https:// из списка, а если она не ответила — следующую. Без прокси диагностика и глобальная проверка запрашивают все ссылки https:// сразу и показывают их медиану"
 
 msgid "One DNS server is needed at least: change this one, or add another first."
 msgstr "Нужен хотя бы один DNS-сервер: измените этот или сначала добавьте другой."
@@ -1082,11 +1175,26 @@ msgstr "Нужен один outbound: {\"type\": \"vless\", …}"
 msgid "One request passes, the requests after it do not. It looks like a limit of the server or the line."
 msgstr "Один запрос проходит, следующие за ним — нет. Похоже на ограничение сервера или линии."
 
+msgid "Only for devices"
+msgstr "Только для устройств"
+
+msgid "only for devices: %d"
+msgstr "только для устройств: %d"
+
+msgid "Only for: %s"
+msgstr "Только для: %s"
+
 msgid "Only Happ opens it. Paste the plain subscription address https://… from the account at your provider"
 msgstr "Её открывает только Happ. Вставьте обычный адрес подписки https://… из кабинета провайдера"
 
+msgid "Only Latin letters, digits, spaces and the signs of the keyboard"
+msgstr "Только латинские буквы, цифры, пробелы и знаки клавиатуры"
+
 msgid "Only what podkop takes"
 msgstr "Только то, что берёт podkop"
+
+msgid "Only when the provider asks for them: one a line, as Name: value. A key of the provider goes here, not in User-Agent: the global check hides the values, and they go to the host of the subscription address only. The device identifier (x-hwid, x-device-…), the address of the client (X-Forwarded-For…) and the headers of the connection (Host, Connection, Accept-Encoding…) are the router's own and are not set here"
+msgstr "Только если их требует провайдер: по одному в строке, в виде Имя: значение. Ключ провайдера — сюда, а не в User-Agent: глобальная проверка скрывает значения, и уходят они только на хост адреса подписки. Идентификатор устройства (x-hwid, x-device-…), адрес клиента (X-Forwarded-For…) и заголовки самого соединения (Host, Connection, Accept-Encoding…) у роутера свои и здесь не задаются"
 
 msgid "Operation timed out"
 msgstr "Время ожидания истекло"
@@ -1102,9 +1210,6 @@ msgstr "Outbound JSON"
 
 msgid "Outbound JSON: %s"
 msgstr "Outbound JSON: %s"
-
-msgid "Outdated"
-msgstr "Устаревшая"
 
 msgid "Output Network Interface"
 msgstr "Выходной сетевой интерфейс"
@@ -1262,6 +1367,9 @@ msgstr "Запустить диагностику"
 msgid "Russia inside restrictions"
 msgstr "Ограничения Russia inside"
 
+msgid "Save & Apply first: the router asks with the User-Agent and headers it runs with"
+msgstr "Сначала «Сохранить и применить»: роутер запрашивает список с User-Agent и заголовками, с которыми работает"
+
 msgid "Save & Apply first: the router downloads the address it runs with"
 msgstr "Сначала «Сохранить и применить»: роутер загружает адрес, с которым работает"
 
@@ -1306,6 +1414,9 @@ msgstr "Отправлено"
 
 msgid "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is counted only when its user is named in the settings."
 msgstr "Отправлено и получено — со стороны устройств сети; считает роутер, вместе с заголовками пакетов (1 GB = 1000 MB). Только IPv4; клиент на самом роутере учитывается, только если его пользователь указан в настройках."
+
+msgid "Sent unencrypted: never the router's password. Generate fills in 16 random letters and digits"
+msgstr "Передаётся без шифрования — не используйте пароль роутера. «Создать» подставит 16 случайных букв и цифр"
 
 msgid "Server"
 msgstr "Сервер"
@@ -1357,6 +1468,12 @@ msgstr "Серверов: %d, годных: %d"
 
 msgid "Services info"
 msgstr "Информация о сервисах"
+
+msgid "Set the password too, or clear the user name"
+msgstr "Укажите и пароль — или очистите имя"
+
+msgid "Set the user name too, or clear the password"
+msgstr "Укажите и имя — или очистите пароль"
 
 msgid "settings"
 msgstr "настройки"
@@ -1475,6 +1592,9 @@ msgstr "TCP на необычные порты"
 msgid "TCP told by its handshake in podkop"
 msgstr "TCP, узнанный по рукопожатию уже в podkop"
 
+msgid "Test build"
+msgstr "Тестовая сборка"
+
 msgid "test failed"
 msgstr "тест не прошёл"
 
@@ -1490,8 +1610,14 @@ msgstr "Адрес не указан"
 msgid "The address is taken from the link that adds it to %s"
 msgstr "Адрес взят из ссылки «добавить в %s»"
 
+msgid "The address is taken from the link that adds it to INCY. If the provider gives the list to INCY only, type INCY in User-Agent"
+msgstr "Адрес взят из ссылки «добавить в INCY». Если провайдер отдаёт список только INCY, впишите INCY в User-Agent"
+
 msgid "The address of the check did not answer, the server is not at fault."
 msgstr "Проверочный адрес не ответил, сервер здесь ни при чём."
+
+msgid "The address of the client is the router's own: %s cannot be set"
+msgstr "Адрес клиента — это адрес самого роутера: %s задать нельзя"
 
 msgid "The address of the server could not be resolved by its name."
 msgstr "Не удалось получить адрес сервера по имени."
@@ -1501,6 +1627,9 @@ msgstr "Адрес, который провайдер дал для прилож
 
 msgid "The answer of the provider has no links of servers"
 msgstr "В ответе провайдера нет ссылок на серверы"
+
+msgid "The answer of the provider to this User-Agent has no links of servers. Try another name, or clear the field"
+msgstr "В ответе провайдера на этот User-Agent нет ссылок на серверы. Попробуйте другое название или очистите поле"
 
 msgid "the base64 of the link is no JSON"
 msgstr "в base64 ссылки не JSON"
@@ -1574,8 +1703,14 @@ msgstr "Из всех серверов этих строк выбирается 
 msgid "The fingerprint of the link was not tested: this one stood in for it, so real connections may not be affected."
 msgstr "Отпечаток из ссылки не проверялся: вместо него взят этот, поэтому настоящие соединения это могло не затронуть."
 
+msgid "The fully routed IP %s is not among the devices: left out"
+msgstr "IP %s, направляемого целиком, нет среди устройств: он пропущен"
+
 msgid "The handshake with the server completes, but it did not answer a request during the check. The cause may be on the server or on the way to it, a check from here cannot tell. Try the server from another network, or ask whoever runs it."
 msgstr "Рукопожатие с сервером проходит, но на запрос за время проверки он не ответил. Причина может быть на самом сервере или на пути к нему, отсюда это не различить. Проверьте сервер из другой сети или спросите у того, кто его обслуживает."
+
+msgid "The headers together are longer than %d bytes"
+msgstr "Заголовки вместе длиннее %d байт"
 
 msgid "The interval between connectivity tests"
 msgstr "Интервал между тестами подключения"
@@ -1613,6 +1748,9 @@ msgstr "Список ещё не загружен"
 msgid "The mark of the connections for pbr or the router's own routing rules (not the bits of mwan3, 0x3F00, nor those of podkop). Empty: no mark"
 msgstr "Метка соединений для pbr или собственных правил маршрутизации роутера (не биты mwan3, 0x3F00, и не биты podkop). Пусто: без метки"
 
+msgid "The name is longer than %d characters"
+msgstr "Имя длиннее %d символов"
+
 msgid "the name is not found in DNS"
 msgstr "имя не найдено в DNS"
 
@@ -1624,6 +1762,9 @@ msgstr "Порт открыт, но на TLS-приветствие нет от�
 
 msgid "The port of the server does not answer from this router. The cause cannot be told from here."
 msgstr "Порт сервера не отвечает с этого роутера. Причину отсюда не определить."
+
+msgid "The prefix length is written without a leading zero"
+msgstr "Длина префикса пишется без ведущего нуля"
 
 msgid "The prefix length of IPv6 must be between 0 and 128"
 msgstr "Длина префикса IPv6 должна быть от 0 до 128"
@@ -1649,17 +1790,32 @@ msgstr "провайдер перенаправляет на HTTP без шиф�
 msgid "The provider refused the address (HTTP %s): it is wrong or out of date, or the subscription is blocked"
 msgstr "Провайдер отклонил адрес (HTTP %s): он неверен или устарел, либо подписка заблокирована"
 
+msgid "The provider refused the address (HTTP %s): it is wrong or out of date, or the subscription is blocked, or the provider does not accept this User-Agent: try another name, or clear the field"
+msgstr "Провайдер отклонил адрес (HTTP %s): он неверен или устарел, либо подписка заблокирована, либо провайдер не принимает этот User-Agent: попробуйте другое название или очистите поле"
+
 msgid "The provider says: %s"
 msgstr "Провайдер пишет: %s"
+
+msgid "The provider sent a configuration in JSON (sing-box or Xray) to this User-Agent: podkop reads only a list of links so far. Try another name, or clear the field"
+msgstr "На этот User-Agent провайдер прислал конфигурацию в JSON (sing-box или Xray): podkop пока читает только список ссылок. Попробуйте другое название или очистите поле"
 
 msgid "The provider sent a configuration in JSON (sing-box or Xray): podkop reads only a list of links so far"
 msgstr "Провайдер прислал конфигурацию в JSON (sing-box или Xray): podkop пока читает только список ссылок"
 
+msgid "The provider sent a configuration of Clash (YAML) to this User-Agent: podkop reads only a list of links so far. Try another name, or clear the field"
+msgstr "На этот User-Agent провайдер прислал конфигурацию Clash (YAML): podkop пока читает только список ссылок. Попробуйте другое название или очистите поле"
+
 msgid "The provider sent a configuration of Clash (YAML): podkop reads only a list of links so far"
 msgstr "Провайдер прислал конфигурацию Clash (YAML): podkop пока читает только список ссылок"
 
+msgid "The provider sent a web page to this User-Agent: providers show their page to browsers. Try the name of an app, or clear the field. It may also be the address of the provider's site, not of the subscription"
+msgstr "На этот User-Agent провайдер прислал веб-страницу: провайдеры показывают её браузерам. Попробуйте название приложения или очистите поле. Возможно также, что это адрес сайта провайдера, а не подписки"
+
 msgid "The provider sent an empty list"
 msgstr "Провайдер прислал пустой список"
+
+msgid "The provider sent notes instead of servers to this User-Agent: %s. Try another name, or clear the field"
+msgstr "На этот User-Agent провайдер прислал вместо серверов заметки: %s. Попробуйте другое название или очистите поле"
 
 msgid "The provider sent notes instead of servers: %s"
 msgstr "Провайдер прислал вместо серверов заметки: %s"
@@ -1712,6 +1868,9 @@ msgstr "Роутер сейчас не знает ни одного DNS-серв
 msgid "The router seems to have no internet connection: the uplink check failed."
 msgstr "Похоже, у роутера нет связи с интернетом: проверка аплинка не прошла."
 
+msgid "The router sends the device identifier itself: %s cannot be set"
+msgstr "Идентификатор устройства роутер отправляет сам: %s задать нельзя"
+
 msgid "The row connects through its own source"
 msgstr "Строка подключается через свой же источник"
 
@@ -1720,6 +1879,9 @@ msgstr "Правило «%s», выбранное для BitTorrent в наст�
 
 msgid "The rule for BitTorrent"
 msgstr "Правило для BitTorrent"
+
+msgid "The rule takes the traffic of these devices only: IPv4 or IPv6 addresses and subnets. The other devices go on to the rules below, and directly when none takes them. The DNS answers stay the same for all. Give a device a fixed address (a static DHCP lease). IPv6 addresses matter only with IPv6 traffic: Through podkop. Does not limit the mixed proxy."
+msgstr "Правило берёт трафик только этих устройств: адреса и подсети IPv4 или IPv6. Остальные устройства идут дальше, к правилам ниже, а если ни одно их не берёт — напрямую. Ответы DNS для всех одинаковы. Закрепите за устройством постоянный адрес (статическая аренда DHCP). Адреса IPv6 важны только при «Трафик IPv6: Через podkop». На смешанный прокси не действует."
 
 msgid "The search is still running; its result did not come in time."
 msgstr "Поиск ещё идёт; результат не пришёл вовремя."
@@ -1816,6 +1978,15 @@ msgstr "URL-тест этого сервера не прошёл, и соеди�
 
 msgid "the user must be a UUID and a password"
 msgstr "пользователь должен быть UUID и паролем"
+
+msgid "The User-Agent has its own field"
+msgstr "Для User-Agent есть своё поле"
+
+msgid "The User-Agent or a header cannot be sent: %s"
+msgstr "User-Agent или заголовок нельзя отправить: %s"
+
+msgid "The value is empty"
+msgstr "Пустое значение"
 
 msgid "The web panel of sing-box, opened from the devices chosen below; without it the panel's API is reached from the router only"
 msgstr "Веб-панель sing-box, открывается с устройств, выбранных ниже; без неё API панели доступен только с самого роутера"
@@ -1949,6 +2120,9 @@ msgstr "Неподдерживаемый тип ссылки"
 msgid "until %s"
 msgstr "до %s"
 
+msgid "Update available: %s"
+msgstr "Доступно обновление: %s"
+
 msgid "Update interval"
 msgstr "Интервал обновления"
 
@@ -1978,6 +2152,12 @@ msgstr "Пользовательские подсети"
 
 msgid "User Subnets List"
 msgstr "Список пользовательских подсетей"
+
+msgid "User-Agent"
+msgstr "User-Agent"
+
+msgid "User-Agent: %s"
+msgstr "User-Agent: %s"
 
 msgid "uTLS-fallback"
 msgstr "uTLS-fallback"
@@ -2045,6 +2225,12 @@ msgstr "Какие сайты через какие серверы идут. Е�
 msgid "Whose BitTorrent goes through the rule"
 msgstr "Чей BitTorrent идёт через правило"
 
+msgid "With %s the provider would send a part of the list or none: podkop needs the whole list"
+msgstr "С %s провайдер пришлёт часть списка или ничего: podkop нужен весь список"
+
+msgid "With a user name and a password, apps sign in to the proxy (SOCKS5 or HTTP; SOCKS4 no longer works). Both empty: any device that reaches the port can use it"
+msgstr "С именем и паролем приложения входят в прокси (SOCKS5 или HTTP; SOCKS4 тогда не работает). Оба пусты — прокси может пользоваться любое устройство, которому доступен порт"
+
 msgid "without %s"
 msgstr "без %s"
 
@@ -2069,5 +2255,5 @@ msgstr "Вашей учётной записи можно смотреть эт�
 msgid "Your account may view this page but may not start a search."
 msgstr "Вашей учётной записи можно смотреть эту страницу, но нельзя запускать поиск."
 
-msgid "Your test just now. The group chooses by the median of its own rounds, shown above."
-msgstr "Ваша проверка только что. Группа выбирает по медиане своих раундов — она показана выше."
+msgid "Your test just now. For a rule of several servers, a round of its server check, as the group makes them: each server with the URL of the round, the next one when it does not answer; the number is the median the group chooses by, with this round. A server tested alone (a rule of one server, or a group busy with its own round): one request with the first server check URL that answered."
+msgstr "Ваша проверка только что. Для правила с несколькими серверами — раунд его проверки серверов, как их проводит группа: каждый сервер проверяется ссылкой раунда, а если она не ответила — следующей; число — медиана, по которой выбирает группа, с учётом этого раунда. Сервер, проверенный отдельно (правило с одним сервером или группа, занятая своим раундом), — один запрос по первой ответившей ссылке проверки серверов."
