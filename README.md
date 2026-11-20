@@ -52,21 +52,69 @@ package is needed.
 
 ## Install
 
-OpenWrt 24.10 or newer, at least 80 MB of RAM. In the router's shell:
+OpenWrt 24.10 or newer, at least 80 MB of RAM. In the router's shell (SSH):
 
 ```sh
 sh <(wget -O - https://raw.githubusercontent.com/podkop-net/podkop-experimental/main/install.sh)
 ```
 
-The installer checks the router. It offers to remove podkop and the packages that conflict with
-podkop-exp; if the flash is short, it also offers to remove sing-box packages that podkop-exp
-does not need. Then it installs podkop-exp and its page, with the Russian translation if you want
-it. podkop's settings are converted; the file as it was stays as `/etc/config/podkop.pre-0.8.8`.
-It shows the output of every command as it goes, and says so when a server does not answer.
-Without the Russian translation, and without the question about it: add `--no-ru` at the end of
-the command (`--ru` installs it without the question).
+If the shell does not take that line, download the installer first:
 
-To upgrade, run the same command. Clear the browser's cache of the LuCI page after an upgrade.
+```sh
+wget -O /tmp/install.sh https://raw.githubusercontent.com/podkop-net/podkop-experimental/main/install.sh && sh /tmp/install.sh
+```
+
+The installer checks the router and shows what it will do: the release, the version installed
+now, and the installed packages podkop-exp cannot work beside (podkop and its page, podkop-engine;
+https-dns-proxy, nextdns or luci-app-xray, which take over the DNS forwarding of dnsmasq). It asks
+once whether to remove them, and whether to install the Russian translation, before it changes
+anything: if you answer no, nothing on the router is changed. Your podkop settings stay:
+podkop-exp converts them and keeps them in the old format as `/etc/config/podkop.pre-0.8.8` (if
+that file is left from an earlier install, the installer first copies the current file to a dated
+name and tells it). If the flash is short, it then offers to remove the sing-box packages nothing
+uses (podkop-exp has sing-box inside). It shows the output of every command as it goes; when
+something fails, it says what was done already.
+
+Options, at the end of the command:
+
+| | |
+|---|---|
+| `-y` | yes to the questions, for scripts: remove the packages podkop-exp cannot work beside and the unused sing-box packages, install an older release named by `--release`. The translation stays as it is: kept if it was installed |
+| `--ru`, `--no-ru` | install the Russian translation of the page without the question, or leave it out |
+| `--release 0.8.19` | that release instead of the latest one, an older one too (0.8.8 or newer). An older release does not undo the conversion of the settings, and it ignores the options added after it |
+| `--from DIR` | the package files in `DIR` instead of a download ([below](#install-without-githubs-api)) |
+
+Without a terminal (in a script), the answers are read from the input: `echo y | sh /tmp/install.sh`.
+
+To upgrade, run the same command, then clear the browser's cache of the LuCI page (or open it in a
+private window). When the release is installed already, the installer says so and changes nothing.
+
+If podkop runs and the download fails, stop it (`service podkop stop`) and run the command again.
+The installer says so when GitHub's address comes from podkop's FakeIP range.
+
+### Install without GitHub's API
+
+GitHub's API allows 60 requests an hour from one address, and the subscribers of a mobile operator
+often share one. When the installer says "GitHub refused the request":
+
+1. On a computer, download from the [release page](https://github.com/podkop-net/podkop-experimental/releases):
+   - `podkop-exp-<version>-<architecture>.ipk` (`.apk` on OpenWrt 25.12). The architecture of the
+     router, with dashes: `. /etc/openwrt_release; echo $DISTRIB_ARCH | tr _ -`. For example
+     `podkop-exp-v0.8.20-r1-aarch64-cortex-a53.ipk`;
+   - `luci-app-podkop-exp-<version>-all.ipk` (`luci-app-podkop-exp-<version>.apk`);
+   - for Russian, `luci-i18n-podkop-exp-ru-<version>.ipk` (`.apk`).
+2. Copy them to the router. `-O`: the SSH server of OpenWrt (dropbear) has no SFTP, which `scp`
+   uses by default.
+
+   ```sh
+   ssh root@192.168.1.1 mkdir -p /tmp/pkgs
+   scp -O podkop-exp-* luci-app-podkop-exp-* luci-i18n-podkop-exp-ru-* root@192.168.1.1:/tmp/pkgs/
+   ```
+
+3. Add `--from /tmp/pkgs` at the end of the install command. The installer does not check these
+   files against GitHub's digests: take them from the release page only. If the router cannot
+   reach GitHub at all, copy `install.sh` there as well and run
+   `sh /tmp/pkgs/install.sh --from /tmp/pkgs`.
 
 ## Back to podkop
 
@@ -78,7 +126,8 @@ apk del luci-i18n-podkop-exp-ru luci-app-podkop-exp podkop-exp       # OpenWrt 2
 ```
 
 Put the old settings back with `mv /etc/config/podkop.pre-0.8.8 /etc/config/podkop` (if there is no such file, remove
-`/etc/config/podkop`). Then install podkop as its README says.
+`/etc/config/podkop`; if the installer named a dated copy, `/etc/config/podkop.pre-0.8.8-<date>`,
+that one holds the settings of your last podkop). Then install podkop as its README says.
 
 ## Documentation
 

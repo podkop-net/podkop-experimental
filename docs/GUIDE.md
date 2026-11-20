@@ -15,6 +15,7 @@ under them; this guide covers what the hints do not.
 - [Dashboard](#dashboard)
 - [Diagnostics](#diagnostics)
 - [When something does not work](#when-something-does-not-work)
+- [Upgrade](#upgrade)
 - [Command line](#command-line)
 
 ## First start
@@ -216,6 +217,20 @@ of it (give them the router's DNS server in the DHCP settings of the LAN).
    with the global check and what you did. The log is `logread -e podkop`.
 6. BitTorrent goes the wrong way: run `podkop bittorrent_record 10 --reset`, start the download,
    and attach the file it names after 10 minutes. It holds counts only: no addresses or names.
+
+## Upgrade
+
+Run the install command of the [README](../README.md#install) again. It shows the release it
+installs and the version installed now, and says so when there is nothing to do. Then clear the
+browser's cache before opening the page (or open it in a private window): the browser may keep
+the page of the release before.
+
+- `--release 0.8.19` at the end of the command installs that release, an older one too (0.8.8 or
+  newer). Your settings stay in the format of podkop-exp; an older release ignores the options
+  added after it.
+- When GitHub refuses ("GitHub refused the request": its API allows 60 requests an hour from one
+  address), download the packages on a computer and use `--from`, as the README
+  [says](../README.md#install-without-githubs-api).
 
 ## Command line
 
