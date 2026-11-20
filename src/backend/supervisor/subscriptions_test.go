@@ -475,7 +475,7 @@ func TestSubscriptionPreviews(t *testing.T) {
 	require.NoError(t, os.WriteFile(options.SettingsPath, []byte(subscriptionSettings(directory, "all")), 0o644))
 	s := New(options)
 	require.True(t, s.Boot().OK)
-	preview := s.LoadSubscription(context.Background(), "https://other.example/sub/X")
+	preview := s.LoadSubscription(context.Background(), "https://other.example/sub/X", api.ListRequest{})
 	require.Empty(t, preview.Error)
 	require.Len(t, preview.Servers, 3)
 	require.Equal(t, "NL 1", preview.Servers[0].Name)
@@ -576,7 +576,7 @@ func TestSubscriptionIntervalChange(t *testing.T) {
 	day := last.Add(24 * time.Hour)
 	s := New(Options{})
 	apply := func(interval string) {
-		s.syncSubscriptions(&model.Config{Sources: []model.Source{{Name: name, Type: "subscription", URL: address, UpdateInterval: interval}}})
+		s.syncSubscriptions(&model.Config{Sources: []model.Source{{Name: name, Type: "subscription", URL: address, UpdateInterval: interval}}}, true)
 	}
 	apply("auto")
 	state := s.subscriptions.states[name]
@@ -676,13 +676,13 @@ func TestSubscriptionLoadJobs(t *testing.T) {
 	s := New(options)
 	require.True(t, s.Boot().OK)
 	ctx := context.Background()
-	first := s.StartLoad(ctx, "https://one.example/sub/A")
+	first := s.StartLoad(ctx, "https://one.example/sub/A", api.ListRequest{})
 	require.Equal(t, "running", first.State)
 	require.NotEmpty(t, first.ID)
-	require.Equal(t, first.ID, s.StartLoad(ctx, " https://one.example/sub/A ").ID, "the same address: the same job")
-	second := s.StartLoad(ctx, "https://two.example/sub/B")
+	require.Equal(t, first.ID, s.StartLoad(ctx, " https://one.example/sub/A ", api.ListRequest{}).ID, "the same address: the same job")
+	second := s.StartLoad(ctx, "https://two.example/sub/B", api.ListRequest{})
 	require.NotEqual(t, first.ID, second.ID)
-	busy := s.StartLoad(ctx, "https://three.example/sub/C")
+	busy := s.StartLoad(ctx, "https://three.example/sub/C", api.ListRequest{})
 	require.Equal(t, "failed", busy.State)
 	require.Equal(t, "busy", busy.Preview.ErrorCode)
 

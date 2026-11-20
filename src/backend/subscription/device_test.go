@@ -62,7 +62,7 @@ func TestDeviceLabelAddressFromTheDeviceTree(t *testing.T) {
 	require.Regexp(t, `^[a-zA-Z0-9=-]{10,64}$`, device.HWID)
 	require.Equal(t, "Xiaomi Mi Router AX3000T", device.Model)
 	require.Equal(t, "24.10.4", device.Release)
-	header := device.Headers("0.8.5")
+	header := device.Headers("0.8.5", Custom{})
 	require.Equal(t, "podkop/0.8.5", header.Get("User-Agent"))
 	require.Equal(t, device.HWID, header.Get("x-hwid"))
 	require.Equal(t, "OpenWrt", header.Get("x-device-os"))

@@ -86,11 +86,11 @@ var Commands = [][2]string{
 	{"yacd_builtin", "The dashboard YACD of the package served again in place of the one upgraded from GitHub"},
 	{"global_check", "[label port]: every check as one report; with the label of a check name and a port the device that asks opens connections to meanwhile, also what came of its DNS question and its connections"},
 	{"check_links", "<link>...: each proxy link as the engine of this build takes it when the settings run, as JSON: [{ok, error}]"},
-	{"subscription_load", "<address>: download the list of a subscription to be shown, not taken, as JSON: {route, error, error_code, took_ms, attempts, provider, servers: [{name, scheme, address, link, reason, notes}]}"},
-	{"subscription_load_start", "<address>: start a download of the list of a subscription to be shown, as JSON: {id, state, elapsed_ms, attempts}"},
+	{"subscription_load", "<address> [JSON {user_agent, headers}]: download the list of a subscription to be shown, not taken, asked with that User-Agent and those headers (Name: value), as JSON: {route, error, error_code, took_ms, attempts, provider, agent, servers: [{name, scheme, address, link, reason, notes}]}"},
+	{"subscription_load_start", "<address> [JSON {user_agent, headers}]: start a download of the list of a subscription to be shown, as JSON: {id, state, elapsed_ms, attempts}"},
 	{"subscription_load_state", "<id>: how a download started by subscription_load_start goes, as JSON: {id, state (running, done, failed, canceled), elapsed_ms, attempts, preview}"},
 	{"subscription_load_cancel", "<id>: stop a download started by subscription_load_start"},
-	{"group_check", "<JSON {subscriptions, include, exclude}>: the servers a group would choose, as JSON: {chosen, total, missing}"},
+	{"group_check", "<JSON {subscriptions, include, exclude, addresses, requests}>: the servers a group would choose, as JSON: {chosen, total, missing}; addresses and requests ({user_agent, headers}) are those of the form by the name of the subscription, those of the settings that run when not given"},
 	{"subscription_status", "Each subscription of the settings, as JSON: its servers, when its list was taken and checked, the way it came, the last error, the next download"},
 	{"subscription_update", "[name]: download the list of a subscription now (every one without a name)"},
 	{"subscription_update_start", "<name>: start a download of the list of a subscription now, as JSON: the states of subscription_status at once; the attempted time of the subscription is new once it has ended"},
@@ -182,19 +182,21 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 		}
 		return compact(results)
 	case "subscription_load":
-		if len(arguments) < 2 {
+		request, read := listRequest(arguments)
+		if len(arguments) < 2 || !read {
 			return usage(errorOutput)
 		}
-		return compact(loadAndWait(client, arguments[1]))
+		return compact(loadAndWait(client, arguments[1], request))
 	case "subscription_load_start", "subscription_load_state", "subscription_load_cancel":
-		if len(arguments) < 2 {
+		request, read := listRequest(arguments)
+		if len(arguments) < 2 || !read {
 			return usage(errorOutput)
 		}
 		var job *api.LoadJob
 		var err error
 		switch arguments[0] {
 		case "subscription_load_start":
-			job, err = client.StartLoad(arguments[1])
+			job, err = client.StartLoad(arguments[1], request)
 		case "subscription_load_state":
 			job, err = client.LoadState(arguments[1])
 		default:

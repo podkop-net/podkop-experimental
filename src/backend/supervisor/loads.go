@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -75,8 +76,9 @@ func (s *Supervisor) remember(key string, tries []subscription.Try) {
 	}
 	for _, item := range tries {
 		switch {
-		case item.Route == "direct" && !item.Cut:
-			// a try the end of the download's context cut says nothing of the way
+		case item.Route == "direct" && !item.Cut && (item.Failure == nil || !item.Failure.Final()):
+			// a try the end of the download's context cut says nothing of the way, nor does an
+			// answer of the provider itself (a web page to the User-Agent of the settings too)
 			record.directFailed = item.Phase != subscription.PhaseDone
 		}
 		if item.Phase == subscription.PhaseDone {
@@ -125,12 +127,19 @@ func (j *loadJob) view() LoadJob {
 	return view
 }
 
-// StartLoad starts a download of a list from an address for the page; the same address under
-// way already is that download. The page asks how it goes (LoadState): LuCI waits for a call
-// 20 s, a download has a minute. It is for callers outside the goroutine of Run.
-func (s *Supervisor) StartLoad(ctx context.Context, address string) LoadJob {
+// StartLoad starts a download of a list from an address, asked with the request of the form, for
+// the page; the same address and request under way already is that download. A request that
+// cannot be sent as it is fails at once: the form asks for what it shows. The page asks how it
+// goes (LoadState): LuCI waits for a call 20 s, a download has a minute. It is for callers outside
+// the goroutine of Run.
+func (s *Supervisor) StartLoad(ctx context.Context, address string, request api.ListRequest) LoadJob {
 	address = strings.TrimSpace(address)
-	key := subscription.AddressKey(address)
+	custom, problems := subscription.ParseCustom(request.UserAgent, request.Headers)
+	if len(problems) > 0 {
+		refused := refusedRequest(problems[0])
+		return LoadJob{State: loadFailed, Attempts: []api.Attempt{}, Preview: &refused}
+	}
+	key := subscription.RequestKey(address, custom)
 	t := &s.subscriptions
 	t.access.Lock()
 	now := time.Now()
@@ -170,7 +179,7 @@ func (s *Supervisor) StartLoad(ctx context.Context, address string) LoadJob {
 			job.state, job.finished = loadFailed, time.Now()
 			job.preview = &SubscriptionPreview{Servers: []api.PreviewServer{}, Error: "the download stopped on a fault of podkop: see the log", ErrorCode: "fault"}
 		})
-		preview = s.loadPreview(jobContext, address, func(tries []subscription.Try) {
+		preview = s.loadPreview(jobContext, address, custom, func(tries []subscription.Try) {
 			t.access.Lock()
 			job.tries = tries
 			t.access.Unlock()
@@ -220,12 +229,20 @@ func (s *Supervisor) CancelLoad(ctx context.Context, id string) (LoadJob, bool) 
 	return job.view(), true
 }
 
+// refusedRequest is the preview of a request of the page that cannot be sent: the first line
+// left out, by its code for the page (the code, the line, the name, the arguments), never its
+// value.
+func refusedRequest(problem subscription.Problem) SubscriptionPreview {
+	args := append([]string{problem.Code, strconv.Itoa(problem.Line), problem.Name}, problem.Args...)
+	return SubscriptionPreview{Servers: []api.PreviewServer{}, Error: "the User-Agent or a header cannot be sent: " + problem.Where() + ": " + problem.Text, ErrorCode: "request", ErrorArgs: args}
+}
+
 // loadPreview downloads a list to be shown: nothing is taken; the list is kept a while for
-// Check of a group and for a subscription added with its address.
-func (s *Supervisor) loadPreview(ctx context.Context, address string, report func([]subscription.Try)) SubscriptionPreview {
-	preview := SubscriptionPreview{Servers: []api.PreviewServer{}}
+// Check of a group and for a subscription added with its address and request.
+func (s *Supervisor) loadPreview(ctx context.Context, address string, custom subscription.Custom, report func([]subscription.Try)) SubscriptionPreview {
+	preview := SubscriptionPreview{Servers: []api.PreviewServer{}, Agent: custom.UserAgent}
 	address = strings.TrimSpace(address)
-	list, _, tries, err := s.fetch(ctx, address, downloadProxies, report)
+	list, _, tries, err := s.fetch(ctx, address, custom, downloadProxies, report)
 	preview.Attempts = attempts(tries)
 	if err != nil {
 		preview.Error, preview.ErrorCode, preview.ErrorArgs = failureOf(err)
@@ -234,7 +251,7 @@ func (s *Supervisor) loadPreview(ctx context.Context, address string, report fun
 		}
 		return preview
 	}
-	s.keepPreview(list)
+	s.keepPreview(list, custom.Key())
 	preview.Route, preview.Took = list.Route, tookOf(tries)
 	preview.Provider = subscription.ReadInfo(list.Info)
 	for _, server := range list.Servers {

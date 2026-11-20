@@ -1298,7 +1298,7 @@ func (s *Supervisor) prepare(checked bool) (next *candidate, err error) {
 	}
 	// a configuration checked after a swap sing-box refused is built again: its warnings were told
 	s.clashKey(settings, !checked)
-	s.syncSubscriptions(settings)
+	s.syncSubscriptions(settings, !checked)
 	if !settings.Routes() {
 		return nil, errNothingToRoute
 	}

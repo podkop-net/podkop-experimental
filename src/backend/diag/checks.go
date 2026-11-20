@@ -18,6 +18,7 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/firewall"
 	"github.com/podkop-net/podkop-experimental/src/backend/plan"
 	checkname "github.com/podkop-net/podkop-experimental/src/backend/probe"
+	"github.com/podkop-net/podkop-experimental/src/backend/subscription"
 	"github.com/podkop-net/podkop-experimental/src/backend/uci"
 
 	mDNS "github.com/miekg/dns"
@@ -251,12 +252,37 @@ var secretOptions = []string{"option proxy_string", "option outbound_json", "lis
 	// the login of the mixed proxy of a rule
 	"option mixed_proxy_username", "option mixed_proxy_password"}
 
+// the extra headers of a subscription: the name is shown, the value may be a key of the provider.
+// "list header" for the page, "option header" for a header set by uci set
+var headerOptions = []string{"option header", "list header"}
+
+// the name of a header at the start of a value, quoted or not: shown when it is one a header of
+// the settings can have (subscription.ParseCustom), else the whole value is masked
+var headerName = regexp.MustCompile(`^[ \t]*['"]?([A-Za-z0-9-]{1,64})[ \t]*:`)
+
+// the User-Agent of a subscription: the name of an app, no secret, shown up to 64 characters
+const agentOption = "option user_agent"
+
 // the path of a DNS server may hold the identifier of an account
 var serverPath = regexp.MustCompile(`(option (?:dns_server|domain_resolver_dns_server) '[^/']*)/[^']*'`)
 
+// optionAt is where an option of a line of the settings begins, the whole name of it only
+// ("option url" is not "option urltest_testing_url"); -1 when the line is not of it.
+func optionAt(line string, option string) int {
+	at := strings.Index(line, option)
+	if at < 0 || strings.TrimSpace(line[:at]) != "" {
+		return -1
+	}
+	if rest := line[at+len(option):]; rest != "" && !strings.ContainsRune(" \t'\"", rune(rest[0])) {
+		return -1
+	}
+	return at
+}
+
 // MaskSettings returns the settings file with what must not be shown replaced by the
 // word MASKED, the lines otherwise as they are. A value that goes on over several lines,
-// as an outbound written by hand does, is replaced whole.
+// as an outbound written by hand does, is replaced whole. A header of a subscription keeps its
+// name; a long User-Agent is cut.
 func MaskSettings(content []byte) string {
 	var result strings.Builder
 	inside := false
@@ -268,12 +294,8 @@ func MaskSettings(content []byte) string {
 		}
 		masked := false
 		for _, option := range secretOptions {
-			at := strings.Index(line, option)
-			if at < 0 || strings.TrimSpace(line[:at]) != "" {
-				continue
-			}
-			// the whole name: "option url" is not "option urltest_testing_url"
-			if rest := line[at+len(option):]; rest != "" && !strings.ContainsRune(" \t'", rune(rest[0])) {
+			at := optionAt(line, option)
+			if at < 0 {
 				continue
 			}
 			result.WriteString(line[:at] + option + " 'MASKED'\n")
@@ -281,11 +303,43 @@ func MaskSettings(content []byte) string {
 			masked = true
 			break
 		}
+		for _, option := range headerOptions {
+			at := optionAt(line, option)
+			if masked || at < 0 {
+				continue
+			}
+			rest := line[at+len(option):]
+			value := "MASKED"
+			if found := headerName.FindStringSubmatch(rest); found != nil {
+				value = found[1] + ": MASKED"
+			}
+			result.WriteString(line[:at] + option + " '" + value + "'\n")
+			inside = quoted(rest, false)
+			masked = true
+		}
+		if at := optionAt(line, agentOption); !masked && at >= 0 {
+			result.WriteString(line[:at] + agentOption + shortAgent(line[at+len(agentOption):]))
+			masked = true
+		}
 		if !masked {
 			result.WriteString(serverPath.ReplaceAllString(line, "$1/MASKED'"))
 		}
 	}
 	return result.String()
+}
+
+// shortAgent is the rest of a line of the User-Agent, its value cut after 64 characters when it
+// is written in single quotes alone, as uci writes it; any other line is as it is (it is no
+// secret).
+func shortAgent(rest string) string {
+	body := strings.TrimRight(rest, "\r\n")
+	end := rest[len(body):]
+	value := strings.TrimLeft(body, " \t")
+	space := body[:len(body)-len(value)]
+	if len(value) < 2 || value[0] != '\'' || value[len(value)-1] != '\'' || strings.Contains(value[1:len(value)-1], "'") {
+		return rest
+	}
+	return space + "'" + subscription.ShownAgent(value[1:len(value)-1]) + "'" + end
 }
 
 // quoted follows the single quotes of a line of a UCI file and tells whether the line

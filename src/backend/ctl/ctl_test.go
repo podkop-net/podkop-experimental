@@ -37,6 +37,7 @@ type backend struct {
 	group         api.GroupPreview
 	updated       []string
 	loaded        []string
+	requests      []api.ListRequest
 	bitTorrent    btstats.Report
 	checked       []api.GroupCheck
 }
@@ -58,12 +59,12 @@ func (b *backend) UpdateSubscriptions(_ context.Context, name string) []api.Subs
 	b.updated = append(b.updated, name)
 	return b.subscriptions
 }
-func (b *backend) LoadSubscription(_ context.Context, address string) api.SubscriptionPreview {
-	b.loaded = append(b.loaded, address)
+func (b *backend) LoadSubscription(_ context.Context, address string, request api.ListRequest) api.SubscriptionPreview {
+	b.loaded, b.requests = append(b.loaded, address), append(b.requests, request)
 	return b.preview
 }
-func (b *backend) StartLoad(_ context.Context, address string) api.LoadJob {
-	b.loaded = append(b.loaded, address)
+func (b *backend) StartLoad(_ context.Context, address string, request api.ListRequest) api.LoadJob {
+	b.loaded, b.requests = append(b.loaded, address), append(b.requests, request)
 	return api.LoadJob{ID: "job1", State: "running", Attempts: []api.Attempt{{Route: "direct", Phase: "wait", Took: 300}}}
 }
 func (b *backend) LoadState(_ context.Context, id string) (api.LoadJob, bool) {
@@ -440,9 +441,20 @@ func TestSubscriptionCommands(t *testing.T) {
 	var preview api.SubscriptionPreview
 	require.NoError(t, json.Unmarshal([]byte(output), &preview))
 	require.Equal(t, "NL 1", preview.Servers[0].Name)
+	require.Equal(t, []api.ListRequest{{}}, running.requests)
 	output, status = run(env, "subscription_load_start", "https://sub.example/sub/TOKEN")
 	require.Zero(t, status)
 	require.JSONEq(t, `{"id":"job1","state":"running","elapsed_ms":0,"attempts":[{"route":"direct","phase":"wait","ms":300}]}`, output)
+	// the User-Agent and the headers of the form, through the socket
+	output, status = run(env, "subscription_load_start", "https://sub.example/sub/TOKEN", `{"user_agent":"INCY","headers":["Authorization: Bearer t"]}`)
+	require.Zero(t, status)
+	require.Contains(t, output, `"id":"job1"`)
+	require.Equal(t, api.ListRequest{UserAgent: "INCY", Headers: []string{"Authorization: Bearer t"}}, running.requests[len(running.requests)-1])
+	_, status = run(env, "subscription_load", "https://sub.example/sub/TOKEN", `{"user_agent":"INCY"}`)
+	require.Zero(t, status)
+	require.Equal(t, api.ListRequest{UserAgent: "INCY"}, running.requests[len(running.requests)-1])
+	_, status = run(env, "subscription_load_start", "https://sub.example/sub/TOKEN", "INCY")
+	require.NotZero(t, status, "not JSON")
 	output, status = run(env, "subscription_load_state", "job1")
 	require.Zero(t, status)
 	require.Contains(t, output, `"state":"done"`)
@@ -453,9 +465,10 @@ func TestSubscriptionCommands(t *testing.T) {
 	output, status = run(env, "subscription_load_state", "nojob")
 	require.Zero(t, status)
 	require.Contains(t, output, `"error_code":"nojob"`)
-	output, status = run(env, "group_check", `{"subscriptions":["prov1"],"include":["NL"],"exclude":[]}`)
+	output, status = run(env, "group_check", `{"subscriptions":["prov1"],"include":["NL"],"exclude":[],"requests":{"prov1":{"user_agent":"INCY","headers":["X-Api-Key: k"]}}}`)
 	require.Zero(t, status)
 	require.Equal(t, []string{"NL"}, running.checked[0].Include)
+	require.Equal(t, map[string]api.ListRequest{"prov1": {UserAgent: "INCY", Headers: []string{"X-Api-Key: k"}}}, running.checked[0].Requests)
 	require.JSONEq(t, `{"chosen":["NL 1"],"total":3}`, output)
 	output, status = run(env, "subscription_status")
 	require.Zero(t, status)

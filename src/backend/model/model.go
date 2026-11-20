@@ -48,6 +48,11 @@ type Source struct {
 	// UpdateInterval is how often the list is downloaded again: auto (as the provider
 	// says, otherwise a day) or a duration (20m, 1h, …).
 	UpdateInterval string
+	// UserAgent is the User-Agent a subscription is asked with ("": podkop's own), Headers its
+	// extra headers as the settings write them (Name: value), checked when they are sent
+	// (subscription.ParseCustom). A value of a header may be a secret.
+	UserAgent string
+	Headers   []string
 
 	Links      []string
 	UDPOverTCP bool
@@ -449,6 +454,8 @@ func Load(parsed *uci.Package) (*Config, error) {
 			Label:                   section.Get("label"),
 			URL:                     strings.TrimSpace(section.Get("url")),
 			UpdateInterval:          get(section, "update_interval", "auto"),
+			UserAgent:               strings.TrimSpace(section.Get("user_agent")),
+			Headers:                 nonEmpty(list(section, "header")),
 			Links:                   nonEmpty(links(section, "link")),
 			UDPOverTCP:              section.Get("udp_over_tcp") == "1",
 			OutboundJSON:            section.Get("outbound_json"),

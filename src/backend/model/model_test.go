@@ -137,6 +137,24 @@ func TestSourcesAndMembers(t *testing.T) {
 	require.True(t, (&Member{}).Takes("anything"))
 }
 
+// The User-Agent and the headers of a subscription: a list, or an option of one line that uci set
+// writes; absent, none (the equality of TestSourcesAndMembers: no migration). The lines are as the
+// settings have them, checked when they are sent.
+func TestSubscriptionRequestOptions(t *testing.T) {
+	t.Parallel()
+	parsed, err := uci.Parse([]byte("config settings 'settings'\n\toption config_version '2'\n" +
+		"\nconfig source 'prov1'\n\toption type 'subscription'\n\toption url 'https://a.example/sub/1'\n\toption user_agent '  INCY '\n" +
+		"\tlist header 'Authorization: Bearer t'\n\tlist header 'x-hwid: fake'\n" +
+		"\nconfig source 'prov2'\n\toption type 'subscription'\n\toption url 'https://b.example/sub/2'\n\toption header 'X-Api-Key: k 1'\n"))
+	require.NoError(t, err)
+	config, err := Load(parsed)
+	require.NoError(t, err)
+	require.Equal(t, "INCY", config.Source("prov1").UserAgent)
+	require.Equal(t, []string{"Authorization: Bearer t", "x-hwid: fake"}, config.Source("prov1").Headers)
+	require.Empty(t, config.Source("prov2").UserAgent)
+	require.Equal(t, []string{"X-Api-Key: k 1"}, config.Source("prov2").Headers, "an option is one line, not split at its spaces")
+}
+
 func TestNameHas(t *testing.T) {
 	t.Parallel()
 	require.True(t, NameHas("🇺🇸 USA AI-1", "AI"))

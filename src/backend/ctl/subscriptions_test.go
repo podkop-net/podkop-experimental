@@ -32,3 +32,18 @@ func TestSubscriptionLines(t *testing.T) {
 		`⏳ prov4: the list is not downloaded yet`,
 	}, lines)
 }
+
+// What the settings add to the request is told at the end of the line: the User-Agent whole up to
+// 64 characters, the names of the headers, never a value, and the lines left out.
+func TestSubscriptionLinesTellTheRequest(t *testing.T) {
+	now := time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)
+	changed := now.Add(-time.Hour)
+	browser := "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+	lines := subscriptionLines([]api.SubscriptionState{
+		{Name: "prov1", Servers: 2, Usable: 2, Changed: &changed, Checked: &changed, Route: "direct", Agent: "INCY", Headers: []string{"Authorization"}},
+		{Name: "prov2", Error: "the provider sent a web page", Agent: browser,
+			Problems: []api.RequestProblem{{Line: 2, Name: "x-hwid", Code: "device"}, {Line: 3, Code: "syntax"}, {Line: 0, Code: "chars"}}},
+	}, model.Names{}, now)
+	require.Equal(t, "✅ prov1: 2 servers, 2 can be used; checked 1 h ago (direct); servers changed 1 h ago; User-Agent INCY; headers Authorization", lines[0])
+	require.Equal(t, "❌ prov2: no list: the provider sent a web page; User-Agent "+browser[:64]+"…; left out of the request: header 2 (x-hwid), header 3, the User-Agent", lines[1])
+}

@@ -79,11 +79,15 @@ type subscriptions struct {
 	// verdicts are the reasons of the servers built so far by their ID, whichever list
 	// or preview they came in (subscription.Check)
 	verdicts map[string]string
+	// customs are what the settings add to the requests of each subscription (the User-Agent
+	// and the extra headers), by name
+	customs map[string]subscription.Custom
 	// waiting are the callers of UpdateSubscriptions, by name ("" for all)
 	waiting map[string][]chan []SubscriptionState
 	// previews are the lists downloaded for the page (LoadSubscription, CheckGroup), by the
-	// key of their address, for a while: Check of a group takes the list Load just got
-	previews map[string]*subscription.Saved
+	// key of their address, for a while: Check of a group takes the list Load just got. An
+	// address keeps the newest only, whatever it was asked with: a list may have 4 MiB
+	previews map[string]*preview
 	// changed tells that a list was taken since the settings were last applied: they are
 	// applied again once no download is under way, once for all the lists of a round, and
 	// no download loses the sing-box it goes through to a new configuration meanwhile
@@ -98,10 +102,20 @@ type subscriptions struct {
 	failures map[string]int
 }
 
+// preview is a list downloaded for the page, and the key of the request it was asked with
+// (subscription.Custom.Key): a list asked with one User-Agent is not the answer to another.
+type preview struct {
+	list    *subscription.Saved
+	request string
+}
+
 // downloaded is what a download in the background came to.
 type downloaded struct {
 	name    string
 	address string
+	// request is the key of the User-Agent and the headers it was asked with: an answer to
+	// those the settings no longer have is not taken
+	request string
 	list    *subscription.Saved
 	tries   []subscription.Try
 	err     error
@@ -123,15 +137,20 @@ func (s *Supervisor) store() subscription.Store {
 
 // syncSubscriptions takes the subscriptions of settings that were read: the list of each is
 // the one kept for its address, a new one is downloaded soon after, and what the settings
-// no longer have is forgotten, its file included.
-func (s *Supervisor) syncSubscriptions(settings *model.Config) {
+// no longer have is forgotten, its file included. Another User-Agent or other headers of the
+// same address keep the list in use (it is of the same account) and download it again soon. tell
+// logs what the settings add to a request and cannot be sent: once an apply, not again for a
+// configuration built again after a swap.
+func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
 	t := &s.subscriptions
 	t.access.Lock()
 	defer t.access.Unlock()
 	if t.lists == nil {
 		t.addresses, t.intervals, t.lists = make(map[string]string), make(map[string]time.Duration), make(map[string]*subscription.Saved)
 		t.states, t.verdicts, t.waiting = make(map[string]*SubscriptionState), make(map[string]string), make(map[string][]chan []SubscriptionState)
-		t.previews = make(map[string]*subscription.Saved)
+	}
+	if t.customs == nil {
+		t.customs = make(map[string]subscription.Custom)
 	}
 	var names []string
 	now := time.Now()
@@ -140,32 +159,59 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config) {
 			continue
 		}
 		names = append(names, item.Name)
+		custom, problems := subscription.ParseCustom(item.UserAgent, item.Headers)
+		if tell {
+			for _, problem := range problems {
+				line := problem.Describe()
+				if problem.Line == 0 {
+					line += ": podkop/" + s.options.Version + " is sent"
+				}
+				s.log("warn", "subscription ", item.Name, ": ", line)
+			}
+		}
 		before := t.interval(item.Name)
 		t.intervals[item.Name] = parseInterval(item.UpdateInterval)
 		if t.addresses[item.Name] == item.URL && t.states[item.Name] != nil {
 			t.reschedule(item.Name, before)
+			state := t.states[item.Name]
+			if t.customs[item.Name].Key() != custom.Key() {
+				// the list in use stays: it is a list of the same account (a placeholder is never
+				// taken). A download under way asked the old way: its answer is not taken
+				// (takeList), and the list is downloaded again when it ends
+				delete(t.failures, item.Name)
+				if !state.Busy {
+					next := now.Add(firstDownloadDelay)
+					state.Next = &next
+				}
+				s.log("info", "subscription ", item.Name, ": the User-Agent or the headers changed: the list is downloaded again in ",
+					int(firstDownloadDelay/time.Second), " s, the one in use stays until then")
+			}
+			t.customs[item.Name] = custom
+			state.Agent, state.Headers, state.Problems = custom.UserAgent, custom.Names(), problemsOf(problems)
 			continue
 		}
 		t.addresses[item.Name] = item.URL
+		t.customs[item.Name] = custom
 		delete(t.lists, item.Name)
 		delete(t.failures, item.Name)
 		next := now.Add(firstDownloadDelay)
-		state := &SubscriptionState{Name: item.Name, Next: &next}
+		state := &SubscriptionState{Name: item.Name, Next: &next, Agent: custom.UserAgent, Headers: custom.Names(), Problems: problemsOf(problems)}
 		t.states[item.Name] = state
 		var saved *subscription.Saved
 		found := false
 		if s.options.SubscriptionDir != "" {
 			saved, found = s.store().Load(item.Name, item.URL)
 		}
-		if kept := t.previews[subscription.AddressKey(item.URL)]; !found && kept != nil && now.Sub(kept.Changed) < previewKept {
-			// the list the page got for the address a while ago (Load, Check of a group): a
-			// subscription just added has its servers at the apply that adds it; it is
-			// downloaded soon all the same, as the provider may have changed the list since
-			saved, found = kept, true
-			checked := kept.Changed
+		if kept := t.previews[subscription.AddressKey(item.URL)]; !found && kept != nil && kept.request == custom.Key() && now.Sub(kept.list.Changed) < previewKept {
+			// the list the page got for the address a while ago (Load, Check of a group), asked
+			// as the settings ask it: a subscription just added has its servers at the apply that
+			// adds it; it is downloaded soon all the same, as the provider may have changed the
+			// list since
+			saved, found = kept.list, true
+			checked := kept.list.Changed
 			state.Checked = &checked
 			if s.options.SubscriptionDir != "" {
-				if err := s.store().Save(item.Name, kept); err != nil {
+				if err := s.store().Save(item.Name, kept.list); err != nil {
 					s.log("warn", "subscription ", item.Name, ": ", err)
 				}
 			}
@@ -189,11 +235,21 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config) {
 			delete(t.states, name)
 			delete(t.forced, name)
 			delete(t.failures, name)
+			delete(t.customs, name)
 		}
 	}
 	if s.options.SubscriptionDir != "" {
 		s.store().Keep(names)
 	}
+}
+
+// problemsOf are the problems of a request as the state tells them.
+func problemsOf(problems []subscription.Problem) []api.RequestProblem {
+	var told []api.RequestProblem
+	for _, problem := range problems {
+		told = append(told, api.RequestProblem{Line: problem.Line, Name: problem.Name, Code: problem.Code, Args: problem.Args, Text: problem.Text})
+	}
+	return told
 }
 
 // servers are what plan.Options.Servers takes: the servers of each list sing-box can use.
@@ -378,11 +434,19 @@ func hostOf(address string) string {
 	return parsed.Hostname()
 }
 
-// fetch downloads and reads a list: the servers with their reasons, those built before taking
-// the verdicts they had. The ways start as the history of the address plans them, and what
-// the download came to goes into it. It tells the instance it went through and the tries.
-func (s *Supervisor) fetch(ctx context.Context, address string, proxies int, report func([]subscription.Try)) (*subscription.Saved, Instance, []subscription.Try, error) {
-	header := s.options.Device.Headers(s.options.Version)
+// secureAddress tells an address of HTTPS.
+func secureAddress(address string) bool {
+	parsed, err := url.Parse(address)
+	return err == nil && parsed.Scheme == "https"
+}
+
+// fetch downloads and reads a list, asked with what the settings or the page add to the request:
+// the servers with their reasons, those built before taking the verdicts they had. The ways start
+// as the history of the address plans them, and what the download came to goes into it: the
+// history is of the way to the address, whatever it was asked with. It tells the instance it went
+// through and the tries.
+func (s *Supervisor) fetch(ctx context.Context, address string, custom subscription.Custom, proxies int, report func([]subscription.Try)) (*subscription.Saved, Instance, []subscription.Try, error) {
+	header := s.options.Device.Headers(s.options.Version, custom)
 	download := s.options.Download
 	if download == nil {
 		download = subscription.Download
@@ -392,15 +456,18 @@ func (s *Supervisor) fetch(ctx context.Context, address string, proxies int, rep
 	host := hostOf(address)
 	routes, through, together := s.routes(proxies, first, host)
 	way.Together = way.Together || together
+	// a web page to the User-Agent of another app over TLS is the provider's answer to it: two
+	// ways at most get it, and none is held at fault for it
+	way.PageIsAnswer = custom.UserAgent != "" && secureAddress(address)
 	answer, tries, err := download(ctx, address, header, routes, way, report)
 	s.remember(key, tries)
 	recordTries(through, host, routes, tries)
 	if err != nil {
-		return nil, through, tries, err
+		return nil, through, tries, subscription.ForAgent(err, custom, address)
 	}
 	servers, err := subscription.Parse(answer.Body, engine.DecodeLink)
 	if err != nil {
-		return nil, through, tries, err
+		return nil, through, tries, subscription.ForAgent(err, custom, address)
 	}
 	t := &s.subscriptions
 	known := func() map[string]string {
@@ -476,15 +543,18 @@ func (s *Supervisor) downloadDue(now time.Time, force string) {
 		}
 		delete(t.forced, name)
 		state.Busy = true
-		address := t.addresses[name]
+		address, custom := t.addresses[name], t.customs[name]
+		// the fault carries the request too: an answer to the request of now is taken as a
+		// failure, with its backoff, not as one of an old request
+		request := custom.Key()
 		go func() {
 			defer s.survive("the download of subscription "+name, func() {
-				s.downloads <- downloaded{name: name, address: address, err: &subscription.Failure{Code: "fault", Text: "the download stopped on a fault of podkop: see the log"}}
+				s.downloads <- downloaded{name: name, address: address, request: request, err: &subscription.Failure{Code: "fault", Text: "the download stopped on a fault of podkop: see the log"}}
 			})
 			ctx, cancel := context.WithTimeout(context.Background(), downloadBudget)
 			defer cancel()
-			list, through, tries, err := s.fetch(ctx, address, downloadProxies, nil)
-			s.downloads <- downloaded{name: name, address: address, list: list, tries: tries, err: err, through: through, planned: planned}
+			list, through, tries, err := s.fetch(ctx, address, custom, downloadProxies, nil)
+			s.downloads <- downloaded{name: name, address: address, request: request, list: list, tries: tries, err: err, through: through, planned: planned}
 		}()
 	}
 }
@@ -506,6 +576,15 @@ func (s *Supervisor) takeList(result downloaded) {
 	}
 	state.Busy = false
 	now := time.Now()
+	if t.customs[result.name].Key() != result.request {
+		// the User-Agent or the headers changed meanwhile: the answer to the old ones is not
+		// taken, and the list is downloaded again with the new ones now
+		state.Next = &now
+		t.access.Unlock()
+		s.downloadDue(time.Now(), "")
+		s.applyTaken()
+		return
+	}
 	if result.err == nil {
 		// what the provider tells in this answer counts at once: under auto the next download
 		// is as often as it asks now, the first list of a subscription included
@@ -564,6 +643,9 @@ func (s *Supervisor) takeList(result downloaded) {
 	way := waysLine(result.tries)
 	if failed > 0 {
 		way += "; downloaded again after " + strconv.Itoa(failed) + " failed " + plural(failed, "try", "tries")
+	}
+	if agent := t.customs[result.name].UserAgent; agent != "" {
+		way += "; User-Agent " + subscription.ShownAgent(agent)
 	}
 	old := t.lists[result.name]
 	if old != nil && subscription.SameList(old.Servers, result.list.Servers) {
@@ -772,18 +854,23 @@ func (s *Supervisor) askDownload(request subscriptionRequest) {
 	s.downloadDue(time.Now(), key)
 }
 
-// LoadSubscription downloads a list to be shown: the page asks with the address of its form,
-// saved or not. Nothing is taken. It is for callers outside the goroutine of Run.
-func (s *Supervisor) LoadSubscription(ctx context.Context, address string) SubscriptionPreview {
+// LoadSubscription downloads a list to be shown: the page asks with the address, the User-Agent
+// and the headers of its form, saved or not. Nothing is taken. It is for callers outside the
+// goroutine of Run.
+func (s *Supervisor) LoadSubscription(ctx context.Context, address string, request api.ListRequest) SubscriptionPreview {
+	custom, problems := subscription.ParseCustom(request.UserAgent, request.Headers)
+	if len(problems) > 0 {
+		return refusedRequest(problems[0])
+	}
 	ctx, cancel := context.WithTimeout(ctx, loadBudget)
 	defer cancel()
-	return s.loadPreview(ctx, address, nil)
+	return s.loadPreview(ctx, address, custom, nil)
 }
 
 // CheckGroup tells which servers a group would choose. A subscription's list is the one
-// taken when the form has the address the settings have, else the one Load got for the address
-// of the form a while ago, else one downloaded for it; none of these is taken. It is for
-// callers outside the goroutine of Run.
+// taken when the form has the address and the request the settings that run have, else the one
+// Load got for the address and the request of the form a while ago, else one downloaded for
+// them; none of these is taken. It is for callers outside the goroutine of Run.
 func (s *Supervisor) CheckGroup(ctx context.Context, check GroupCheck) GroupPreview {
 	ctx, cancel := context.WithTimeout(ctx, previewBudget)
 	defer cancel()
@@ -795,7 +882,11 @@ func (s *Supervisor) CheckGroup(ctx context.Context, check GroupCheck) GroupPrev
 			continue
 		}
 		seen = append(seen, name)
-		list, err := s.groupList(ctx, name, strings.TrimSpace(check.Addresses[name]))
+		var request *api.ListRequest
+		if asked, found := check.Requests[name]; found {
+			request = &asked
+		}
+		list, err := s.groupList(ctx, name, strings.TrimSpace(check.Addresses[name]), request)
 		if err != nil {
 			preview.Missing = append(preview.Missing, name+": "+oneLine(err.Error()))
 			continue
@@ -814,15 +905,21 @@ func (s *Supervisor) CheckGroup(ctx context.Context, check GroupCheck) GroupPrev
 }
 
 // groupList is the list of a subscription for CheckGroup, by the address of the form (none:
-// that of the settings).
-func (s *Supervisor) groupList(ctx context.Context, name string, address string) (*subscription.Saved, error) {
+// that of the settings) and its request (none: that of the settings). The request of the form
+// is read as the settings are (subscription.ParseCustom): a line they leave out is left out here
+// too, so the same raw lines are the same request, and the list taken is used.
+func (s *Supervisor) groupList(ctx context.Context, name string, address string, request *api.ListRequest) (*subscription.Saved, error) {
 	t := &s.subscriptions
 	t.access.Lock()
-	saved, list := t.addresses[name], t.lists[name]
+	saved, list, running := t.addresses[name], t.lists[name], t.customs[name]
+	custom := running
+	if request != nil {
+		custom, _ = subscription.ParseCustom(request.UserAgent, request.Headers)
+	}
 	if address == "" {
 		address = saved
 	}
-	if list != nil && address == saved {
+	if list != nil && address == saved && custom.Key() == running.Key() {
 		t.access.Unlock()
 		return list, nil
 	}
@@ -831,29 +928,30 @@ func (s *Supervisor) groupList(ctx context.Context, name string, address string)
 	if address == "" {
 		return nil, E.New("the address is not set")
 	}
-	if kept != nil && time.Since(kept.Changed) < previewKept {
-		return kept, nil
+	if kept != nil && kept.request == custom.Key() && time.Since(kept.list.Changed) < previewKept {
+		return kept.list, nil
 	}
-	list, _, _, err := s.fetch(ctx, address, previewProxies, nil)
+	list, _, _, err := s.fetch(ctx, address, custom, previewProxies, nil)
 	if err != nil {
 		return nil, err
 	}
-	s.keepPreview(list)
+	s.keepPreview(list, custom.Key())
 	return list, nil
 }
 
-// keepPreview keeps a list downloaded for the page for a while, and forgets those older.
-func (s *Supervisor) keepPreview(list *subscription.Saved) {
+// keepPreview keeps a list downloaded for the page for a while, the newest of its address only,
+// with the key of the request it was asked with, and forgets those older.
+func (s *Supervisor) keepPreview(list *subscription.Saved, request string) {
 	t := &s.subscriptions
 	t.access.Lock()
 	defer t.access.Unlock()
 	if t.previews == nil {
-		t.previews = make(map[string]*subscription.Saved)
+		t.previews = make(map[string]*preview)
 	}
 	for key, kept := range t.previews {
-		if time.Since(kept.Changed) >= previewKept {
+		if time.Since(kept.list.Changed) >= previewKept {
 			delete(t.previews, key)
 		}
 	}
-	t.previews[list.Address] = list
+	t.previews[list.Address] = &preview{list: list, request: request}
 }

@@ -108,6 +108,11 @@ type Plan struct {
 	// Together starts the second way beside the first: the first brought no list the last
 	// time
 	Together bool
+	// PageIsAnswer takes a web page for an answer of the provider, as a status is: one more way,
+	// then it is the answer, and the ways it came by are not at fault. It is for a request with
+	// the User-Agent of another app to an address of HTTPS: some providers show their page to a
+	// name they do not give the list to, and over TLS no ISP put the page on the way.
+	PageIsAnswer bool
 }
 
 // DefaultPlan is the plan of an address with no downloads before (a subscription after the
@@ -178,8 +183,10 @@ var (
 // provider, or gets a web page (the page of an ISP for a blocked site, as a rule), is
 // followed by the next one; an answer of the provider itself (a code of no account, the
 // marks of a refused device) ends the download; a status that may come from a CDN or a
-// firewall on the way (403, 429, 5xx) is tried by one more way. ctx bounds the download.
-// report, when given, is called with the tries as they go.
+// firewall on the way (403, 429, 5xx) is tried by one more way, and so is a web page when the
+// plan takes it for an answer (Plan.PageIsAnswer). A redirect gets the headers of the settings
+// only on the host of the address (redirected). ctx bounds the download. report, when given, is
+// called with the tries as they go.
 func Download(ctx context.Context, address string, header http.Header, routes []Route, plan Plan, report func([]Try)) (*Answer, []Try, error) {
 	target, err := url.Parse(address)
 	if err != nil || (target.Scheme != "https" && target.Scheme != "http") || target.Host == "" {
@@ -222,7 +229,7 @@ func (d *download) run(ctx context.Context, report func([]Try)) (*Answer, []Try,
 	watch := time.NewTicker(watchEvery)
 	defer watch.Stop()
 	var status *Failure
-	statuses := 0
+	statuses, pages := 0, 0
 	for {
 		select {
 		case finished := <-d.done:
@@ -232,7 +239,15 @@ func (d *download) run(ctx context.Context, report func([]Try)) (*Answer, []Try,
 				return finished.answer, d.ended(report, d.superseded, false), nil
 			}
 			failure := finished.result()
-			if failure.final {
+			if failure.Code == "page" && d.plan.PageIsAnswer {
+				// the page of the provider to the User-Agent of the settings: one more way, then
+				// it is the answer
+				pages++
+				if pages >= 2 {
+					cancel(errSuperseded)
+					return nil, d.ended(report, d.superseded, false), fail("page", true, "two ways got a web page instead of the list")
+				}
+			} else if failure.final {
 				cancel(errSuperseded)
 				return nil, d.ended(report, d.superseded, false), failure
 			}
@@ -281,7 +296,7 @@ func (d *download) start(ctx context.Context) {
 	d.next++
 	ctx, cancel := context.WithCancelCause(ctx)
 	now := time.Now()
-	item := &try{route: route, started: now, last: now, phase: PhaseConnect, cancel: cancel}
+	item := &try{route: route, started: now, last: now, phase: PhaseConnect, cancel: cancel, pageIsAnswer: d.plan.PageIsAnswer}
 	d.tries = append(d.tries, item)
 	d.running++
 	go func() {
@@ -479,6 +494,8 @@ type try struct {
 	route   Route
 	started time.Time
 	cancel  context.CancelCauseFunc
+	// pageIsAnswer: a web page is an answer of the provider, not a fault of the way (Plan)
+	pageIsAnswer bool
 
 	access    sync.Mutex
 	phase     string
@@ -613,6 +630,7 @@ func (t *try) ask(ctx context.Context, target *url.URL, header http.Header) (*An
 		case next.URL.Scheme != "https" && !t.route.Direct:
 			return errPlainRedirect
 		}
+		redirected(next, via[0])
 		return nil
 	}}
 	response, err := client.Do(request)
@@ -646,9 +664,61 @@ func (t *try) ask(ctx context.Context, target *url.URL, header http.Header) (*An
 		}
 	}
 	if response.StatusCode == http.StatusOK && isPage(response.Header, body.Bytes()) {
-		return nil, fail("page", false, "a web page instead of the list")
+		// final when the plan takes a page for the provider's answer: the way is not at fault
+		return nil, fail("page", t.pageIsAnswer, "a web page instead of the list")
 	}
 	return &Answer{Body: body.Bytes(), Header: response.Header, Route: t.route.Name}, nil
+}
+
+// ownHeaders are the headers of podkop itself, which follow a redirect wherever it goes, as they
+// did before the settings had headers: the name of the client (the User-Agent of the settings
+// too: the name of an app is no secret) and the device.
+var ownHeaders = []string{"User-Agent", "Accept", "X-Hwid", "X-Device-Os", "X-Ver-Os", "X-Device-Model"}
+
+// redirected takes out of the request of a redirect what must not go to its target. Go copies
+// the headers of the first request to it, and sets a Referer of the address before, before it
+// asks CheckRedirect. podkop sends no Referer: the address before holds the token, which is the
+// account (a Referer of the settings is for the first request only). The headers of the settings
+// stay with the host of the subscription, and over TLS: another host, or plain HTTP after HTTPS,
+// gets podkop's own only.
+func redirected(next *http.Request, first *http.Request) {
+	if sameHost(first.URL, next.URL) && (first.URL.Scheme != "https" || next.URL.Scheme == "https") {
+		// the host of the address: the headers of the first request, Authorization and Cookie
+		// too, which Go leaves out for a name it does not take for the same (in another case)
+		for name, values := range first.Header {
+			next.Header[name] = values
+		}
+	} else {
+		for name := range next.Header {
+			if !slices.Contains(ownHeaders, http.CanonicalHeaderKey(name)) {
+				delete(next.Header, name)
+			}
+		}
+		next.Header.Set("Accept", "*/*")
+	}
+	next.Header.Del("Referer")
+}
+
+// sameHost tells whether two addresses are of the same host: the name in any case and the port,
+// the one of the scheme when none is written. HTTP that goes on to HTTPS of the same name, on the
+// ports of the schemes, is the same host made secure.
+func sameHost(first *url.URL, next *url.URL) bool {
+	if !strings.EqualFold(first.Hostname(), next.Hostname()) {
+		return false
+	}
+	port := func(address *url.URL) string {
+		switch {
+		case address.Port() != "":
+			return address.Port()
+		case address.Scheme == "https":
+			return "443"
+		}
+		return "80"
+	}
+	if first.Scheme == "http" && next.Scheme == "https" {
+		return port(first) == "80" && port(next) == "443"
+	}
+	return port(first) == port(next)
 }
 
 // answered is what the headers of an answer tell before its body: the marks of a device

@@ -146,8 +146,32 @@ type SubscriptionState struct {
 	Provider *ProviderInfo `json:"provider,omitempty"`
 	// Changes are how the list taken differs from the one before it (Changed).
 	Changes *ListChanges `json:"changes,omitempty"`
+	// Agent is the User-Agent of the settings the list is asked with ("": podkop's own), Headers
+	// the names of their extra headers (never the values), Problems the lines of the settings
+	// left out of the request.
+	Agent    string           `json:"agent,omitempty"`
+	Headers  []string         `json:"headers,omitempty"`
+	Problems []RequestProblem `json:"request_problems,omitempty"`
 	// Now is the time of the router: the page counts how long ago by it.
 	Now *time.Time `json:"now,omitempty"`
+}
+
+// ListRequest is what a subscription is asked with besides its address: the User-Agent and the
+// extra headers (Name: value) of the settings, or of the form of the page not saved yet.
+type ListRequest struct {
+	UserAgent string   `json:"user_agent,omitempty"`
+	Headers   []string `json:"headers,omitempty"`
+}
+
+// RequestProblem is a line of the settings left out of the request: its number among the header
+// lines (0 for the User-Agent), the name of the header when it is one, and why (a code with its
+// arguments for the page, and the English text). It never holds a value.
+type RequestProblem struct {
+	Line int      `json:"line"`
+	Name string   `json:"name,omitempty"`
+	Code string   `json:"code"`
+	Args []string `json:"args,omitempty"`
+	Text string   `json:"text"`
 }
 
 // ListChanges are how a list of a subscription differs from the one before: servers the
@@ -223,6 +247,8 @@ type SubscriptionPreview struct {
 	Servers   []PreviewServer `json:"servers"`
 	// Provider is what the provider told of the subscription with the list.
 	Provider *ProviderInfo `json:"provider,omitempty"`
+	// Agent is the User-Agent the list was asked with ("": podkop's own).
+	Agent string `json:"agent,omitempty"`
 }
 
 // PreviewServer is a server of a list as the page shows it.
@@ -240,12 +266,15 @@ type PreviewServer struct {
 
 // GroupCheck asks which servers a group would choose: the group as the form has it, not
 // as the settings saved it. Addresses are those of its subscriptions in the form, by name:
-// a subscription not saved yet has its address there only.
+// a subscription not saved yet has its address there only. Requests are the User-Agent and
+// the headers of its subscriptions as the page has them, by name; one not there is asked as
+// the settings that run ask it.
 type GroupCheck struct {
-	Subscriptions []string          `json:"subscriptions"`
-	Include       []string          `json:"include"`
-	Exclude       []string          `json:"exclude"`
-	Addresses     map[string]string `json:"addresses,omitempty"`
+	Subscriptions []string               `json:"subscriptions"`
+	Include       []string               `json:"include"`
+	Exclude       []string               `json:"exclude"`
+	Addresses     map[string]string      `json:"addresses,omitempty"`
+	Requests      map[string]ListRequest `json:"requests,omitempty"`
 }
 
 // GroupPreview is which servers a group would choose.
@@ -280,11 +309,11 @@ type Backend interface {
 	// UpdateSubscriptions downloads the list of a subscription now, or of all of them with
 	// no name, and returns what is known of them then.
 	UpdateSubscriptions(ctx context.Context, name string) []SubscriptionState
-	// LoadSubscription downloads a list from an address to be shown.
-	LoadSubscription(ctx context.Context, address string) SubscriptionPreview
-	// StartLoad starts a download of a list from an address to be shown; LoadState tells how
-	// it goes, CancelLoad stops it. A job not known tells false.
-	StartLoad(ctx context.Context, address string) LoadJob
+	// LoadSubscription downloads a list from an address, asked with the request, to be shown.
+	LoadSubscription(ctx context.Context, address string, request ListRequest) SubscriptionPreview
+	// StartLoad starts a download of a list from an address, asked with the request, to be
+	// shown; LoadState tells how it goes, CancelLoad stops it. A job not known tells false.
+	StartLoad(ctx context.Context, address string, request ListRequest) LoadJob
 	LoadState(ctx context.Context, id string) (LoadJob, bool)
 	CancelLoad(ctx context.Context, id string) (LoadJob, bool)
 	// CheckGroup tells which servers a group would choose.
@@ -383,24 +412,20 @@ func Serve(ctx context.Context, path string, backend Backend, logs *logbuf.Buffe
 		answer(writer, backend.UpdateSubscriptions(ctx, request.URL.Query().Get("name")))
 	})
 	mux.HandleFunc("POST /subscriptions/load", func(writer http.ResponseWriter, request *http.Request) {
-		var asked struct {
-			Address string `json:"address"`
-		}
+		var asked loadAsked
 		if json.NewDecoder(io.LimitReader(request.Body, 64<<10)).Decode(&asked) != nil {
 			http.Error(writer, "the request is not JSON", http.StatusBadRequest)
 			return
 		}
-		answer(writer, backend.LoadSubscription(request.Context(), asked.Address))
+		answer(writer, backend.LoadSubscription(request.Context(), asked.Address, asked.ListRequest))
 	})
 	mux.HandleFunc("POST /subscriptions/load/start", func(writer http.ResponseWriter, request *http.Request) {
-		var asked struct {
-			Address string `json:"address"`
-		}
+		var asked loadAsked
 		if json.NewDecoder(io.LimitReader(request.Body, 64<<10)).Decode(&asked) != nil {
 			http.Error(writer, "the request is not JSON", http.StatusBadRequest)
 			return
 		}
-		answer(writer, backend.StartLoad(request.Context(), asked.Address))
+		answer(writer, backend.StartLoad(request.Context(), asked.Address, asked.ListRequest))
 	})
 	mux.HandleFunc("GET /subscriptions/load/state", func(writer http.ResponseWriter, request *http.Request) {
 		job, known := backend.LoadState(request.Context(), request.URL.Query().Get("id"))
@@ -437,6 +462,13 @@ func Serve(ctx context.Context, path string, backend Backend, logs *logbuf.Buffe
 		return nil
 	}
 	return err
+}
+
+// loadAsked is the body of a download of a list for the page: the address and the request. A
+// backend before the request had one reads the address alone.
+type loadAsked struct {
+	Address string `json:"address"`
+	ListRequest
 }
 
 // Client asks a running backend through its socket.
@@ -626,20 +658,22 @@ func (c Client) UpdateSubscriptions(name string) ([]SubscriptionState, error) {
 	return states, err
 }
 
-// LoadSubscription makes the backend download a list from an address to be shown.
-func (c Client) LoadSubscription(address string, timeout time.Duration) (*SubscriptionPreview, error) {
+// LoadSubscription makes the backend download a list from an address, asked with the request,
+// to be shown.
+func (c Client) LoadSubscription(address string, request ListRequest, timeout time.Duration) (*SubscriptionPreview, error) {
 	preview := new(SubscriptionPreview)
-	err := c.send(http.MethodPost, "/subscriptions/load", timeout, map[string]string{"address": address}, preview)
+	err := c.send(http.MethodPost, "/subscriptions/load", timeout, loadAsked{Address: address, ListRequest: request}, preview)
 	if err != nil {
 		return nil, err
 	}
 	return preview, nil
 }
 
-// StartLoad makes the backend start a download of a list from an address to be shown.
-func (c Client) StartLoad(address string) (*LoadJob, error) {
+// StartLoad makes the backend start a download of a list from an address, asked with the
+// request, to be shown.
+func (c Client) StartLoad(address string, request ListRequest) (*LoadJob, error) {
 	job := new(LoadJob)
-	err := c.send(http.MethodPost, "/subscriptions/load/start", 5*time.Second, map[string]string{"address": address}, job)
+	err := c.send(http.MethodPost, "/subscriptions/load/start", 5*time.Second, loadAsked{Address: address, ListRequest: request}, job)
 	if err != nil {
 		return nil, err
 	}

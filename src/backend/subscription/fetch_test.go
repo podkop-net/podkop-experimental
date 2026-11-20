@@ -57,7 +57,7 @@ func TestDownloadTriesTheRoutesInTurn(t *testing.T) {
 		writer.Header().Set("subscription-userinfo", "upload=1; download=2; total=0; expire=0")
 		_, _ = writer.Write([]byte(base64.StdEncoding.EncodeToString([]byte("vless://u@a.example:443#A\n"))))
 	})
-	header := Device{HWID: "0123456789abcdef"}.Headers("0.8.5")
+	header := Device{HWID: "0123456789abcdef"}.Headers("0.8.5", Custom{})
 	routes := []Route{{Name: "direct", Direct: true, Dial: refused}, {Name: "main: NL", Dial: reach}}
 	answer, tries, err := Download(context.Background(), address, header, routes, turnPlan, nil)
 	require.NoError(t, err)

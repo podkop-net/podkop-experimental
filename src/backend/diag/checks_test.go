@@ -93,6 +93,46 @@ config section 'vpn'
 `, masked)
 }
 
+// The headers of a subscription keep their names and hide their values, as a list of the page or
+// an option uci set wrote; a name that is not one a header of the settings can have hides it
+// all, and a value over two lines goes whole. A long User-Agent is cut; the options of other
+// names stay as they are.
+func TestMaskSettingsHeaders(t *testing.T) {
+	t.Parallel()
+	settings := "config source 'prov1'\n" +
+		"\toption type 'subscription'\n" +
+		"\toption url 'https://sub.example/api/sub/TOK3N'\n" +
+		"\toption user_agent 'INCY/1.0'\n" +
+		"\tlist header 'Authorization: Bearer s3cret'\n" +
+		"\tlist header 'X'\\''Key: s3cret-quote'\n" +
+		"\tlist header 'X-Two: s3cret-first\n" +
+		"s3cret-second'\n" +
+		"\tlist header \"Cookie: s3cret-double\"\n" +
+		"\tlist header 'no colon s3cret-plain'\n" +
+		"\toption headers_note 'kept'\n" +
+		"\nconfig source 'prov2'\n" +
+		"\toption header 'X-Api-Key: s3cret-option'\n" +
+		"\toption user_agent 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'\n" +
+		"\toption user_agents 'kept whole: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0'\n"
+	masked := MaskSettings([]byte(settings))
+	require.NotContains(t, masked, "s3cret")
+	require.NotContains(t, masked, "TOK3N")
+	require.Equal(t, "config source 'prov1'\n"+
+		"\toption type 'subscription'\n"+
+		"\toption url 'MASKED'\n"+
+		"\toption user_agent 'INCY/1.0'\n"+
+		"\tlist header 'Authorization: MASKED'\n"+
+		"\tlist header 'MASKED'\n"+
+		"\tlist header 'X-Two: MASKED'\n"+
+		"\tlist header 'Cookie: MASKED'\n"+
+		"\tlist header 'MASKED'\n"+
+		"\toption headers_note 'kept'\n"+
+		"\nconfig source 'prov2'\n"+
+		"\toption header 'X-Api-Key: MASKED'\n"+
+		"\toption user_agent 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KH…'\n"+
+		"\toption user_agents 'kept whole: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0'\n", masked)
+}
+
 func TestMaskConfig(t *testing.T) {
 	t.Parallel()
 	masked, err := MaskConfig([]byte(`{"outbounds":[{"type":"vless","tag":"main-out","server":"203.0.113.10","server_port":443,"uuid":"u","tls":{"enabled":true,"server_name":"x","utls":{"fingerprint":"chrome"},"reality":{"public_key":"k","short_id":"01"}}},{"type":"trojan","password":"p"}],"dns":{"servers":[{"type":"udp","server":"8.8.8.8","server_port":53}]}}`))

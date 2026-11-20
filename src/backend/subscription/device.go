@@ -240,14 +240,24 @@ func release(content string) string {
 }
 
 // Headers are what a request for a list says of the client and the device: the name of
-// podkop as the client (a provider gives an unknown client the list of links), and the
-// headers of the device Remnawave reads.
-func (d Device) Headers(version string) http.Header {
+// podkop as the client (a provider gives an unknown client the list of links) or the
+// User-Agent of the settings, their extra headers, and the headers of the device Remnawave
+// reads. The device comes last: no header of the settings takes its place, not even one past
+// their checks (ParseCustom), on a router that has no model or release to tell either.
+func (d Device) Headers(version string, custom Custom) http.Header {
 	header := make(http.Header)
 	header.Set("User-Agent", "podkop/"+version)
 	header.Set("Accept", "*/*")
+	if custom.UserAgent != "" {
+		header.Set("User-Agent", custom.UserAgent)
+	}
+	for _, field := range custom.Headers {
+		header.Set(field.Name, field.Value)
+	}
 	header.Set("x-hwid", d.HWID)
 	header.Set("x-device-os", "OpenWrt")
+	header.Del("x-ver-os")
+	header.Del("x-device-model")
 	if release := headerText(d.Release); release != "" {
 		header.Set("x-ver-os", release)
 	}

@@ -1,12 +1,14 @@
 package ctl
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
+	"github.com/podkop-net/podkop-experimental/src/backend/subscription"
 )
 
 // subscriptionLines tell what is known of each subscription, a line each: its servers, when
@@ -50,9 +52,37 @@ func subscriptionLines(states []api.SubscriptionState, names model.Names, now ti
 		if told := providerLine(state.Provider, now); told != "" {
 			line += "; " + told
 		}
-		lines = append(lines, line)
+		lines = append(lines, line+requestLine(state))
 	}
 	return lines
+}
+
+// requestLine tells what the settings add to the request of a subscription: the User-Agent (the
+// name of an app, no secret), the names of the extra headers (never their values), and the lines
+// left out: "; User-Agent INCY; headers Authorization; left out: header 2 (X-Hwid)".
+func requestLine(state api.SubscriptionState) string {
+	line := ""
+	if state.Agent != "" {
+		line += "; User-Agent " + subscription.ShownAgent(state.Agent)
+	}
+	if len(state.Headers) > 0 {
+		line += "; headers " + strings.Join(state.Headers, ", ")
+	}
+	var left []string
+	for _, problem := range state.Problems {
+		switch {
+		case problem.Line == 0:
+			left = append(left, "the User-Agent")
+		case problem.Name != "":
+			left = append(left, "header "+strconv.Itoa(problem.Line)+" ("+problem.Name+")")
+		default:
+			left = append(left, "header "+strconv.Itoa(problem.Line))
+		}
+	}
+	if len(left) > 0 {
+		line += "; left out of the request: " + strings.Join(left, ", ")
+	}
+	return line
 }
 
 // fieldsOf names the options of the servers that changed: " (tls.server_name, server_port)".
@@ -113,10 +143,21 @@ func takenAgo(passed time.Duration) string {
 	return ago(passed) + " ago"
 }
 
+// listRequest is the request a download of a list for the page is asked with: the JSON after
+// the address ({user_agent, headers}), none when there is nothing after it. It tells false for
+// what is not that JSON.
+func listRequest(arguments []string) (api.ListRequest, bool) {
+	var request api.ListRequest
+	if len(arguments) < 3 || strings.TrimSpace(arguments[2]) == "" {
+		return request, true
+	}
+	return request, json.Unmarshal([]byte(arguments[2]), &request) == nil
+}
+
 // loadAndWait downloads a list to be shown as a job of the backend, and waits for it: the
 // command line has no limit of LuCI.
-func loadAndWait(client api.Client, address string) *api.SubscriptionPreview {
-	job, err := client.StartLoad(address)
+func loadAndWait(client api.Client, address string, request api.ListRequest) *api.SubscriptionPreview {
+	job, err := client.StartLoad(address, request)
 	if err != nil {
 		return notRunning()
 	}
