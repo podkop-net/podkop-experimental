@@ -23,10 +23,12 @@ import { getPodkopVersionRow } from './helpers/getPodkopVersionRow';
 import { getLatestRelease } from '../../../helpers/getLatestRelease';
 
 async function fetchSystemInfo() {
-  // the latest release is asked of GitHub by the browser, not by the router
+  // the latest release is asked of GitHub by the browser, not by the router, and kept for the
+  // version of this page (install.sh upgrades the page and the backend together); the page's
+  // version is known at once, so the two are asked at the same time
   const [systemInfo, latest] = await Promise.all([
     PodkopShellMethods.getSystemInfo(),
-    getLatestRelease(),
+    getLatestRelease(PODKOP_LUCI_APP_VERSION),
   ]);
 
   if (systemInfo.success) {
