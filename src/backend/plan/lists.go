@@ -29,7 +29,18 @@ func (b *builder) buildSectionLists(section *model.Section) error {
 		}
 		return nil
 	}
+	devices := b.devicesOf[section.Name]
+	if devices.Limited && len(devices.Devices) == 0 {
+		// only for devices, and none is named (readDevices told it): the rule takes nothing, for
+		// any device, and its names are not answered from FakeIP
+		return nil
+	}
 	target := b.addRouteRule("section "+section.Name, b.sectionRoute(section, b.proxyInbounds()))
+	if devices.Limited {
+		// the source group of the rule: sing-box matches it with the rule sets of the lists, a set
+		// of one rule merged with it, one of several rules once it matched (devices.go)
+		target.fields.set("source_ip_cidr", stringsToAny(model.Texts(devices.Devices)))
+	}
 
 	for _, list := range section.CommunityLists {
 		if !slices.Contains(communityLists, list) {
@@ -80,6 +91,10 @@ func (b *builder) buildSectionLists(section *model.Section) error {
 			ruleSet = []any{}
 		}
 		resolve := &rule{fields: newObject("action", "resolve", "rule_set", ruleSet, "server", tagDNSServer)}
+		if devices.Limited {
+			// the names of the other devices are not resolved for a rule that does not take them
+			resolve.fields.set("source_ip_cidr", stringsToAny(model.Texts(devices.Devices)))
+		}
 		for index, entry := range b.routeRules {
 			if entry == target {
 				b.routeRules = append(b.routeRules[:index], append([]*rule{resolve}, b.routeRules[index:]...)...)
@@ -419,7 +434,16 @@ func trimSpace(text string) string {
 
 // patchRuleSetFile adds items to the rule of a rule-set file that has the key, or makes
 // the rule.
+//
+// A list with no item (an enabled list left empty, or of items that are all left out) adds no
+// rule: a file without a rule matches nothing. A rule of an empty list ({"domain_suffix": []}) is
+// a rule without items, which matches every connection and every name where sing-box keeps it;
+// it drops it as it reads a file today (the empty values of a rule set are left out), and the file
+// does not depend on that.
 func patchRuleSetFile(file *object, key string, items []string) {
+	if len(items) == 0 {
+		return
+	}
 	rules, _ := file.get("rules")
 	list := rules.([]any)
 	for _, entry := range list {

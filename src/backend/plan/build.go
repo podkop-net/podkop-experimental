@@ -427,17 +427,18 @@ func (b *builder) dataplane() Dataplane {
 		}
 	}
 	for index := range b.config.Sections {
-		for _, text := range b.config.Sections[index].FullyRoutedIPs {
-			prefix, err := netip.ParsePrefix(text)
-			if err != nil {
-				address, addressErr := netip.ParseAddr(text)
-				if addressErr != nil {
-					continue
-				}
-				prefix = netip.PrefixFrom(address, address.BitLen())
-			}
-			if prefix.Addr().Is4() {
-				result.Sources = append(result.Sources, prefix.Masked())
+		section := &b.config.Sections[index]
+		if !b.routes(section) {
+			// A rule that does not route (off, or no source filled) keeps the firewall of 0.8.20:
+			// its devices routed whole are marked all the same, whatever its devices
+			// ("only_devices"), and their traffic leaves sing-box directly.
+			result.Sources = append(result.Sources, legacySources(section.FullyRoutedIPs)...)
+			continue
+		}
+		// a rule only for some devices has only those within them (readDevices)
+		for _, device := range b.devicesOf[section.Name].Routed {
+			if device.Prefix.Addr().Is4() {
+				result.Sources = append(result.Sources, device.Prefix)
 			}
 		}
 	}
@@ -487,6 +488,8 @@ type builder struct {
 	// detouring: a detour cure is being applied (exits.go applyDetour), so a server it reaches
 	// does not take one of its own, which could close a loop
 	detouring bool
+	// devicesOf are the devices of each rule and those it routes whole, by its name (devices.go)
+	devicesOf map[string]model.RuleDevices
 
 	inbounds     []any
 	outbounds    []any
@@ -555,6 +558,7 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 	b.claimRuleTags()
 	b.ipv6 = b.ipv6Routing()
 	b.bitTorrentMode, b.bitTorrentSection = b.bitTorrent()
+	b.readDevices()
 	b.buildInbounds()
 	err := b.buildOutbounds()
 	if err != nil {
@@ -996,14 +1000,7 @@ func (b *builder) buildRoute() (*object, error) {
 	// routed whole, as the block and exclusion sections of 0.8 did (the conversion puts those
 	// sections first): a bank stays direct and ads stay blocked for every device. Below them
 	// the order of the rules decides for the lists only.
-	lead := 0
-	for lead < len(b.config.Sections) {
-		section := &b.config.Sections[lead]
-		if exit := b.config.Exit(section); section.Enabled && exit != model.ExitDirect && exit != model.ExitBlock {
-			break
-		}
-		lead++
-	}
+	lead := LeadingRules(b.config)
 	for index := range lead {
 		err := b.buildSectionLists(&b.config.Sections[index])
 		if err != nil {
@@ -1018,12 +1015,15 @@ func (b *builder) buildRoute() (*object, error) {
 	}
 	for index := range b.config.Sections {
 		section := &b.config.Sections[index]
-		if len(section.FullyRoutedIPs) == 0 || !b.routes(section) {
+		// what sing-box reads of them, and of a rule only for some devices those within them
+		// (readDevices): a word would have it refuse the whole configuration
+		routed := b.devicesOf[section.Name].Routed
+		if len(routed) == 0 || !b.routes(section) {
 			continue
 		}
 		entry := b.addRouteRule("", b.sectionRoute(section, b.proxyInbounds()))
-		for _, address := range section.FullyRoutedIPs {
-			patch(entry.fields, "source_ip_cidr", argument(address))
+		for _, device := range routed {
+			patch(entry.fields, "source_ip_cidr", device.Text)
 		}
 	}
 	for index := lead; index < len(b.config.Sections); index++ {
@@ -1033,6 +1033,20 @@ func (b *builder) buildRoute() (*object, error) {
 		}
 	}
 	return route, nil
+}
+
+// LeadingRules counts the rules at the top of the settings whose route rules go before the devices
+// left out and the devices routed whole: those of direct and block, and those off between them.
+func LeadingRules(config *model.Config) int {
+	lead := 0
+	for lead < len(config.Sections) {
+		section := &config.Sections[lead]
+		if exit := config.Exit(section); section.Enabled && exit != model.ExitDirect && exit != model.ExitBlock {
+			break
+		}
+		lead++
+	}
+	return lead
 }
 
 // routes tells whether a rule has route rules: it is on and goes somewhere.

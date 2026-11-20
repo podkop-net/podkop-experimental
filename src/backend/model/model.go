@@ -339,7 +339,11 @@ type Section struct {
 	RemoteDomainLists  []string
 	RemoteSubnetLists  []string
 
-	FullyRoutedIPs    []string
+	FullyRoutedIPs []string
+	// OnlyDevices ("only_devices") limits the rule to the devices of these addresses and
+	// subnets: it takes their traffic to its lists alone, and the others go on to the rules
+	// below (Devices). None: every device.
+	OnlyDevices       []string
 	MixedProxyEnabled bool
 	MixedProxyPort    string
 	// MixedProxyUsername and MixedProxyPassword are the login of the mixed proxy, as the
@@ -434,6 +438,7 @@ func Load(parsed *uci.Package) (*Config, error) {
 			RemoteDomainLists:       list(section, "remote_domain_lists"),
 			RemoteSubnetLists:       list(section, "remote_subnet_lists"),
 			FullyRoutedIPs:          list(section, "fully_routed_ips"),
+			OnlyDevices:             list(section, "only_devices"),
 			MixedProxyEnabled:       section.Bool("mixed_proxy_enabled", false),
 			MixedProxyPort:          section.Get("mixed_proxy_port"),
 			MixedProxyUsername:      section.Get("mixed_proxy_username"),

@@ -1,6 +1,7 @@
 package supervisor
 
 import (
+	"cmp"
 	"strconv"
 	"strings"
 
@@ -28,6 +29,10 @@ func describeConfig(next *candidate) string {
 			if len(section.Fallbacks) > 0 {
 				what += "; fallbacks " + rowsText(names, section.Fallbacks)
 			}
+		}
+		if devices := section.Devices(); section.Enabled && devices.Limited {
+			// the IPv6 items counted: the log goes into reports others read
+			what += "; only for " + cmp.Or(model.DevicesText(devices.Devices), "no device")
 		}
 		sections = append(sections, names.Rule(section.Name)+" ("+what+")")
 	}
