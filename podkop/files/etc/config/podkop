@@ -35,6 +35,8 @@ config section 'main'
         #list fully_routed_ips '192.168.1.2'
         #option mixed_proxy_enabled '1'
         #option mixed_proxy_port '2080'
+        #option mixed_proxy_username 'podkop'
+        #option mixed_proxy_password 'a-long-random-password'
 
 # a row of the servers of the section main: the servers of the source src1
 config member

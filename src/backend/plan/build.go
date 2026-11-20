@@ -1098,13 +1098,26 @@ func (b *builder) buildAdditionalInbounds() error {
 		if _, isText := port.(string); isText {
 			return E.New("rule ", b.names.RuleText(section.Name), ": the port of the mixed proxy is not a number")
 		}
+		// a login that is half there or that the protocols cannot carry leaves the proxy out,
+		// not open, and the rest runs; the proxy takes no port then
+		user, password, err := section.MixedProxyLogin()
+		if err != nil {
+			b.warn("rule ", b.names.RuleText(section.Name), ": ", err, ": the mixed proxy is not created")
+			continue
+		}
 		// sing-box would fail to start on the second socket, and so would every try again
 		if other, taken := ports[fmt.Sprint(port)]; taken {
 			return E.New("rules ", other, " and ", b.names.RuleText(section.Name), ": the mixed proxies have the same port ", port)
 		}
 		ports[fmt.Sprint(port)] = b.names.RuleText(section.Name)
 		tag := b.names.Rule(section.Name) + "-mixed-in"
-		b.inbounds = append(b.inbounds, newObject("type", "mixed", "tag", tag, "listen", address, "listen_port", port))
+		inbound := newObject("type", "mixed", "tag", tag, "listen", address, "listen_port", port)
+		// with a login, SOCKS5 asks for it (RFC 1929), HTTP for Basic authentication, and
+		// SOCKS4, which has no password, is refused
+		if user != "" {
+			inbound.set("users", []any{newObject("username", user, "password", password)})
+		}
+		b.inbounds = append(b.inbounds, inbound)
 		b.addRouteRule("", b.sectionRoute(section, tag))
 	}
 	return nil

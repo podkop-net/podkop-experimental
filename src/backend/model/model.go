@@ -334,9 +334,14 @@ type Section struct {
 	RemoteDomainLists  []string
 	RemoteSubnetLists  []string
 
-	FullyRoutedIPs          []string
-	MixedProxyEnabled       bool
-	MixedProxyPort          string
+	FullyRoutedIPs    []string
+	MixedProxyEnabled bool
+	MixedProxyPort    string
+	// MixedProxyUsername and MixedProxyPassword are the login of the mixed proxy, as the
+	// settings have them (never trimmed: a secret is not changed); both empty for none
+	// (MixedProxyLogin).
+	MixedProxyUsername      string
+	MixedProxyPassword      string
 	ResolveRealIPForRouting bool
 
 	// Choice is how the rule chooses among its servers: fastest, loss (the fastest, weighed
@@ -426,6 +431,8 @@ func Load(parsed *uci.Package) (*Config, error) {
 			FullyRoutedIPs:          list(section, "fully_routed_ips"),
 			MixedProxyEnabled:       section.Bool("mixed_proxy_enabled", false),
 			MixedProxyPort:          section.Get("mixed_proxy_port"),
+			MixedProxyUsername:      section.Get("mixed_proxy_username"),
+			MixedProxyPassword:      section.Get("mixed_proxy_password"),
 			ResolveRealIPForRouting: section.Bool("resolve_real_ip_for_routing", false),
 			Choice:                  get(section, "server_choice", ChoiceFastest),
 			LossInterval:            section.Get("loss_check_interval"),

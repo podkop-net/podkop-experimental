@@ -99,6 +99,9 @@ import (
 //     whole, as the block and exclusion sections did. The shell backend built the outbounds
 //     of each section from its own links, and put the rules of the block and exclusion
 //     sections before all others: the cases are not compared since (render.TestCases).
+// 18. The mixed proxy of a rule may have a login (users of the mixed inbound, 0.8.21); the
+//     shell backend had none. A login that is half there, or that SOCKS5 or HTTP cannot
+//     carry, leaves the proxy out with a warning (model.Section.MixedProxyLogin).
 
 // Shell is what FromShell has to know besides the configuration: the settings it was made
 // of, and how the generator reads and names the local lists (Options: RuleSetDir,
