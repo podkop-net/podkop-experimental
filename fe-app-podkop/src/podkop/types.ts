@@ -376,6 +376,10 @@ export namespace Podkop {
     label?: string;
     url?: string;
     update_interval?: string;
+    // what a subscription is asked with besides its address: the User-Agent, and the extra
+    // headers (Name: value), a list or one line of an option
+    user_agent?: string;
+    header?: string | string[];
     link?: string | string[];
     udp_over_tcp?: string;
     outbound_json?: string;
@@ -531,6 +535,8 @@ export namespace Podkop {
     attempts?: Attempt[];
     provider?: ProviderInfo;
     servers: PreviewServer[];
+    // the User-Agent the list was asked with ('' or none: podkop's own)
+    agent?: string;
   }
 
   // a download of a list for the page, under way or done (subscription_load_start, _state)
@@ -549,6 +555,24 @@ export namespace Podkop {
     exclude: string[];
     // the addresses by the name of the source: one not saved yet has its address there only
     addresses?: Record<string, string>;
+    // the User-Agent and the headers by the name of the source, as the page has them; one not
+    // there is asked as the settings that run ask it
+    requests?: Record<string, ListRequest>;
+  }
+
+  // what a subscription is asked with besides its address (validateRequestHeader.listRequest)
+  export interface ListRequest {
+    user_agent?: string;
+    headers?: string[];
+  }
+
+  // a line of the settings the backend leaves out of the request (0: the User-Agent)
+  export interface RequestProblem {
+    line: number;
+    name?: string;
+    code: string;
+    args?: string[];
+    text?: string;
   }
 
   export interface GroupPreview {
@@ -574,6 +598,11 @@ export namespace Podkop {
     next?: string;
     busy?: boolean;
     provider?: ProviderInfo;
+    // the User-Agent of the settings, the names of their headers (never the values), the lines
+    // left out of the request
+    agent?: string;
+    headers?: string[];
+    request_problems?: RequestProblem[];
     now?: string;
   }
 

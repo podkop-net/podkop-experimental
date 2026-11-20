@@ -46,6 +46,20 @@ describe('detectPasted', () => {
     expect(unwrapSubscription('happ://add/not-an-address')).toBeNull();
   });
 
+  it('takes the address out of the link of INCY and tells of the User-Agent', () => {
+    const found = detectPasted(`incy://import/${encodeURIComponent(SUB_URL)}`);
+    expect(found).toMatchObject({ kind: 'subscription', url: SUB_URL });
+    expect(found.note).toContain('User-Agent');
+    expect(unwrapSubscription(`INCY://import/${SUB_URL}`)).toEqual({
+      url: SUB_URL,
+      app: 'INCY',
+    });
+    // the other apps keep their note
+    expect(detectPasted(`happ://add/${SUB_URL}`).note).not.toContain(
+      'User-Agent',
+    );
+  });
+
   it('tells why an encrypted link of Happ and a key of Amnezia cannot be used', () => {
     const crypt = detectPasted('happ://crypt3/Xk2vLq9P0aZt7Hc1Wm4Rb8Ns5Ue3Yo6');
     expect(crypt.kind).toBe('error');

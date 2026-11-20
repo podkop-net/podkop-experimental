@@ -207,6 +207,7 @@ const WRAPPERS: [RegExp, string][] = [
   [/^v2rayng:\/\/install-config\?url=([^&#]+)/i, 'v2rayNG'],
   [/^clash:\/\/install-config\?url=([^&#]+)/i, 'Clash'],
   [/^sing-box:\/\/import-remote-profile\?url=([^&#]+)/i, 'sing-box'],
+  [/^incy:\/\/import\/(.+)$/i, 'INCY'],
 ];
 
 // unwrapSubscription takes the address of a subscription out of the link of an app that
@@ -281,9 +282,16 @@ export function detectPasted(text: string): PastedText {
       kind: 'subscription',
       url: wrapped.url,
       title: _('Subscription: %s').format(hostOf(wrapped.url)),
-      note: _('The address is taken from the link that adds it to %s').format(
-        wrapped.app,
-      ),
+      // a provider whose page has a button for INCY may give the list to INCY only: the
+      // field is the user's to fill, the page does not fill it
+      note:
+        wrapped.app === 'INCY'
+          ? _(
+              'The address is taken from the link that adds it to INCY. If the provider gives the list to INCY only, type INCY in User-Agent',
+            )
+          : _('The address is taken from the link that adds it to %s').format(
+              wrapped.app,
+            ),
     };
   }
   if (/^happ:\/\/crypt/i.test(trimmed)) {

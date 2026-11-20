@@ -1,5 +1,6 @@
 import { callBaseMethod } from './callBaseMethod';
 import { ClashAPI, Podkop } from '../../types';
+import { loadArguments } from '../../../validators/validateRequestHeader';
 
 export const PodkopShellMethods = {
   checkDNSAvailable: async () =>
@@ -113,19 +114,22 @@ export const PodkopShellMethods = {
     callBaseMethod<string[]>(Podkop.AvailableMethods.GET_SING_BOX_FEATURES),
   // the router downloads the list of an address of the form: directly, or through its
   // servers when the provider is blocked; LuCI aborts a call after 20 s
-  subscriptionLoad: async (address: string) =>
+  subscriptionLoad: async (address: string, request?: Podkop.ListRequest) =>
     callBaseMethod<Podkop.SubscriptionPreview>(
       Podkop.AvailableMethods.SUBSCRIPTION_LOAD,
-      [address],
+      loadArguments(address, request),
       '/usr/bin/podkop',
       19000,
     ),
   // the same as a job of the router the page asks about: a download is not bound by the 20 s
   // of a call (start, state, cancel; each answers at once)
-  subscriptionLoadStart: async (address: string) =>
+  subscriptionLoadStart: async (
+    address: string,
+    request?: Podkop.ListRequest,
+  ) =>
     callBaseMethod<Podkop.LoadJob>(
       Podkop.AvailableMethods.SUBSCRIPTION_LOAD_START,
-      [address],
+      loadArguments(address, request),
       '/usr/bin/podkop',
       5000,
     ),

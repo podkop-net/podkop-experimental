@@ -220,7 +220,43 @@ function failureText(code, args, text, attempts) {
     }
     case "page":
       return _(
-        "A web page came instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP",
+        "A web page came instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP. If the provider gives the list only to some apps, type the name of one in User-Agent",
+      );
+    // the answers to the User-Agent of the settings (HTTPS only for a page: over plain HTTP it
+    // may be one of the ISP)
+    case "page-agent":
+      return _(
+        "The provider sent a web page to this User-Agent: providers show their page to browsers. Try the name of an app, or clear the field. It may also be the address of the provider's site, not of the subscription",
+      );
+    case "json-agent":
+      return _(
+        "The provider sent a configuration in JSON (sing-box or Xray) to this User-Agent: podkop reads only a list of links so far. Try another name, or clear the field",
+      );
+    case "clash-agent":
+      return _(
+        "The provider sent a configuration of Clash (YAML) to this User-Agent: podkop reads only a list of links so far. Try another name, or clear the field",
+      );
+    case "refused-agent":
+      return _(
+        "The provider refused the address (HTTP %s): it is wrong or out of date, or the subscription is blocked, or the provider does not accept this User-Agent: try another name, or clear the field",
+      ).format(args[0]);
+    case "placeholder-agent":
+      return _(
+        "The provider sent notes instead of servers to this User-Agent: %s. Try another name, or clear the field",
+      ).format(args[0]);
+    case "nolinks-agent":
+      return _(
+        "The answer of the provider to this User-Agent has no links of servers. Try another name, or clear the field",
+      );
+    case "request":
+      // the code of the line that cannot be sent, its number, its name, its limit
+      return _("The User-Agent or a header cannot be sent: %s").format(
+        main.requestProblemLine({
+          code: args[0],
+          line: +args[1] || 0,
+          name: args[2],
+          args: args.slice(3),
+        }),
       );
     case "refused":
       return _(
@@ -321,9 +357,10 @@ function attemptLine(attempt) {
 
 // What the router knows of a subscription, a line a fact: its servers, the last check and its
 // way, when its servers changed, the next check; a failure with the list kept.
-// The state of a subscription in its window: the check, then what the provider told.
+// The state of a subscription in its window: the check, what it is asked with, then what the
+// provider told.
 function statusLines(state) {
-  const lines = stateLines(state);
+  const lines = stateLines(state).concat(requestLines(state));
   if (state && state.provider) {
     // the data of the provider is of the last check that brought a list: after a failure it
     // is marked with its time; since the start, with the time of the list kept on flash
@@ -333,6 +370,28 @@ function statusLines(state) {
         : null;
     lines.push(...providerLines(state.provider, stale));
   }
+  return lines;
+}
+
+// What a subscription or a list of the window is asked with besides its address: the User-Agent,
+// the names of the extra headers (the router never tells their values), and the lines of the
+// settings the router leaves out.
+function requestLines(info) {
+  if (!info) {
+    return [];
+  }
+  const lines = [];
+  if (info.agent) {
+    lines.push(_("User-Agent: %s").format(info.agent));
+  }
+  if (info.headers && info.headers.length) {
+    lines.push(_("Extra headers: %s").format(info.headers.join(", ")));
+  }
+  (info.request_problems || []).forEach((problem) => {
+    lines.push(
+      _("Left out of the request: %s").format(main.requestProblemLine(problem)),
+    );
+  });
   return lines;
 }
 
@@ -348,6 +407,27 @@ function addressPending(map, name) {
   return currentValue(map, name, "url") !== uci.get("podkop", name, "url");
 }
 
+// requestPending is addressPending for the User-Agent and the headers. The values are compared
+// as the router reads them: an option never set, an empty field and an empty list are the same
+// (the form gives "" and [] where uci gives none), and so are the same lines as a list or an
+// option.
+function requestPending(map, name) {
+  const changes = uci.state && uci.state.changes && uci.state.changes.podkop;
+  if (
+    changes &&
+    changes[name] &&
+    ("user_agent" in changes[name] || "header" in changes[name])
+  ) {
+    return true;
+  }
+  return !main.sameRequest(
+    currentValue(map, name, "user_agent"),
+    currentValue(map, name, "header"),
+    uci.get("podkop", name, "user_agent"),
+    uci.get("podkop", name, "header"),
+  );
+}
+
 // The list of a saved subscription downloaded now and taken as a planned download is: the
 // state in the window follows the download until it ends (its attempted time is new).
 function updateNow(map, name) {
@@ -361,6 +441,14 @@ function updateNow(map, name) {
   if (!known || addressPending(map, name)) {
     show(known || null, [
       _("Save & Apply first: the router downloads the address it runs with"),
+    ]);
+    return Promise.resolve();
+  }
+  if (requestPending(map, name)) {
+    show(known, [
+      _(
+        "Save & Apply first: the router asks with the User-Agent and headers it runs with",
+      ),
     ]);
     return Promise.resolve();
   }
@@ -805,28 +893,33 @@ function serversTable(preview) {
   ]);
 }
 
-// What a download for the window came to: the provider's data and the servers, or why not.
+// What a download for the window came to: the provider's data and the servers, or why not; the
+// User-Agent it was asked with.
 function previewBlock(preview) {
   if (preview.error) {
-    return block([
-      failureText(
-        preview.error_code,
-        preview.error_args,
-        preview.error,
-        preview.attempts,
-      ),
-    ]);
+    return block(
+      [
+        failureText(
+          preview.error_code,
+          preview.error_args,
+          preview.error,
+          preview.attempts,
+        ),
+      ].concat(requestLines({ agent: preview.agent })),
+    );
   }
   return E("div", {}, [
+    block(requestLines({ agent: preview.agent })),
     block(providerLines(preview.provider)),
     serversTable(preview),
   ]);
 }
 
-// The list of the address of the window, saved or not: downloaded by the router, not taken; a
-// job of the router the page asks about every second, so a slow provider is waited for. The
-// promise ends with the job: the button of LuCI waits with it.
-function loadPreview(address, result) {
+// The list of the address of the window, saved or not, asked with the User-Agent and the
+// headers of the window: downloaded by the router, not taken; a job of the router the page asks
+// about every second, so a slow provider is waited for. The promise ends with the job: the
+// button of LuCI waits with it.
+function loadPreview(address, request, result) {
   return new Promise((resolve) => {
     let job = null;
     const cancel = E(
@@ -883,7 +976,7 @@ function loadPreview(address, result) {
       });
     };
     result.replaceChildren(block([_("The router downloads the list…")]));
-    main.PodkopShellMethods.subscriptionLoadStart(address).then((response) => {
+    main.PodkopShellMethods.subscriptionLoadStart(address, request).then((response) => {
       if (!response.success || !response.data) {
         return failed(_("The router did not answer"));
       }
@@ -1052,10 +1145,25 @@ function keptWhilePasting(option) {
   };
 }
 
+// The items a list of the window has already: LuCI checks only the text being typed into it, and
+// the value of the list (formvalue) holds that text too once it is valid, so a check of the
+// typed text against the others takes them from the items themselves.
+function listItems(option, section_id) {
+  const widget = option.getUIElement(section_id);
+  const node = widget && widget.node;
+  return node
+    ? Array.from(node.querySelectorAll('.item > input[type="hidden"]')).map(
+        (input) => input.value,
+      )
+    : [];
+}
+
 // the options a pasted text replaces
 const VALUE_OPTIONS = [
   "url",
   "update_interval",
+  "user_agent",
+  "header",
   "link",
   "udp_over_tcp",
   "outbound_json",
@@ -1315,6 +1423,55 @@ function createSourceContent(section) {
     );
   };
 
+  // what the subscription is asked with besides its address; the router's own identifier
+  // (HWID) and device headers go whatever these say
+  o = section.option(
+    form.Value,
+    "user_agent",
+    _("User-Agent"),
+    _(
+      "Empty: podkop with its version. Some providers give the list only to the apps they name: type the name of such an app alone, without a version (for example INCY). It is the name of an app, not a secret: the global check shows it. The router still sends its own device identifier (HWID) and keeps its own place among the devices of the subscription. Load shows what the provider sends to this name",
+    ),
+  );
+  o.modalonly = true;
+  o.depends("type", "subscription");
+  o.rmempty = true;
+  o.placeholder = "podkop/…";
+  o.validate = function (section_id, value) {
+    const validation = main.validateUserAgent(value);
+    return validation.valid ? true : validation.message;
+  };
+  o.write = function (section_id, value) {
+    const text = String(value || "").trim();
+    return text
+      ? uci.set("podkop", section_id, "user_agent", text)
+      : uci.unset("podkop", section_id, "user_agent");
+  };
+  keptWhilePasting(o);
+
+  o = section.option(
+    form.DynamicList,
+    "header",
+    _("Extra headers"),
+    _(
+      "Only when the provider asks for them: one a line, as Name: value. A key of the provider goes here, not in User-Agent: the global check hides the values, and they go to the host of the subscription address only. The device identifier (x-hwid, x-device-…), the address of the client (X-Forwarded-For…) and the headers of the connection (Host, Connection, Accept-Encoding…) are the router's own and are not set here",
+    ),
+  );
+  o.modalonly = true;
+  o.depends("type", "subscription");
+  o.placeholder = "Authorization: Bearer …";
+  o.validate = function (section_id, value) {
+    if (!value || !String(value).trim()) {
+      return true;
+    }
+    const validation = main.validateRequestHeader(
+      value,
+      listItems(this, section_id),
+    );
+    return validation.valid ? true : validation.message;
+  };
+  keptWhilePasting(o);
+
   o = section.option(
     form.DummyValue,
     "_status",
@@ -1387,7 +1544,20 @@ function createSourceContent(section) {
       result.replaceChildren(block([_("The address is not set")]));
       return;
     }
-    return loadPreview(address, result);
+    // the User-Agent and the headers of the window, saved or not: the router refuses a request
+    // it cannot send, and the window says which line before it asks
+    const agent = currentValue(this.map, section_id, "user_agent");
+    const headers = currentValue(this.map, section_id, "header");
+    const problem = main.requestProblem(agent, headers);
+    if (problem) {
+      result.replaceChildren(
+        block([
+          _("The User-Agent or a header cannot be sent: %s").format(problem),
+        ]),
+      );
+      return;
+    }
+    return loadPreview(address, main.listRequest(agent, headers), result);
   };
 
   o = section.option(form.DummyValue, "_preview");
