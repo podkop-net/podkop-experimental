@@ -175,7 +175,11 @@ of it (give them the router's DNS server in the DHCP settings of the LAN).
 - A tile shows the delay. With a loss mode it also shows the loss (`~` while the checks are
   few) and the devices in the balance (`⇄N`).
 - Click a tile to pin that server. **Back to automatic choice** removes the pin. **Test latency**
-  tests the servers now and shows the result next to the median.
+  tests the servers now and shows the result next to the median. For a rule of several servers it
+  is a round of the server check, as the rule's own rounds go (each server with the URL of the
+  round, the next one when that does not answer), and the result is the new median. A rule of one
+  server has it tested alone: with the first server check URL, the next one when that does not
+  answer.
 - A server that does not work gets a chip with the cause: no answer, freeze, limit, no path,
   refused and others. **Check server** (or **Check problem servers**) probes the server and names
   the kind of block. The window can offer a **Treatment for this server**:
@@ -199,7 +203,9 @@ of it (give them the router's DNS server in the DHCP settings of the LAN).
 ## Diagnostics
 
 - **Run Diagnostic** checks DNS, sing-box, the firewall rules, FakeIP and the servers that the
-  rules use now.
+  rules use now, each with the first server check URL, the next one when that does not answer.
+  Without a proxy it asks all the server check URLs at once and shows their median; a URL that
+  does not answer is named (the provider may block it). The global check does the same.
 - **Get global check** puts everything into one report, with keys and passwords masked. This is
   the report to attach to an issue.
 - **View logs** and **Show sing-box config** show the log and the configuration that runs.
