@@ -1032,7 +1032,7 @@ msgid "Next try: %s"
 msgstr "Следующая попытка: %s"
 
 msgid "No “:” in the user name: HTTP cannot send it"
-msgstr "Без «:» в имени — по HTTP его не передать"
+msgstr "В имени не должно быть «:» — HTTP не может его передать"
 
 msgid "no answer"
 msgstr "нет ответа"
