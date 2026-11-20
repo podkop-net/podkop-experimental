@@ -68,11 +68,7 @@ var PageFeatures = []string{"urltest.fallbacks", "urltest.download_url", "tls.ut
 // serviceActionVariable marks the script of the service run by start, stop and restart.
 const serviceActionVariable = "PODKOP_SERVICE_ACTION"
 
-const (
-	singBoxAutostartPath = "/etc/rc.d/S99sing-box"
-	// the page the delay of an outbound is measured with, as the shell backend has it
-	delayTestURL = "https://www.gstatic.com/generate_204"
-)
+const singBoxAutostartPath = "/etc/rc.d/S99sing-box"
 
 // Commands lists the commands with what each does, for the help.
 var Commands = [][2]string{
@@ -85,7 +81,7 @@ var Commands = [][2]string{
 	{"check_nft_rules", "[label]: whether the firewall table is there and counts packets; with the label of a check name a device opened a connection to, that connection is waited for where the LAN has not been counted yet"},
 	{"check_fakeip", "Whether a name asked on the router is answered from FakeIP and a connection of the router to it reaches sing-box"},
 	{"check_fakeip_client", "<label> [ms]: what the backend saw of the check name a device opened a connection to"},
-	{"clash_api", "get_proxies | get_proxy_latency <tag> [ms] | get_group_latency <tag> [ms] | set_group_proxy <group> <proxy> | upgrade_ui (the dashboard YACD of GitHub in place of the one served)"},
+	{"clash_api", "get_proxies | get_proxy_latency <tag> [ms] (with the first server check URL of HTTPS, then the second when it does not answer; direct-out: all of them at once, the median) | get_group_latency <tag> [ms] (a selector with a URL test: a round of it; one without: each server as get_proxy_latency, 0 for no answer) | set_group_proxy <group> <proxy> | upgrade_ui (the dashboard YACD of GitHub in place of the one served)"},
 	{"yacd_builtin", "The dashboard YACD of the package served again in place of the one upgraded from GitHub"},
 	{"global_check", "[label port]: every check as one report; with the label of a check name and a port the device that asks opens connections to meanwhile, also what came of its DNS question and its connections"},
 	{"check_links", "<link>...: each proxy link as the engine of this build takes it when the settings run, as JSON: [{ok, error}]"},
@@ -145,6 +141,8 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 		config = loaded
 	}
 	settings := &config.Settings
+	// the check URLs the delay tests take (oneOffURLs), read by those only
+	links := func() []string { return oneOffURLs(checkURLs(env.ConfigDir, settings.Check)) }
 	switch arguments[0] {
 	case "get_status":
 		enabled := executable(env.AutostartPath)
@@ -325,7 +323,7 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 		}
 		return pretty(counters)
 	case "clash_api":
-		return clashAPI(client, arguments[1:], output)
+		return clashAPI(client, links, arguments[1:], output)
 	case "global_check":
 		// with the label of a check name and a port: the device that asks opens
 		// connections to them while the report is made
@@ -338,7 +336,7 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 		io.WriteString(output, globalCheck(ctx, env.Paths, config, env.Version, env.SingBoxVersion, env.Engine, running(), func() (bool, bool) {
 			result, err := client.ProbeSelf()
 			return err == nil && result.DNS && result.Connection, err == nil
-		}, func() []string { return outboundLines(&clashCaller{client: client}, config) },
+		}, func() []string { return outboundLines(&clashCaller{client: client}, config, links()) },
 			func() []string { return choiceLines(&clashCaller{client: client}, config) }, func() []string {
 				states, err := client.Subscriptions()
 				if err != nil {
@@ -634,8 +632,9 @@ func showConfig(env Environment, rejected bool, output io.Writer, errorOutput io
 // clashAPI asks the Clash API of sing-box, where the dashboard of the user interface
 // gets the outbounds, their delays and the choice of a group from. The answers are
 // printed as the shell backend prints them. Where the API listens and its key are what
-// the backend that runs tells (api.Facts): with no backend there is no API.
-func clashAPI(client api.Client, arguments []string, output io.Writer) int {
+// the backend that runs tells (api.Facts): with no backend there is no API. The delays are
+// tested with the check URLs links gives (oneOffURLs), read only by the commands that test.
+func clashAPI(client api.Client, links func() []string, arguments []string, output io.Writer) int {
 	say := func(text string) {
 		content, err := plan.Pretty([]byte(text))
 		if err == nil {
@@ -650,24 +649,13 @@ func clashAPI(client api.Client, arguments []string, output io.Writer) int {
 		}
 		return ""
 	}
-	delay := func(kind string, missing string, defaultTimeout string) int {
-		tag := argument(1)
-		if tag == "" {
-			say(`{"error":"` + missing + ` required"}`)
-			return 1
+	// the wait of the command line, or its default
+	wait := func(defaultMilliseconds int) time.Duration {
+		milliseconds, err := strconv.Atoi(argument(2))
+		if err != nil || milliseconds <= 0 {
+			milliseconds = defaultMilliseconds
 		}
-		timeout := argument(2)
-		if timeout == "" {
-			timeout = defaultTimeout
-		}
-		milliseconds, _ := strconv.Atoi(timeout)
-		query := url.Values{"url": {delayTestURL}, "timeout": {timeout}}
-		_, content := call(http.MethodGet, "/"+kind+"/"+url.PathEscape(tag)+"/delay?"+query.Encode(), "", time.Duration(milliseconds)*time.Millisecond+5*time.Second)
-		if len(bytes.TrimSpace(content)) == 0 {
-			return 1
-		}
-		say(string(content))
-		return 0
+		return time.Duration(milliseconds) * time.Millisecond
 	}
 	switch argument(0) {
 	case "get_proxies":
@@ -678,9 +666,31 @@ func clashAPI(client api.Client, arguments []string, output io.Writer) int {
 		say(string(withTags(content, caller.facts.Tags)))
 		return 0
 	case "get_proxy_latency":
-		return delay("proxies", "proxy_tag", "2000")
+		// each try waits the time of the command line; both within oneOffBudget, which the
+		// page's cut of its call leaves room for
+		tag := argument(1)
+		if tag == "" {
+			say(`{"error":"proxy_tag required"}`)
+			return 1
+		}
+		result := outboundDelay(caller, tag, links(), wait(2000), time.Now().Add(oneOffBudget))
+		if !result.answered {
+			return 1
+		}
+		say(string(jsonText(result)))
+		return 0
 	case "get_group_latency":
-		return delay("group", "group_tag", "5000")
+		tag := argument(1)
+		if tag == "" {
+			say(`{"error":"group_tag required"}`)
+			return 1
+		}
+		content := groupLatency(caller, tag, links(), wait(5000))
+		if len(bytes.TrimSpace(content)) == 0 {
+			return 1
+		}
+		say(string(content))
+		return 0
 	case "upgrade_ui":
 		// sing-box downloads the dashboard of GitHub (Yacd-meta) and puts it in place of
 		// the one it serves (POST /upgrade/ui), through its direct outbound, as the button

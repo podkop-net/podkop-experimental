@@ -336,11 +336,19 @@ func TestClashAPI(t *testing.T) {
 	require.Zero(t, status)
 	require.True(t, strings.HasPrefix(output, "{\n  \"proxies\": {\n    \"main-out\": {\n      \"type\": \"Selector\","), output)
 	require.Equal(t, []string{"Bearer s3cret"}, seen, "the key the backend tells")
+	// the first check URL of the settings (here their defaults), and which it was
 	output, _ = run(env, "clash_api", "get_proxy_latency", "main-1-out", "5000")
-	require.Equal(t, "{\n  \"delay\": 42\n}\n", output)
+	require.JSONEq(t, `{"delay": 42, "urls": ["https://www.gstatic.com/generate_204"]}`, output)
 	require.Equal(t, "main-1-out 5000 https://www.gstatic.com/generate_204", seen[1])
+	// a selector of one server: the server alone, within the wait of the command line
 	output, _ = run(env, "clash_api", "get_group_latency", "main-out")
 	require.Contains(t, output, "\"main-1-out\": 42")
+	tried := strings.Fields(seen[len(seen)-1])
+	require.Equal(t, "main-1-out", tried[0])
+	require.Equal(t, "https://www.gstatic.com/generate_204", tried[2])
+	waited, err := strconv.Atoi(tried[1])
+	require.NoError(t, err)
+	require.LessOrEqual(t, waited, 5000)
 	output, status = run(env, "clash_api", "set_group_proxy", "main-out", "main-1-out")
 	require.Zero(t, status)
 	require.Equal(t, "{\n  \"success\": true,\n  \"group\": \"main-out\",\n  \"proxy\": \"main-1-out\"\n}\n", output)
@@ -365,6 +373,7 @@ func TestClashAPI(t *testing.T) {
 	require.Contains(t, output, "\"http_code\": 500")
 
 	// nothing runs: no API, and no answer
+	asked := len(seen)
 	running.facts = api.Facts{}
 	output, status = run(env, "clash_api", "get_proxies")
 	require.Equal(t, 1, status)
@@ -373,7 +382,7 @@ func TestClashAPI(t *testing.T) {
 	output, status = run(Environment{Socket: filepath.Join(t.TempDir(), "none.sock")}, "clash_api", "get_proxies")
 	require.Equal(t, 1, status)
 	require.Empty(t, output)
-	require.Len(t, seen, 2, "the API was asked with nothing running")
+	require.Len(t, seen, asked, "the API was asked with nothing running")
 }
 
 // The notices of the user interface ask with a cursor: each line comes once, and the lines

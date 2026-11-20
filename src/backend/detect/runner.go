@@ -11,6 +11,13 @@ import (
 
 // The addresses a probe asks for through the server. Plain HTTP on purpose: nothing of the
 // limit is spent on a TLS inside, and the raw bytes are the yardstick of the band.
+//
+// ProbeSecondTarget does not follow the server check URLs of the settings, as the delay tests
+// do: it has to be plain HTTP (above), to answer 204, the one answer that clears the server
+// (Stages.secondAddress), and to be of another company than ProbeTarget (Cloudflare). The check
+// URLs are HTTPS, and three of the five defaults answer 200 with a body. The probe goes through
+// the server, so a provider that blocks www.gstatic.com does not reach it; an exit of the server
+// that blocks Google makes the verdict inconclusive, not a block.
 const (
 	ProbeTarget       = "http://speed.cloudflare.com/__down?bytes=64000"
 	ProbeSecondTarget = "http://www.gstatic.com/generate_204"

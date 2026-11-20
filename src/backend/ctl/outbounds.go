@@ -1,6 +1,7 @@
 package ctl
 
 import (
+	"cmp"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -15,8 +16,8 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/plan"
 )
 
-// outboundWait bounds the test of an outbound: global_check has to come within the 20 s
-// LuCI gives a call, and the tests run beside its other checks.
+// outboundWait bounds a test of an outbound with one URL: global_check has to come within the
+// 20 s LuCI gives a call, and the tests run beside its other checks.
 const outboundWait = 5 * time.Second
 
 const (
@@ -51,13 +52,14 @@ const (
 	blockTag  = plan.BlockOutboundTag
 )
 
-// outboundLines tests the outbound of every rule that has one, and the direct one, as the
-// dashboard of the page does: the delay of a request through it to delayTestURL. A rule goes
-// through the selector "<rule>-out" of its URL test, its servers and the URL tests of its
-// fallbacks (plan/exits.go), and what the selector has chosen is tested: the URL test with its
-// own servers, the one server of the rule, or what is pinned on the dashboard. A test of the
-// selector itself would test every server of every fallback with them. The tests run at once.
-func outboundLines(caller *clashCaller, config *model.Config) []string {
+// outboundLines tests the outbound of every rule that has one, and the direct one, with the check
+// URLs links (oneOffURLs). A rule goes through the selector "<rule>-out" of its URL test, its
+// servers and the URL tests of its fallbacks (plan/exits.go), and what the selector has chosen is
+// tested: the URL test with a round of its own, the one server of the rule, or what is pinned on
+// the dashboard, with the first URL and then the second (serverDelay). A test of the selector
+// itself would test every server of every fallback with them. The direct one is tested with all
+// the URLs at once (directDelay). The tests run at once.
+func outboundLines(caller *clashCaller, config *model.Config, links []string) []string {
 	deadline := time.Now().Add(outboundsBudget)
 	_, content := caller.call(http.MethodGet, "/proxies", "", 10*time.Second)
 	var listed struct {
@@ -68,6 +70,7 @@ func outboundLines(caller *clashCaller, config *model.Config) []string {
 	}
 	type test struct {
 		label, tag, kind string
+		direct           bool
 	}
 	var tests []test
 	var refused []string
@@ -108,7 +111,7 @@ func outboundLines(caller *clashCaller, config *model.Config) []string {
 		tests = append(tests, item)
 	}
 	if _, found := listed.Proxies[directTag]; found {
-		tests = append(tests, test{label: "direct (without a proxy)", tag: directTag, kind: "Direct"})
+		tests = append(tests, test{label: "direct (without a proxy)", tag: directTag, kind: "Direct", direct: true})
 	}
 	// the rounds run at once and share the slots of the engine
 	servers := 0
@@ -124,11 +127,14 @@ func outboundLines(caller *clashCaller, config *model.Config) []string {
 		tested.Add(1)
 		go func() {
 			defer tested.Done()
-			if item.kind == "URLTest" {
+			switch {
+			case item.kind == "URLTest":
 				proxy := listed.Proxies[item.tag]
-				results[index] = urlTestLine(caller, item.label, item.tag, proxy.All[:max(len(proxy.All)-len(proxy.Fallbacks), 0)], proxy.Fallbacks, wait, deadline)
-			} else {
-				results[index] = proxyLine(caller, item.label, item.tag, deadline)
+				results[index] = urlTestLine(caller, item.label, item.tag, proxy.All[:max(len(proxy.All)-len(proxy.Fallbacks), 0)], proxy.Fallbacks, links, wait, deadline)
+			case item.direct:
+				results[index] = directLine(caller, item.label, links, deadline)
+			default:
+				results[index] = proxyLine(caller, item.label, item.tag, links, deadline)
 			}
 		}()
 	}
@@ -188,35 +194,37 @@ func groupWait(servers int) time.Duration {
 	return min(time.Duration(rounds)*outboundWait, groupWaitMax)
 }
 
-func delayQuery(wait time.Duration) string {
-	return url.Values{"url": {delayTestURL}, "timeout": {strconv.Itoa(int(wait.Milliseconds()))}}.Encode()
+// proxyLine tests one outbound with the first check URL and then the second (serverDelay): "✅ main:
+// 123 ms", "✅ main: 123 ms with cp.cloudflare.com; www.gstatic.com did not answer through it".
+func proxyLine(caller *clashCaller, label string, tag string, links []string, deadline time.Time) string {
+	result := serverDelay(caller, tag, links, outboundWait, deadline)
+	if result.Delay > 0 {
+		return "✅ " + label + ": " + result.text()
+	}
+	return "❌ " + label + ": does not work (" + result.why() + ")"
 }
 
-// proxyLine tests one outbound: "✅ main: 123 ms".
-func proxyLine(caller *clashCaller, label string, tag string, deadline time.Time) string {
-	delay, reason := proxyDelay(caller, tag, deadline)
-	if delay > 0 {
-		return "✅ " + label + ": " + strconv.Itoa(delay) + " ms"
+// directLine tests what goes without a proxy with all the check URLs at once (directDelay): "✅
+// direct (without a proxy): 45 ms, the median of 5 check URLs". The URLs that do not answer
+// without a proxy are named: the provider may block them, and the line is a warning.
+func directLine(caller *clashCaller, label string, links []string, deadline time.Time) string {
+	result := directDelay(caller, links, outboundWait, deadline)
+	switch {
+	case len(links) == 1 && result.Delay > 0:
+		return "✅ " + label + ": " + strconv.Itoa(result.Delay) + " ms"
+	case len(links) == 1:
+		return "❌ " + label + ": does not work (" + result.why() + ")"
+	case result.Delay == 0:
+		return "❌ " + label + ": none of the " + strconv.Itoa(len(links)) + " check URLs answers (" + cmp.Or(result.Message, "no answer") + "): check the router's internet and DNS"
 	}
-	return "❌ " + label + ": does not work (" + reason + ")"
-}
-
-// proxyDelay is the delay of a request through an outbound, or 0 and why there is none. Neither the
-// test nor the wait for its answer goes past deadline.
-func proxyDelay(caller *clashCaller, tag string, deadline time.Time) (int, string) {
-	wait := min(outboundWait, time.Until(deadline))
-	_, content := caller.call(http.MethodGet, "/proxies/"+url.PathEscape(tag)+"/delay?"+delayQuery(wait), "", min(wait+3*time.Second, time.Until(deadline)))
-	var answer struct {
-		Delay   int    `json:"delay"`
-		Message string `json:"message"`
+	text := strconv.Itoa(result.Delay) + " ms, the median of " + strconv.Itoa(len(result.URLs)) + " check URLs"
+	if len(result.URLs) == 1 {
+		text = strconv.Itoa(result.Delay) + " ms with " + hostOf(result.URLs[0])
 	}
-	if json.Unmarshal(content, &answer) == nil && answer.Delay > 0 {
-		return answer.Delay, ""
+	if len(result.Silent) == 0 {
+		return "✅ " + label + ": " + text
 	}
-	if answer.Message != "" {
-		return 0, answer.Message
-	}
-	return 0, "no answer within " + strconv.Itoa(int(wait.Round(time.Second).Seconds())) + " s"
+	return "⚠️ " + label + ": " + text + "; no answer without a proxy from " + hostsOf(result.Silent) + ": the provider may block " + words(len(result.Silent) == 1, "it", "them")
 }
 
 // urlTestLine tells of the servers of a URL test, the fastest first. sing-box tests its fallbacks
@@ -226,9 +234,11 @@ func proxyDelay(caller *clashCaller, tag string, deadline time.Time) (int, strin
 // did. The answer holds only those that passed: one whose test failed, one whose test the deadline
 // cut and one that never got a slot look alike, and the slots are shared with the rounds of other
 // rules, so it is "no answer in time" for all of them. Nothing here goes past deadline: what it goes
-// through is tested with what is left, not at all when too little is.
-func urlTestLine(caller *clashCaller, label string, tag string, members []string, fallbacks []string, wait time.Duration, deadline time.Time) string {
-	_, content := caller.call(http.MethodGet, "/group/"+url.PathEscape(tag)+"/delay?"+delayQuery(wait), "", min(wait+3*time.Second, time.Until(deadline)))
+// through is tested with what is left, not at all when too little is. The round tests with the
+// check URLs of the URL test itself, in turn, and takes no URL of the Clash API; the first of links
+// is given all the same. What it goes through is tested as one outbound (outboundDelay).
+func urlTestLine(caller *clashCaller, label string, tag string, members []string, fallbacks []string, links []string, wait time.Duration, deadline time.Time) string {
+	_, content := caller.call(http.MethodGet, "/group/"+url.PathEscape(tag)+"/delay?"+delayQuery(links[0], wait), "", min(wait+answerSlack, time.Until(deadline)))
 	delays := map[string]int{}
 	_ = json.Unmarshal(content, &delays)
 	answering := make([]string, 0, len(members))
@@ -272,15 +282,15 @@ func urlTestLine(caller *clashCaller, label string, tag string, members []string
 	if time.Until(deadline) < leastProxyTest {
 		return none
 	}
-	delay, reason := proxyDelay(caller, group.Now, deadline)
+	result := outboundDelay(caller, group.Now, links, outboundWait, deadline)
 	fallback := slices.Contains(fallbacks, group.Now)
 	switch {
-	case fallback && delay > 0:
-		return "⚠️ " + label + ": none of its servers answers in time; it goes through the fallback " + group.Now + " now: " + strconv.Itoa(delay) + " ms"
+	case fallback && result.Delay > 0:
+		return "⚠️ " + label + ": none of its servers answers in time; it goes through the fallback " + group.Now + " now: " + result.text()
 	case fallback:
-		return none + ", nor the fallback " + group.Now + " it goes through now (" + reason + ")"
-	case delay > 0:
-		return "✅ " + label + ": it goes through " + group.Now + " now: " + strconv.Itoa(delay) + " ms"
+		return none + ", nor the fallback " + group.Now + " it goes through now (" + result.why() + ")"
+	case result.Delay > 0:
+		return "✅ " + label + ": it goes through " + group.Now + " now: " + result.text()
 	}
-	return "❌ " + label + ": " + group.Now + ", which it goes through now, does not work (" + reason + ")"
+	return "❌ " + label + ": " + group.Now + ", which it goes through now, does not work (" + result.why() + ")"
 }

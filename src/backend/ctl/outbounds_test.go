@@ -19,29 +19,72 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// outboundsCaller is the Clash API of a running sing-box, standing in: the proxies, the answers of
-// the delay test of the groups, and the outbounds whose own delay test fails.
-func outboundsCaller(t *testing.T, proxies map[string]map[string]any, groups map[string]string, failing ...string) *clashCaller {
+// fakeClash is the Clash API of a running sing-box, standing in: the proxies, the answers of the
+// delay test of the groups, the outbounds whose own delay test fails ("tag", or "tag host" for one
+// check URL only) and the delays of a test with one URL ("tag host"; 120 ms when not told). A test
+// of an outbound takes hold. The tests asked for are written down.
+type fakeClash struct {
+	proxies map[string]map[string]any
+	groups  map[string]string
+	failing []string
+	delays  map[string]int
+	hold    time.Duration
+
+	access sync.Mutex
+	// "tag host timeout" of each test of an outbound, "group tag host timeout" of a group
+	asked []string
+	// the most tests of an outbound under way at once
+	busy, mostBusy int
+}
+
+func (f *fakeClash) tests() []string {
+	f.access.Lock()
+	defer f.access.Unlock()
+	return slices.Clone(f.asked)
+}
+
+func (f *fakeClash) caller(t *testing.T) *clashCaller {
 	t.Helper()
 	clash := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		path := request.URL.Path
+		query := request.URL.Query()
+		host := hostOf(query.Get("url"))
 		switch {
 		case path == "/proxies":
-			_ = json.NewEncoder(writer).Encode(map[string]any{"proxies": proxies})
+			_ = json.NewEncoder(writer).Encode(map[string]any{"proxies": f.proxies})
 		case strings.HasPrefix(path, "/proxies/") && strings.HasSuffix(path, "/delay"):
-			if slices.Contains(failing, strings.TrimSuffix(strings.TrimPrefix(path, "/proxies/"), "/delay")) {
+			tag := strings.TrimSuffix(strings.TrimPrefix(path, "/proxies/"), "/delay")
+			f.access.Lock()
+			f.asked = append(f.asked, tag+" "+host+" "+query.Get("timeout"))
+			f.busy++
+			f.mostBusy = max(f.mostBusy, f.busy)
+			f.access.Unlock()
+			if f.hold > 0 {
+				time.Sleep(f.hold)
+			}
+			f.access.Lock()
+			f.busy--
+			f.access.Unlock()
+			if slices.Contains(f.failing, tag) || slices.Contains(f.failing, tag+" "+host) {
 				_, _ = writer.Write([]byte(`{"message": "An error occurred in the delay test"}`))
 				return
 			}
-			_, _ = writer.Write([]byte(`{"delay": 120}`))
+			delay, found := f.delays[tag+" "+host]
+			if !found {
+				delay = 120
+			}
+			_, _ = writer.Write([]byte(`{"delay": ` + strconv.Itoa(delay) + `}`))
 		case strings.HasPrefix(path, "/proxies/"):
-			_ = json.NewEncoder(writer).Encode(proxies[strings.TrimPrefix(path, "/proxies/")])
+			_ = json.NewEncoder(writer).Encode(f.proxies[strings.TrimPrefix(path, "/proxies/")])
 		case strings.HasPrefix(path, "/group/") && strings.HasSuffix(path, "/delay"):
 			tag := strings.TrimSuffix(strings.TrimPrefix(path, "/group/"), "/delay")
-			if proxies[tag]["type"] != "URLTest" {
+			f.access.Lock()
+			f.asked = append(f.asked, "group "+tag+" "+host+" "+query.Get("timeout"))
+			f.access.Unlock()
+			if f.proxies[tag]["type"] != "URLTest" {
 				t.Errorf("a test of the group %s", tag)
 			}
-			answer, found := groups[tag]
+			answer, found := f.groups[tag]
 			if !found {
 				// none answers, or a round of the test is under way
 				answer = "{}"
@@ -55,6 +98,16 @@ func outboundsCaller(t *testing.T, proxies map[string]map[string]any, groups map
 	running := &backend{facts: api.Facts{ClashAPI: strings.TrimPrefix(clash.URL, "http://")}}
 	return &clashCaller{client: api.Client{Path: serve(t, running, logbuf.New(1<<12))}}
 }
+
+// outboundsCaller is fakeClash with the proxies, the answers of the delay test of the groups, and
+// the outbounds whose own delay test fails.
+func outboundsCaller(t *testing.T, proxies map[string]map[string]any, groups map[string]string, failing ...string) *clashCaller {
+	t.Helper()
+	return (&fakeClash{proxies: proxies, groups: groups, failing: failing}).caller(t)
+}
+
+// checkLinks are the check URLs of a new installation, as the commands test with them.
+var checkLinks = oneOffURLs(model.DefaultTestingURLs)
 
 // The test of the outbounds tests what the selector of a rule has chosen: its URL test with
 // its own servers, or what is pinned on the dashboard, never the selector, which would test
@@ -103,7 +156,7 @@ func TestOutboundLinesTestWhatTheRuleUses(t *testing.T) {
 	config.Sections = append(config.Sections,
 		model.Section{Name: "off", Servers: rows},
 		model.Section{Name: "ads", Enabled: true, Servers: []model.Member{{Source: model.SourceBlock}}})
-	lines := outboundLines(caller, config)
+	lines := outboundLines(caller, config, checkLinks)
 	require.Equal(t, []string{
 		"✅ main: 120 ms",
 		"✅ ru (urltest): s-ru 142 ms (1 of 2 answer; no answer in time: s-us)",
@@ -111,11 +164,11 @@ func TestOutboundLinesTestWhatTheRuleUses(t *testing.T) {
 		"✅ one: 120 ms",
 		"✅ tier (pinned tier-fallback-1-out, urltest): s-de 150 ms, s-us 409 ms",
 		"⚠️ down (urltest): none of its servers answers in time; it goes through the fallback down-fallback-1-out now: 120 ms",
-		"❌ lost (urltest): none of its servers answers in time, nor the fallback lost-fallback-1-out it goes through now (An error occurred in the delay test)",
+		"❌ lost (urltest): none of its servers answers in time, nor the fallback lost-fallback-1-out it goes through now (An error occurred in the delay test; tried www.gstatic.com, cp.cloudflare.com)",
 		"✅ busy (urltest): it goes through s-us now: 120 ms",
 		"❌ dead (urltest): none of its servers answers in time; its fallback block refuses its connections",
 		"✅ tv: 120 ms",
-		"✅ direct (without a proxy): 120 ms",
+		"✅ direct (without a proxy): 120 ms, the median of 5 check URLs",
 		"⛔ yt: its sources name no server now, and its connections are refused",
 	}, lines)
 }
@@ -176,11 +229,11 @@ func TestOutboundLinesFallbacksAreNoServers(t *testing.T) {
 		"✅ multi (urltest): s-nl 47 ms (1 of 3 answer; no answer in time: s-de, s-us)",
 		"⚠️ tier (urltest): none of its servers answers in time; it goes through the fallback tier-fallback-1-out now: 120 ms",
 		"⚠️ one (urltest): none of its servers answers in time; it goes through the fallback s-de now: 120 ms",
-		"❌ gone (urltest): none of its servers answers in time, nor the fallback s-se it goes through now (An error occurred in the delay test)",
+		"❌ gone (urltest): none of its servers answers in time, nor the fallback s-se it goes through now (An error occurred in the delay test; tried www.gstatic.com, cp.cloudflare.com)",
 		"⚠️ open (urltest): none of its servers answers in time; it goes through the fallback direct-out now: 120 ms",
 		"✅ self (urltest): it goes through s-nl now: 120 ms",
-		"✅ direct (without a proxy): 120 ms",
-	}, outboundLines(caller, config))
+		"✅ direct (without a proxy): 120 ms, the median of 5 check URLs",
+	}, outboundLines(caller, config, checkLinks))
 }
 
 // What a delay test of a group gets for so many servers: a slot of the engine for each, a server
@@ -316,7 +369,7 @@ func TestURLTestLineWaitsForAllServers(t *testing.T) {
 	members, dead := servers22()
 	proxies, config := ruleOfServers("sweep", members)
 	caller, timeouts := roundCaller(t, proxies, dead)
-	lines := outboundLines(caller, config)
+	lines := outboundLines(caller, config, checkLinks)
 	require.Equal(t, []string{"12000"}, timeouts())
 	require.Len(t, lines, 1)
 	require.Contains(t, lines[0], "(13 of 22 answer; no answer in time: s00, s02, s03, s08, s12, s13, s15, s18, s21)")
@@ -334,7 +387,7 @@ func TestURLTestLineCutByTheCap(t *testing.T) {
 	}
 	proxies, config := ruleOfServers("sweep", members)
 	caller, timeouts := roundCaller(t, proxies, dead)
-	lines := outboundLines(caller, config)
+	lines := outboundLines(caller, config, checkLinks)
 	require.Equal(t, []string{"12000"}, timeouts())
 	require.Len(t, lines, 1)
 	require.Contains(t, lines[0], "(24 of 40 answer; no answer in time: s00, ")
@@ -354,7 +407,7 @@ func TestURLTestLineNoAnswerWithinTheCap(t *testing.T) {
 	proxies, config := ruleOfServers("sweep", members)
 	proxies["sweep-urltest-out"]["now"] = "s00"
 	caller, _ := roundCaller(t, proxies, dead)
-	require.Equal(t, []string{"✅ sweep (urltest): it goes through s00 now: 120 ms"}, outboundLines(caller, config))
+	require.Equal(t, []string{"✅ sweep (urltest): it goes through s00 now: 120 ms"}, outboundLines(caller, config, checkLinks))
 }
 
 // A fake of the Clash API for what follows a round without an answer: no server answers the round,
@@ -401,7 +454,7 @@ func TestURLTestLineFollowUpGetsWhatIsLeft(t *testing.T) {
 	proxies, _ := ruleOfServers("sweep", []string{"a", "b"})
 	test := func(left time.Duration, answer string) (string, []string) {
 		caller, asked := followUpCaller(t, proxies, false, answer)
-		line := urlTestLine(caller, "sweep", "sweep-urltest-out", []string{"a", "b"}, nil, 5*time.Second, time.Now().Add(left))
+		line := urlTestLine(caller, "sweep", "sweep-urltest-out", []string{"a", "b"}, nil, checkLinks, 5*time.Second, time.Now().Add(left))
 		return line, asked()
 	}
 
@@ -415,7 +468,7 @@ func TestURLTestLineFollowUpGetsWhatIsLeft(t *testing.T) {
 
 	// the wait the test tells of is the one it got
 	line, _ = test(3*time.Second, `{}`)
-	require.Equal(t, "❌ sweep: b, which it goes through now, does not work (no answer within 3 s)", line)
+	require.Equal(t, "❌ sweep: b, which it goes through now, does not work (no answer within 3 s; tried www.gstatic.com, cp.cloudflare.com)", line)
 
 	// plenty left: its usual wait
 	_, asked = test(14*time.Second, `{"delay": 120}`)
@@ -433,7 +486,7 @@ func TestURLTestLineEndsAtTheDeadline(t *testing.T) {
 	proxies, _ := ruleOfServers("sweep", []string{"a", "b"})
 	caller, asked := followUpCaller(t, proxies, true, `{"delay": 120}`)
 	start := time.Now()
-	line := urlTestLine(caller, "sweep", "sweep-urltest-out", []string{"a", "b"}, nil, 5*time.Second, start.Add(300*time.Millisecond))
+	line := urlTestLine(caller, "sweep", "sweep-urltest-out", []string{"a", "b"}, nil, checkLinks, 5*time.Second, start.Add(300*time.Millisecond))
 	require.Less(t, time.Since(start), 3*time.Second)
 	require.Equal(t, "❌ sweep: none of its servers answers in time", line)
 	require.Empty(t, asked())
@@ -462,7 +515,7 @@ func TestURLTestLineNoTestAfterASlowRead(t *testing.T) {
 	t.Cleanup(clash.Close)
 	running := &backend{facts: api.Facts{ClashAPI: strings.TrimPrefix(clash.URL, "http://")}}
 	caller := &clashCaller{client: api.Client{Path: serve(t, running, logbuf.New(1<<12))}}
-	line := urlTestLine(caller, "sweep", "sweep-urltest-out", []string{"a", "b"}, nil, 5*time.Second, time.Now().Add(leastProxyTest+300*time.Millisecond))
+	line := urlTestLine(caller, "sweep", "sweep-urltest-out", []string{"a", "b"}, nil, checkLinks, 5*time.Second, time.Now().Add(leastProxyTest+300*time.Millisecond))
 	require.Equal(t, "❌ sweep: none of its servers answers in time", line)
 	access.Lock()
 	defer access.Unlock()
@@ -478,7 +531,7 @@ func TestOutboundLinesGroupsShareTheSlots(t *testing.T) {
 	}
 	config.Sections = append(config.Sections, other.Sections...)
 	caller, timeouts := roundCaller(t, first, map[string]bool{})
-	lines := outboundLines(caller, config)
+	lines := outboundLines(caller, config, checkLinks)
 	require.Equal(t, []string{"10000", "10000"}, timeouts())
 	require.Len(t, lines, 2)
 	require.Contains(t, lines[0], "a1 100 ms")
@@ -508,11 +561,11 @@ func TestOutboundLinesOfNames(t *testing.T) {
 	require.NoError(t, err)
 	facts.Tags = json.RawMessage(`{"rules":{"rule1":{"name":"Cats","selector":"Cats-out","test":"Cats-urltest-out"}},"outbounds":{}}`)
 	caller.once.Do(func() { caller.facts = *facts })
-	require.Equal(t, []string{"✅ Cats (urltest): mouse via dog 99 ms"}, outboundLines(caller, config), "rule2 does not run")
+	require.Equal(t, []string{"✅ Cats (urltest): mouse via dog 99 ms"}, outboundLines(caller, config, checkLinks), "rule2 does not run")
 
 	// what the settings make: the tags of the names
 	require.Equal(t, []string{"✅ Cats (urltest): mouse via dog 99 ms", "✅ Pin (pinned mouse via dog): 120 ms"},
-		outboundLines(outboundsCaller(t, proxies, groups), config))
+		outboundLines(outboundsCaller(t, proxies, groups), config, checkLinks))
 }
 
 // The proxies of the Clash API go to the page with what their tags are.
