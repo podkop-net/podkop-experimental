@@ -1,11 +1,12 @@
-import { insertIf } from '../../../../helpers';
+import { insertIf } from '../../../../helpers/insertIf';
 
 export interface IRenderSystemInfoRow {
   key: string;
   value: string;
   tag?: {
     label: string;
-    kind: 'warning' | 'success';
+    // neutral: in the colour of text, for what is neither good nor bad (a test build)
+    kind: 'warning' | 'success' | 'neutral';
   };
 }
 
@@ -28,6 +29,9 @@ export function renderSystemInfo({ items }: IRenderSystemInfoProps) {
         ]),
         ...insertIf(item.tag?.kind === 'success', [
           'pdk_diagnostic-page__right-bar__system-info__row__tag--success',
+        ]),
+        ...insertIf(item.tag?.kind === 'neutral', [
+          'pdk_diagnostic-page__right-bar__system-info__row__tag--neutral',
         ]),
       ]
         .filter(Boolean)

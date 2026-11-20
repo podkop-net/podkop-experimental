@@ -108,6 +108,13 @@ export const styles = `
     color: var(--success-color-medium, green);
 }
 
+/* in the colour of text, its border too (the base border is transparent); a theme without the
+   variable gives the colour the text has */
+.pdk_diagnostic-page__right-bar__system-info__row__tag--neutral {
+    border: 1px var(--text-color-medium, currentColor) solid;
+    color: var(--text-color-medium, inherit);
+}
+
 .pdk_diagnostic-page__left-bar {
     display: grid;
     grid-template-columns: 1fr;
