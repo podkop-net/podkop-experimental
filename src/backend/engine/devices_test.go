@@ -157,6 +157,14 @@ func TestOnlyDevicesMatch(t *testing.T) {
 		require.Equal(t, "final", routeOf(rules, "tproxy-in", source, "100.71.65.5"))
 	}
 
+	// the resolve rule of the rule has the devices as well: sing-box takes it
+	resolving := strings.Replace(settings, "\tlist only_devices '192.168.78.10'\n", "\toption resolve_real_ip_for_routing '1'\n\tlist only_devices '192.168.78.10'\n", 1)
+	result, err = plan.Build(devicesSettings(t, resolving), plan.Facts{IPv6: true}, plan.Options{RuleSetDir: dir, DecodeLink: DecodeLink, CheckList: CheckRuleSet})
+	require.NoError(t, err)
+	require.Contains(t, string(result.Config), `"action": "resolve"`)
+	_, err = Check(result.Config)
+	require.NoError(t, err)
+
 	// the control: the same rules without the field take every device
 	unlimited := strings.ReplaceAll(settings, "\tlist only_devices '192.168.78.10'\n\tlist only_devices '192.168.79.0/24'\n\tlist only_devices '2001:2:0:78::10'\n", "")
 	result, err = plan.Build(devicesSettings(t, unlimited), plan.Facts{IPv6: true}, plan.Options{RuleSetDir: dir, DecodeLink: DecodeLink, CheckList: CheckRuleSet})
