@@ -9,6 +9,7 @@ under them; this guide covers what the hints do not.
 - [First start](#first-start)
 - [Servers](#servers)
 - [Rules](#rules)
+  - [Mixed proxy](#mixed-proxy)
 - [Settings](#settings)
 - [BitTorrent](#bittorrent)
 - [IPv6](#ipv6)
@@ -59,7 +60,8 @@ wins; drag ☰ to change the order. A rule has four tabs:
   also be **Directly** (an exclusion) or **Block**.
 - **Fallback**: rows in order. They are used when no server of the rule answers. With **Block**
   as a fallback, the rule goes back to its servers soon after the network returns.
-- **Extra**: the server choice and the local mixed proxy port of the rule.
+- **Extra**: the server choice and the rule's mixed proxy (SOCKS5 and HTTP on a port of the
+  router, see [Mixed proxy](#mixed-proxy)).
 
 Server choice:
 
@@ -68,6 +70,32 @@ Server choice:
 | Fastest | the lowest median delay of the server checks; it switches only to a server faster by the tolerance (Settings) | the checks only |
 | Fastest, avoiding loss | the delay weighed by the loss that downloads of 256 KB count, through the server in use and the three next best | about 50 MB a day per rule at the default 30 minutes |
 | Balance between the best | devices are spread over the best servers and keep theirs; a server with high loss gets no devices | about 60 MB a day per rule (five servers checked) |
+
+### Mixed proxy
+
+A rule can open a proxy on the router: SOCKS5 and HTTP on one port of the LAN address
+(**Extra → Enable Mixed Proxy**). What an app sends there goes through the servers of the rule.
+
+**User name and password.** Without them, every device that reaches the port can use it, a
+program on a device of your LAN included. With both set, an app must sign in: SOCKS5 with the
+user name and password, HTTP with Basic authentication. SOCKS4 has no password and is refused
+then. **Generate** fills in a random password of 16 letters and digits (and the user name
+`podkop` when there is none); a password typed by hand needs at least 8 characters. Both empty
+is the proxy without a login, as before 0.8.21.
+
+- The login travels unencrypted, like the app's traffic to the router. It keeps strangers and
+  programs of your LAN off the port; it does not make a port forwarded from the internet safe.
+  To use the proxy from outside, connect to the router over a VPN (WireGuard).
+- In a proxy address the login is written `socks5h://user:password@192.168.1.1:2080` or
+  `http://user:password@192.168.1.1:2080`. A sign of the password other than letters, digits and
+  `-._~` is written as `%` and its code (`@` is `%40`); generated passwords have none.
+- Browsers have no fields for a SOCKS5 login (Chrome cannot use one at all): set the browser to
+  the HTTP proxy at the same address and port, and it asks for the login.
+- The login stays in the settings while the proxy is off. The global check, `show_config` and
+  `show_sing_box_config` mask it; the global check tells for each proxy whether it listens and
+  whether it asks for a login.
+- A wrong password typed in an app is written by sing-box as it came to the system log
+  (`logread`) and to YACD's log; podkop's log (**View logs**, `podkop check_logs`) hides it.
 
 ## Settings
 
@@ -115,9 +143,10 @@ Two more fields:
 - **Torrent clients on the router itself.** The detector sees the devices of the LAN, not the
   router's own programs. Name the user the client runs as (`transmission` and `aria2` in OpenWrt's
   packages) and all the traffic of that user follows the mode. A client that speaks SOCKS5
-  (qBittorrent, Deluge) can instead be pointed at the **mixed proxy** of a rule: what it sends
-  there goes through that rule's servers, whatever the BitTorrent mode. Transmission and aria2
-  have no proxy setting for peers.
+  (qBittorrent, Deluge) can instead be pointed at the [mixed proxy](#mixed-proxy) of a rule,
+  with its user name and password when the proxy has a login (qBittorrent: *Authentication*;
+  Deluge: the type *Socks5 Auth*): what it sends there goes through that rule's servers,
+  whatever the BitTorrent mode. Transmission and aria2 have no proxy setting for peers.
 
 What it cannot do:
 
