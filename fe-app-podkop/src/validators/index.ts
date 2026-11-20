@@ -16,3 +16,4 @@ export * from './validateVmessUrl';
 export * from './validateTuicUrl';
 export * from './validateHttpProxyUrl';
 export * from './validateTlsProxyUrl';
+export * from './validateMixedProxyLogin';

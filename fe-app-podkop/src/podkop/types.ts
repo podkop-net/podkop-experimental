@@ -362,6 +362,9 @@ export namespace Podkop {
     fully_routed_ips?: string[];
     mixed_proxy_enabled?: string;
     mixed_proxy_port?: string;
+    // the login of the mixed proxy: both or none (validateMixedProxyLogin)
+    mixed_proxy_username?: string;
+    mixed_proxy_password?: string;
     resolve_real_ip_for_routing?: string;
   }
 

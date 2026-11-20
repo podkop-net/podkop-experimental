@@ -32,6 +32,23 @@ function listLabel(key) {
   return main.DOMAIN_LIST_OPTIONS[key] || key;
 }
 
+// A field of the login of a mixed proxy: browsers and password managers are asked to leave
+// it alone, phones not to capitalise or correct it. The input, or null.
+function plainSecret(node) {
+  const input = node && node.querySelector ? node.querySelector("input") : null;
+  if (input) {
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("autocapitalize", "off");
+    input.setAttribute("autocorrect", "off");
+    input.setAttribute("spellcheck", "false");
+    input.setAttribute("data-lpignore", "true");
+    input.setAttribute("data-1p-ignore", "true");
+    input.setAttribute("data-bwignore", "true");
+    input.setAttribute("data-form-type", "other");
+  }
+  return input;
+}
+
 // the rows of a rule in the order of the file, the servers or the fallbacks
 function rowsOf(rule, role) {
   return uci
@@ -931,6 +948,111 @@ function createRulesContent(section, singBoxFeatures = []) {
   o.placeholder = "2080";
   o.rmempty = false;
   o.depends("mixed_proxy_enabled", "1");
+
+  // The login of the proxy: plain text fields, never of the type password. A browser takes a
+  // window with a password field for a login form and fills in the router's own login, the
+  // user name into the field before it (the subscription address of 0.8.9): here the root
+  // password of the router would become the proxy's, in every app. podkop masks both where
+  // it shows the settings, as the key of YACD. Kept while the proxy is off: the apps have it.
+  o = section.taboption(
+    "extra",
+    form.Value,
+    "mixed_proxy_username",
+    _("Mixed Proxy User Name"),
+    _(
+      "With a user name and a password, apps sign in to the proxy (SOCKS5 or HTTP; SOCKS4 no longer works). Both empty: any device that reaches the port can use it",
+    ),
+  );
+  o.modalonly = true;
+  o.optional = true;
+  o.retain = true;
+  o.depends("mixed_proxy_enabled", "1");
+  o.renderWidget = function (section_id, option_index, cfgvalue) {
+    const node = form.Value.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue,
+    );
+    plainSecret(node);
+    return node;
+  };
+  o.validate = function (section_id, value) {
+    const validation = main.validateMixedProxyUser(value || "");
+    return validation.valid ? true : validation.message;
+  };
+
+  o = section.taboption(
+    "extra",
+    form.Value,
+    "mixed_proxy_password",
+    _("Mixed Proxy Password"),
+    _(
+      "Sent unencrypted: never the router's password. Generate fills in 16 random letters and digits",
+    ),
+  );
+  o.modalonly = true;
+  o.optional = true;
+  o.retain = true;
+  o.depends("mixed_proxy_enabled", "1");
+  o.renderWidget = function (section_id, option_index, cfgvalue) {
+    const node = form.Value.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue,
+    );
+    const input = plainSecret(node);
+    if (input && input.parentNode) {
+      const generate = E(
+        "button",
+        {
+          class: "cbi-button cbi-button-neutral",
+          type: "button",
+          disabled: input.disabled ? "" : null,
+          click: (ev) => {
+            ev.preventDefault();
+            this.generate(section_id);
+          },
+        },
+        [_("Generate")],
+      );
+      const group = E("div", { class: "control-group" });
+      input.parentNode.insertBefore(group, input);
+      group.appendChild(input);
+      group.appendChild(generate);
+    }
+    return node;
+  };
+  // a random password, and the user name "podkop" when there is none
+  o.generate = function (section_id) {
+    const located = this.map.lookupOption("mixed_proxy_username", section_id);
+    const user = located ? located[0].getUIElement(located[1]) : null;
+    if (user && !user.getValue()) {
+      user.setValue("podkop");
+    }
+    const password = this.getUIElement(section_id);
+    if (password) {
+      password.setValue(main.generateProxyPassword());
+    }
+    if (located) {
+      located[0].triggerValidation(located[1]);
+    }
+    this.triggerValidation(section_id);
+  };
+  // the pair is checked here, on the password; LuCI checks every field again when another
+  // one changes, so an error left by the user name goes when it is set. A password the
+  // settings have already is not asked to be 8 characters long: the backend takes it.
+  o.validate = function (section_id, value) {
+    const user = this.section.formvalue(section_id, "mixed_proxy_username");
+    const kept = !!value && value === this.cfgvalue(section_id);
+    const validation = main.validateMixedProxyPassword(
+      value || "",
+      user || "",
+      kept,
+    );
+    return validation.valid ? true : validation.message;
+  };
 
   o = section.taboption(
     "extra",
