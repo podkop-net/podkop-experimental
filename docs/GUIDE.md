@@ -122,9 +122,9 @@ Lists column of the grid tells it ("… is in the rule … above, for its device
 - The mixed proxy of the rule stays open to every device of the LAN. The BitTorrent modes do not
   see the field (see [BitTorrent](#bittorrent)).
 - The router's own traffic is normally not taken: its source is the router's WAN address. It is
-  taken when that address is among the devices (a router behind another router, with a listed
-  subnet that holds its WAN address), and for IPv6 when the WAN has no IPv6 address of its own:
-  the router then sends from its LAN address.
+  taken when that address is among the devices: a router behind another router whose WAN address
+  lies in a listed subnet; for IPv6, a router whose WAN has no IPv6 address of its own sends from
+  its LAN address, which a listed LAN subnet (`/64`) holds.
 - A change of the field restarts sing-box, as a change of a rule's lists does: open connections
   are dropped.
 - An older version of podkop does not know the field: the rule there takes every device.
