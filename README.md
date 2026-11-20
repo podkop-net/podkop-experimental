@@ -21,7 +21,9 @@ package is needed.
   through another source.
 - **Subscriptions downloaded by the router.** The device identifier (HWID) is taken from the
   hardware. The provider's traffic and end date are shown. A change of the list does not
-  restart sing-box, so open connections stay.
+  restart sing-box, so open connections stay. A provider that gives the list only to some apps
+  can be asked with such an app's name (User-Agent) and extra headers; the HWID stays the
+  router's own.
 - **Automatic server choice per rule:** the fastest server, the fastest that avoids loss, or a
   balance between the best. Fallbacks ("Directly", "Block", other servers) take over when no
   server answers. A server can be pinned on the dashboard.

@@ -42,6 +42,18 @@ A source is one of:
 - an **outbound JSON** of sing-box;
 - an **interface**: a tunnel set up on the router (WireGuard, AmneziaWG …), a modem or a second WAN.
 
+**User-Agent** and **Extra headers** of a subscription: some providers give the list only to the
+apps they name, and send podkop a web page or notes like "open this link in the app". Type the
+app's name alone, without a version, in User-Agent (for example `INCY`) and press **Load**: the
+window says so when the provider sends that name JSON or YAML, which podkop cannot read yet, a web
+page or notes, and a list in use stays in use. The router still sends its own device identifier
+(HWID), so it takes its own place among the subscription's devices: the HWID and the other device
+headers, the client's address (`X-Forwarded-For` …) and the headers of the connection cannot be
+set. Extra headers (`Name: value`, one a line) are for a key the provider asks for: the global
+check shows their names only, and they go to the host of the subscription address only, not to
+another host it redirects to. The User-Agent is the name of an app, not a secret: the global check
+shows it.
+
 The order of the sources (drag ☰) changes nothing but the view. **Do not use for downloading
 lists and subscriptions** keeps a source out of downloads. Use it for a subscription with little
 traffic, or a tunnel into a closed network.
