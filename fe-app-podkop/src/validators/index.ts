@@ -4,6 +4,7 @@ export * from './validateDns';
 export * from './validateUrl';
 export * from './validatePath';
 export * from './validateSubnet';
+export * from './validateDevice';
 export * from './bulkValidate';
 export * from './validateShadowsocksUrl';
 export * from './validateVlessUrl';

@@ -3,3 +3,4 @@ export * from './services';
 export * from './tabs';
 export * from './linkCheck';
 export * from './sources';
+export * from './devices';

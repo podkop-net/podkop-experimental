@@ -3,6 +3,7 @@ import { ClashAPI, Podkop } from '../../types';
 import { PodkopShellMethods } from '../shell';
 import { ruleExit } from '../../sources';
 import { ruleOutbounds, ruleTiles } from './ruleTiles';
+import { deviceItems } from '../../devices';
 
 interface IGetDashboardSectionsResponse {
   success: boolean;
@@ -71,6 +72,8 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
     const code = ruleOutbounds(name, tags).selector;
     const selector = proxies[code];
     const displayName = String(rule.label ?? '').trim() || name;
+    // the devices as the settings name them; the backend warns of an item that is none
+    const devices = deviceItems(rule.only_devices);
 
     // the running configuration does not have the rule yet
     if (!selector) {
@@ -80,6 +83,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
         code,
         displayName,
         outbounds: [],
+        ...(devices.length ? { devices } : {}),
       };
     }
 
@@ -89,6 +93,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
       code,
       displayName,
       ...ruleTiles(proxies, name, sources, members, used, tags),
+      ...(devices.length ? { devices } : {}),
     };
   });
 

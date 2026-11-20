@@ -350,6 +350,17 @@ export function renderDefaultState({
     ];
   }
 
+  // The devices of a rule only for some devices: the others are not taken by it
+  function renderDevices() {
+    const devices = section.devices ?? [];
+    if (!devices.length) return [];
+    return [
+      E('div', { class: 'pdk_dashboard-page__outbound-section__devices' }, [
+        _('Only for: %s').format(devices.join(', ')),
+      ]),
+    ];
+  }
+
   // How the rule chose where its connections go, and the way back from a pinned server to the
   // URL test of the rule
   function renderRoute() {
@@ -468,6 +479,7 @@ export function renderDefaultState({
           ),
         ],
       ),
+      ...renderDevices(),
       E(
         'div',
         {

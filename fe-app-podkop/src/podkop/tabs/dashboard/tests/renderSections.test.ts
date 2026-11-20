@@ -488,3 +488,26 @@ describe('the cure badge of a tile', () => {
     expect(byClass(root, BUTTON)).toHaveLength(1);
   });
 });
+
+describe('the devices of a rule', () => {
+  const DEVICES = 'pdk_dashboard-page__outbound-section__devices';
+
+  it('names the devices of a rule only for some devices under its name', () => {
+    const { root } = render(
+      [outbound('a')],
+      {},
+      {
+        devices: ['192.168.1.50', '2001:db8:1::50'],
+      },
+    );
+    const [line] = byClass(root, DEVICES);
+    expect(line.children).toEqual(['Only for: 192.168.1.50, 2001:db8:1::50']);
+  });
+
+  it('says nothing for a rule of every device', () => {
+    expect(byClass(render([outbound('a')]).root, DEVICES)).toHaveLength(0);
+    expect(
+      byClass(render([outbound('a')], {}, { devices: [] }).root, DEVICES),
+    ).toHaveLength(0);
+  });
+});

@@ -340,6 +340,8 @@ export namespace Podkop {
     // the URL test of the rule, which the selector takes unless a server is pinned
     auto?: string;
     route?: OutboundRoute;
+    // the devices the rule is only for ("only_devices"); none: every device
+    devices?: string[];
   }
 
   // a "config section" block of format 2: a rule (tab Rules)
@@ -360,6 +362,7 @@ export namespace Podkop {
     local_subnet_lists?: string[];
     remote_subnet_lists?: string[];
     fully_routed_ips?: string[];
+    only_devices?: string[];
     mixed_proxy_enabled?: string;
     mixed_proxy_port?: string;
     // the login of the mixed proxy: both or none (validateMixedProxyLogin)

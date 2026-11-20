@@ -448,6 +448,14 @@ button.pdk_dashboard-page__outbound-grid__item__block--neutral {
   overflow-wrap: anywhere;
 }
 
+/* the devices of a rule only for some devices, under its name */
+.pdk_dashboard-page__outbound-section__devices {
+  font-size: 0.85em;
+  opacity: 0.75;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
 .pdk_dashboard-page__outbound-grid__item__latency--empty {
     color: var(--primary-color-low, rgba(128, 128, 128, 0.6));
 }

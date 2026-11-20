@@ -102,7 +102,26 @@ function rowText(row) {
   return text;
 }
 
-// The lists of a rule, short, and the lists a rule above takes first
+// whether the route rules of a rule go before the devices left out and those routed whole: the rules
+// of direct and block at the top (plan.LeadingRules)
+function isLeading(order, section_id) {
+  const sources = uci.sections("podkop", "source");
+  const members = uci.sections("podkop", "member");
+  for (const name of order) {
+    const rule = uci.get("podkop", name) || {};
+    const exit = main.ruleExit(rule, sources, members);
+    if (rule.enabled !== "0" && exit !== "direct" && exit !== "block") {
+      return false;
+    }
+    if (name === section_id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// The lists of a rule, short, and the lists a rule above takes first; for a rule only for some
+// devices, what keeps it from taking them
 function listsLines(grid, section_id) {
   const rule = uci.get("podkop", section_id) || {};
   const lists = L.toArray(rule.community_lists);
@@ -133,39 +152,155 @@ function listsLines(grid, section_id) {
   if (count("fully_routed_ips")) {
     parts.push(_("fully routed IPs: %d").format(count("fully_routed_ips")));
   }
-  const lines = [parts.join(", ") || _("no lists")];
+  // the devices are no list: a rule of devices alone still has "no lists"
+  let first = parts.join(", ") || _("no lists");
+  const own = main.ruleDevices(rule);
+  if (own.limited) {
+    first += ", " + _("only for devices: %d").format(own.devices.length);
+  }
+  const lines = [first];
   if (rule.enabled === "0") {
     return lines;
   }
   const order = grid.cfgsections();
+  if (own.limited && !own.devices.length) {
+    lines.push(
+      _("No item of “Only for devices” is an address: the rule takes nothing"),
+    );
+    return lines;
+  }
+  if (own.limited) {
+    own.devices.filter(main.isUniqueLocal).forEach((device) => {
+      lines.push(
+        _(
+          "%s is a unique local IPv6 address: a device sends from it to the internet only when it has no global IPv6 address and the router translates its IPv6 (NAT66)",
+        ).format(device),
+      );
+    });
+    main.routedOutside(own.devices, rule.fully_routed_ips).forEach((ip) => {
+      lines.push(
+        _("The fully routed IP %s is not among the devices: left out").format(
+          ip,
+        ),
+      );
+    });
+    // the devices left out and those routed whole go before every rule of lists but the
+    // leading ones of direct and block
+    if (!isLeading(order, section_id)) {
+      const sources = uci.sections("podkop", "source");
+      const members = uci.sections("podkop", "member");
+      const excluded = main.deviceItems(
+        uci.get("podkop", "settings", "routing_excluded_ips"),
+      );
+      own.devices.forEach((device) => {
+        const left = excluded
+          .map((item) => main.narrower(item, device))
+          .find((item) => item !== null);
+        if (left) {
+          lines.push(
+            _(
+              "%s is in Routing Excluded IPs: this rule does not take it",
+            ).format(left),
+          );
+        }
+        for (const other of order) {
+          const whole = uci.get("podkop", other) || {};
+          if (
+            other === section_id ||
+            whole.enabled === "0" ||
+            !main.ruleExit(whole, sources, members)
+          ) {
+            continue;
+          }
+          const routed = main
+            .routedWhole(whole)
+            .map((ip) => main.narrower(ip, device))
+            .find((item) => item !== null);
+          if (routed) {
+            lines.push(
+              _(
+                "%s is routed whole by the rule %s: this rule does not take it",
+              ).format(routed, ruleLabel(other)),
+            );
+          }
+        }
+      });
+    }
+  }
   for (const above of order.slice(0, order.indexOf(section_id))) {
     const upper = uci.get("podkop", above) || {};
     if (upper.enabled === "0") {
+      continue;
+    }
+    const shadowed = main.devicesShadowed(main.ruleDevices(upper), own);
+    if (shadowed === "none") {
       continue;
     }
     const upperLists = L.toArray(upper.community_lists);
     lists.forEach((key) => {
       if (upperLists.includes(key)) {
         lines.push(
-          _("%s is in the rule %s above already").format(
-            listLabel(key),
-            ruleLabel(above),
-          ),
+          (shadowed === "all"
+            ? _("%s is in the rule %s above already")
+            : _("%s is in the rule %s above, for its devices only")
+          ).format(listLabel(key), ruleLabel(above)),
         );
       } else if (
         upperLists.includes("russia_inside") &&
         IN_RUSSIA_INSIDE.includes(key)
       ) {
         lines.push(
-          _("%s is in Russia inside of the rule %s above").format(
-            listLabel(key),
-            ruleLabel(above),
-          ),
+          (shadowed === "all"
+            ? _("%s is in Russia inside of the rule %s above")
+            : _(
+                "%s is in Russia inside of the rule %s above, for its devices only",
+              )
+          ).format(listLabel(key), ruleLabel(above)),
         );
       }
     });
   }
   return lines;
+}
+
+// What the fully routed IPs of the window have against its devices: those that are not among them.
+// LuCI checks a list by the entry being typed only, so the items already there are checked here,
+// where both lists are seen.
+function devicesProblem(section, section_id) {
+  const { devices } = main.ruleDevices({
+    only_devices: section.formvalue(section_id, "only_devices"),
+  });
+  const outside = main.routedOutside(
+    devices,
+    section.formvalue(section_id, "fully_routed_ips"),
+  );
+  if (!outside.length) {
+    return null;
+  }
+  return _(
+    "Fully Routed IPs %s are not among the devices of “Only for devices”: the rule would never take them. Add their devices here or take them off Fully Routed IPs",
+  ).format(outside.join(", "));
+}
+
+// The problem of devicesProblem shown under the field "Only for devices" while the window is open
+function showDevicesProblem(option, section_id) {
+  const frame = option.map.findElement(
+    "id",
+    "cbi-podkop-" + section_id + "-only_devices",
+  );
+  const field = frame ? frame.querySelector(".cbi-value-field") : null;
+  if (!field) {
+    return;
+  }
+  field.querySelectorAll(".pdk-devices-note").forEach((node) => node.remove());
+  const problem = devicesProblem(option.section, section_id);
+  if (problem) {
+    field.appendChild(
+      E("div", { class: "pdk-devices-note cbi-value-description" }, [
+        E("strong", {}, [problem]),
+      ]),
+    );
+  }
 }
 
 // A rule added on the page gets a row of the servers: the first source that is filled, else the
@@ -533,7 +668,7 @@ function linksField(section, option, title, remote, local, placeholder) {
   return o;
 }
 
-function createRulesContent(section, singBoxFeatures = []) {
+function createRulesContent(section, singBoxFeatures = [], hostHints = null) {
   section.modaltitle = function (section_id) {
     return _("Rules") + " » " + ruleLabel(section_id);
   };
@@ -898,7 +1033,66 @@ function createRulesContent(section, singBoxFeatures = []) {
       return true;
     }
     const validation = main.validateSubnet4(value);
+    if (!validation.valid) {
+      return validation.message;
+    }
+    const { devices } = main.ruleDevices({
+      only_devices: this.section.formvalue(section_id, "only_devices"),
+    });
+    if (
+      devices.length &&
+      !devices.some((device) => main.subnetContains(device, value))
+    ) {
+      return _(
+        "%s is not among the devices of “Only for devices”: the rule would never take it",
+      ).format(value);
+    }
+    return true;
+  };
+  o.onchange = function (ev, section_id) {
+    showDevicesProblem(this, section_id);
+  };
+
+  // the rule only for some devices: the source of its route rule (the backend's plan/devices.go)
+  o = section.taboption(
+    "main",
+    form.DynamicList,
+    "only_devices",
+    _("Only for devices"),
+    _(
+      "The rule takes the traffic of these devices only: IPv4 or IPv6 addresses and subnets. The other devices go on to the rules below, and directly when none takes them. The DNS answers stay the same for all. Give a device a fixed address (a static DHCP lease). IPv6 addresses matter only with IPv6 traffic: Through podkop. Does not limit the mixed proxy.",
+    ),
+  );
+  o.modalonly = true;
+  o.rmempty = true;
+  o.placeholder = "192.168.1.50 or 192.168.1.0/24";
+  main
+    .hostChoices(hostHints)
+    .forEach(([address, label]) => o.value(address, label));
+  o.validate = function (section_id, value) {
+    if (!value || value.length === 0) {
+      return true;
+    }
+    const validation = main.validateDevice(value);
     return validation.valid ? true : validation.message;
+  };
+  // the fully routed IPs already in the list against the devices: the window is not saved while
+  // one of them is not among them (devicesProblem)
+  o.isValid = function (section_id) {
+    return (
+      form.DynamicList.prototype.isValid.call(this, section_id) &&
+      !devicesProblem(this.section, section_id)
+    );
+  };
+  o.getValidationError = function (section_id) {
+    const base = form.DynamicList.prototype.getValidationError;
+    return (
+      devicesProblem(this.section, section_id) ||
+      (base ? base.call(this, section_id) : "")
+    );
+  };
+  o.onchange = function (ev, section_id) {
+    showDevicesProblem(this, section_id);
   };
 
   // the tabs Servers and Fallback: rows of their own
@@ -1110,7 +1304,9 @@ function createRulesContent(section, singBoxFeatures = []) {
     form.Value,
     "loss_threshold",
     _("Leave out servers with loss above, %"),
-    _("A server losing more than this, beyond the loss every server shows, gets no devices"),
+    _(
+      "A server losing more than this, beyond the loss every server shows, gets no devices",
+    ),
   );
   o.modalonly = true;
   o.placeholder = "1";

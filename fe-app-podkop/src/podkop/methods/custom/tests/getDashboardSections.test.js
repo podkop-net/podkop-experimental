@@ -586,6 +586,36 @@ describe('getDashboardSections', () => {
     ).toEqual([['block', 'Refused: the rule has no server now', true]]);
   });
 
+  it('passes the devices a rule is only for, whether the running configuration has the rule or not', async () => {
+    mockModel({
+      rules: [
+        { '.name': 'tv', only_devices: ['192.168.1.50', '2001:db8:1::50'] },
+        { '.name': 'pc', only_devices: '192.168.1.60 192.168.1.61' },
+        { '.name': 'main' },
+      ],
+      sources: [SUB],
+      members: [
+        { section: 'tv', role: 'server', source: 'src1' },
+        { section: 'pc', role: 'server', source: 'src1' },
+        { section: 'main', role: 'server', source: 'src1' },
+      ],
+    });
+    mockProxies({
+      'tv-out': proxy('tv-out', {
+        type: 'Selector',
+        now: 'tv-urltest-out',
+        all: ['tv-urltest-out'],
+      }),
+    });
+    const result = await getDashboardSections();
+    expect(result.data.map((rule) => rule.devices)).toEqual([
+      ['192.168.1.50', '2001:db8:1::50'],
+      ['192.168.1.60', '192.168.1.61'],
+      undefined,
+    ]);
+    expect(result.data[1].withTagSelect).toBe(false);
+  });
+
   it('fails when the Clash API does not answer', async () => {
     mockModel({});
     PodkopShellMethods.getClashApiProxies.mockResolvedValue({

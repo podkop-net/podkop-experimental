@@ -205,8 +205,13 @@ const EntryPoint = {
   async render() {
     main.injectGlobalStyles();
 
-    // Options of features the installed sing-box does not have are not created
-    const singBoxFeatures = await main.CustomPodkopMethods.getSingBoxFeatures();
+    // Options of features the installed sing-box does not have are not created. The devices the
+    // router knows are offered in "Only for devices" of a rule, none when it does not tell them;
+    // both are asked at once.
+    const [singBoxFeatures, hostHints] = await Promise.all([
+      main.CustomPodkopMethods.getSingBoxFeatures(),
+      L.resolveDefault(network.getHostHints(), null),
+    ]);
 
     const podkopMap = new form.Map(
       "podkop",
@@ -249,7 +254,7 @@ const EntryPoint = {
     rulesSection.anonymous = true;
     rulesSection.addremove = true;
     rulesSection.sortable = true;
-    rules.createRulesContent(rulesSection, singBoxFeatures);
+    rules.createRulesContent(rulesSection, singBoxFeatures, hostHints);
     gridSection(rulesSection, "rule", {
       added: (name) => rules.ruleAdded(name),
       removed: (name) => rules.ruleRemoved(name),
