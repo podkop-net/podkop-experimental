@@ -27,6 +27,9 @@ package is needed.
 - **Automatic server choice per rule:** the fastest server, the fastest that avoids loss, or a
   balance between the best. Fallbacks ("Directly", "Block", other servers) take over when no
   server answers. A server can be pinned on the dashboard.
+- **Rules for some devices:** a rule can take the traffic of chosen devices only (IPv4 or IPv6
+  addresses and subnets), for example YouTube through the servers on the TV alone and blocked on
+  the rest ([guide](docs/GUIDE.md#a-rule-for-some-devices)).
 - **Block detector and treatments.** A server that does not work is marked with the cause (no
   answer, freeze, limit, no path …). "Check server" probes it and can offer a treatment: a mask
   of a whitelisted site, a split ClientHello, or a connection through another server.

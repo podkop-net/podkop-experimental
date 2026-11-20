@@ -66,6 +66,7 @@ wins; drag ☰ to change the order. A rule has four tabs:
 - **Main**: the lists of the rule. They can be community lists, your own domains and subnets (a
   **Dynamic List** or a **Text List**), lists by link, and **Fully Routed IPs**: devices whose whole IPv4 traffic goes
   by this rule. Subnets may be IPv6 (see [IPv6](#ipv6)); devices routed whole are IPv4 addresses.
+  **Only for devices** limits the rule to some devices: see [A rule for some devices](#a-rule-for-some-devices).
 - **Servers**: one or more rows. A row is a source with optional filters. **Name contains** and
   **Name does not contain** match the start of a word, so `NL` finds `NL-1` and `Amsterdam NL` but
   not `RU2NL`. The **Through** column connects to the row's servers via another source. A row can
@@ -82,6 +83,55 @@ Server choice:
 | Fastest | the lowest median delay of the server checks; it switches only to a server faster by the tolerance (Settings) | the checks only |
 | Fastest, avoiding loss | the delay weighed by the loss that downloads of 256 KB count, through the server in use and the three next best | about 50 MB a day per rule at the default 30 minutes |
 | Balance between the best | devices are spread over the best servers and keep theirs; a server with high loss gets no devices | about 60 MB a day per rule (five servers checked) |
+
+### A rule for some devices
+
+**Only for devices** (tab Main) makes a rule take the traffic of the devices listed there, IPv4 or
+IPv6 addresses and subnets, and of no other. The other devices are not taken by it: they go on to
+the rules below, and directly when no rule takes them.
+
+Example: YouTube through the servers on the TV only, blocked on the other devices.
+
+1. Rule "TV": the community list YouTube, **Only for devices**: the TV's address, your servers.
+2. Below it, rule "No YouTube": the community list YouTube, the server row **Block**.
+
+The order matters: a rule above that takes the same list for every device takes the TV too. The
+Lists column of the grid tells it ("… is in the rule … above, for its devices only").
+
+- The field goes by address: a device that takes another's address is that device for the rule.
+  It is no lock.
+- Give the device a fixed address first, a static lease (a static DHCP address): with a new
+  address it is another device for the rule. A phone or a laptop with a private (rotating) Wi-Fi
+  address gets a new MAC address, and with it a new lease: turn that off for your network on the
+  device.
+- The DNS answers are the same for every device: the router's DNS cannot tell them apart. The
+  other devices also get FakeIP addresses for the names of the list, and no IPv6 address for them
+  (with **IPv4 and IPv6** in the DNS answers they lose IPv6 for those names). podkop sends their
+  connections out directly through sing-box, which opens them anew from the router: they are not
+  offloaded, **Disable QUIC** applies to them for those names, and per-device firewall rules
+  (time limits), pbr or mwan3 rules by source address, SQM per IP and nlbwmon no longer see them
+  as that device's traffic.
+- The **Fully Routed IPs** of such a rule must be among its devices; the page refuses others. The
+  **Fully Routed IPs** of every rule and the **Routing Excluded IPs** come before it: a device
+  routed whole by another rule, or excluded, is not taken by it (the grid tells it).
+- IPv6: a device's IPv6 addresses change (privacy addresses), so an IPv6 address in the field
+  works only for a fixed one. It matters only with **IPv6 traffic: Through podkop** and IPv6
+  subnets in the lists; the names of the lists always go over IPv4. A unique local address
+  (`fd…`) is a device's source to the internet only when it has no global IPv6 address and the
+  router translates its IPv6 (NAT66); a link-local one (`fe80::…`) never is, and the page refuses it.
+- The mixed proxy of the rule stays open to every device of the LAN. The BitTorrent modes do not
+  see the field (see [BitTorrent](#bittorrent)).
+- The router's own traffic is normally not taken: its source is the router's WAN address. It is
+  taken when that address is among the devices (a router behind another router, with a listed
+  subnet that holds its WAN address), and for IPv6 when the WAN has no IPv6 address of its own:
+  the router then sends from its LAN address.
+- A change of the field restarts sing-box, as a change of a rule's lists does: open connections
+  are dropped.
+- An older version of podkop does not know the field: the rule there takes every device.
+- Which rules take a device that cannot open the page (a TV): `podkop device 192.168.1.50` on the
+  router lists them in their order. The global check names the devices of each such rule (the
+  IPv4 ones; the IPv6 ones are counted), and under **This device** tells whether the IPv4 address
+  of the device that runs it is among them.
 
 ### Mixed proxy
 
@@ -186,6 +236,8 @@ What it cannot do:
   answers only to the private addresses of the LAN.
 - **The first announce** to an HTTP tracker of your lists, and every announce to an HTTPS tracker,
   go by the rules, like any site.
+- **Only for devices** of a rule is not seen: **Block** and **Through the servers of a rule** act on
+  the addresses of the lists for every device.
 
 ## IPv6
 
@@ -248,7 +300,8 @@ of it (give them the router's DNS server in the DHCP settings of the LAN).
   Without a proxy it asks all the server check URLs at once and shows their median; a URL that
   does not answer is named (the provider may block it). The global check does the same.
 - **Get global check** puts everything into one report, with keys and passwords masked. This is
-  the report to attach to an issue.
+  the report to attach to an issue. The addresses of the LAN are not masked: the settings in it
+  show the devices of the rules, IPv6 ones too.
 - **View logs** and **Show sing-box config** show the log and the configuration that runs.
 - Restart, stop, start, and autostart on or off.
 
@@ -260,9 +313,12 @@ of it (give them the router's DNS server in the DHCP settings of the LAN).
 3. A server marked on the dashboard: **Check server**, then the treatment it offers.
 4. A subscription does not come: its window tells which ways were tried and why each failed. For
    the lists, `podkop list_status` shows the last error of each.
-5. Still not working: open an [issue](https://github.com/podkop-net/podkop-experimental/issues)
+5. A rule for some devices does not take a device: `podkop device <its address>` on the router
+   lists the rules that take it, in their order; on the device itself, **This device** of the
+   global check tells whether its IPv4 address is among the rule's devices.
+6. Still not working: open an [issue](https://github.com/podkop-net/podkop-experimental/issues)
    with the global check and what you did. The log is `logread -e podkop`.
-6. BitTorrent goes the wrong way: run `podkop bittorrent_record 10 --reset`, start the download,
+7. BitTorrent goes the wrong way: run `podkop bittorrent_record 10 --reset`, start the download,
    and attach the file it names after 10 minutes. It holds counts only: no addresses or names.
 
 ## Upgrade
@@ -287,6 +343,7 @@ the page of the release before.
 | `podkop check_logs` | the log of the backend and of sing-box |
 | `podkop show_config`, `podkop show_sing_box_config` | the settings and the running sing-box configuration, secrets masked |
 | `podkop reload` | apply the settings again and tell the result |
+| `podkop device <address>` | the rules that take the traffic of the device of that address, in their order |
 | `podkop list_update` | download every list now |
 | `podkop subscription_update [name]` | download a subscription (or all) now |
 | `podkop bittorrent_stats` | the BitTorrent statistics as JSON |
