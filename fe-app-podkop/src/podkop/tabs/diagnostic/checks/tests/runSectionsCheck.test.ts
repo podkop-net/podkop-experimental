@@ -13,6 +13,8 @@ let proxies: Record<
 > = {};
 let groups: Record<string, Record<string, number>> = {};
 let delays: Record<string, number> = {};
+// the check URLs that did not answer a test of the outbound
+let silent: Record<string, string[]> = {};
 const groupsAsked: string[] = [];
 const proxiesAsked: string[] = [];
 // what a test of one outbound changes in what the URL tests have chosen
@@ -28,8 +30,8 @@ vi.mock('../../../../methods', () => ({
       proxiesAsked.push(tag);
       onProxyTest(tag);
       return delays[tag]
-        ? { success: true, data: { delay: delays[tag] } }
-        : { success: true, data: { delay: 0, message: 'timeout' } };
+        ? { success: true, data: { delay: delays[tag], silent: silent[tag] } }
+        : { success: true, data: { message: 'timeout', silent: silent[tag] } };
     },
   },
 }));
@@ -59,7 +61,7 @@ vi.mock('../updateCheckStore', () => ({
   updateCheckStore: (check: (typeof stored)[number]) => stored.push(check),
 }));
 
-const { runSectionsCheck } = await import('../runSectionsCheck');
+const { directRow, runSectionsCheck } = await import('../runSectionsCheck');
 
 // the selector of a rule (the backend's plan/exits.go): its URL test and all the servers
 function selector(name: string, now: string, all: string[]) {
@@ -105,6 +107,30 @@ describe('runSectionsCheck', () => {
     };
     groups = { 'msk-urltest-out': { ru: 275 } };
     delays = { ru: 275, de: 150, us: 426, 'direct-out': 234 };
+    silent = {};
+  });
+
+  it('names the check URLs that do not answer without a proxy', async () => {
+    selector('msk', 'msk-urltest-out', ['msk-urltest-out', 'ru', 'de', 'us']);
+    silent['direct-out'] = ['https://www.gstatic.com/generate_204'];
+    const result = await check();
+    expect(result.state).toBe('warning');
+    expect(result.items[1]).toEqual({
+      state: 'warning',
+      key: 'Direct (without a proxy)',
+      value: '234 ms — no answer from www.gstatic.com',
+    });
+
+    delays['direct-out'] = 0;
+    silent['direct-out'] = [
+      'https://www.gstatic.com/generate_204',
+      'https://cp.cloudflare.com/generate_204',
+    ];
+    expect((await check()).items[1]).toEqual({
+      state: 'error',
+      key: 'Direct (without a proxy)',
+      value: 'Not responding',
+    });
   });
 
   it('tests only the server the URL test has chosen, not the servers of the rule', async () => {
@@ -256,5 +282,46 @@ describe('runSectionsCheck', () => {
       key: 'msk',
       value: 'Not responding',
     });
+  });
+});
+
+describe('directRow', () => {
+  it('is the median the backend answers, and names the silent hosts', () => {
+    expect(
+      directRow({
+        success: true,
+        data: {
+          delay: 40,
+          urls: [
+            'https://cp.cloudflare.com/generate_204',
+            'https://www.apple.com/library/test/success.html',
+          ],
+        },
+      }),
+    ).toEqual({
+      state: 'success',
+      key: 'Direct (without a proxy)',
+      value: '40 ms',
+    });
+    expect(
+      directRow({
+        success: true,
+        data: {
+          delay: 40,
+          silent: [
+            'https://www.gstatic.com/generate_204',
+            'https://captive.apple.com/hotspot-detect.html',
+          ],
+        },
+      }).value,
+    ).toBe('40 ms — no answer from www.gstatic.com, captive.apple.com');
+    // an answer that is no JSON of a test, and no answer at all
+    expect(
+      directRow({
+        success: true,
+        data: 'garbage' as unknown as { delay: number },
+      }).state,
+    ).toBe('error');
+    expect(directRow({ success: false, error: '' }).state).toBe('error');
   });
 });

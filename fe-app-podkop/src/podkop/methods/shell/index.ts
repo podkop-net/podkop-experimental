@@ -34,13 +34,17 @@ export const PodkopShellMethods = {
     callBaseMethod<ClashAPI.Proxies>(Podkop.AvailableMethods.CLASH_API, [
       Podkop.AvailableClashAPIMethods.GET_PROXIES,
     ]),
+  // the wait of each check URL: the backend tries a second one when the first does not answer,
+  // one after the other, both within 12 s (oneOffBudget), under the 15 s of the call
   getClashApiProxyLatency: async (tag: string) =>
     callBaseMethod<Podkop.GetClashApiProxyLatency>(
       Podkop.AvailableMethods.CLASH_API,
       [Podkop.AvailableClashAPIMethods.GET_PROXY_LATENCY, tag, '5000'],
     ),
-  // the deadline of the whole round in sing-box, as groupWaitMax of the backend: dead servers
-  // first in a long list hold the slots, and a shorter round never reaches the live ones
+  // the test of a rule's selector is a round of the rule's URL test (or its one server alone,
+  // 5 s a URL); this is the deadline of the whole round in sing-box, as groupWaitMax of the
+  // backend: dead servers first in a long list hold the slots, and a shorter round never
+  // reaches the live ones
   getClashApiGroupLatency: async (tag: string) =>
     callBaseMethod<Podkop.GetClashApiGroupLatency>(
       Podkop.AvailableMethods.CLASH_API,

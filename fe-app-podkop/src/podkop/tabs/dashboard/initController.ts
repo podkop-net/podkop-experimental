@@ -829,6 +829,9 @@ function keepLatencyNow(results: Record<string, number>) {
   store.set({ latencyNow: { ...store.get().latencyNow, ...results } });
 }
 
+// handleTestGroupLatency tests the servers of a rule by its selector: the backend runs a round of
+// the rule's URL test, whose answer is the median of each server's last rounds, this one among
+// them; a selector without one has its server tested alone (0: no answer)
 async function handleTestGroupLatency(tag: string, members: string[] = []) {
   store.set({
     sectionsWidget: {
@@ -846,8 +849,8 @@ async function handleTestGroupLatency(tag: string, members: string[] = []) {
   if (Object.keys(found).length) {
     for (const member of members) results[member] = Number(found[member]) || 0;
   } else {
-    // a group in its own round answers nothing to a test of the group: each server alone, as
-    // many at a time as a round of the group tests
+    // a group in its own round answers nothing to a test of the group: each server alone (the
+    // first check URL, then the second), as many at a time as a round of the group tests
     Object.assign(results, await latencyEach(members));
   }
   keepLatencyNow(results);

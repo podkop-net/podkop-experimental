@@ -592,7 +592,7 @@ function createSettingsContent(section, singBoxFeatures = []) {
     "urltest_testing_url",
     _("Server check URLs"),
     _(
-      "One check for the servers of every rule. Each round tests every server with the next URL of the list; the delay of a server is the median of a full cycle, so one slow URL or one stray test does not change the server in use. A server is unavailable when two URLs do not answer through it. URLs of different companies are best",
+      "One check for the servers of every rule. Each round tests every server with the next URL of the list; the delay of a server is the median of a full cycle, so one slow URL or one stray test does not change the server in use. A server is unavailable when two URLs do not answer through it. URLs of different companies are best. “Test latency” on the dashboard runs a round of this check; a server tested alone, there and in the global check, gets the first https:// URL of the list, and the next one when it does not answer. Without a proxy, Diagnostics and the global check ask all the https:// URLs at once and show their median",
     ),
   );
   o.value(

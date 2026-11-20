@@ -674,10 +674,20 @@ export namespace Podkop {
     device_model: string;
   }
 
+  // a test of one outbound (clash_api get_proxy_latency): a server with the first check URL and,
+  // when that does not answer, the second; direct-out with all of them at once, their median
   export interface GetClashApiProxyLatency {
-    delay: number;
+    // none when no URL answered
+    delay?: number;
     message?: string;
+    // the check URLs the delay is of
+    urls?: string[];
+    // the check URLs that did not answer
+    silent?: string[];
   }
 
+  // a test of a rule's group (clash_api get_group_latency): a round of its URL test, or each
+  // server of a selector without one alone (0: no answer); {} while the URL test is in a round
+  // of its own
   export type GetClashApiGroupLatency = Record<string, number>;
 }

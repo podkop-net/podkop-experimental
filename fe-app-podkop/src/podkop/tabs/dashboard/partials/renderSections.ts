@@ -34,7 +34,10 @@ interface IRenderSectionsProps {
 }
 
 // renderLatencyNow is the line of a tile with what the last "Test latency" found of the server:
-// nothing before a test
+// nothing before a test. For a rule with a URL test the backend runs a round of it, and the
+// engine answers the median of the server's last rounds, this one among them (so the tile shows
+// the same after it); a server tested alone (a rule of one server, or a URL test that was in a
+// round of its own) is one request, with the first check URL that answered through it.
 export function renderLatencyNow(delay: number | undefined): unknown[] {
   if (delay === undefined) return [];
   return [
@@ -43,7 +46,7 @@ export function renderLatencyNow(delay: number | undefined): unknown[] {
       {
         class: 'pdk_dashboard-page__outbound-grid__item__latency-now',
         title: _(
-          'Your test just now. The group chooses by the median of its own rounds, shown above.',
+          'Your test just now. For a rule of several servers, a round of its server check, as the group makes them: each server with the URL of the round, the next one when it does not answer; the number is the median the group chooses by, with this round. A server tested alone (a rule of one server, or a group busy with its own round): one request with the first server check URL that answered.',
         ),
       },
       [delay > 0 ? _('now %d ms').format(delay) : _('now: no answer')],

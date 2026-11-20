@@ -133,6 +133,11 @@ describe('the tile of a server', () => {
     expect(text(tileA)).toContain('183ms');
     expect(text(byClass(tileA, NOW)[0])).toContain('241');
     expect(text(byClass(tileB, NOW)[0])).toContain('no answer');
+    // the title says what was tested: a round of the group, or one server with the first check
+    // URL that answered, not one fixed URL
+    const title = String(byClass(tileA, NOW)[0].attr.title);
+    expect(title).toContain('a round of its server check');
+    expect(title).toContain('the first server check URL that answered');
   });
 
   it('has a check button that does not choose the server', () => {

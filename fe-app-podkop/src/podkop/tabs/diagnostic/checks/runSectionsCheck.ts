@@ -10,22 +10,51 @@ import { getConfigModel } from '../../../methods/custom/getConfigModel';
 
 type Latency = Pick<IDiagnosticsChecksItem, 'state' | 'value'>;
 
-function responded(answer: {
-  success: boolean;
-  data: Podkop.GetClashApiProxyLatency;
-}): number {
-  return answer.success && !answer.data.message ? answer.data.delay : 0;
+type Answer = Podkop.MethodResponse<Podkop.GetClashApiProxyLatency>;
+
+function responded(answer: Answer): number {
+  if (!answer.success || !answer.data || answer.data.message) return 0;
+  const delay = Number(answer.data.delay);
+  return Number.isFinite(delay) && delay > 0 ? delay : 0;
 }
 
-// measure tests an outbound once a run, however many rules go through it, the direct one too
+// hostOf names a check URL by its host, as the global check does: "www.gstatic.com"
+function hostOf(link: string): string {
+  try {
+    return new URL(link).host || link;
+  } catch (_e) {
+    return link;
+  }
+}
+
+// directRow is the row of what goes without a proxy: the backend asks all the check URLs at once
+// through the WAN and answers their median, as the global check does. Those that did not answer
+// are named, and the row is a warning: the provider may block them.
+export function directRow(answer: Answer): IDiagnosticsChecksItem {
+  const key = _('Direct (without a proxy)');
+  const delay = responded(answer);
+  if (!delay || !answer.success) {
+    return { state: 'error', key, value: _('Not responding') };
+  }
+  const silent = answer.data.silent ?? [];
+  if (!silent.length) return { state: 'success', key, value: `${delay} ms` };
+  return {
+    state: 'warning',
+    key,
+    value: `${delay} ms — ${_('no answer from %s').format(silent.map(hostOf).join(', '))}`,
+  };
+}
+
+// ask tests an outbound once a run, however many rules go through it, the direct one too
+type Ask = (tag: string) => Promise<Answer>;
 type Measure = (tag: string) => Promise<number>;
 
-function oncePerTag(): Measure {
-  const runs = new Map<string, Promise<number>>();
+function oncePerTag(): Ask {
+  const runs = new Map<string, Promise<Answer>>();
   return (tag) => {
     let run = runs.get(tag);
     if (!run) {
-      run = PodkopShellMethods.getClashApiProxyLatency(tag).then(responded);
+      run = PodkopShellMethods.getClashApiProxyLatency(tag);
       runs.set(tag, run);
     }
     return run;
@@ -127,9 +156,10 @@ export async function runSectionsCheck() {
   }
 
   const model = await getConfigModel();
-  const measure = oncePerTag();
-  // what goes without a proxy, through the WAN of the router: tested the same way, at once
-  const direct = measure('direct-out');
+  const ask = oncePerTag();
+  const measure: Measure = (tag) => ask(tag).then(responded);
+  // what goes without a proxy, through the WAN of the router: tested at once with the rules
+  const direct = ask('direct-out');
 
   const items = (await Promise.all(
     sections.data.map(async (section) => {
@@ -149,12 +179,7 @@ export async function runSectionsCheck() {
     }),
   )) as Array<IDiagnosticsChecksItem>;
 
-  const directDelay = await direct;
-  items.push({
-    state: directDelay ? 'success' : 'error',
-    key: _('Direct (without a proxy)'),
-    value: directDelay ? `${directDelay} ms` : _('Not responding'),
-  });
+  items.push(directRow(await direct));
 
   const allGood = items.every((item) => item.state === 'success');
 
