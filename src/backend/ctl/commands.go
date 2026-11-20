@@ -85,6 +85,7 @@ var Commands = [][2]string{
 	{"clash_api", "get_proxies | get_proxy_latency <tag> [ms] (with the first server check URL of HTTPS, then the second when it does not answer; direct-out: all of them at once, the median) | get_group_latency <tag> [ms] (a selector with a URL test: a round of it; one without: each server as get_proxy_latency, 0 for no answer) | set_group_proxy <group> <proxy> | upgrade_ui (the dashboard YACD of GitHub in place of the one served)"},
 	{"yacd_builtin", "The dashboard YACD of the package served again in place of the one upgraded from GitHub"},
 	{"global_check", "[label port]: every check as one report; with the label of a check name and a port the device that asks opens connections to meanwhile, also what came of its DNS question and its connections"},
+	{"device", "<address>: the rules that take the traffic of the device of that IPv4 or IPv6 address, in the order they are matched: by their Only for devices, with the devices excluded from routing and those routed whole (for a device that cannot open the page)"},
 	{"check_links", "<link>...: each proxy link as the engine of this build takes it when the settings run, as JSON: [{ok, error}]"},
 	{"subscription_load", "<address> [JSON {user_agent, headers}]: download the list of a subscription to be shown, not taken, asked with that User-Agent and those headers (Name: value), as JSON: {route, error, error_code, took_ms, attempts, provider, agent, servers: [{name, scheme, address, link, reason, notes}]}"},
 	{"subscription_load_start", "<address> [JSON {user_agent, headers}]: start a download of the list of a subscription to be shown, as JSON: {id, state, elapsed_ms, attempts}"},
@@ -353,6 +354,17 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 				}
 				return btstats.Lines(report)
 			}, device))
+		return 0
+	case "device":
+		if len(arguments) < 2 {
+			io.WriteString(errorOutput, "the address of the device is missing: podkop device <address>\n")
+			return 1
+		}
+		lines, ok := deviceReport(config, arguments[1])
+		io.WriteString(output, strings.Join(lines, "\n")+"\n")
+		if !ok {
+			return 1
+		}
 		return 0
 	case "check_logs":
 		if len(arguments) > 2 && arguments[1] == "--since" {

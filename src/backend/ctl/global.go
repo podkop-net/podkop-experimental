@@ -203,6 +203,7 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 	}
 	// the mixed proxies of the rules: whether each listens, and whether it asks for a login
 	add(diag.MixedProxyLines(config, mixedProxyAddress(config), listeners)...)
+	add(ruleDeviceLines(config)...)
 
 	if len(subscriptionAt) > 0 {
 		add(rule, "🗂️ Subscriptions")
@@ -324,6 +325,7 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 	if device != nil {
 		add(rule, "🌐 This device")
 		add(deviceLines...)
+		add(deviceRuleLines(config, client)...)
 	}
 	return strings.Join(lines, "\n") + "\n"
 }
