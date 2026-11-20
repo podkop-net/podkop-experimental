@@ -37,6 +37,10 @@ b.example'
 }'
 	option interface 'wg0'
 	option urltest_testing_url 'https://kept.example/generate_204'
+	option mixed_proxy_enabled '1'
+	option mixed_proxy_port '2080'
+	option mixed_proxy_username 'pdk-user'
+	option mixed_proxy_password 'Zx9-mixed'
 
 config subscription 'prov1'
 	option url 'https://sub.example/api/sub/TOK3N'
@@ -52,7 +56,7 @@ vless://second'
 	masked := MaskSettings([]byte(settings))
 	require.Contains(t, masked, "kept.example/generate_204")
 	require.Contains(t, masked, "option update_interval '12h'")
-	for _, secret := range []string{"abc123", "s3cret", "uuid@host", "trojan://", "ss://", "socks5://", "vless://", "password", "secret-path", `"type"`, "TOK3N"} {
+	for _, secret := range []string{"abc123", "s3cret", "uuid@host", "trojan://", "ss://", "socks5://", "vless://", `"password"`, "secret-path", `"type"`, "TOK3N", "pdk-user", "Zx9-mixed"} {
 		require.NotContains(t, masked, secret)
 	}
 	require.Equal(t, `config settings 'settings'
@@ -72,6 +76,10 @@ b.example'
 	option outbound_json 'MASKED'
 	option interface 'wg0'
 	option urltest_testing_url 'https://kept.example/generate_204'
+	option mixed_proxy_enabled '1'
+	option mixed_proxy_port '2080'
+	option mixed_proxy_username 'MASKED'
+	option mixed_proxy_password 'MASKED'
 
 config subscription 'prov1'
 	option url 'MASKED'
@@ -118,6 +126,18 @@ func TestMaskConfig(t *testing.T) {
 	for _, kept := range []string{`"path": "/xh"`, `"path": "/var/run/podkop/rulesets/g.json"`, `"plugin": "obfs-local"`, `"external_controller": "192.168.1.1:9090"`, `"type": "xhttp"`} {
 		require.Contains(t, text, kept)
 	}
+
+	// the login of a mixed proxy; where it listens is kept
+	masked, err = MaskConfig([]byte(`{"inbounds": [{"type": "mixed", "tag": "main-mixed-in", "listen": "192.168.1.1", "listen_port": 2080, "users": [{"username": "pdk-user", "password": "Zx9-mixed"}]}]}`))
+	require.NoError(t, err)
+	text = string(masked)
+	require.NotContains(t, text, "pdk-user")
+	require.NotContains(t, text, "Zx9-mixed")
+	require.Contains(t, text, `"username": "MASKED"`)
+	require.Contains(t, text, `"password": "MASKED"`)
+	require.Contains(t, text, `"listen": "192.168.1.1"`)
+	require.Contains(t, text, `"listen_port": 2080`)
+	require.Contains(t, text, `"tag": "main-mixed-in"`)
 }
 
 func TestListens(t *testing.T) {

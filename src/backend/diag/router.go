@@ -12,6 +12,7 @@ import (
 
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/podkop-net/podkop-experimental/src/backend/dnsmasq"
+	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/netcfg"
 	"github.com/podkop-net/podkop-experimental/src/backend/sockets"
 )
@@ -44,6 +45,60 @@ func BackendPorts(listeners []sockets.Listener) []string {
 		}
 		if len(holders) > 0 {
 			lines = append(lines, at.String()+" is taken: "+sockets.Describe(holders))
+		}
+	}
+	return lines
+}
+
+// MixedProxyLines tell, for each rule that is on, goes somewhere and has a mixed proxy, whether
+// the proxy listens on its port and whether it asks for a login; never the login itself.
+// Listen is the address the proxies listen on (the service address of the settings, or that of
+// the LAN), invalid when it is not known: then a program on the port at any address is named
+// for one that does not listen.
+func MixedProxyLines(config *model.Config, listen netip.Addr, listeners []sockets.Listener) []string {
+	var lines []string
+	names := config.Names()
+	for index := range config.Sections {
+		section := &config.Sections[index]
+		if !section.Enabled || !section.MixedProxyEnabled || config.Exit(section) == model.ExitNone {
+			continue
+		}
+		proxy := "Mixed proxy of rule " + names.RuleText(section.Name) + " on port " + section.MixedProxyPort
+		user, _, err := section.MixedProxyLogin()
+		if err != nil {
+			lines = append(lines, "❌ "+proxy+" is not created: its login is not valid ("+err.Error()+")")
+			continue
+		}
+		// on the port at any address, or at the address of the proxies and every address
+		var onPort []sockets.Listener
+		if port, err := strconv.ParseUint(section.MixedProxyPort, 10, 16); err == nil && port != 0 {
+			for _, listener := range listeners {
+				if listener.Protocol == "tcp" && listener.Address.Port() == uint16(port) {
+					onPort = append(onPort, listener)
+				}
+			}
+			if listen.IsValid() {
+				onPort = sockets.Holding(onPort, "tcp", netip.AddrPortFrom(listen, uint16(port)))
+			}
+		}
+		listening := false
+		var holders []sockets.Listener
+		for _, listener := range onPort {
+			if listener.Program == ownProgram {
+				listening = true
+			} else {
+				holders = append(holders, listener)
+			}
+		}
+		switch {
+		case listening && user != "":
+			lines = append(lines, "✅ "+proxy+", with a login")
+		case listening:
+			lines = append(lines, "ℹ️ "+proxy+", without a login: any device that reaches the port can use it")
+		case len(holders) > 0:
+			lines = append(lines, "❌ "+proxy+" does not listen: taken by "+sockets.Describe(holders))
+		default:
+			lines = append(lines, "❌ "+proxy+" does not listen")
 		}
 	}
 	return lines

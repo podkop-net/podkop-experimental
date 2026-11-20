@@ -247,7 +247,9 @@ var secretOptions = []string{"option proxy_string", "option outbound_json", "lis
 	// the address of a subscription: its token is the account
 	"option url",
 	// the links of a source of servers
-	"list link", "option link"}
+	"list link", "option link",
+	// the login of the mixed proxy of a rule
+	"option mixed_proxy_username", "option mixed_proxy_password"}
 
 // the path of a DNS server may hold the identifier of an account
 var serverPath = regexp.MustCompile(`(option (?:dns_server|domain_resolver_dns_server) '[^/']*)/[^']*'`)
@@ -306,12 +308,14 @@ func quoted(line string, inside bool) bool {
 var secretKeys = []string{"uuid", "server", "server_name", "password", "public_key", "short_id", "fingerprint", "server_port"}
 
 // and the keys hidden below a place only: what an outbound may carry of a user's
-// credentials (outbound_json included, so whatever its kind), the path of a DoH server (the
-// identifier of an account), the secret of the Clash API. Elsewhere such a key is a plain
-// value: the path of a rule-set, the headers of a download.
+// credentials (outbound_json included, so whatever its kind), the user names of the logins
+// of an inbound (a mixed proxy's; their passwords are "password"), the path of a DoH server
+// (the identifier of an account), the secret of the Clash API. Elsewhere such a key is a
+// plain value: the path of a rule-set, the headers of a download.
 var secretKeysBelow = map[string][]string{
 	"outbounds":              outboundSecrets,
 	"endpoints":              outboundSecrets,
+	"inbounds":               {"username"},
 	"dns.servers":            {"path", "headers"},
 	"experimental.clash_api": {"secret"},
 }

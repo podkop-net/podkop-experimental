@@ -201,6 +201,8 @@ func globalCheck(ctx context.Context, paths diag.Paths, config *model.Config, ve
 	for _, taken := range diag.BackendPorts(listeners) {
 		add("❌ " + taken)
 	}
+	// the mixed proxies of the rules: whether each listens, and whether it asks for a login
+	add(diag.MixedProxyLines(config, mixedProxyAddress(config), listeners)...)
 
 	if len(subscriptionAt) > 0 {
 		add(rule, "🗂️ Subscriptions")
@@ -541,6 +543,20 @@ func dnsServerLines(dns *diag.DNS) []string {
 		lines = append(lines, flag(upstream.Answers, "DNS "+strconv.Itoa(index+1)+": "+line(upstream)))
 	}
 	return lines
+}
+
+// mixedProxyAddress is the address the mixed proxies listen on (plan: the service address
+// of the settings, or that of the LAN); netifd is asked only when a rule has one.
+func mixedProxyAddress(config *model.Config) netip.Addr {
+	if !slices.ContainsFunc(config.Sections, func(section model.Section) bool { return section.MixedProxyEnabled }) {
+		return netip.Addr{}
+	}
+	if config.Settings.ServiceListenAddress != "" {
+		address, _ := netip.ParseAddr(config.Settings.ServiceListenAddress)
+		return address
+	}
+	address, _ := netcfg.LANAddress()
+	return address
 }
 
 // ipv6Lines are the lines of IPv6 of the global check: what the router has of it, what the

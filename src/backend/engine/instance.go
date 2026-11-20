@@ -82,7 +82,8 @@ type LogSink func(level string, message string)
 // sinkWriter gives a sink the lines of the level the configuration asks for, without
 // colours (log.PlatformWriterLevel, log.PlatformWriterColors): sing-box formats a line
 // for it only at that level. A sink that took every line would hold little besides the
-// debug lines of the last connections.
+// debug lines of the last connections. The logins of the proxy inbounds are masked
+// (MaskLogin): the sink's lines are shown on the page and pasted into chats.
 type sinkWriter struct {
 	sink  LogSink
 	level log.Level
@@ -92,7 +93,7 @@ type sinkWriter struct {
 var levelPrefix = regexp.MustCompile(`^[A-Z]+\[[0-9]+\] `)
 
 func (w sinkWriter) WriteMessage(level log.Level, message string) {
-	w.sink(log.FormatLevel(level), levelPrefix.ReplaceAllString(message, ""))
+	w.sink(log.FormatLevel(level), MaskLogin(levelPrefix.ReplaceAllString(message, "")))
 }
 
 func (w sinkWriter) Level() log.Level { return w.level }

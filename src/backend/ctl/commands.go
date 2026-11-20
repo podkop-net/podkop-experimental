@@ -19,6 +19,7 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/podkop-net/podkop-experimental/src/backend/diag"
+	"github.com/podkop-net/podkop-experimental/src/backend/engine"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/plan"
 	"github.com/podkop-net/podkop-experimental/src/backend/probe"
@@ -535,6 +536,8 @@ func newest(lines []string) []string {
 }
 
 // systemLog is what the system log has of the backend: the last words of one that died.
+// sing-box's own lines there carry what clients tried in failed logins of a mixed proxy:
+// masked here as in the backend's log (engine.MaskLogin).
 func systemLog() []string {
 	system, err := exec.Command("logread", "-e", "podkop").Output()
 	if err != nil || len(system) == 0 {
@@ -543,6 +546,9 @@ func systemLog() []string {
 	all := strings.Split(strings.TrimRight(string(system), "\n"), "\n")
 	if len(all) > 100 {
 		all = all[len(all)-100:]
+	}
+	for index := range all {
+		all[index] = engine.MaskLogin(all[index])
 	}
 	return all
 }
