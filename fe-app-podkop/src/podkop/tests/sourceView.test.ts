@@ -402,12 +402,25 @@ describe('Load of a subscription', () => {
       'json-agent',
       'The provider sent JSON that is not a configuration of Xray or sing-box to this User-Agent. In Ask as, choose another app or podkop',
     ],
-  ])('tells the failure %s', async (code, text) => {
+    // a preset this podkop does not know, refused by the router for Load
+    [
+      'request',
+      'Ask as has a value this podkop does not know: choose another one in the list',
+      ['preset', '0', ''],
+    ],
+    // control: a line of the request the router refuses
+    [
+      'request',
+      'The User-Agent or a header cannot be sent: Header 2: The value is empty',
+      ['empty', '2', 'X-A'],
+    ],
+  ])('tells the failure %s', async (code, text, args?: string[]) => {
     const { result } = await loadWindow(
       { user_agent_preset: 'incy' },
       {
         error: 'english text of the router',
         error_code: code,
+        error_args: args,
         preset: 'incy',
         agent: 'INCY/3.9.1/linux',
         servers: [],
@@ -443,6 +456,24 @@ describe('the state of a subscription', () => {
     );
     expect(text).toContain('Asked as: INCY');
     expect(text).toContain('User-Agent: INCY/3.9.1/linux');
+  });
+
+  it('tells a preset of the settings this podkop does not know', async () => {
+    const view = await sourceWindow(
+      { user_agent_preset: 'other' },
+      {},
+      {
+        name: 'src1',
+        servers: 1,
+        usable: 1,
+        changed: '2026-11-21T10:00:00Z',
+        request_problems: [{ line: 0, code: 'preset', text: 'english' }],
+      },
+    );
+    const box = view.section.lookup('_status').call('cfgvalue', 'src1');
+    expect((box as FakeNode).textContent).toContain(
+      "Left out of the request: Ask as has a value this podkop does not know: podkop's own User-Agent is sent",
+    );
   });
 
   it('tells another User-Agent as it is', async () => {

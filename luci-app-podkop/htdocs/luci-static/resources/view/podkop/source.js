@@ -253,7 +253,13 @@ function failureText(code, args, text, attempts) {
         "The answer of the provider to this User-Agent has no servers. In Ask as, choose another app or podkop",
       );
     case "request":
-      // the code of the line that cannot be sent, its number, its name, its limit
+      // the code of the line that cannot be sent, its number, its name, its limit; a preset
+      // this podkop does not know (a file written by hand) is not asked with
+      if (args[0] === "preset") {
+        return _(
+          "Ask as has a value this podkop does not know: choose another one in the list",
+        );
+      }
       return _("The User-Agent or a header cannot be sent: %s").format(
         main.requestProblemLine({
           code: args[0],

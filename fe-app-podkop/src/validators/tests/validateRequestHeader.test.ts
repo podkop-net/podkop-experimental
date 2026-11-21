@@ -9,6 +9,8 @@ import {
   parseRequest,
   presetName,
   requestProblem,
+  requestProblemLine,
+  requestProblemText,
   sameRequest,
   validateRequestHeader,
   validateUserAgent,
@@ -277,6 +279,19 @@ describe('the checks of the fields', () => {
     );
     expect(requestProblem('a\nb', [])).toBe(
       'User-Agent: Only Latin letters, digits, spaces and the signs of the keyboard',
+    );
+  });
+
+  // the backend's problem of a preset it does not know (a file written by hand): line 0
+  it('tells a preset this podkop does not know, naming Ask as itself', () => {
+    const problem = { line: 0, code: 'preset', text: 'english' };
+    const text =
+      "Ask as has a value this podkop does not know: podkop's own User-Agent is sent";
+    expect(requestProblemText(problem)).toBe(text);
+    expect(requestProblemLine(problem)).toBe(text);
+    // control: another problem of line 0 is named User-Agent
+    expect(requestProblemLine({ line: 0, code: 'long', args: ['256'] })).toBe(
+      'User-Agent: ' + 'At most %d characters'.format(256),
     );
   });
 });

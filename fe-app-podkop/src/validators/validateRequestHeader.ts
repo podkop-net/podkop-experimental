@@ -207,6 +207,11 @@ export function requestProblemText(problem: RequestProblem): string {
   const name = problem.name || '';
   const limit = Number(problem.args?.[0]) || 0;
   switch (problem.code) {
+    // a preset of the settings this podkop does not know (line 0): the backend leaves it out
+    case 'preset':
+      return _(
+        "Ask as has a value this podkop does not know: podkop's own User-Agent is sent",
+      );
     case 'device':
       return _(
         'The router sends the device identifier itself: %s cannot be set',
@@ -253,8 +258,10 @@ export function requestProblemText(problem: RequestProblem): string {
   return problem.text || '';
 }
 
-// requestProblemLine names the line and tells why: "Header 2: …", "User-Agent: …"
+// requestProblemLine names the line and tells why: "Header 2: …", "User-Agent: …"; the text of
+// a preset names Ask as itself
 export function requestProblemLine(problem: RequestProblem): string {
+  if (problem.code === 'preset') return requestProblemText(problem);
   const where =
     problem.line > 0 ? _('Header %d').format(problem.line) : 'User-Agent';
   return where + ': ' + requestProblemText(problem);
