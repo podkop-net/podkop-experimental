@@ -698,11 +698,14 @@ var PARTIAL_NAMES = [
   "if-modified-since",
   "if-unmodified-since"
 ];
+var DEVICE_PARTS = ["hwid", "device-id", "deviceid", "hardware-id"];
+var CLIENT_PARTS = ["forwarded", "clientip", "socketip"];
+var CLIENT_ENDS = ["-ip", "-ipv4", "-ipv6", "-ip6", "-addr", "-address"];
 function deniedHeader(name) {
   const lower = name.toLowerCase();
-  if (lower.includes("hwid") || lower.startsWith("x-device") || lower === "x-ver-os")
+  if (DEVICE_PARTS.some((part) => lower.includes(part)) || lower.startsWith("x-device") || lower === "x-ver-os")
     return "device";
-  if (lower.includes("forwarded") || lower.endsWith("-ip") || lower.endsWith("-addr"))
+  if (CLIENT_PARTS.some((part) => lower.includes(part)) || CLIENT_ENDS.some((end) => lower.endsWith(end)))
     return "client";
   if (lower === "user-agent") return "agent";
   if (CONNECTION_NAMES.includes(lower)) return "connection";
@@ -1122,6 +1125,26 @@ function sourceFilled(source) {
       return true;
   }
   return false;
+}
+function stagedChange(records, section, options) {
+  if (!Array.isArray(records)) return false;
+  return records.some((record) => {
+    if (!Array.isArray(record) || record[1] !== section) return false;
+    const option = String(record[2] ?? "");
+    switch (record[0]) {
+      case "add":
+        return true;
+      case "set":
+      case "rename":
+        return record.length < 4 || options.includes(option);
+      case "remove":
+        return record.length < 3 || options.includes(option);
+      case "list-add":
+      case "list-del":
+        return options.includes(option);
+    }
+    return false;
+  });
 }
 function isMultiServer(source) {
   const kind = sourceKind(source);
@@ -1698,11 +1721,15 @@ function devicesShadowed(upper, lower) {
   const overlaps = (device) => upper.devices.some((above) => narrower(above, device) !== null);
   return lower.devices.some(overlaps) ? "some" : "none";
 }
-function hostChoices(hints) {
+function hostChoices(hints, routerMacs) {
   const hosts = hints?.hosts ?? {};
+  const own = new Set(
+    (routerMacs ?? []).map((mac) => String(mac ?? "").toUpperCase())
+  );
   const seen = /* @__PURE__ */ new Set();
   const choices = [];
   Object.keys(hosts).forEach((mac) => {
+    if (own.has(mac.toUpperCase())) return;
     const host = hosts[mac] ?? {};
     deviceItems(host.ipaddrs ?? host.ipv4).forEach((address) => {
       if (!validateIPV4(address).valid || seen.has(address)) return;
@@ -8613,6 +8640,7 @@ return baseclass.extend({
   sourceLinks,
   sourceServerNames,
   splitProxyString,
+  stagedChange,
   store,
   subnetContains,
   svgEl,
