@@ -469,6 +469,14 @@ msg "podkop-exp $TAG for $DISTRIB_ARCH ($(((${SIZE:-0} + 524288) / 1048576)) MB,
 [ -n "$LEFT" ] && msg "It is installed already; left to do:${LEFT#,}."
 if [ "$CMP" = 1 ]; then
     msg "$TAG is older than the installed podkop-exp v$INST. An older release does not undo the conversion of your settings, and it ignores the options added after it.$([ -f /etc/config/podkop.pre-0.8.8 ] && echo " The settings as they were before podkop-exp: /etc/config/podkop.pre-0.8.8.")"
+    # the options of 0.8.21 an older release drops, with what that opens, widens or shows unmasked
+    if [ "$(vcmp "${TAG#v}" 0.8.21)" = -1 ]; then
+        SET=$(uci -q show podkop)
+        set_has() { echo "$SET" | grep -Eq "^podkop\.[^.=]+\.($1)="; }
+        set_has 'mixed_proxy_username|mixed_proxy_password' && note "A rule's mixed proxy has a login: $TAG has none, so the proxy is open to every device that reaches its port, and its global check and show_config print the login unmasked."
+        set_has 'user_agent|header' && note "A subscription has its own User-Agent or extra headers: $TAG does not send them, and its global check and show_config print the headers unmasked."
+        set_has only_devices && note "A rule has Only for devices: $TAG ignores it, and the rule takes every device."
+    fi
     ask "Install the older release $TAG?" || die "$TAG is not installed: podkop-exp v$INST stays."
 fi
 OLD=
