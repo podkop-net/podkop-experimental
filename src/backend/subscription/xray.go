@@ -3,6 +3,7 @@ package subscription
 import (
 	"encoding/base64"
 	"encoding/json"
+	"math"
 	"net/url"
 	"slices"
 	"sort"
@@ -24,8 +25,14 @@ import (
 // takes the same in a link.
 
 // xrayNotServers are the protocols of the outbounds of a configuration that are the app's own,
-// not servers: skipped without a word.
-var xrayNotServers = map[string]bool{"freedom": true, "blackhole": true, "dns": true, "loopback": true}
+// not servers: skipped without a word. direct and block are Xray's other names of freedom and
+// blackhole (infra/conf/xray.go).
+var xrayNotServers = map[string]bool{"freedom": true, "direct": true, "blackhole": true, "block": true, "dns": true, "loopback": true}
+
+// xrayFreedom tells a freedom outbound by the names Xray takes for it.
+func xrayFreedom(protocol string) bool {
+	return protocol == "freedom" || protocol == "direct"
+}
 
 // xrayConfig is a configuration as podkop reads it: its name, its outbounds, and what its routing
 // sends traffic to.
@@ -40,6 +47,9 @@ type xrayConfig struct {
 	fallbacks map[string]bool
 	// relays are the tags a dialerProxy (or proxySettings) names
 	relays map[string]bool
+	// catchAll tells a rule that takes all traffic (Remnawave's port 0-65535 or network tcp,udp
+	// to its balancer): the default outbound is used by none then
+	catchAll bool
 }
 
 type xrayOutbound struct {
@@ -85,9 +95,11 @@ func readXrayConfig(content json.RawMessage) *xrayConfig {
 	}
 	routing := root.child("routing")
 	for _, item := range routing.list("rules") {
-		if tag := objectOf(item).text("outboundTag"); tag != "" {
+		rule := objectOf(item)
+		if tag := rule.text("outboundTag"); tag != "" {
 			config.routed[tag] = true
 		}
+		config.catchAll = config.catchAll || takesAll(rule)
 	}
 	for _, item := range routing.list("balancers") {
 		balancer := objectOf(item)
@@ -140,18 +152,62 @@ func (c *xrayConfig) serverCount() int {
 	return count
 }
 
-// servers are the outbounds of the configuration that are its servers: the outbound tagged
-// proxy, the members of its balancers (by the prefixes of their selectors, and their fallbacks)
-// and the servers its rules send traffic to; with none of these, every server outbound but those
-// that are only relays of others (dialerProxy).
+// takesAll tells a rule that takes all traffic: of TCP and UDP, of every port, and nothing else
+// to tell it by.
+func takesAll(rule *object) bool {
+	if rule == nil {
+		return false
+	}
+	matched := false
+	for _, key := range rule.rest() {
+		switch fold(key) {
+		case "type", "outboundtag", "balancertag", "ruletag":
+		case "network":
+			networks := strings.ToLower(strings.Join(rule.texts(key), ","))
+			if !strings.Contains(networks, "tcp") || !strings.Contains(networks, "udp") {
+				return false
+			}
+			matched = true
+		case "port":
+			if port := strings.ReplaceAll(rule.text(key), " ", ""); port != "0-65535" && port != "1-65535" {
+				return false
+			}
+			matched = true
+		default:
+			return false
+		}
+	}
+	return matched
+}
+
+// defaultOutbound is the outbound Xray sends what no rule takes by: the first one
+// (app/proxyman/outbound), unless a rule takes all traffic.
+func (c *xrayConfig) defaultOutbound() *xrayOutbound {
+	if len(c.outbounds) == 0 || c.catchAll {
+		return nil
+	}
+	return c.outbounds[0]
+}
+
+// member tells an outbound a balancer selects (by a prefix of its selector, or as its fallback).
+func (c *xrayConfig) member(outbound *xrayOutbound) bool {
+	return outbound.tag != "" && (c.fallbacks[outbound.tag] || c.selects(outbound.tag))
+}
+
+// servers are the outbounds of the configuration that are its servers, those Xray uses: the
+// default outbound, the members of its balancers (by the prefixes of their selectors, and their
+// fallbacks) and the outbounds its rules send traffic to; an outbound Xray never uses is not a
+// server. With no server of these, every server outbound but those that are only relays of others
+// (dialerProxy).
 func (c *xrayConfig) servers() []*xrayOutbound {
 	var chosen []*xrayOutbound
+	first := c.defaultOutbound()
 	for _, outbound := range c.outbounds {
 		if !outbound.server {
 			continue
 		}
-		member := outbound.tag == "proxy" || c.routed[outbound.tag] || c.fallbacks[outbound.tag] || c.selects(outbound.tag)
-		if member && outbound.tag != "" {
+		used := outbound == first || c.member(outbound) || (outbound.tag != "" && c.routed[outbound.tag])
+		if used {
 			chosen = append(chosen, outbound)
 		}
 	}
@@ -170,9 +226,10 @@ func (c *xrayConfig) servers() []*xrayOutbound {
 // together: the server, the link made of it (none for a server that has a reason before the
 // decoder), the notes on the chain it is connected through, and where it is listed.
 type xrayListing struct {
-	server Server
-	link   *madeLink
-	chain  []string
+	server   Server
+	link     *madeLink
+	chain    []string
+	outbound *xrayOutbound
 	// key tells the server apart: its ID; the link, or the listing itself, for one without
 	key     string
 	remarks string
@@ -232,12 +289,21 @@ func readXray(reading *reading, configurations []json.RawMessage, decode Decoder
 			}
 			made = append(made, listing)
 		}
-		// the main server: the proxy, else the one server of the configuration
+		// the main server: the proxy, else the default outbound when it is a server no balancer
+		// chooses among others (a group's first member is no main server), else the one server of
+		// the configuration
 		main := ""
 		for _, listing := range made {
 			if listing.tag == "proxy" {
 				main = listing.key
 				break
+			}
+		}
+		if first := config.defaultOutbound(); main == "" && first != nil && first.server && !config.member(first) {
+			for _, listing := range made {
+				if listing.outbound == first {
+					main = listing.key
+				}
 			}
 		}
 		if main == "" && len(made) > 0 {
@@ -334,7 +400,7 @@ func readXray(reading *reading, configurations []json.RawMessage, decode Decoder
 // cannot be made.
 func convertXray(config *xrayConfig, outbound *xrayOutbound, decode Decoder) *xrayListing {
 	conversion := &xrayConversion{config: config, outbound: outbound}
-	listing := &xrayListing{remarks: config.remarks, tag: outbound.tag}
+	listing := &xrayListing{remarks: config.remarks, tag: outbound.tag, outbound: outbound}
 	conversion.convert()
 	if conversion.odd {
 		conversion.note("a key of the configuration that is not a name is ignored")
@@ -371,6 +437,8 @@ type xrayConversion struct {
 	chains []string
 	// noted are the notes given
 	noted map[string]bool
+	// relayMask are the masks of the freedom dialer the server is dialed through
+	relayMask *object
 }
 
 func (x *xrayConversion) note(text string) {
@@ -504,8 +572,6 @@ var (
 		"tcpkeepaliveinterval": "the client's keepalive of TCP",
 		"tcpkeepaliveidle":     "the client's keepalive of TCP",
 		"tcpcongestion":        "the congestion control of the client's sockets",
-		"tcpwindowclamp":       "the client's tuning of its sockets",
-		"tcpmaxseg":            "the client's tuning of its sockets",
 		"tcpusertimeout":       "the client's limit of data not acknowledged",
 		"penetrate":            "a setting of the app's own sockets (TProxy)",
 		"v6only":               "a setting of a listener",
@@ -598,7 +664,7 @@ func (x *xrayConversion) convert() {
 	if x.reason != "" {
 		return
 	}
-	if relay := x.config.tags[x.outbound.relay]; relay != nil && relay.protocol == "freedom" && relay != x.outbound {
+	if relay := x.config.tags[x.outbound.relay]; relay != nil && xrayFreedom(relay.protocol) && relay != x.outbound {
 		// the older form of the cut of the hello, before the masks are read
 		x.freedom(objectOf(relay.content))
 	}
@@ -759,8 +825,20 @@ func (x *xrayConversion) shadowsocks(settings *object) {
 		return
 	}
 	x.link.scheme = "ss"
+	method := server.text("method")
+	// Xray's other names of its methods (infra/conf/shadowsocks.go cipherFromString)
+	switch strings.ToLower(method) {
+	case "aead_aes_128_gcm":
+		method = "aes-128-gcm"
+	case "aead_aes_256_gcm":
+		method = "aes-256-gcm"
+	case "aead_chacha20_poly1305":
+		method = "chacha20-ietf-poly1305"
+	case "aead_xchacha20_poly1305":
+		method = "xchacha20-ietf-poly1305"
+	}
 	// SIP002: the method and the password in base64, as Remnawave writes its links
-	x.link.user = base64.RawURLEncoding.EncodeToString([]byte(server.text("method") + ":" + server.text("password")))
+	x.link.user = base64.RawURLEncoding.EncodeToString([]byte(method + ":" + server.text("password")))
 	x.account("settings.", server, xrayShadowsocksSilent)
 }
 
@@ -827,6 +905,7 @@ func (x *xrayConversion) headers(path string, headers *object, host *string, str
 		names = append(names, name)
 	}
 	sort.Strings(names)
+	seen := make(map[string]bool)
 	for _, name := range names {
 		// a list of values (Xray's StringList, which splits a text by commas) or one value
 		values := []string{headers.text(name)}
@@ -841,6 +920,17 @@ func (x *xrayConversion) headers(path string, headers *object, host *string, str
 		}
 		if !optionName(name) || strings.Contains(name, ".") {
 			x.odd = true
+			continue
+		}
+		if seen[fold(name)] {
+			// a name of HTTP is of any case: one of the spellings goes
+			x.note("the header " + name + " is given twice in other cases: one is sent")
+			continue
+		}
+		seen[fold(name)] = true
+		if len(values) > 0 && strings.Contains(values[0], "://") && strings.ContainsAny(values[0], " \t\r\n") {
+			// the decoder takes such a text for another link glued to this one, and refuses it
+			x.note("the header " + name + " is left out: a link cannot carry its value")
 			continue
 		}
 		if len(values) > 0 {
@@ -868,7 +958,12 @@ func (x *xrayConversion) hysteria(settings *object, stream *object) {
 	}
 	x.account("settings.", settings, xrayUserSilent)
 	x.link.scheme, x.link.slash = "hysteria2", true
-	network := strings.ToLower(stream.text("network"))
+	// method names the network before network does (infra/conf StreamConfig)
+	network := strings.ToLower(strings.TrimSpace(stream.text("method")))
+	if network == "" {
+		network = strings.ToLower(strings.TrimSpace(stream.text("network")))
+	}
+	stream.raw("network")
 	if network != "hysteria" {
 		x.refuse("a Hysteria server over another transport is not supported")
 		return
@@ -952,6 +1047,11 @@ func (x *xrayConversion) stream(stream *object, protocol string) {
 			x.link.set("security", "tls")
 		}
 		x.tls(stream.child("tlsSettings"), false)
+		if protocol == "http" && !x.link.has("fp") {
+			// Xray's hello is Chrome's when none is named (tls.GetFingerprint); the decoder of an
+			// https link imitates none without fp
+			x.link.set("fp", "chrome")
+		}
 	case "reality":
 		silent["tlssettings"] = "the settings of a security the outbound does not use"
 		x.link.set("security", "reality")
@@ -1122,6 +1222,11 @@ func (x *xrayConversion) xhttpExtra(settings *object) json.RawMessage {
 	settings.raw("mode")
 	var content json.RawMessage
 	if extra := settings.raw("extra"); extra != nil {
+		if extra[0] != '{' {
+			// Xray refuses the configuration (infra/conf SplitHTTPConfig.Build)
+			x.refuse("the extra settings of XHTTP are not an object")
+			return nil
+		}
 		content = extra
 		// Xray reads extra in their place
 		for _, key := range settings.rest() {
@@ -1232,6 +1337,10 @@ func (x *xrayConversion) tls(settings *object, quic bool) {
 			x.note(where + "certificates is a setting of the provider's app and is left out")
 		}
 		x.link.set("cert", strings.Join(roots, "\n"))
+		if len(roots) > 0 && !settings.flag("disableSystemRoot") {
+			// Xray adds them to the roots of the system, sing-box verifies by them alone
+			x.note("the server's certificate is verified by the provider's certificate authority instead of the system's roots")
+		}
 	}
 	x.account(where, settings, xrayTLSSilent, "echforcequery", "disablesystemroot")
 }
@@ -1269,7 +1378,8 @@ func (x *xrayConversion) sockopt(settings *object) {
 	if strategy := strings.ToLower(settings.text("addressPortStrategy")); strategy != "" && strategy != "none" {
 		x.refuse("the address and the port of the server come from DNS records (addressPortStrategy), which podkop does not read")
 	}
-	x.account("streamSettings.sockopt.", settings, xraySockoptSilent)
+	// the size of the segments and of the window change what goes over the wire: noted
+	x.account("streamSettings.sockopt.", settings, xraySockoptSilent, "tcpmaxseg", "tcpwindowclamp")
 }
 
 // finalMask makes the fm of the link: the masks of the outbound the decoder reads, without those
@@ -1280,14 +1390,15 @@ func (x *xrayConversion) finalMask(mask *object, on string) {
 	if on != "hysteria" {
 		tcp = append(tcp, x.fragments...)
 	}
-	if mask != nil {
-		for _, item := range mask.list("tcp") {
+	// the masks of the dialer act on the connection it makes as the outbound's own do
+	for _, masks := range []*object{x.relayMask, mask} {
+		for _, item := range masks.list("tcp") {
 			// the filter is a listener's: on a client it does nothing (finalmask/filter)
 			if on != "hysteria" && !strings.EqualFold(objectOf(item).text("type"), "filter") {
 				tcp = append(tcp, item)
 			}
 		}
-		for _, item := range mask.list("udp") {
+		for _, item := range masks.list("udp") {
 			if on != "tcp" && !strings.EqualFold(objectOf(item).text("type"), "filter") {
 				udp = append(udp, item)
 			}
@@ -1301,23 +1412,27 @@ func (x *xrayConversion) finalMask(mask *object, on string) {
 		final["udp"] = udp
 	}
 	if quic := mask.child("quicParams"); quic != nil && on == "hysteria" {
-		params := make(map[string]any)
-		switch congestion := strings.ToLower(quic.text("congestion")); congestion {
+		// the speed down goes to the server whatever the congestion control of the client (the
+		// header CC-RX of Xray's dialer of Hysteria): it sends by Brutal at it; the speed up is the
+		// client's Brutal, with its congestion control brutal or none named (BBR without a speed)
+		up, upRead := xrayBandwidth(quic.raw("brutalUp"))
+		down, downRead := xrayBandwidth(quic.raw("brutalDown"))
+		switch strings.ToLower(quic.text("congestion")) {
 		case "", "brutal", "force-brutal":
-			// Brutal with the speeds, as Xray's dialer of Hysteria uses them
-			if up := quic.raw("brutalUp"); up != nil {
-				params["brutalUp"] = up
-			}
-			if down := quic.raw("brutalDown"); down != nil {
-				params["brutalDown"] = down
-			}
 		default:
-			// BBR or Reno: the speeds are not used; sing-box takes BBR without them
-			quic.raw("brutalUp")
-			quic.raw("brutalDown")
+			up, upRead = 0, true
 		}
-		if len(params) > 0 {
-			final["quicParams"] = params
+		if !upRead || !downRead {
+			x.note("the speeds of Brutal cannot be read and are not used")
+		}
+		if up > 0 {
+			x.link.set("upmbps", strconv.FormatInt(int64(math.Round(up)), 10))
+		}
+		if down > 0 {
+			x.link.set("downmbps", strconv.FormatInt(int64(math.Round(down)), 10))
+		}
+		if up > 0 && up != math.Round(up) || down > 0 && down != math.Round(down) {
+			x.note("the speeds of Brutal are rounded to whole megabits a second")
 		}
 		x.account("finalmask.quicParams.", quic, xrayQUICSilent)
 	} else if quic != nil {
@@ -1362,6 +1477,43 @@ func int32Text(text string) bool {
 	return err == nil && number >= 0
 }
 
+// xrayBandwidth reads a speed of Xray (infra/conf Bandwidth): bits a second, with a unit of k, m,
+// g or t (and b, bps, kbps…), as megabits a second; 0 for none, false for what Xray refuses.
+func xrayBandwidth(value json.RawMessage) (float64, bool) {
+	if value == nil {
+		return 0, true
+	}
+	text := strings.TrimSpace(string(value))
+	var unquoted string
+	if json.Unmarshal(value, &unquoted) == nil {
+		text = unquoted
+	}
+	text = strings.ToLower(strings.TrimSpace(text))
+	if text == "" {
+		return 0, true
+	}
+	end := 0
+	for end < len(text) && (text[end] >= '0' && text[end] <= '9' || text[end] == '.') {
+		end++
+	}
+	number, err := strconv.ParseFloat(text[:end], 64)
+	if err != nil || number < 0 || math.IsInf(number, 0) {
+		return 0, false
+	}
+	scale := map[string]float64{"": 1, "b": 1, "bps": 1, "k": 1e3, "kb": 1e3, "kbps": 1e3, "m": 1e6, "mb": 1e6, "mbps": 1e6,
+		"g": 1e9, "gb": 1e9, "gbps": 1e9, "t": 1e12, "tb": 1e12, "tbps": 1e12}
+	unit, known := scale[strings.TrimSpace(text[end:])]
+	if !known {
+		return 0, false
+	}
+	megabits := number * unit / 1e6
+	if megabits > 1e7 {
+		// more than any link: no speed of a server
+		return 0, false
+	}
+	return megabits, true
+}
+
 // chain notes the relay the provider connects the server through: podkop connects it directly
 // (the owner, 2026-11-21: a note only at this stage). A freedom outbound with a fragment is the
 // older form of the cut of the hello: its fragment becomes a mask, as finalmask has it.
@@ -1375,7 +1527,7 @@ func (x *xrayConversion) chain() {
 	switch {
 	case target == nil:
 		x.chains = append(x.chains, "the provider connects it through "+shown+", which its configuration does not have; podkop connects it directly")
-	case target.protocol == "freedom":
+	case xrayFreedom(target.protocol):
 		// read before the masks (freedom)
 	case target == x.outbound:
 		x.chains = append(x.chains, "the provider connects it through itself; podkop connects it directly")
@@ -1428,6 +1580,18 @@ func (x *xrayConversion) freedom(outbound *object) {
 	}
 	x.account("dialerProxy settings.", settings, xrayFreedomSilent)
 	stream := outbound.child("streamSettings")
+	if masks := stream.raw("finalmask"); masks != nil {
+		// the newer form of the same: the masks of the dialer, which go into the link of every
+		// server it dials (a bound: what one dialer shares stays small)
+		if len(masks) > 4096 {
+			x.refuse("the masks of the provider's dialer are too large to be taken")
+			return
+		}
+		x.relayMask = objectOf(masks)
+		x.relayMask.raw("tcp")
+		x.relayMask.raw("udp")
+		x.account("dialerProxy streamSettings.finalmask.", x.relayMask, map[string]string{"quicparams": "the tuning of QUIC of the dialer: the client's own"})
+	}
 	if sockopt := stream.child("sockopt"); sockopt != nil {
 		var on bool
 		var number float64

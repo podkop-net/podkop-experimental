@@ -72,12 +72,10 @@ func SameServers(left []Server, right []Server) bool {
 	}
 	keys := func(servers []Server) []string {
 		result := make([]string, len(servers))
-		for index, server := range servers {
-			// a link that could not be decoded has no ID: its text tells it
-			result[index] = server.ID + "\x00" + server.Reason
-			if server.ID == "" {
-				result[index] = "\x00" + server.Link
-			}
+		for index := range servers {
+			// a link that could not be decoded has no ID: its text tells it, or for a server of a
+			// configuration podkop made no link of, its name and its reason
+			result[index] = identity(&servers[index])
 		}
 		slices.Sort(result)
 		return result

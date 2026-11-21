@@ -67,20 +67,6 @@
         "type": "vless",
         "uuid": "c0ffee00-0000-4000-8000-00000000f044"
       }
-    },
-    {
-      "name": "Through itself",
-      "id": "86c0d61c9456ecdb7708c99b",
-      "notes": [
-        "the provider connects it through hidden; podkop connects it directly"
-      ],
-      "link": "vless://c0ffee00-0000-4000-8000-00000000f046@front.example.net:443?encryption=none&security=none&type=tcp#Through%20itself",
-      "outbound": {
-        "server": "front.example.net",
-        "server_port": 443,
-        "type": "vless",
-        "uuid": "c0ffee00-0000-4000-8000-00000000f046"
-      }
     }
   ]
 }

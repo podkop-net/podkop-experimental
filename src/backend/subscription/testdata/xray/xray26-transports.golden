@@ -269,7 +269,7 @@
     {
       "name": "Hysteria gecko udphop",
       "id": "3494b6aada03c50c04daf661",
-      "link": "hysteria2://fixture-hy-auth@hy.example.net:443/?sni=hy.example.net&pcs=0458d1060b5385cfda9a8db103896253318203af84ed7c547ec763e7c0d80928&fm=%7B%22quicParams%22%3A%7B%22brutalDown%22%3A%22200+mbps%22%2C%22brutalUp%22%3A%22100+mbps%22%7D%2C%22udp%22%3A%5B%7B%22type%22%3A%22salamander%22%2C%22settings%22%3A%7B%22password%22%3A%22fixture-obfs%22%2C%22packetSize%22%3A%221200-1350%22%7D%7D%2C%7B%22type%22%3A%22udphop%22%2C%22settings%22%3A%7B%22mode%22%3A%22intervalRemote%22%2C%22interval%22%3A%2220-40%22%2C%22remotePorts%22%3A%2220000-30000%22%7D%7D%5D%7D#Hysteria%20gecko%20udphop",
+      "link": "hysteria2://fixture-hy-auth@hy.example.net:443/?sni=hy.example.net&pcs=0458d1060b5385cfda9a8db103896253318203af84ed7c547ec763e7c0d80928&upmbps=100&downmbps=200&fm=%7B%22udp%22%3A%5B%7B%22type%22%3A%22salamander%22%2C%22settings%22%3A%7B%22password%22%3A%22fixture-obfs%22%2C%22packetSize%22%3A%221200-1350%22%7D%7D%2C%7B%22type%22%3A%22udphop%22%2C%22settings%22%3A%7B%22mode%22%3A%22intervalRemote%22%2C%22interval%22%3A%2220-40%22%2C%22remotePorts%22%3A%2220000-30000%22%7D%7D%5D%7D#Hysteria%20gecko%20udphop",
       "outbound": {
         "down_mbps": 200,
         "hop_interval": "20s",

@@ -289,8 +289,10 @@ func TestXraySelection(t *testing.T) {
 	require.Equal(t, []string{"R", "R", "R", "R", "R"}, names(`{"remarks":"R","outbounds":[`+server("proxy", "p.example.net")+`,`+server("eu-1", "a.example.net")+`,`+
 		server("eu-2", "b.example.net")+`,`+server("backup", "c.example.net")+`,`+server("routed", "d.example.net")+`,`+server("other", "e.example.net")+`],
 		"routing":{"balancers":[{"tag":"b","selector":["eu-"],"fallbackTag":"backup"}],"rules":[{"outboundTag":"routed"},{"outboundTag":"direct"}]}}`))
-	// none of these: every server but a relay of another
-	require.Equal(t, []string{"R", "R"}, names(`{"remarks":"R","outbounds":[`+relayed("first", "a.example.net", "relay")+`,`+server("second", "b.example.net")+`,`+server("relay", "r.example.net")+`]}`))
+	// no routing: the default outbound, the first, is the one Xray uses
+	require.Equal(t, []string{"R"}, names(`{"remarks":"R","outbounds":[`+relayed("first", "a.example.net", "relay")+`,`+server("second", "b.example.net")+`,`+server("relay", "r.example.net")+`]}`))
+	// none Xray uses is a server (the first is no server): every server but a relay of another
+	require.Equal(t, []string{"R", "R"}, names(`{"remarks":"R","outbounds":[{"tag":"direct","protocol":"freedom"},`+relayed("first", "a.example.net", "relay")+`,`+server("second", "b.example.net")+`,`+server("relay", "r.example.net")+`]}`))
 	// its only server takes the remarks
 	require.Equal(t, []string{"R"}, names(`{"remarks":"R","outbounds":[`+relayed("first", "a.example.net", "relay")+`,`+server("relay", "r.example.net")+`]}`))
 	// no remarks: the tag; neither: the number
@@ -531,4 +533,186 @@ func TestBoundShapes(t *testing.T) {
 	for _, shape := range boundShapes() {
 		fuzzRead(t, []byte(shape))
 	}
+}
+
+// xrayProbe is a server outbound of the probes of the review: VLESS over TLS.
+func xrayProbe(tag string, host string) string {
+	return `{"tag":"` + tag + `","protocol":"vless","settings":{"address":"` + host + `","port":443,"id":"c0ffee00-0000-4000-8000-000000000001","encryption":"none"},"streamSettings":{"security":"tls","tlsSettings":{"serverName":"` + host + `"}}}`
+}
+
+// serversOf reads a body and gives its servers.
+func serversOf(t *testing.T, body string) []Server {
+	t.Helper()
+	list, err := ParseList(context.Background(), []byte(body), realCodec)
+	require.NoError(t, err, body)
+	return list.Servers
+}
+
+// The servers of a configuration are those Xray uses: the default outbound (the first, unless a
+// rule takes all traffic), the targets of the rules, the members of the balancers. The default
+// one is the main server of its configuration unless a balancer chooses it among others.
+func TestXrayDefaultOutbound(t *testing.T) {
+	t.Parallel()
+	servers := serversOf(t, `[{"remarks":"Main","outbounds":[`+xrayProbe("main", "a.example.net")+`,`+xrayProbe("streaming", "b.example.net")+`,{"tag":"direct","protocol":"freedom"}],
+		"routing":{"rules":[{"type":"field","domain":["geosite:netflix"],"outboundTag":"streaming"},{"type":"field","ip":["geoip:private"],"outboundTag":"direct"}]}}]`)
+	require.Len(t, servers, 2, "the default outbound and the target of a rule")
+	require.Equal(t, "Main", servers[0].Name)
+	require.Contains(t, servers[0].Link, "@a.example.net:443")
+	require.Contains(t, servers[1].Link, "@b.example.net:443")
+	// a relay that is the default outbound is what Xray uses; the exit it relays nothing reaches
+	servers = serversOf(t, `[{"remarks":"D","outbounds":[`+xrayProbe("entry", "relay.example.net")+`,{"tag":"exit","protocol":"vless","settings":{"address":"exit.example.net","port":443,"id":"c0ffee00-0000-4000-8000-000000000002","encryption":"none"},"streamSettings":{"security":"tls","sockopt":{"dialerProxy":"entry"}}}]}]`)
+	require.Len(t, servers, 1)
+	require.Contains(t, servers[0].Link, "@relay.example.net:443")
+	require.Equal(t, "D", servers[0].Name)
+	// a rule that takes all traffic to a balancer: the default outbound is used by none
+	servers = serversOf(t, `[{"remarks":"B","outbounds":[`+xrayProbe("first", "a.example.net")+`,`+xrayProbe("x-1", "b.example.net")+`,`+xrayProbe("x-2", "c.example.net")+`],
+		"routing":{"balancers":[{"tag":"b","selector":["x-"]}],"rules":[{"type":"field","network":"tcp,udp","balancerTag":"b"}]}}]`)
+	require.Len(t, servers, 2)
+	for _, rule := range []string{`{"network":"tcp,udp","balancerTag":"b"}`, `{"port":"0-65535","balancerTag":"b"}`, `{"network":["udp","tcp"],"port":"1-65535","balancerTag":"b"}`} {
+		require.True(t, takesAll(objectOf(json.RawMessage(rule))), rule)
+	}
+	for _, rule := range []string{`{"network":"tcp","balancerTag":"b"}`, `{"port":"443","balancerTag":"b"}`, `{"outboundTag":"b"}`, `{"network":"tcp,udp","domain":["x"],"balancerTag":"b"}`} {
+		require.False(t, takesAll(objectOf(json.RawMessage(rule))), rule)
+	}
+}
+
+// The speeds of Brutal as Xray reads them: bits a second, with units and decimals, made megabits
+// a second; the speed down goes to the server whatever the congestion control.
+func TestXrayBrutalSpeeds(t *testing.T) {
+	t.Parallel()
+	hysteria := func(quic string) Server {
+		return serversOf(t, `[{"remarks":"B","outbounds":[{"tag":"proxy","protocol":"hysteria","settings":{"version":2,"address":"h.example.net","port":443},"streamSettings":{"network":"hysteria","security":"tls","tlsSettings":{"serverName":"h.example.net"},"hysteriaSettings":{"version":2,"auth":"secret-auth"},"finalmask":{"quicParams":`+quic+`}}}]}]`)[0]
+	}
+	for quic, want := range map[string][2]any{
+		`{"congestion":"brutal","brutalUp":"1 gbps","brutalDown":"2 gbps"}`:  {float64(1000), float64(2000)},
+		`{"brutalUp":"100000000","brutalDown":"200000000"}`:                  {float64(100), float64(200)},
+		`{"brutalUp":"50 mbps","brutalDown":"12500 kbps"}`:                   {float64(50), float64(13)},
+		`{"congestion":"bbr","brutalUp":"100 mbps","brutalDown":"200 mbps"}`: {nil, float64(200)},
+		`{"congestion":"reno","brutalDown":200000000}`:                       {nil, float64(200)},
+	} {
+		server := hysteria(quic)
+		require.True(t, server.Usable(), "%s: %s", quic, server.Reason)
+		require.Equal(t, want[0], outboundAt(t, server, "up_mbps"), quic)
+		require.Equal(t, want[1], outboundAt(t, server, "down_mbps"), quic)
+	}
+	rounded := hysteria(`{"brutalUp":"50.5 mbps"}`)
+	require.Equal(t, float64(51), outboundAt(t, rounded, "up_mbps"))
+	require.Contains(t, rounded.Notes, "the speeds of Brutal are rounded to whole megabits a second")
+	unread := hysteria(`{"brutalUp":"fast"}`)
+	require.Nil(t, outboundAt(t, unread, "up_mbps"))
+	require.Contains(t, unread.Notes, "the speeds of Brutal cannot be read and are not used")
+	for text, want := range map[string]float64{`"1 gbps"`: 1000, `"8 kbps"`: 0.008, `100`: 0.0001, `"2.5m"`: 2.5, `"1t"`: 1e6} {
+		megabits, read := xrayBandwidth(json.RawMessage(text))
+		require.True(t, read, text)
+		require.InDelta(t, want, megabits, 1e-9, text)
+	}
+	for _, text := range []string{`"1 xbps"`, `"-5 mbps"`, `"1e400"`, `"9999999 tbps"`} {
+		_, read := xrayBandwidth(json.RawMessage(text))
+		require.False(t, read, text)
+	}
+}
+
+// The method of the stream names the network of Hysteria as it does of the others.
+func TestXrayHysteriaMethod(t *testing.T) {
+	t.Parallel()
+	server := serversOf(t, `[{"remarks":"H","outbounds":[{"tag":"proxy","protocol":"hysteria","settings":{"version":2,"address":"h.example.net","port":443},"streamSettings":{"method":"hysteria","network":"tcp","security":"tls","tlsSettings":{"serverName":"h.example.net"},"hysteriaSettings":{"version":2,"auth":"secret-auth"}}}]}]`)[0]
+	require.True(t, server.Usable(), server.Reason)
+	require.Equal(t, "hysteria2", outboundAt(t, server, "type"))
+	require.Empty(t, server.Notes)
+}
+
+// direct and block are Xray's names of freedom and blackhole: no servers; a direct dialer with a
+// fragment is the older form of the cut of the hello, and a dialer's own finalmask its newer form.
+func TestXrayFreedomForms(t *testing.T) {
+	t.Parallel()
+	servers := serversOf(t, `[{"remarks":"R","outbounds":[`+xrayProbe("proxy", "a.example.net")+`,{"tag":"direct","protocol":"direct"},{"tag":"block","protocol":"block"}],"routing":{"rules":[{"type":"field","ip":["geoip:private"],"outboundTag":"direct"},{"type":"field","protocol":["bittorrent"],"outboundTag":"block"}]}}]`)
+	require.Len(t, servers, 1)
+	servers = serversOf(t, `[{"remarks":"R","outbounds":[`+xrayProbe("main", "a.example.net")+`,{"tag":"direct","protocol":"direct"}]}]`)
+	require.Len(t, servers, 1)
+	dialed := func(dialer string) Server {
+		return serversOf(t, `[{"remarks":"F","outbounds":[{"tag":"proxy","protocol":"vless","settings":{"address":"a.example.net","port":443,"id":"c0ffee00-0000-4000-8000-000000000001","encryption":"none"},"streamSettings":{"security":"tls","tlsSettings":{"serverName":"a.example.net"},"sockopt":{"dialerProxy":"frag"}}},`+dialer+`]}]`)[0]
+	}
+	for _, dialer := range []string{
+		`{"tag":"frag","protocol":"direct","settings":{"fragment":{"packets":"tlshello","length":"100-200","interval":"0"}}}`,
+		`{"tag":"frag","protocol":"freedom","streamSettings":{"finalmask":{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","length":"100-200"}}]}}}`,
+	} {
+		server := dialed(dialer)
+		require.True(t, server.Usable(), server.Reason)
+		require.Empty(t, server.Notes, dialer)
+		mask := outboundAt(t, server, "finalmask").(map[string]any)["tcp"].([]any)[0].(map[string]any)
+		require.Equal(t, "tlshello", mask["packets"], dialer)
+		require.Equal(t, "100-200", mask["length"], dialer)
+	}
+	large := dialed(`{"tag":"frag","protocol":"freedom","streamSettings":{"finalmask":{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","length":"` + strings.Repeat("1", 5000) + `"}}]}}}`)
+	require.Equal(t, "the masks of the provider's dialer are too large to be taken", large.Reason)
+}
+
+// An HTTPS proxy of Xray says Chrome's hello when it names none, as the others do.
+func TestXrayHTTPSFingerprint(t *testing.T) {
+	t.Parallel()
+	server := serversOf(t, `[{"remarks":"P","outbounds":[{"tag":"proxy","protocol":"http","settings":{"address":"px.example.net","port":8443},"streamSettings":{"security":"tls","tlsSettings":{"serverName":"px.example.net"}}}]}]`)[0]
+	require.True(t, server.Usable(), server.Reason)
+	require.Equal(t, "chrome", outboundAt(t, server, "tls.utls.fingerprint"))
+	require.Equal(t, "chrome", paramsOf(t, server.Link).Get("fp"))
+}
+
+// A header whose value a link cannot carry (another link and a space: a bot's User-Agent) is left
+// out with a note, and the server stays; one name in two cases is one header.
+func TestXrayHeadersALinkCannotCarry(t *testing.T) {
+	t.Parallel()
+	server := serversOf(t, `[{"remarks":"U","outbounds":[{"tag":"proxy","protocol":"vless","settings":{"address":"w.example.net","port":443,"id":"c0ffee00-0000-4000-8000-000000000001","encryption":"none"},"streamSettings":{"network":"ws","security":"tls","tlsSettings":{"serverName":"w.example.net"},"wsSettings":{"path":"/ws","headers":{"User-Agent":"Mozilla/5.0 (compatible; +http://example.com/bot)","X-Kept":"1","x-kept":"2"}}}}]}]`)[0]
+	require.True(t, server.Usable(), server.Reason)
+	require.Contains(t, server.Notes, "the header User-Agent is left out: a link cannot carry its value")
+	require.Contains(t, server.Notes, "the header x-kept is given twice in other cases: one is sent")
+	require.Equal(t, "1", outboundAt(t, server, "transport.headers.X-Kept"))
+	require.Nil(t, outboundAt(t, server, "transport.headers.User-Agent"))
+}
+
+// Xray's other names of the methods of Shadowsocks are the methods.
+func TestXrayShadowsocksAliases(t *testing.T) {
+	t.Parallel()
+	for alias, method := range map[string]string{"aead_aes_128_gcm": "aes-128-gcm", "AEAD_AES_256_GCM": "aes-256-gcm", "AEAD_CHACHA20_POLY1305": "chacha20-ietf-poly1305", "aead_xchacha20_poly1305": "xchacha20-ietf-poly1305"} {
+		server := serversOf(t, `[{"remarks":"S","outbounds":[{"tag":"proxy","protocol":"shadowsocks","settings":{"address":"ss.example.net","port":8388,"method":"`+alias+`","password":"fixture-pass"}}]}]`)[0]
+		require.True(t, server.Usable(), "%s: %s", alias, server.Reason)
+		require.Equal(t, method, outboundAt(t, server, "method"), alias)
+	}
+}
+
+// The provider's certificate authority replaces the system's roots in sing-box, where Xray adds
+// it to them: so noted, unless the configuration has the system's roots off too.
+func TestXrayCertificateRoots(t *testing.T) {
+	t.Parallel()
+	certificate := `"certificates":[{"usage":"verify","certificate":["-----BEGIN CERTIFICATE-----","MIIB","-----END CERTIFICATE-----"]}]`
+	added := readOne(t, `{"tag":"proxy","protocol":"vless","settings":{"address":"c.example.net","port":443,"id":"c0ffee00-0000-4000-8000-000000000044"},"streamSettings":{"security":"tls","tlsSettings":{`+certificate+`}}}`)
+	require.Equal(t, []string{"the server's certificate is verified by the provider's certificate authority instead of the system's roots"}, added.Notes)
+	alone := readOne(t, `{"tag":"proxy","protocol":"vless","settings":{"address":"c.example.net","port":443,"id":"c0ffee00-0000-4000-8000-000000000044"},"streamSettings":{"security":"tls","tlsSettings":{`+certificate+`,"disableSystemRoot":true}}}`)
+	require.Empty(t, alone.Notes)
+}
+
+// Servers podkop made no link of are told apart by their names and reasons: another refusal is
+// another list.
+func TestSameServersWithoutLinks(t *testing.T) {
+	t.Parallel()
+	first := serversOf(t, `[{"remarks":"W","outbounds":[{"tag":"proxy","protocol":"wireguard","settings":{}}]},{"remarks":"ok","outbounds":[`+xrayProbe("proxy", "a.example.net")+`]}]`)
+	second := serversOf(t, `[{"remarks":"W","outbounds":[{"tag":"proxy","protocol":"masque","settings":{}}]},{"remarks":"ok","outbounds":[`+xrayProbe("proxy", "a.example.net")+`]}]`)
+	require.Empty(t, first[0].Link)
+	require.NotEqual(t, first[0].Reason, second[0].Reason)
+	require.False(t, SameServers(first, second))
+	require.False(t, SameList(first, second))
+	require.True(t, SameServers(first, serversOf(t, `[{"remarks":"W","outbounds":[{"tag":"proxy","protocol":"wireguard","settings":{}}]},{"remarks":"ok","outbounds":[`+xrayProbe("proxy", "a.example.net")+`]}]`)))
+}
+
+// Extra settings of XHTTP that are not an object: Xray refuses the configuration, the server gets
+// that reason.
+func TestXrayExtraNotAnObject(t *testing.T) {
+	t.Parallel()
+	server := readOne(t, `{"tag":"proxy","protocol":"vless","settings":{"address":"x.example.net","port":443,"id":"c0ffee00-0000-4000-8000-000000000001","encryption":"none"},"streamSettings":{"network":"xhttp","security":"tls","tlsSettings":{"serverName":"x.example.net"},"xhttpSettings":{"path":"/x","extra":"{\"downloadSettings\":{}}"}}}`)
+	require.Equal(t, "the extra settings of XHTTP are not an object", server.Reason)
+}
+
+// The size of the segments and of the window of TCP change what goes over the wire: noted.
+func TestXraySockoptOnTheWire(t *testing.T) {
+	t.Parallel()
+	server := readOne(t, `{"tag":"proxy","protocol":"vless","settings":{"address":"s.example.net","port":443,"id":"c0ffee00-0000-4000-8000-000000000045"},"streamSettings":{"sockopt":{"tcpMaxSeg":500,"tcpWindowClamp":600,"mark":1}}}`)
+	require.Equal(t, []string{"streamSettings.sockopt.tcpMaxSeg is a setting of the provider's app and is left out", "streamSettings.sockopt.tcpWindowClamp is a setting of the provider's app and is left out"}, server.Notes)
 }

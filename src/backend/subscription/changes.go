@@ -27,9 +27,13 @@ func SameList(left []Server, right []Server) bool {
 }
 
 // identity tells a server apart whatever its name: its ID, and why it cannot be used; the text
-// of a link that could not be decoded, which has no ID.
+// of a link that could not be decoded, which has no ID; the name and the reason of a server of a
+// configuration podkop made no link of.
 func identity(server *Server) string {
-	if server.ID == "" {
+	switch {
+	case server.ID == "" && server.Link == "":
+		return "\x00\x00" + server.Name + "\x00" + server.Reason
+	case server.ID == "":
 		return "\x00" + server.Link
 	}
 	return server.ID + "\x00" + server.Reason
