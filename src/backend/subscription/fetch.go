@@ -267,7 +267,7 @@ func (d *download) run(ctx context.Context, report func([]Try)) (*Answer, []Try,
 				if status != nil {
 					return nil, tries, d.statusOf(status, tries)
 				}
-				return nil, tries, unreachable(tries)
+				return nil, tries, noList(tries, pages)
 			}
 			d.snapshot(report)
 		case <-watch.C:
@@ -282,7 +282,7 @@ func (d *download) run(ctx context.Context, report func([]Try)) (*Answer, []Try,
 			if status != nil {
 				return nil, tries, d.statusOf(status, tries)
 			}
-			return nil, tries, unreachable(tries)
+			return nil, tries, noList(tries, pages)
 		}
 	}
 }
@@ -394,6 +394,34 @@ func (d *download) snapshot(report func([]Try)) []Try {
 		report(tries)
 	}
 	return tries
+}
+
+// noList is the failure of a download whose ways ran out with no list and no status. A web page
+// is the provider's answer when the plan takes it for one (Plan.PageIsAnswer: pages ways got
+// one), the other ways not reaching the provider, as a status of one way is (statusOf); without
+// such a page no way reached the provider (unreachable).
+func noList(tries []Try, pages int) *Failure {
+	if pages == 0 {
+		return unreachable(tries)
+	}
+	way := ""
+	var reasons []string
+	for _, item := range tries {
+		switch {
+		case item.Failure == nil || item.Failure.Code == "canceled":
+		case item.Failure.Code == "page":
+			if way == "" {
+				way = item.Route
+			}
+		default:
+			reasons = append(reasons, item.Route+": "+item.Failure.Text)
+		}
+	}
+	if len(reasons) == 0 {
+		// the only way, or every way, got the page
+		return unreachable(tries)
+	}
+	return fail("page", true, "a web page came instead of the list by one way only ("+way+"); the other ways did not reach the provider ("+strings.Join(reasons, "; ")+")")
 }
 
 // unreachable is the failure of a download no way of which brought the list.

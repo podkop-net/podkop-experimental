@@ -241,6 +241,21 @@ func TestDownloadPageIsAnswer(t *testing.T) {
 	_, _, err = Download(context.Background(), address, nil, routes[:1], plan, nil)
 	require.Equal(t, "page", err.(*Failure).Code)
 	require.Equal(t, int32(1), asked.Load())
+	// a page by one way, the other way not reaching the provider, in either order: the page is
+	// the answer, not a provider that does not answer
+	for _, mixed := range [][]Route{
+		{{Name: "direct", Direct: true, Dial: local}, {Name: "px1", Dial: refused}},
+		{{Name: "direct", Direct: true, Dial: refused}, {Name: "px1", Dial: local}},
+	} {
+		asked.Store(0)
+		_, tries, err = Download(context.Background(), address, nil, mixed, plan, nil)
+		require.Equal(t, int32(1), asked.Load())
+		require.Len(t, tries, 2)
+		require.Equal(t, "page", err.(*Failure).Code, err.Error())
+		require.True(t, err.(*Failure).Final())
+		require.Contains(t, err.Error(), ": the name of the provider is not found")
+		require.Equal(t, "page-agent", ForAgent(err, Custom{UserAgent: "Mozilla/5.0"}, address).(*Failure).Code)
+	}
 
 	// the control: podkop's own User-Agent, every way
 	asked.Store(0)
