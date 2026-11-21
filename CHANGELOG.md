@@ -28,14 +28,24 @@ applied, and Hysteria 2 links with port hopping (`udphop`) or gecko are read.
   every device that reaches its port, as before. The global check, `show_config`,
   `show_sing_box_config` and podkop's log hide the login; the global check tells for each proxy
   whether it listens and whether it asks for a login.
-- **User-Agent and extra headers of a subscription (new):** some providers give the list only to
-  the apps they name and send podkop a web page or notes. Type the app's name, without a version
-  (for example `INCY`), and press **Load**: the window says when the provider sends that name a
-  configuration in JSON or YAML, which podkop does not read yet. The router still sends its own
-  device identifier (HWID) and device headers, which cannot be set here, nor can the client's
-  address or the headers of the connection. The values of the extra headers are hidden in the
-  global check and the log; on a redirect to another host they are not sent. A pasted
-  `incy://import/…` link gives its address.
+- **Ask as and extra headers of a subscription (new):** some providers give the servers only to
+  the apps they name and send podkop a web page or notes. **Ask as** chooses the app the
+  subscription is asked as: podkop (as before), Happ, INCY, sing-box (SFA) or another User-Agent
+  typed by hand. **Load** shows what the provider sends to it.
+- **Servers from Xray JSON and sing-box JSON (new):** podkop now reads the servers of a
+  subscription that comes as Xray configurations (what Remnawave and other panels may send to Happ
+  and INCY) or as a sing-box configuration (what they send to SFA), whatever it was asked as. Only
+  the servers are taken: the provider's rules, DNS, balancers and groups are not used. A server the
+  provider connects through another one is connected directly, with a note. Settings that sing-box
+  cannot use are named in the server's notes. The window and the global check say which form was
+  read.
+  - The links of these servers are made by podkop and may read differently in other apps.
+  - Clash YAML is still not read, nor are links encrypted for Happ (`happ://crypt…`); the window
+    says so.
+  - The router still sends its own device identifier (HWID) and device headers, which cannot be
+    set here, nor can the client's address or the headers of the connection. The values of the
+    extra headers are hidden in the global check and the log; on a redirect to another host they
+    are not sent. A pasted `incy://import/…` link gives its address.
 - **Test latency** no longer asks only www.gstatic.com: one server is tested with the first server
   check URL of the settings, and with the next one when it does not answer; a rule of several
   servers runs a round of its own server check. The direct line of the global check and of
