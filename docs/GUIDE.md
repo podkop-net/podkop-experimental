@@ -96,7 +96,9 @@ Example: YouTube through the servers on the TV only, blocked on the other device
 2. Below it, rule "No YouTube": the community list YouTube, the server row **Block**.
 
 The order matters: a rule above that takes the same list for every device takes the TV too. The
-Lists column of the grid tells it ("… is in the rule … above, for its devices only").
+Lists column of the grid tells it on the row of "TV" ("… is in the rule … above already"). In the
+right order the row of "No YouTube" says "… is in the rule … above, for its devices only": that is
+as it should be, the other devices still reach it.
 
 - The field goes by address: a device that takes another's address is that device for the rule.
   It is no lock.
@@ -113,7 +115,10 @@ Lists column of the grid tells it ("… is in the rule … above, for its device
   as that device's traffic.
 - The **Fully Routed IPs** of such a rule must be among its devices; the page refuses others. The
   **Fully Routed IPs** of every rule and the **Routing Excluded IPs** come before it: a device
-  routed whole by another rule, or excluded, is not taken by it (the grid tells it).
+  routed whole by another rule, or excluded, is not taken by it (the grid tells it). Not so for
+  the rules at the top whose servers are only **Directly** or only **Block**, above every other
+  rule that is on: they go first, so such a rule takes its devices for its lists even when
+  another rule routes them whole or they are excluded.
 - IPv6: a device's IPv6 addresses change (privacy addresses), so an IPv6 address in the field
   works only for a fixed one. It matters only with **IPv6 traffic: Through podkop** and IPv6
   subnets in the lists; the names of the lists always go over IPv4. A unique local address
