@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-21 02:49+0000\n"
-"PO-Revision-Date: 2026-11-21 02:49+0000\n"
+"POT-Creation-Date: 2026-11-21 21:09+0000\n"
+"PO-Revision-Date: 2026-11-21 21:09+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -200,8 +200,8 @@ msgstr "Туннель, модем или второй WAN. Пусто: осно
 msgid "A user name: letters, digits, ., - and _"
 msgstr "Имя пользователя: буквы, цифры, ., - и _"
 
-msgid "A web page came instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP. If the provider gives the list only to some apps, type the name of one in User-Agent"
-msgstr "Вместо списка пришла веб-страница: возможно, это адрес сайта провайдера, а не подписки, или страница интернет-провайдера. Если провайдер отдаёт список только некоторым приложениям, впишите название одного из них в User-Agent"
+msgid "A web page came instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP. If the provider gives the list only to some apps, choose one in Ask as"
+msgstr "Вместо списка пришла веб-страница: возможно, это адрес сайта провайдера, а не подписки, или страница интернет-провайдера. Если провайдер отдаёт список только некоторым приложениям, выберите одно из них в «Запрашивать как»"
 
 msgid "a web page instead of the list"
 msgstr "веб-страница вместо списка"
@@ -257,6 +257,9 @@ msgstr "Нужен outbound sing-box: {\"type\": \"vless\", …}"
 msgid "Another section is being checked."
 msgstr "Сейчас проверяется другая секция."
 
+msgid "Another User-Agent"
+msgstr "Другой User-Agent"
+
 msgid "another way brought the list first"
 msgstr "другой путь принёс список раньше"
 
@@ -268,6 +271,12 @@ msgstr "Применить"
 
 msgid "As the other traffic"
 msgstr "Как остальной трафик"
+
+msgid "Ask as"
+msgstr "Запрашивать как"
+
+msgid "Asked as: %s"
+msgstr "Запрашивается как: %s"
 
 msgid "Asked in the order of the list or the fastest first, as chosen below. Drag a row by its handle to move it."
 msgstr "Опрашиваются по порядку списка или сначала самый быстрый — как выбрано ниже. Строку можно перетащить за ручку."
@@ -589,9 +598,6 @@ msgstr "Загрузится после «Сохранить и применит
 
 msgid "Dynamic List"
 msgstr "Динамический список"
-
-msgid "Empty: podkop with its version. Some providers give the list only to the apps they name: type the name of such an app alone, without a version (for example INCY). It is the name of an app, not a secret: the global check shows it. The router still sends its own device identifier (HWID) and keeps its own place among the devices of the subscription. Load shows what the provider sends to this name"
-msgstr "Пусто — podkop с его версией. Некоторые провайдеры отдают список только названным ими приложениям: впишите одно название такого приложения, без версии (например, INCY). Это название приложения, а не секрет: глобальная проверка его показывает. Роутер по-прежнему отправляет свой идентификатор устройства (HWID) и занимает своё место среди устройств подписки. «Загрузить» покажет, что провайдер присылает на это название"
 
 msgid "Empty: the name in the settings"
 msgstr "Пусто: имя из настроек"
@@ -1271,6 +1277,9 @@ msgstr "Настройки podkop"
 msgid "Podkop will not modify your DHCP configuration"
 msgstr "Podkop не будет изменять вашу конфигурацию DHCP."
 
+msgid "podkop: its own name and version; most providers send it a list of links. Some providers give the servers only to the apps they name: Happ and INCY may get links or Xray JSON, sing-box (SFA) gets sing-box JSON. podkop reads all three and takes only the servers: the provider's rules, DNS and groups are not used, and a server the provider connects through another one is noted and connected directly. The router still sends its own device identifier (HWID) and keeps its own place among the devices of the subscription. Load shows what the provider sends"
+msgstr "podkop — его собственное название и версия; на него большинство провайдеров присылает список ссылок. Некоторые провайдеры отдают серверы только названным ими приложениям: Happ и INCY могут получить ссылки или Xray JSON, sing-box (SFA) — sing-box JSON. podkop читает все три и берёт только серверы: правила, DNS и группы провайдера не используются, а сервер, который провайдер подключает через другой, отмечается и подключается напрямую. Роутер по-прежнему отправляет свой идентификатор устройства (HWID) и занимает своё место среди устройств подписки. «Загрузить» покажет, что присылает провайдер"
+
 msgid "Prefer IPv4: IPv6 only for a name without IPv4 (default)"
 msgstr "Предпочитать IPv4: IPv6 только для имени без IPv4 (по умолчанию)"
 
@@ -1460,6 +1469,12 @@ msgstr "Серверы изменились: %s"
 msgid "Servers changed: when a check last found other servers or names. A new order alone does not count. The router takes the new servers without a restart"
 msgstr "Серверы изменились: когда проверка в последний раз нашла другие серверы или имена. Новый порядок не считается. Роутер берёт новые серверы без перезапуска"
 
+msgid "Servers taken from the provider's sing-box configuration; its rules, DNS and groups are not used"
+msgstr "Серверы взяты из конфигурации sing-box провайдера; её правила, DNS и группы не используются"
+
+msgid "Servers taken from the provider's Xray configurations (%d); their rules, DNS and balancers are not used"
+msgstr "Серверы взяты из конфигураций Xray провайдера (%d); их правила, DNS и балансировщики не используются"
+
 msgid "Servers: %d"
 msgstr "Серверов: %d"
 
@@ -1625,11 +1640,11 @@ msgstr "Не удалось получить адрес сервера по им
 msgid "The address your provider gave for apps (often /sub/… or /api/sub/…). It is a secret: podkop masks it where it shows the settings"
 msgstr "Адрес, который провайдер дал для приложений (часто /sub/… или /api/sub/…). Это секрет: podkop скрывает его там, где показывает настройки"
 
-msgid "The answer of the provider has no links of servers"
-msgstr "В ответе провайдера нет ссылок на серверы"
+msgid "The answer of the provider has no servers"
+msgstr "В ответе провайдера нет серверов"
 
-msgid "The answer of the provider to this User-Agent has no links of servers. Try another name, or clear the field"
-msgstr "В ответе провайдера на этот User-Agent нет ссылок на серверы. Попробуйте другое название или очистите поле"
+msgid "The answer of the provider to this User-Agent has no servers. In Ask as, choose another app or podkop"
+msgstr "В ответе провайдера на этот User-Agent нет серверов. Выберите в «Запрашивать как» другое приложение или podkop"
 
 msgid "the base64 of the link is no JSON"
 msgstr "в base64 ссылки не JSON"
@@ -1730,6 +1745,9 @@ msgstr "Последняя проба не смогла посчитать по�
 msgid "The last read of the connections failed: %s"
 msgstr "Последнее чтение соединений не удалось: %s"
 
+msgid "The link was made by podkop from the provider's configuration: other apps may read it differently"
+msgstr "Ссылку составил podkop из конфигурации провайдера: другие приложения могут прочитать её иначе"
+
 msgid "The links appear here after Save & Apply"
 msgstr "Ссылки появятся здесь после «Сохранить и применить»"
 
@@ -1790,38 +1808,44 @@ msgstr "провайдер перенаправляет на HTTP без шиф�
 msgid "The provider refused the address (HTTP %s): it is wrong or out of date, or the subscription is blocked"
 msgstr "Провайдер отклонил адрес (HTTP %s): он неверен или устарел, либо подписка заблокирована"
 
-msgid "The provider refused the address (HTTP %s): it is wrong or out of date, or the subscription is blocked, or the provider does not accept this User-Agent: try another name, or clear the field"
-msgstr "Провайдер отклонил адрес (HTTP %s): он неверен или устарел, либо подписка заблокирована, либо провайдер не принимает этот User-Agent: попробуйте другое название или очистите поле"
+msgid "The provider refused the address (HTTP %s): it is wrong or out of date, or the subscription is blocked, or the provider does not accept this User-Agent: in Ask as, choose another app or podkop"
+msgstr "Провайдер отклонил адрес (HTTP %s): он неверен или устарел, либо подписка заблокирована, либо провайдер не принимает этот User-Agent: выберите в «Запрашивать как» другое приложение или podkop"
 
 msgid "The provider says: %s"
 msgstr "Провайдер пишет: %s"
 
-msgid "The provider sent a configuration in JSON (sing-box or Xray) to this User-Agent: podkop reads only a list of links so far. Try another name, or clear the field"
-msgstr "На этот User-Agent провайдер прислал конфигурацию в JSON (sing-box или Xray): podkop пока читает только список ссылок. Попробуйте другое название или очистите поле"
+msgid "The provider sent a configuration of Clash (YAML) to this User-Agent: podkop does not read it. In Ask as, choose another app or podkop"
+msgstr "На этот User-Agent провайдер прислал конфигурацию Clash (YAML): podkop её не читает. Выберите в «Запрашивать как» другое приложение или podkop"
 
-msgid "The provider sent a configuration in JSON (sing-box or Xray): podkop reads only a list of links so far"
-msgstr "Провайдер прислал конфигурацию в JSON (sing-box или Xray): podkop пока читает только список ссылок"
+msgid "The provider sent a configuration of Clash (YAML): podkop does not read it. If the address ends with /clash, /clash-meta, /mihomo or /stash, remove that ending: panels then send a list of links"
+msgstr "Провайдер прислал конфигурацию Clash (YAML): podkop её не читает. Если адрес кончается на /clash, /clash-meta, /mihomo или /stash, уберите это окончание: тогда панели присылают список ссылок"
 
-msgid "The provider sent a configuration of Clash (YAML) to this User-Agent: podkop reads only a list of links so far. Try another name, or clear the field"
-msgstr "На этот User-Agent провайдер прислал конфигурацию Clash (YAML): podkop пока читает только список ссылок. Попробуйте другое название или очистите поле"
-
-msgid "The provider sent a configuration of Clash (YAML): podkop reads only a list of links so far"
-msgstr "Провайдер прислал конфигурацию Clash (YAML): podkop пока читает только список ссылок"
-
-msgid "The provider sent a web page to this User-Agent: providers show their page to browsers. Try the name of an app, or clear the field. It may also be the address of the provider's site, not of the subscription"
-msgstr "На этот User-Agent провайдер прислал веб-страницу: провайдеры показывают её браузерам. Попробуйте название приложения или очистите поле. Возможно также, что это адрес сайта провайдера, а не подписки"
+msgid "The provider sent a web page to this User-Agent: providers show their page to browsers. In Ask as, choose an app or podkop. It may also be the address of the provider's site, not of the subscription"
+msgstr "На этот User-Agent провайдер прислал веб-страницу: провайдеры показывают её браузерам. Выберите в «Запрашивать как» приложение или podkop. Возможно также, что это адрес сайта провайдера, а не подписки"
 
 msgid "The provider sent an empty list"
 msgstr "Провайдер прислал пустой список"
 
-msgid "The provider sent notes instead of servers to this User-Agent: %s. Try another name, or clear the field"
-msgstr "На этот User-Agent провайдер прислал вместо серверов заметки: %s. Попробуйте другое название или очистите поле"
+msgid "The provider sent JSON that is not a configuration of Xray or sing-box"
+msgstr "Провайдер прислал JSON, который не является конфигурацией Xray или sing-box"
+
+msgid "The provider sent JSON that is not a configuration of Xray or sing-box to this User-Agent. In Ask as, choose another app or podkop"
+msgstr "На этот User-Agent провайдер прислал JSON, который не является конфигурацией Xray или sing-box. Выберите в «Запрашивать как» другое приложение или podkop"
+
+msgid "The provider sent notes instead of servers to this User-Agent: %s. In Ask as, choose another app or podkop"
+msgstr "На этот User-Agent провайдер прислал вместо серверов заметки: %s. Выберите в «Запрашивать как» другое приложение или podkop"
 
 msgid "The provider sent notes instead of servers: %s"
 msgstr "Провайдер прислал вместо серверов заметки: %s"
 
 msgid "The provider sent nothing (HTTP 204): the address is wrong, or the subscription was removed"
 msgstr "Провайдер ничего не прислал (HTTP 204): адрес неверен или подписку удалили"
+
+msgid "The provider sent only links encrypted for Happ (happ://crypt…), which only Happ reads. In Ask as, choose another app, such as INCY, or ask the provider for plain links"
+msgstr "Провайдер прислал только ссылки, зашифрованные для Happ (happ://crypt…), а их читает только Happ. Выберите в «Запрашивать как» другое приложение, например INCY, или попросите у провайдера обычные ссылки"
+
+msgid "The provider sent this User-Agent only links encrypted for Happ (happ://crypt…), which only Happ reads. In Ask as, choose another app, such as INCY, or podkop"
+msgstr "На этот User-Agent провайдер прислал только ссылки, зашифрованные для Happ (happ://crypt…), а их читает только Happ. Выберите в «Запрашивать как» другое приложение, например INCY, или podkop"
 
 msgid "The provider's DNS"
 msgstr "DNS провайдера"
@@ -1979,8 +2003,11 @@ msgstr "URL-тест этого сервера не прошёл, и соеди�
 msgid "the user must be a UUID and a password"
 msgstr "пользователь должен быть UUID и паролем"
 
-msgid "The User-Agent has its own field"
-msgstr "Для User-Agent есть своё поле"
+msgid "The User-Agent is chosen in Ask as"
+msgstr "User-Agent выбирается в «Запрашивать как»"
+
+msgid "The User-Agent of another app, as the provider names it: often the name alone is enough, without a version. It is the name of an app, not a secret: the global check shows it"
+msgstr "User-Agent другого приложения — так, как его называет провайдер: часто хватает одного названия, без версии. Это название приложения, а не секрет: глобальная проверка его показывает"
 
 msgid "The User-Agent or a header cannot be sent: %s"
 msgstr "User-Agent или заголовок нельзя отправить: %s"
@@ -2098,6 +2125,9 @@ msgstr "Для страницы уже загружаются два списк�
 
 msgid "Type"
 msgstr "Тип"
+
+msgid "Type the User-Agent, or choose podkop in Ask as"
+msgstr "Впишите User-Agent или выберите podkop в «Запрашивать как»"
 
 msgid "UDP (Unprotected DNS)"
 msgstr "UDP (Незащищённый DNS)"

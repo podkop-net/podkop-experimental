@@ -677,6 +677,32 @@ var MAX_NAME = 64;
 var MAX_VALUE = 1024;
 var MAX_HEADERS = 8;
 var MAX_CUSTOM = 4096;
+var AGENT_PRESETS = ["podkop", "happ", "incy", "sing-box", "custom"];
+function agentPreset(preset, agent) {
+  const chosen = trimmed(preset);
+  if (chosen) return chosen;
+  return trimmed(agent) ? "custom" : "podkop";
+}
+function customAgent(preset, agent) {
+  return agentPreset(preset, agent) === "custom" ? trimmed(agent) : "";
+}
+function presetName(preset) {
+  const chosen = trimmed(preset);
+  switch (chosen) {
+    case "":
+    case "podkop":
+      return "podkop";
+    case "happ":
+      return "Happ";
+    case "incy":
+      return "INCY";
+    case "sing-box":
+      return "sing-box (SFA)";
+    case "custom":
+      return _("Another User-Agent");
+  }
+  return chosen;
+}
 var CONNECTION_NAMES = [
   "host",
   "content-length",
@@ -784,7 +810,7 @@ function requestProblemText(problem) {
         "The address of the client is the router's own: %s cannot be set"
       ).format(name);
     case "agent":
-      return _("The User-Agent has its own field");
+      return _("The User-Agent is chosen in Ask as");
     case "connection":
       return _("%s belongs to the connection: podkop sets it itself").format(
         name
@@ -840,20 +866,32 @@ function validateRequestHeader(value, added) {
   );
   return problem ? { valid: false, message: requestProblemText(problem) } : { valid: true, message: "" };
 }
-function listRequest(agent, lines) {
+function listRequest(agent, lines, preset) {
   const request = {};
-  const userAgent = trimmed(agent);
+  const chosen = agentPreset(preset, agent);
+  const userAgent = customAgent(preset, agent);
   const headers = headerLines(lines);
-  if (userAgent) request.user_agent = userAgent;
+  if (chosen === "custom") {
+    if (userAgent) {
+      request.user_agent_preset = chosen;
+      request.user_agent = userAgent;
+    }
+  } else if (chosen !== "podkop") {
+    request.user_agent_preset = chosen;
+  }
   if (headers.some((line) => trimmed(line))) request.headers = headers;
   return request;
 }
-function sameRequest(agent, lines, otherAgent, otherLines) {
+function sameRequest(agent, lines, otherAgent, otherLines, preset, otherPreset) {
   const normal = (value) => headerLines(value).map(trimmed).filter(Boolean).join("\n");
-  return trimmed(agent) === trimmed(otherAgent) && normal(lines) === normal(otherLines);
+  const asked = (chosen, text) => {
+    const request = listRequest(text, [], chosen);
+    return (request.user_agent_preset ?? "") + "\n" + (request.user_agent ?? "");
+  };
+  return asked(preset, agent) === asked(otherPreset, otherAgent) && normal(lines) === normal(otherLines);
 }
 function loadArguments(address, request) {
-  const asked = request?.user_agent || request?.headers?.length;
+  const asked = request?.user_agent_preset || request?.user_agent || request?.headers?.length;
   return asked ? [address, JSON.stringify(request)] : [address];
 }
 
@@ -8544,6 +8582,7 @@ function generateProxyPassword(length = 16) {
 if (typeof structuredClone !== "function")
   globalThis.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
 return baseclass.extend({
+  AGENT_PRESETS,
   ALLOWED_WITH_RUSSIA_INSIDE,
   BOOTSTRAP_DNS_SERVER_OPTIONS,
   BUTTON_FEEDBACK_TIMEOUT,
@@ -8581,10 +8620,12 @@ return baseclass.extend({
   TabServiceInstance,
   UPDATE_INTERVAL_OPTIONS,
   URLTEST_DOWNLOAD_URL_OPTIONS,
+  agentPreset,
   asList,
   bulkValidate,
   checkLinksBeforeSave,
   coreService,
+  customAgent,
   deniedHeader,
   detectPasted,
   deviceItems,
@@ -8619,6 +8660,7 @@ return baseclass.extend({
   parseRequest,
   parseValueList,
   preserveScrollForPage,
+  presetName,
   requestProblem,
   requestProblemLine,
   requestProblemText,
