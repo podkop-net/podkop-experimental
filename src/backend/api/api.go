@@ -146,19 +146,29 @@ type SubscriptionState struct {
 	Provider *ProviderInfo `json:"provider,omitempty"`
 	// Changes are how the list taken differs from the one before it (Changed).
 	Changes *ListChanges `json:"changes,omitempty"`
-	// Agent is the User-Agent of the settings the list is asked with ("": podkop's own), Headers
-	// the names of their extra headers (never the values), Problems the lines of the settings
-	// left out of the request.
+	// Agent is the User-Agent of the settings the list is asked with ("": podkop's own), Preset
+	// the app it is the User-Agent of ("happ", "incy", "sing-box"; "" for podkop's own and for
+	// one typed in the settings), Headers the names of their extra headers (never the values),
+	// Problems the lines of the settings left out of the request.
 	Agent    string           `json:"agent,omitempty"`
+	Preset   string           `json:"preset,omitempty"`
 	Headers  []string         `json:"headers,omitempty"`
 	Problems []RequestProblem `json:"request_problems,omitempty"`
+	// Format is what the list taken came as: "" a list of links, "xray" or "sing-box" a
+	// configuration whose servers podkop made links of; Configs the number of the configurations
+	// of Xray JSON.
+	Format  string `json:"format,omitempty"`
+	Configs int    `json:"configs,omitempty"`
 	// Now is the time of the router: the page counts how long ago by it.
 	Now *time.Time `json:"now,omitempty"`
 }
 
-// ListRequest is what a subscription is asked with besides its address: the User-Agent and the
-// extra headers (Name: value) of the settings, or of the form of the page not saved yet.
+// ListRequest is what a subscription is asked with besides its address: the preset of the
+// User-Agent (podkop, happ, incy, sing-box, custom), the User-Agent of custom and the extra
+// headers (Name: value) of the settings, or of the form of the page not saved yet. A User-Agent
+// without a preset is custom.
 type ListRequest struct {
+	Preset    string   `json:"user_agent_preset,omitempty"`
 	UserAgent string   `json:"user_agent,omitempty"`
 	Headers   []string `json:"headers,omitempty"`
 }
@@ -247,8 +257,14 @@ type SubscriptionPreview struct {
 	Servers   []PreviewServer `json:"servers"`
 	// Provider is what the provider told of the subscription with the list.
 	Provider *ProviderInfo `json:"provider,omitempty"`
-	// Agent is the User-Agent the list was asked with ("": podkop's own).
-	Agent string `json:"agent,omitempty"`
+	// Agent is the User-Agent the list was asked with ("": podkop's own), Preset the app it is
+	// the User-Agent of ("" for podkop's own and for another one).
+	Agent  string `json:"agent,omitempty"`
+	Preset string `json:"preset,omitempty"`
+	// Format is what the list came as ("" links, "xray", "sing-box"), Configs the number of the
+	// configurations of Xray JSON.
+	Format  string `json:"format,omitempty"`
+	Configs int    `json:"configs,omitempty"`
 }
 
 // PreviewServer is a server of a list as the page shows it.
@@ -262,6 +278,9 @@ type PreviewServer struct {
 	// Reason is why sing-box cannot use it; Notes what of the link it leaves out.
 	Reason string   `json:"reason,omitempty"`
 	Notes  []string `json:"notes,omitempty"`
+	// Made tells that podkop made the link of the server of a configuration (Xray or sing-box
+	// JSON): other apps may read it otherwise.
+	Made bool `json:"made,omitempty"`
 }
 
 // GroupCheck asks which servers a group would choose: the group as the form has it, not

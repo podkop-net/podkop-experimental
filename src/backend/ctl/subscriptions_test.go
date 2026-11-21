@@ -47,3 +47,22 @@ func TestSubscriptionLinesTellTheRequest(t *testing.T) {
 	require.Equal(t, "✅ prov1: 2 servers, 2 can be used; checked 1 h ago (direct); servers changed 1 h ago; User-Agent INCY; headers Authorization", lines[0])
 	require.Equal(t, "❌ prov2: no list: the provider sent a web page; User-Agent "+browser[:64]+"…; left out of the request: header 2 (x-hwid), header 3, the User-Agent", lines[1])
 }
+
+// The global check names the preset with the User-Agent it sends and the format the servers came
+// in; podkop's own and a list of links are not named.
+func TestSubscriptionLinesTellThePresetAndTheFormat(t *testing.T) {
+	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	changed := now.Add(-time.Hour)
+	lines := subscriptionLines([]api.SubscriptionState{
+		{Name: "prov1", Servers: 12, Usable: 12, Changed: &changed, Checked: &changed, Route: "direct", Preset: "happ", Agent: "Happ/4.8.3/Linux", Format: "xray", Configs: 11},
+		{Name: "prov2", Servers: 3, Usable: 2, Changed: &changed, Checked: &changed, Route: "direct", Preset: "sing-box", Agent: "SFA (sing-box 1.14.4; language en_US)", Format: "sing-box"},
+		{Name: "prov3", Servers: 1, Usable: 1, Changed: &changed, Checked: &changed, Route: "direct"},
+		{Name: "prov4", Error: "the provider sent a web page", Problems: []api.RequestProblem{{Line: 0, Code: "preset"}}},
+	}, model.Names{}, now)
+	require.Equal(t, []string{
+		"✅ prov1: 12 servers, 12 can be used, from Xray JSON; checked 1 h ago (direct); servers changed 1 h ago; asked as Happ (Happ/4.8.3/Linux)",
+		"✅ prov2: 3 servers, 2 can be used, from sing-box JSON; checked 1 h ago (direct); servers changed 1 h ago; asked as sing-box (SFA) (SFA (sing-box 1.14.4; language en_US))",
+		"✅ prov3: 1 servers, 1 can be used; checked 1 h ago (direct); servers changed 1 h ago",
+		"❌ prov4: no list: the provider sent a web page; left out of the request: the preset of the User-Agent",
+	}, lines)
+}

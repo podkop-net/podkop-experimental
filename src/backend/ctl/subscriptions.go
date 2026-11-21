@@ -26,6 +26,12 @@ func subscriptionLines(states []api.SubscriptionState, names model.Names, now ti
 			line = "⏳ " + line + "the list is not downloaded yet"
 		default:
 			line += strconv.Itoa(state.Servers) + " servers, " + strconv.Itoa(state.Usable) + " can be used"
+			switch state.Format {
+			case "xray":
+				line += ", from Xray JSON"
+			case "sing-box":
+				line += ", from sing-box JSON"
+			}
 			// the way is that of the last list: of the last check, or of the list kept on flash
 			way := ""
 			if state.Route != "" {
@@ -57,13 +63,14 @@ func subscriptionLines(states []api.SubscriptionState, names model.Names, now ti
 	return lines
 }
 
-// requestLine tells what the settings add to the request of a subscription: the User-Agent (the
-// name of an app, no secret), the names of the extra headers (never their values), and the lines
-// left out: "; User-Agent INCY; headers Authorization; left out: header 2 (X-Hwid)".
+// requestLine tells what the settings add to the request of a subscription: the preset and the
+// User-Agent (the name of an app, no secret), the names of the extra headers (never their
+// values), and the lines left out: "; asked as Happ (Happ/4.8.3/Linux)", "; User-Agent INCY;
+// headers Authorization; left out: header 2 (X-Hwid)".
 func requestLine(state api.SubscriptionState) string {
 	line := ""
-	if state.Agent != "" {
-		line += "; User-Agent " + subscription.ShownAgent(state.Agent)
+	if asked := subscription.AskedAs(state.Preset, state.Agent); asked != "" {
+		line += "; " + asked
 	}
 	if len(state.Headers) > 0 {
 		line += "; headers " + strings.Join(state.Headers, ", ")
@@ -71,6 +78,8 @@ func requestLine(state api.SubscriptionState) string {
 	var left []string
 	for _, problem := range state.Problems {
 		switch {
+		case problem.Line == 0 && problem.Code == "preset":
+			left = append(left, "the preset of the User-Agent")
 		case problem.Line == 0:
 			left = append(left, "the User-Agent")
 		case problem.Name != "":
@@ -144,8 +153,8 @@ func takenAgo(passed time.Duration) string {
 }
 
 // listRequest is the request a download of a list for the page is asked with: the JSON after
-// the address ({user_agent, headers}), none when there is nothing after it. It tells false for
-// what is not that JSON.
+// the address ({user_agent_preset, user_agent, headers}), none when there is nothing after it.
+// It tells false for what is not that JSON.
 func listRequest(arguments []string) (api.ListRequest, bool) {
 	var request api.ListRequest
 	if len(arguments) < 3 || strings.TrimSpace(arguments[2]) == "" {

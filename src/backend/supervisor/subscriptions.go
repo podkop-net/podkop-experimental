@@ -159,7 +159,7 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
 			continue
 		}
 		names = append(names, item.Name)
-		custom, problems := subscription.ParseCustom(item.UserAgent, item.Headers)
+		custom, problems := subscription.ParseRequest(item.UserAgentPreset, item.UserAgent, item.Headers)
 		if tell {
 			for _, problem := range problems {
 				line := problem.Describe()
@@ -187,7 +187,7 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
 					int(firstDownloadDelay/time.Second), " s, the one in use stays until then")
 			}
 			t.customs[item.Name] = custom
-			state.Agent, state.Headers, state.Problems = custom.UserAgent, custom.Names(), problemsOf(problems)
+			state.Agent, state.Preset, state.Headers, state.Problems = custom.UserAgent, custom.Preset, custom.Names(), problemsOf(problems)
 			continue
 		}
 		t.addresses[item.Name] = item.URL
@@ -195,7 +195,7 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
 		delete(t.lists, item.Name)
 		delete(t.failures, item.Name)
 		next := now.Add(firstDownloadDelay)
-		state := &SubscriptionState{Name: item.Name, Next: &next, Agent: custom.UserAgent, Headers: custom.Names(), Problems: problemsOf(problems)}
+		state := &SubscriptionState{Name: item.Name, Next: &next, Agent: custom.UserAgent, Preset: custom.Preset, Headers: custom.Names(), Problems: problemsOf(problems)}
 		t.states[item.Name] = state
 		var saved *subscription.Saved
 		found := false
@@ -222,6 +222,7 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
 				t.verdicts[id] = reason
 			}
 			state.Servers, state.Usable = len(saved.Servers), usable(saved.Servers)
+			state.Format, state.Configs = saved.Format, saved.Configs
 			changed := saved.Changed
 			state.Changed, state.Route = &changed, saved.Route
 			state.Provider = subscription.ReadInfo(saved.Info)
@@ -465,10 +466,11 @@ func (s *Supervisor) fetch(ctx context.Context, address string, custom subscript
 	if err != nil {
 		return nil, through, tries, subscription.ForAgent(err, custom, address)
 	}
-	servers, err := subscription.Parse(answer.Body, engine.DecodeLink)
+	read, err := subscription.ParseList(answer.Body, subscription.Codec{Decode: engine.DecodeLink, Normalize: engine.NormalizeOutbound})
 	if err != nil {
 		return nil, through, tries, subscription.ForAgent(err, custom, address)
 	}
+	servers := read.Servers
 	t := &s.subscriptions
 	known := func() map[string]string {
 		t.access.Lock()
@@ -490,7 +492,9 @@ func (s *Supervisor) fetch(ctx context.Context, address string, custom subscript
 			t.verdicts[id] = reason
 		}
 	}()
-	return &subscription.Saved{Address: key, Changed: time.Now().UTC(), Route: answer.Route, Servers: servers, Info: answer.Info()}, through, tries, nil
+	list := subscription.SavedList(read)
+	list.Address, list.Changed, list.Route, list.Info = key, time.Now().UTC(), answer.Route, answer.Info()
+	return list, through, tries, nil
 }
 
 // downloadDue starts the downloads that are due, at most mostDownloads at once, each in a
@@ -644,16 +648,34 @@ func (s *Supervisor) takeList(result downloaded) {
 	if failed > 0 {
 		way += "; downloaded again after " + strconv.Itoa(failed) + " failed " + plural(failed, "try", "tries")
 	}
-	if agent := t.customs[result.name].UserAgent; agent != "" {
-		way += "; User-Agent " + subscription.ShownAgent(agent)
+	custom := t.customs[result.name]
+	if asked := subscription.AskedAs(custom.Preset, custom.UserAgent); asked != "" {
+		way += "; " + asked
 	}
 	old := t.lists[result.name]
+	formatLine := formatLine(old, result.list)
+	state.Format, state.Configs = result.list.Format, result.list.Configs
 	if old != nil && subscription.SameList(old.Servers, result.list.Servers) {
 		// the traffic and the end the provider tells change with every list: kept in memory,
-		// the file is written only when the servers or their names change
+		// the file is written only when the servers or their names change, or the format they
+		// came in (the same servers as links of the provider or of podkop: the configuration
+		// stays as it is)
 		old.Info = result.list.Info
+		reformatted := old.Format != result.list.Format || old.Configs != result.list.Configs
+		if reformatted {
+			result.list.Info = old.Info
+			t.lists[result.name] = result.list
+		}
 		t.access.Unlock()
+		for _, line := range formatLine {
+			s.log("info", "subscription ", result.name, ": ", line)
+		}
 		s.log("info", "subscription ", result.name, ": the list has not changed (", way, ")")
+		if reformatted && s.options.SubscriptionDir != "" {
+			if err := s.store().Save(result.name, result.list); err != nil {
+				s.log("warn", "subscription ", result.name, ": ", err)
+			}
+		}
 		s.downloadDue(time.Now(), "")
 		s.applyTaken()
 		s.answerWaiting(result.name)
@@ -669,6 +691,9 @@ func (s *Supervisor) takeList(result downloaded) {
 	}
 	t.changed = true
 	t.access.Unlock()
+	for _, line := range formatLine {
+		s.log("info", "subscription ", result.name, ": ", line)
+	}
 	if state.Changes != nil {
 		s.log("info", "subscription ", result.name, ": ", changesLine(state.Changes), "; ", state.Servers, " servers, ", state.Usable, " can be used (", way, ")")
 	} else {
@@ -683,6 +708,27 @@ func (s *Supervisor) takeList(result downloaded) {
 	s.downloadDue(time.Now(), "")
 	s.applyTaken()
 	s.answerWaiting(result.name)
+}
+
+// formatLine tells the log what a list came as, when it is a configuration (its counts, never a
+// value), and that the format changed since the list before: "Xray JSON of 11 configurations: 31
+// server outbounds, 12 servers taken; their routing, DNS and balancers are left out", "the
+// provider now sends Xray JSON instead of a list of links".
+func formatLine(old *subscription.Saved, fresh *subscription.Saved) []string {
+	var lines []string
+	if old != nil && old.Format != fresh.Format {
+		lines = append(lines, "the provider now sends "+subscription.FormatText(fresh.Format)+" instead of "+subscription.FormatText(old.Format))
+	}
+	taken := strconv.Itoa(fresh.Outbounds()) + " server " + plural(fresh.Outbounds(), "outbound", "outbounds") + ", " +
+		strconv.Itoa(len(fresh.Servers)) + " " + plural(len(fresh.Servers), "server", "servers") + " taken"
+	switch fresh.Format {
+	case subscription.FormatXray:
+		lines = append(lines, "Xray JSON of "+strconv.Itoa(fresh.Configs)+" "+plural(fresh.Configs, "configuration", "configurations")+": "+taken+
+			"; their routing, DNS and balancers are left out")
+	case subscription.FormatSingBox:
+		lines = append(lines, "sing-box JSON: "+taken+"; its groups, routing and DNS are left out")
+	}
+	return lines
 }
 
 // changesLine tells how a list differs from the one before, for the log: "renamed 2, changed
@@ -858,7 +904,7 @@ func (s *Supervisor) askDownload(request subscriptionRequest) {
 // and the headers of its form, saved or not. Nothing is taken. It is for callers outside the
 // goroutine of Run.
 func (s *Supervisor) LoadSubscription(ctx context.Context, address string, request api.ListRequest) SubscriptionPreview {
-	custom, problems := subscription.ParseCustom(request.UserAgent, request.Headers)
+	custom, problems := subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers)
 	if len(problems) > 0 {
 		return refusedRequest(problems[0])
 	}
@@ -906,7 +952,7 @@ func (s *Supervisor) CheckGroup(ctx context.Context, check GroupCheck) GroupPrev
 
 // groupList is the list of a subscription for CheckGroup, by the address of the form (none:
 // that of the settings) and its request (none: that of the settings). The request of the form
-// is read as the settings are (subscription.ParseCustom): a line they leave out is left out here
+// is read as the settings are (subscription.ParseRequest): a line they leave out is left out here
 // too, so the same raw lines are the same request, and the list taken is used.
 func (s *Supervisor) groupList(ctx context.Context, name string, address string, request *api.ListRequest) (*subscription.Saved, error) {
 	t := &s.subscriptions
@@ -914,7 +960,7 @@ func (s *Supervisor) groupList(ctx context.Context, name string, address string,
 	saved, list, running := t.addresses[name], t.lists[name], t.customs[name]
 	custom := running
 	if request != nil {
-		custom, _ = subscription.ParseCustom(request.UserAgent, request.Headers)
+		custom, _ = subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers)
 	}
 	if address == "" {
 		address = saved

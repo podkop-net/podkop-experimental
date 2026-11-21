@@ -134,7 +134,7 @@ func (j *loadJob) view() LoadJob {
 // the goroutine of Run.
 func (s *Supervisor) StartLoad(ctx context.Context, address string, request api.ListRequest) LoadJob {
 	address = strings.TrimSpace(address)
-	custom, problems := subscription.ParseCustom(request.UserAgent, request.Headers)
+	custom, problems := subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers)
 	if len(problems) > 0 {
 		refused := refusedRequest(problems[0])
 		return LoadJob{State: loadFailed, Attempts: []api.Attempt{}, Preview: &refused}
@@ -240,7 +240,7 @@ func refusedRequest(problem subscription.Problem) SubscriptionPreview {
 // loadPreview downloads a list to be shown: nothing is taken; the list is kept a while for
 // Check of a group and for a subscription added with its address and request.
 func (s *Supervisor) loadPreview(ctx context.Context, address string, custom subscription.Custom, report func([]subscription.Try)) SubscriptionPreview {
-	preview := SubscriptionPreview{Servers: []api.PreviewServer{}, Agent: custom.UserAgent}
+	preview := SubscriptionPreview{Servers: []api.PreviewServer{}, Agent: custom.UserAgent, Preset: custom.Preset}
 	address = strings.TrimSpace(address)
 	list, _, tries, err := s.fetch(ctx, address, custom, downloadProxies, report)
 	preview.Attempts = attempts(tries)
@@ -254,9 +254,11 @@ func (s *Supervisor) loadPreview(ctx context.Context, address string, custom sub
 	s.keepPreview(list, custom.Key())
 	preview.Route, preview.Took = list.Route, tookOf(tries)
 	preview.Provider = subscription.ReadInfo(list.Info)
+	preview.Format, preview.Configs = list.Format, list.Configs
 	for _, server := range list.Servers {
 		scheme, endpoint := server.Endpoint()
-		preview.Servers = append(preview.Servers, api.PreviewServer{Name: server.Name, Scheme: scheme, Address: endpoint, Link: server.Link, Reason: server.Reason, Notes: server.Notes})
+		preview.Servers = append(preview.Servers, api.PreviewServer{Name: server.Name, Scheme: scheme, Address: endpoint, Link: server.Link, Reason: server.Reason, Notes: server.Notes,
+			Made: list.Format != ""})
 	}
 	return preview
 }
