@@ -19,7 +19,7 @@ func devicesConfig() *model.Config {
 			{Name: "tv", Label: "TV", Enabled: true, Servers: servers, CommunityLists: []string{"youtube"}, UserDomainListType: "disabled", UserSubnetListType: "disabled",
 				OnlyDevices: []string{"192.168.78.10", "192.168.79.0/24", "2001:db8:1::50"}},
 			{Name: "bad", Enabled: true, Servers: []model.Member{{Source: model.SourceBlock}}, CommunityLists: []string{"porn"}, UserDomainListType: "disabled", UserSubnetListType: "disabled", OnlyDevices: []string{"word"}},
-			{Name: "pc", Enabled: true, Servers: servers, UserDomainListType: "disabled", UserSubnetListType: "disabled", FullyRoutedIPs: []string{"192.168.78.60"}},
+			{Name: "pc", Enabled: true, Servers: servers, UserDomainListType: "disabled", UserSubnetListType: "disabled", FullyRoutedIPs: []string{"192.168.78.60", "2001:db8:1::60"}},
 			{Name: "noyt", Enabled: true, Servers: []model.Member{{Source: model.SourceBlock}}, CommunityLists: []string{"youtube"}, UserDomainListType: "disabled", UserSubnetListType: "disabled"},
 			{Name: "off", Enabled: false, Servers: servers, CommunityLists: []string{"discord"}, OnlyDevices: []string{"192.168.78.10"}},
 		},
@@ -86,6 +86,13 @@ func TestDeviceReport(t *testing.T) {
 	pc := report("192.168.78.60")
 	require.Contains(t, pc, "✅ Rule pc takes all its traffic (Fully Routed IPs, 192.168.78.60): through its servers")
 	require.NotContains(t, pc, "Rule TV")
+	// an IPv6 device routed whole: the route rule holds it, but only its connections to the IPv6
+	// subnets of the lists reach sing-box
+	require.Equal(t, strings.Join([]string{
+		"ℹ️ The rules for 2001:db8:1::60, in the order they are matched:",
+		"➖ Rule bank does not take it: only for 192.168.78.30",
+		"✅ Rule pc takes its connections that reach sing-box, those to the IPv6 subnets of the lists, not all its traffic (Fully Routed IPs, 2001:db8:1::60): through its servers",
+	}, "\n"), report("2001:db8:1::60"))
 
 	// IPv6 past podkop
 	config.Settings.IPv6Routing = model.IPv6Bypass

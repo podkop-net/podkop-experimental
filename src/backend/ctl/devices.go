@@ -131,18 +131,23 @@ func deviceReport(config *model.Config, text string) ([]string, bool) {
 			return append(lines, "↪️ It is among the Routing Excluded IPs ("+device.Text+"): the rules below do not take its traffic, it goes directly"), true
 		}
 	}
-	// the firewall sends the devices routed whole to sing-box by their IPv4 address only
-	if address.Is4() {
-		for index := range config.Sections {
-			section := &config.Sections[index]
-			if !section.Enabled || config.Exit(section) == model.ExitNone {
+	// The route rule of the devices routed whole holds both families (plan.Build); the firewall
+	// sends all the traffic of such a device to sing-box by its IPv4 address only, and of an IPv6
+	// address only what goes to the IPv6 subnets of the lists, as of every device.
+	for index := range config.Sections {
+		section := &config.Sections[index]
+		if !section.Enabled || config.Exit(section) == model.ExitNone {
+			continue
+		}
+		for _, device := range section.Devices().Routed {
+			if !device.Prefix.Contains(address) {
 				continue
 			}
-			for _, device := range section.Devices().Routed {
-				if device.Prefix.Contains(address) {
-					return append(lines, "✅ Rule "+names.RuleText(section.Name)+" takes all its traffic (Fully Routed IPs, "+device.Text+"): "+exit(section)), true
-				}
+			what := "all its traffic"
+			if address.Is6() {
+				what = "its connections that reach sing-box, those to the IPv6 subnets of the lists, not all its traffic"
 			}
+			return append(lines, "✅ Rule "+names.RuleText(section.Name)+" takes "+what+" (Fully Routed IPs, "+device.Text+"): "+exit(section)), true
 		}
 	}
 	for index := lead; index < len(config.Sections); index++ {
