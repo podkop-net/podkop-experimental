@@ -6,21 +6,110 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
 )
 
 // Custom is what the settings of a subscription add to its requests: the User-Agent of another
-// app (some providers give the list only to the apps they name) and headers the provider asks
-// for (a key, a cookie). The identity of the router is never among them: it sends its own HWID
-// and device headers whatever the User-Agent, and takes its own place among the devices of the
-// subscription.
+// app (some providers give the list only to the apps they name), by a preset or typed, and
+// headers the provider asks for (a key, a cookie). The identity of the router is never among
+// them: it sends its own HWID and device headers whatever the User-Agent, and takes its own place
+// among the devices of the subscription.
 type Custom struct {
-	// UserAgent is sent in place of podkop/<version>; "" sends that.
+	// Preset is the app whose User-Agent is sent (PresetHapp, PresetINCY, PresetSingBox); ""
+	// for podkop's own and for a User-Agent typed in the settings.
+	Preset string
+	// UserAgent is sent in place of podkop/<version>; "" sends that. A preset's is here too.
 	UserAgent string
 	// Headers are the extra headers, in the order of the settings.
 	Headers []Field
+}
+
+// The presets of the User-Agent (option user_agent_preset): the apps the panels give their
+// formats to by name. The backend turns a preset into the header at request time, so a release
+// can move a preset's version without touching the settings. The strings and where they come
+// from: notes/2026-11-21-0821-json-design.md §1.1 of the workspace.
+const (
+	PresetPodkop  = "podkop"
+	PresetHapp    = "happ"
+	PresetINCY    = "incy"
+	PresetSingBox = "sing-box"
+	PresetCustom  = "custom"
+)
+
+const (
+	// happAgent is Happ's form Happ/<version>/<OS>/<build digits> (design §1.1): 4.8.3 is its
+	// desktop release of 2026-11-20, Linux the OS of its desktop build; no panel reads the digits
+	// after the OS, which differ between builds of one version, so they are left out
+	happAgent = "Happ/4.8.3/Linux"
+	// incyAgent is INCY's own form INCY/<version>/<platform> (design §1.1, INCY-DEV/incy-docs
+	// subscription-format.en.md); 3.9.1 is its desktop release
+	incyAgent = "INCY/3.9.1/linux"
+)
+
+// SingBoxVersion is the version of the sing-box of the engine (constant.Version of the module
+// github.com/sagernet/sing-box, "1.14.4-pdk-209086dbd08a" in a build): the program sets it
+// (cmd/podkop), as only the engine and the program import sing-box.
+var SingBoxVersion = ""
+
+// singBoxAgent is the User-Agent of SFA since 1.13.20 ("Unify user agent", design §1.1:
+// sing-box-for-android HTTPClient.kt, sing-box-for-apple HTTPClient.swift) with the version of the
+// sing-box inside: Remnawave and Pasarguard give sing-box JSON only to a name like SFA's.
+func singBoxAgent() string {
+	return "SFA (sing-box " + singBoxVersion(SingBoxVersion) + "; language en_US)"
+}
+
+// singBoxVersion is the version of the sing-box inside as SFA writes its own: the version of the
+// engine's sing-box (SingBoxVersion) without podkop's part; a build without it (a test) takes the
+// version of the module go.mod requires, where the binary tells its modules.
+func singBoxVersion(constant string) string {
+	version, _, _ := strings.Cut(constant, "-pdk-")
+	if version != "" && version[0] >= '0' && version[0] <= '9' {
+		return version
+	}
+	if info, found := debug.ReadBuildInfo(); found {
+		for _, module := range info.Deps {
+			if module.Path == "github.com/sagernet/sing-box" {
+				return strings.TrimPrefix(module.Version, "v")
+			}
+		}
+	}
+	if constant == "" {
+		return "unknown"
+	}
+	return constant
+}
+
+// presetAgent is the User-Agent of a preset; "" for podkop's own, false for a preset podkop does
+// not know.
+func presetAgent(preset string) (string, bool) {
+	switch preset {
+	case "", PresetPodkop:
+		return "", true
+	case PresetHapp:
+		return happAgent, true
+	case PresetINCY:
+		return incyAgent, true
+	case PresetSingBox:
+		return singBoxAgent(), true
+	}
+	return "", false
+}
+
+// PresetName is how the log and the global check name a preset ("" for none): as the page names
+// it.
+func PresetName(preset string) string {
+	switch preset {
+	case PresetHapp:
+		return "Happ"
+	case PresetINCY:
+		return "INCY"
+	case PresetSingBox:
+		return "sing-box (SFA)"
+	}
+	return preset
 }
 
 // Field is a header of the settings.
@@ -159,14 +248,36 @@ func printable(text string) bool {
 	return true
 }
 
-// ParseCustom reads the User-Agent and the header lines (Name: value) of the settings of a
-// subscription. What cannot be sent is left out, each with its problem: an invalid User-Agent
-// leaves podkop's own, an invalid line leaves out that line; the rest is sent. The settings are
-// never refused for it.
+// ParseCustom reads a User-Agent typed in the settings and their header lines: ParseRequest of
+// custom.
 func ParseCustom(agent string, lines []string) (Custom, []Problem) {
+	return ParseRequest(PresetCustom, agent, lines)
+}
+
+// ParseRequest reads the preset of the User-Agent, the User-Agent and the header lines (Name:
+// value) of the settings of a subscription. No preset with a User-Agent (a file written by hand)
+// is custom; podkop and a preset of an app send their own User-Agent whatever the option
+// user_agent says; custom sends that, and podkop's own when it is empty. What cannot be sent is
+// left out, each with its problem: a preset podkop does not know or an invalid User-Agent leaves
+// podkop's own, an invalid line leaves out that line; the rest is sent. The settings are never
+// refused for it.
+func ParseRequest(preset string, agent string, lines []string) (Custom, []Problem) {
 	var custom Custom
 	var problems []Problem
-	agent = strings.TrimSpace(agent)
+	preset, agent = strings.TrimSpace(preset), strings.TrimSpace(agent)
+	if preset == "" && agent != "" {
+		preset = PresetCustom
+	}
+	if preset != PresetCustom {
+		agent = ""
+		sent, known := presetAgent(preset)
+		switch {
+		case !known:
+			problems = append(problems, Problem{Code: "preset", Text: "the preset is not one podkop knows"})
+		case sent != "":
+			custom.Preset, custom.UserAgent = preset, sent
+		}
+	}
 	switch {
 	case agent == "":
 	case !printable(agent):
@@ -274,6 +385,19 @@ func RequestKey(address string, c Custom) string {
 	return AddressKey(address)
 }
 
+// AskedAs tells what a request is asked as, for the log and the global check: "" for podkop's
+// own User-Agent, "asked as Happ (Happ/4.8.3/Linux)" for a preset, "User-Agent <agent>" for one
+// typed in the settings.
+func AskedAs(preset string, agent string) string {
+	switch {
+	case agent == "":
+		return ""
+	case preset != "" && preset != PresetCustom:
+		return "asked as " + PresetName(preset) + " (" + ShownAgent(agent) + ")"
+	}
+	return "User-Agent " + ShownAgent(agent)
+}
+
 // ShownAgent is a User-Agent as the log and the global check show it: whole up to 64 characters.
 func ShownAgent(agent string) string {
 	if len(agent) > shownAgent {
@@ -299,9 +423,11 @@ func ForAgent(err error, c Custom, address string) error {
 	}
 	switch failure.Code {
 	case "json":
-		return fail("json-agent", true, "the provider sent a configuration in JSON (sing-box or Xray) to "+to+": podkop reads only a list of links so far")
+		return fail("json-agent", true, "the provider sent JSON that is not a configuration of Xray or sing-box to "+to)
 	case "clash":
-		return fail("clash-agent", true, "the provider sent a configuration of Clash (YAML) to "+to+": podkop reads only a list of links so far")
+		return fail("clash-agent", true, "the provider sent a configuration of Clash (YAML) to "+to+", which podkop does not read")
+	case "happ-crypt":
+		return fail("happ-crypt-agent", true, "the provider sent "+to+" only links encrypted for Happ (happ://crypt…), which only Happ reads")
 	case "page":
 		if secure {
 			return fail("page-agent", true, "the provider sent a web page to "+to+", or the address is that of the provider's site: providers show their page to browsers")
@@ -311,7 +437,7 @@ func ForAgent(err error, c Custom, address string) error {
 	case "placeholder":
 		return fail("placeholder-agent", true, "the provider sent notes instead of servers to "+to+": "+strings.Join(failure.Args, "; "), failure.Args...)
 	case "nolinks":
-		return fail("nolinks-agent", true, "the answer of the provider to "+to+" has no links of servers")
+		return fail("nolinks-agent", true, "the answer of the provider to "+to+" has no servers")
 	}
 	return err
 }

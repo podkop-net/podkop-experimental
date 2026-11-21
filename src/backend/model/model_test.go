@@ -153,6 +153,21 @@ func TestSubscriptionRequestOptions(t *testing.T) {
 	require.Equal(t, []string{"Authorization: Bearer t", "x-hwid: fake"}, config.Source("prov1").Headers)
 	require.Empty(t, config.Source("prov2").UserAgent)
 	require.Equal(t, []string{"X-Api-Key: k 1"}, config.Source("prov2").Headers, "an option is one line, not split at its spaces")
+	require.Empty(t, config.Source("prov1").UserAgentPreset)
+}
+
+// The preset of the User-Agent is read as the settings write it; absent, none.
+func TestSubscriptionPresetOption(t *testing.T) {
+	t.Parallel()
+	parsed, err := uci.Parse([]byte("config settings 'settings'\n\toption config_version '2'\n" +
+		"\nconfig source 'prov1'\n\toption type 'subscription'\n\toption url 'https://a.example/sub/1'\n\toption user_agent_preset ' happ '\n" +
+		"\nconfig source 'prov2'\n\toption type 'subscription'\n\toption url 'https://b.example/sub/2'\n\toption user_agent_preset 'custom'\n\toption user_agent 'INCY'\n"))
+	require.NoError(t, err)
+	config, err := Load(parsed)
+	require.NoError(t, err)
+	require.Equal(t, "happ", config.Source("prov1").UserAgentPreset)
+	require.Equal(t, "custom", config.Source("prov2").UserAgentPreset)
+	require.Equal(t, "INCY", config.Source("prov2").UserAgent)
 }
 
 func TestNameHas(t *testing.T) {

@@ -26,6 +26,7 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/ubus"
 	"github.com/podkop-net/podkop-experimental/src/backend/uci"
 	"github.com/podkop-net/podkop-experimental/src/backend/yacd"
+	C "github.com/sagernet/sing-box/constant"
 
 	"github.com/spf13/cobra"
 )
@@ -258,6 +259,8 @@ func takeLock(patience bool) (*os.File, error) {
 }
 
 func init() {
+	// the preset sing-box asks as SFA of the sing-box inside
+	subscription.SingBoxVersion = C.Version
 	commandDaemon.Flags().StringVar(&commandDaemonFlagUCI, "uci", "/etc/config/podkop", "The settings file")
 	mainCommand.AddCommand(commandDaemon, commandRelease)
 }
