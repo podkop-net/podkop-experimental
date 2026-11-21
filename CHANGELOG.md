@@ -9,7 +9,10 @@ notes, with the measurements and the limits, are on the
 
 ## 0.8.21 — 2026-11-21
 
-Engine r27, as in 0.8.20.
+Engine r28. A server whose link pins its certificate (`pcs`, `pinSHA256`) or names others to
+verify it by (`vcn`) is now checked as Xray checks it; r27 checked it against the system roots
+only, and a server with a certificate of its own failed. The hello cut a link sets (`fm`) is
+applied, and Hysteria 2 links with port hopping (`udphop`) or gecko are read.
 
 - **A rule for chosen devices (new): "Only for devices"** on the Main tab of a rule, IPv4 or IPv6
   addresses and subnets. The rule then takes the traffic of these devices only, and the rest of its

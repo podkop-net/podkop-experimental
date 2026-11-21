@@ -195,8 +195,8 @@ require (
 )
 
 // podkop-engine, the sing-box of podkop: the branch podkop-engine-1.14 of the fork
-// podkop-net/sing-box (podkop-engine r27, sing-box 1.14.4)
-replace github.com/sagernet/sing-box => github.com/podkop-net/sing-box v0.0.0-20261115164827-337cfff5ad9d
+// podkop-net/sing-box (podkop-engine r28, sing-box 1.14.4)
+replace github.com/sagernet/sing-box => github.com/podkop-net/sing-box v0.0.0-20261121160916-209086dbd08a
 
 // the fork podkop-engine builds with (its go.mod has it; a replace counts only in the
 // main module)
