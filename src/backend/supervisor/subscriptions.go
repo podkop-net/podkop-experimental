@@ -466,7 +466,7 @@ func (s *Supervisor) fetch(ctx context.Context, address string, custom subscript
 	if err != nil {
 		return nil, through, tries, subscription.ForAgent(err, custom, address)
 	}
-	read, err := subscription.ParseList(answer.Body, subscription.Codec{Decode: engine.DecodeLink, Normalize: engine.NormalizeOutbound})
+	read, err := subscription.ParseList(ctx, answer.Body, subscription.Codec{Decode: engine.DecodeLink, Normalize: engine.NormalizeOutbound})
 	if err != nil {
 		return nil, through, tries, subscription.ForAgent(err, custom, address)
 	}

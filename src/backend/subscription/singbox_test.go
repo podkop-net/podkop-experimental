@@ -2,6 +2,7 @@ package subscription
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -140,7 +141,7 @@ func TestSingBoxDeniedAgreesWithTheDecoder(t *testing.T) {
 // readSingBoxBody reads a sing-box configuration and gives its servers by name.
 func readSingBoxBody(t *testing.T, body string) map[string]Server {
 	t.Helper()
-	list, err := ParseList([]byte(body), realCodec)
+	list, err := ParseList(context.Background(), []byte(body), realCodec)
 	require.NoError(t, err, body)
 	require.Equal(t, FormatSingBox, list.Format)
 	servers := map[string]Server{}
@@ -225,7 +226,7 @@ func TestSingBoxPolicy(t *testing.T) {
 // syntax and one a link cannot carry give that server a reason, and the rest of the list stays.
 func TestSingBoxTypes(t *testing.T) {
 	t.Parallel()
-	list, err := ParseList([]byte(`{"outbounds":[
+	list, err := ParseList(context.Background(), []byte(`{"outbounds":[
 		{"type":"selector","tag":"proxy","outbounds":["ok","relay"]},{"type":"urltest","tag":"auto","outbounds":["ok"]},
 		{"type":"direct","tag":"direct"},{"type":"block","tag":"block"},{"type":"dns","tag":"dns-out"},
 		{"type":"vless","tag":"ok","server":"o.example.net","server_port":443,"uuid":"c0ffee00-0000-4000-8000-000000000022"},

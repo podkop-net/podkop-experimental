@@ -51,9 +51,10 @@ var singBoxDenied = map[string]string{
 	"recv_window_conn": "deprecated", "recv_window": "deprecated", "disable_mtu_discovery": "deprecated",
 }
 
-// singBoxDeniedName tells an option a link does not set, by its name.
+// singBoxDeniedName tells an option a link does not set, by its name as sing-box reads it: folded
+// as encoding/json folds the names of fields (domain_reſolver is domain_resolver).
 func singBoxDeniedName(name string) bool {
-	name = strings.ToLower(name)
+	name = fold(name)
 	if _, denied := singBoxDenied[name]; denied {
 		return true
 	}
@@ -65,7 +66,7 @@ var singBoxMaps = map[string]bool{"headers": true, "extra_headers": true}
 
 // readSingBox takes the servers of a sing-box configuration; it tells how many of its outbounds
 // were of the types of servers.
-func readSingBox(root *object, codec Codec) ([]Server, int) {
+func readSingBox(reading *reading, root *object, codec Codec) ([]Server, int) {
 	type entry struct {
 		kind, tag string
 		content   json.RawMessage
@@ -104,12 +105,18 @@ func readSingBox(root *object, codec Codec) ([]Server, int) {
 	var servers []Server
 	seen := make(map[string]bool)
 	for _, found := range entries {
+		if !reading.goes() {
+			return nil, 0
+		}
 		if found.kind == "" || relays[found.tag] && !referenced[found.tag] {
 			// a relay of others only, as a dialerProxy of Xray: not a server of its own
 			continue
 		}
 		name := cleanName(found.tag, len(servers)+1)
 		server := convertSingBox(found.content, found.kind, name, kinds, codec)
+		if !reading.takes(&server) {
+			return nil, 0
+		}
 		key := server.ID + "\x00" + server.Name
 		if server.ID == "" {
 			key = "\x00" + server.Link + "\x00" + server.Reason + "\x00" + server.Name
@@ -127,16 +134,19 @@ func readSingBox(root *object, codec Codec) ([]Server, int) {
 type singBoxConversion struct {
 	codec  Codec
 	notes  []string
+	noted  map[string]bool
 	reason string
 	odd    bool
 }
 
 func (c *singBoxConversion) note(text string) {
-	for _, known := range c.notes {
-		if known == text {
-			return
-		}
+	if c.noted[text] {
+		return
 	}
+	if c.noted == nil {
+		c.noted = make(map[string]bool)
+	}
+	c.noted[text] = true
 	c.notes = append(c.notes, text)
 }
 
@@ -269,7 +279,7 @@ func decodeTree(content json.RawMessage) (map[string]any, error) {
 func dropDisabled(node map[string]any) {
 	for key, value := range node {
 		child, isObject := value.(map[string]any)
-		if !isObject || singBoxMaps[strings.ToLower(key)] {
+		if !isObject || singBoxMaps[fold(key)] {
 			continue
 		}
 		if enabled, has := child["enabled"].(bool); has && !enabled {
@@ -292,14 +302,15 @@ func (c *singBoxConversion) dropDenied(node map[string]any, path string) {
 		where := strings.TrimPrefix(path+"."+key, ".")
 		if singBoxDeniedName(key) {
 			delete(node, key)
-			if optionName(where) {
-				c.note(where + " is a setting of the provider's app and is left out")
+			// named as sing-box reads it
+			if folded := strings.TrimPrefix(path+"."+fold(key), "."); optionName(folded) {
+				c.note(folded + " is a setting of the provider's app and is left out")
 			} else {
 				c.odd = true
 			}
 			continue
 		}
-		if child, isObject := node[key].(map[string]any); isObject && !singBoxMaps[strings.ToLower(key)] {
+		if child, isObject := node[key].(map[string]any); isObject && !singBoxMaps[fold(key)] {
 			c.dropDenied(child, where)
 		}
 	}

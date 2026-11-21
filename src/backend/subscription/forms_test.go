@@ -3,6 +3,7 @@ package subscription
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -53,7 +54,7 @@ type readServer struct {
 
 // readBody reads a body as the backend does.
 func readBody(body []byte) (readResult, List) {
-	list, err := ParseList(body, realCodec)
+	list, err := ParseList(context.Background(), body, realCodec)
 	result := readResult{Format: list.Format, Configs: list.Configs, Outbounds: list.Outbounds}
 	var failure *Failure
 	if errors.As(err, &failure) {

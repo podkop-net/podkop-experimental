@@ -9,6 +9,7 @@
 package subscription
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net"
@@ -87,7 +88,7 @@ func FormatText(format string) string {
 
 // Parse takes the body of an answer of a provider apart into its servers (ParseList).
 func Parse(body []byte, decode Decoder) ([]Server, error) {
-	list, err := ParseList(body, Codec{Decode: decode})
+	list, err := ParseList(context.Background(), body, Codec{Decode: decode})
 	return list.Servers, err
 }
 
@@ -96,7 +97,9 @@ func Parse(body []byte, decode Decoder) ([]Server, error) {
 // sing-box (JSON). A line that is not a proxy link is skipped: the comments some providers put
 // in (#…) and the lines for other programs (happ://…). Links that cannot be decoded are servers
 // with a reason; a body with no server at all is refused.
-func ParseList(body []byte, codec Codec) (List, error) {
+//
+// A list is read as long as ctx lasts: the end of the download (canceled, out of time) stops it.
+func ParseList(ctx context.Context, body []byte, codec Codec) (List, error) {
 	decode := codec.Decode
 	text := strings.TrimSpace(strings.TrimPrefix(string(body), "\ufeff"))
 	if text == "" {
@@ -111,13 +114,16 @@ func ParseList(body []byte, codec Codec) (List, error) {
 	case strings.HasPrefix(text, "<"):
 		return List{}, fail("page", true, "the provider sent a web page, not a list of servers")
 	case strings.HasPrefix(text, "{"), strings.HasPrefix(text, "["):
-		return parseJSON([]byte(text), codec)
+		return parseJSON(ctx, []byte(text), codec)
 	case isClashYAML(text):
 		return List{}, fail("clash", true, "the provider sent a configuration of Clash (YAML), which podkop does not read: an address that ends with /clash, /clash-meta, /mihomo or /stash gets a list of links without that ending")
 	}
 	var servers []Server
 	encrypted := 0
-	for _, line := range strings.Split(text, "\n") {
+	for number, line := range strings.Split(text, "\n") {
+		if number%64 == 0 && ctx.Err() != nil {
+			return List{}, stopped()
+		}
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") {
 			continue
@@ -137,6 +143,41 @@ func ParseList(body []byte, codec Codec) (List, error) {
 	return finished(List{Servers: servers})
 }
 
+// reading is what a configuration is read within: the context of the download, and the budget of
+// what its servers take. failure is why the reading stopped.
+type reading struct {
+	ctx     context.Context
+	budget  *budget
+	failure *Failure
+}
+
+// goes tells whether the reading goes on: the download has not ended.
+func (r *reading) goes() bool {
+	if r == nil {
+		return true
+	}
+	if r.failure == nil && r.ctx != nil && r.ctx.Err() != nil {
+		r.failure = stopped()
+	}
+	return r.failure == nil
+}
+
+// takes spends what a server takes of the budget; false (and the failure) when it is spent.
+func (r *reading) takes(server *Server) bool {
+	if r == nil {
+		return true
+	}
+	if r.failure == nil && !r.budget.spend(server) {
+		r.failure = oversize()
+	}
+	return r.failure == nil
+}
+
+// stopped is the failure of a list whose reading the end of the download stopped.
+func stopped() *Failure {
+	return fail("canceled", false, "the list was not read to its end: the download ended")
+}
+
 // finished refuses a list with no server, and one of placeholders.
 func finished(list List) (List, error) {
 	if len(list.Servers) == 0 {
@@ -151,8 +192,9 @@ func finished(list List) (List, error) {
 // parseJSON reads a configuration: a list of Xray's (each an object with outbounds), one of
 // Xray's (its outbounds have a protocol) or one of sing-box (its outbounds have a type). Other
 // JSON is refused; a configuration with no server is a list with no server.
-func parseJSON(content []byte, codec Codec) (List, error) {
+func parseJSON(ctx context.Context, content []byte, codec Codec) (List, error) {
 	other := fail("json", true, "the provider sent JSON that is not a configuration of Xray or sing-box")
+	reading := &reading{ctx: ctx, budget: newBudget(len(content))}
 	if !json.Valid(content) {
 		return List{}, other
 	}
@@ -171,7 +213,10 @@ func parseJSON(content []byte, codec Codec) (List, error) {
 			return List{}, other
 		}
 		list := List{Format: FormatXray}
-		list.Servers, list.Configs, list.Outbounds = readXray(configurations, codec.Decode)
+		list.Servers, list.Configs, list.Outbounds = readXray(reading, configurations, codec.Decode)
+		if reading.failure != nil {
+			return List{}, reading.failure
+		}
 		return finished(list)
 	}
 	root := objectOf(content)
@@ -194,11 +239,17 @@ func parseJSON(content []byte, codec Codec) (List, error) {
 	switch {
 	case format == FormatXray:
 		list := List{Format: FormatXray}
-		list.Servers, list.Configs, list.Outbounds = readXray([]json.RawMessage{content}, codec.Decode)
+		list.Servers, list.Configs, list.Outbounds = readXray(reading, []json.RawMessage{content}, codec.Decode)
+		if reading.failure != nil {
+			return List{}, reading.failure
+		}
 		return finished(list)
 	case format == FormatSingBox:
 		list := List{Format: FormatSingBox}
-		list.Servers, list.Outbounds = readSingBox(root, codec)
+		list.Servers, list.Outbounds = readSingBox(reading, root, codec)
+		if reading.failure != nil {
+			return List{}, reading.failure
+		}
 		return finished(list)
 	case len(items) == 0:
 		// a configuration with no outbound at all: no server
@@ -307,6 +358,10 @@ func cleanName(name string, number int) string {
 	name = strings.Join(strings.Fields(name), " ")
 	if name == "" {
 		return "server " + strconv.Itoa(number)
+	}
+	if utf8.RuneCountInString(name) > maxName {
+		runes := []rune(name)
+		name = string(runes[:maxName-1]) + "…"
 	}
 	return name
 }

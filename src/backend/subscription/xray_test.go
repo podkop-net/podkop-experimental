@@ -1,6 +1,7 @@
 package subscription
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/url"
@@ -22,7 +23,7 @@ func xrayConfigOf(remarks string, outbound string) string {
 // readOne reads Xray JSON of one configuration and gives its one server.
 func readOne(t *testing.T, outbound string) Server {
 	t.Helper()
-	list, err := ParseList([]byte("["+xrayConfigOf("R", outbound)+"]"), realCodec)
+	list, err := ParseList(context.Background(), []byte("["+xrayConfigOf("R", outbound)+"]"), realCodec)
 	require.NoError(t, err)
 	require.Len(t, list.Servers, 1)
 	return list.Servers[0]
@@ -83,7 +84,7 @@ func TestFormatDetection(t *testing.T) {
 		`{"outbounds":[{"protocol"`:         {"", 0, "json"},
 		`[{"outbounds":[` + vless + `]},5]`: {FormatXray, 1, ""},
 	} {
-		list, err := ParseList([]byte(body), realCodec)
+		list, err := ParseList(context.Background(), []byte(body), realCodec)
 		if want.code != "" {
 			require.Error(t, err, body)
 			require.Equal(t, want.code, err.(*Failure).Code, body)
@@ -99,9 +100,9 @@ func TestFormatDetection(t *testing.T) {
 // The texts of the refusals of the formats hold no value of the body.
 func TestFormatRefusalTexts(t *testing.T) {
 	t.Parallel()
-	_, err := ParseList([]byte(`{"secret-key":"VALUE-1234"}`), realCodec)
+	_, err := ParseList(context.Background(), []byte(`{"secret-key":"VALUE-1234"}`), realCodec)
 	require.Equal(t, "the provider sent JSON that is not a configuration of Xray or sing-box", err.Error())
-	_, err = ParseList([]byte("proxies:\n  - name: SECRET\n"), realCodec)
+	_, err = ParseList(context.Background(), []byte("proxies:\n  - name: SECRET\n"), realCodec)
 	require.Equal(t, "clash", err.(*Failure).Code)
 	require.NotContains(t, err.Error(), "SECRET")
 	require.Contains(t, err.Error(), "which podkop does not read")
@@ -111,16 +112,16 @@ func TestFormatRefusalTexts(t *testing.T) {
 // real link it is skipped as before.
 func TestHappCrypt(t *testing.T) {
 	t.Parallel()
-	_, err := ParseList([]byte("happ://crypt3/SECRETDATA\nhapp://crypt4/MORE\n"), Codec{Decode: fakeDecode})
+	_, err := ParseList(context.Background(), []byte("happ://crypt3/SECRETDATA\nhapp://crypt4/MORE\n"), Codec{Decode: fakeDecode})
 	require.Equal(t, "happ-crypt", err.(*Failure).Code)
 	require.NotContains(t, err.Error(), "SECRETDATA")
 	encoded := base64.StdEncoding.EncodeToString([]byte("happ://crypt/x\n"))
-	_, err = ParseList([]byte(encoded), Codec{Decode: fakeDecode})
+	_, err = ParseList(context.Background(), []byte(encoded), Codec{Decode: fakeDecode})
 	require.Equal(t, "happ-crypt", err.(*Failure).Code)
-	list, err := ParseList([]byte("happ://crypt3/x\nvless://u@a.example:443#A\n"), Codec{Decode: fakeDecode})
+	list, err := ParseList(context.Background(), []byte("happ://crypt3/x\nvless://u@a.example:443#A\n"), Codec{Decode: fakeDecode})
 	require.NoError(t, err)
 	require.Len(t, list.Servers, 1)
-	_, err = ParseList([]byte("happ://routing/onadd/x\n"), Codec{Decode: fakeDecode})
+	_, err = ParseList(context.Background(), []byte("happ://routing/onadd/x\n"), Codec{Decode: fakeDecode})
 	require.Equal(t, "nolinks", err.(*Failure).Code, "only the encrypted links tell Happ's")
 }
 
@@ -275,7 +276,7 @@ func TestXraySelection(t *testing.T) {
 		return `{"tag":"` + tag + `","protocol":"vless","settings":{"address":"` + host + `","port":443,"id":"c0ffee00-0000-4000-8000-000000000006"},"streamSettings":{"sockopt":{"dialerProxy":"` + relay + `"}}}`
 	}
 	names := func(body string) []string {
-		list, err := ParseList([]byte(body), realCodec)
+		list, err := ParseList(context.Background(), []byte(body), realCodec)
 		require.NoError(t, err, body)
 		var found []string
 		for _, server := range list.Servers {
@@ -321,7 +322,7 @@ func TestXrayLocations(t *testing.T) {
 	t.Parallel()
 	body, err := os.ReadFile("testdata/xray/locations.json")
 	require.NoError(t, err)
-	list, err := ParseList(body, realCodec)
+	list, err := ParseList(context.Background(), body, realCodec)
 	require.NoError(t, err)
 	require.Equal(t, 7, list.Configs)
 	var names []string
@@ -344,7 +345,7 @@ func TestXrayLocations(t *testing.T) {
 // The chains of the provider are notes: the server is connected directly.
 func TestXrayChainNotes(t *testing.T) {
 	t.Parallel()
-	list, err := ParseList([]byte(`{"remarks":"Exit","outbounds":[
+	list, err := ParseList(context.Background(), []byte(`{"remarks":"Exit","outbounds":[
 		{"tag":"proxy","protocol":"vless","settings":{"address":"e.example.net","port":443,"id":"c0ffee00-0000-4000-8000-000000000007"},"streamSettings":{"sockopt":{"dialerProxy":"🔒 Relay"}}},
 		{"tag":"🔒 Relay","protocol":"vless","settings":{"address":"r.example.net","port":443,"id":"c0ffee00-0000-4000-8000-000000000008"}}]}`), realCodec)
 	require.NoError(t, err)
@@ -353,7 +354,7 @@ func TestXrayChainNotes(t *testing.T) {
 	require.Equal(t, "Exit", list.Servers[0].Name)
 	require.Nil(t, outboundAt(t, list.Servers[0], "detour"))
 	// the older form of the cut of the hello: a freedom dialer with a fragment
-	list, err = ParseList([]byte(`{"remarks":"F","outbounds":[
+	list, err = ParseList(context.Background(), []byte(`{"remarks":"F","outbounds":[
 		{"tag":"proxy","protocol":"vless","settings":{"address":"f.example.net","port":443,"id":"c0ffee00-0000-4000-8000-000000000009"},"streamSettings":{"security":"tls","sockopt":{"dialerProxy":"fragment"}}},
 		{"tag":"fragment","protocol":"freedom","settings":{"fragment":{"packets":"tlshello","length":"100-200"}}}]}`), realCodec)
 	require.NoError(t, err)
@@ -377,7 +378,7 @@ func TestFormsKeepSecrets(t *testing.T) {
 	for _, file := range files {
 		body, err := os.ReadFile(file)
 		require.NoError(t, err)
-		list, err := ParseList(body, realCodec)
+		list, err := ParseList(context.Background(), body, realCodec)
 		var texts []string
 		if err != nil {
 			texts = append(texts, err.Error())
@@ -409,17 +410,17 @@ func TestFormsRobust(t *testing.T) {
 	body := "[" + strings.Join(configs, ",") + "]"
 	require.LessOrEqual(t, len(body), MaxBody)
 	started := time.Now()
-	list, err := ParseList([]byte(body), realCodec)
+	list, err := ParseList(context.Background(), []byte(body), realCodec)
 	require.NoError(t, err)
 	require.Equal(t, len(configs), list.Configs)
 	require.Len(t, list.Servers, len(configs))
 	require.Less(t, time.Since(started), 60*time.Second)
 
 	deep := strings.Repeat(`{"outbounds":[`, 1000) + strings.Repeat(`]}`, 1000)
-	_, err = ParseList([]byte(deep), realCodec)
+	_, err = ParseList(context.Background(), []byte(deep), realCodec)
 	require.Error(t, err)
 	deeper := strings.Repeat("[", 20000) + strings.Repeat("]", 20000)
-	_, err = ParseList([]byte(deeper), realCodec)
+	_, err = ParseList(context.Background(), []byte(deeper), realCodec)
 	require.Equal(t, "json", err.(*Failure).Code)
 	for _, body := range []string{
 		`{"outbounds":[{"protocol":"vless","tag":"proxy","settings":[]}]}`,
@@ -432,7 +433,7 @@ func TestFormsRobust(t *testing.T) {
 		`{"outbounds":[{"type":"vless","tag":"s","server":"a.example.net","server_port":1,"uuid":5,"tls":"x"}]}`,
 		`{"outbounds":[{"type":7}]}`,
 	} {
-		list, err := ParseList([]byte(body), realCodec)
+		list, err := ParseList(context.Background(), []byte(body), realCodec)
 		if err == nil {
 			for _, server := range list.Servers {
 				require.NotEmpty(t, server.Name, body)
@@ -441,8 +442,53 @@ func TestFormsRobust(t *testing.T) {
 	}
 }
 
-// The readers never panic on what a provider may send, and every server they make has a name and
-// either a reason or a link the decoder took.
+// boundShapes are small versions of the shapes that once took time or memory out of proportion to
+// their size (TestBoundsTime, TestBoundsAmplification), for the fuzzers to start from.
+func boundShapes() []string {
+	var keys, headers, outbounds, prefixes strings.Builder
+	for index := 0; index < 2000; index++ {
+		keys.WriteString(`,"k` + strconv.Itoa(index) + `":0`)
+		if index > 0 {
+			headers.WriteString(",")
+			prefixes.WriteString(",")
+		}
+		headers.WriteString(`"h` + strconv.Itoa(index) + `":"v"`)
+		prefixes.WriteString(`"b"`)
+		outbounds.WriteString(`{"protocol":"vless","tag":"s` + strconv.Itoa(index) + `","settings":{"address":"a.example.net","port":1,"id":"x"},"streamSettings":{"sockopt":{"dialerProxy":"f"}}},`)
+	}
+	vless := `{"tag":"proxy","protocol":"vless","settings":{"address":"a.example.net","port":443,"id":"c0ffee00-0000-4000-8000-000000000043"}`
+	return []string{
+		"[" + xrayConfigOf("R", vless+keys.String()+"}") + "]",
+		"[" + xrayConfigOf("R", vless+`,"streamSettings":{"network":"ws","wsSettings":{"headers":{`+headers.String()+`}}}}`) + "]",
+		"[" + xrayConfigOf("R", vless+`,"streamSettings":{"network":"xhttp","xhttpSettings":{"path":"/"`+keys.String()+`}}}`) + "]",
+		`{"remarks":"` + strings.Repeat("R", 4096) + `","outbounds":[` + outbounds.String() + `{"protocol":"freedom","tag":"f","settings":{"fragment":{"packets":"tlshello","length":"100-200"}}}],"routing":{"balancers":[{"selector":[` + prefixes.String() + `]}]}}`,
+		`{"outbounds":[{"type":"vless","tag":"s","server":"a.example.net","server_port":443,"uuid":"c0ffee00-0000-4000-8000-000000000043","transport":{"type":"ws","headers":{` + headers.String() + `}}}]}`,
+	}
+}
+
+// fuzzRead reads a body as the backend does, within a deadline: it must stop at the deadline (the
+// end of a download), and what it makes stays within the budget of the body.
+func fuzzRead(t *testing.T, content []byte) List {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	started := time.Now()
+	list, _ := ParseList(ctx, content, realCodec)
+	if took := time.Since(started); took > 6*time.Second {
+		t.Fatalf("the reading went on %v past its deadline", took-3*time.Second)
+	}
+	if len(content) > 0 && made(list) > 4*len(content)+256<<10 {
+		t.Fatalf("the servers take %d bytes of a body of %d", made(list), len(content))
+	}
+	for _, server := range list.Servers {
+		if server.Name == "" || (server.Reason == "" && server.ID == "") {
+			t.Fatalf("a server without a name, or usable without an ID")
+		}
+	}
+	return list
+}
+
+// The readers never panic on what a provider may send, end at the deadline of the download, and
+// every server they make has a name and either a reason or a link the decoder took.
 func FuzzReadXray(f *testing.F) {
 	seeds, _ := filepath.Glob("testdata/xray/*.json")
 	more, _ := filepath.Glob("testdata/remnawave/*/xray.json")
@@ -451,13 +497,11 @@ func FuzzReadXray(f *testing.F) {
 			f.Add(content)
 		}
 	}
+	for _, shape := range boundShapes()[:4] {
+		f.Add([]byte(shape))
+	}
 	f.Fuzz(func(t *testing.T, content []byte) {
-		list, _ := ParseList(content, realCodec)
-		for _, server := range list.Servers {
-			if server.Name == "" || (server.Reason == "" && server.ID == "") {
-				t.Fatalf("a server without a name, or usable without an ID")
-			}
-		}
+		fuzzRead(t, content)
 	})
 }
 
@@ -469,12 +513,22 @@ func FuzzReadSingBox(f *testing.F) {
 			f.Add(content)
 		}
 	}
+	f.Add([]byte(boundShapes()[4]))
 	f.Fuzz(func(t *testing.T, content []byte) {
-		servers, _ := readSingBox(objectOf(content), realCodec)
+		fuzzRead(t, content)
+		servers, _ := readSingBox(nil, objectOf(content), realCodec)
 		for _, server := range servers {
 			if server.Name == "" || (server.Reason == "" && server.ID == "") {
 				t.Fatalf("a server without a name, or usable without an ID")
 			}
 		}
 	})
+}
+
+// The seeds of the shapes are read within their bounds.
+func TestBoundShapes(t *testing.T) {
+	t.Parallel()
+	for _, shape := range boundShapes() {
+		fuzzRead(t, []byte(shape))
+	}
 }

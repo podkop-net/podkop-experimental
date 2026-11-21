@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // A server of a provider's configuration (Xray JSON, sing-box JSON) becomes a share link in the
@@ -85,6 +87,42 @@ func pathText(text string) string {
 		return string(content)
 	}
 	return text
+}
+
+// maxName is as long as the name of a server is, in characters: the names the panels give are
+// some tens of characters, and one value of a configuration (its remarks) is the name of each of
+// its servers. A longer one is cut, with "…".
+const maxName = 128
+
+// budget bounds what the servers made of a body take: a value one configuration shares among
+// its servers (its remarks, the fragment of a dialer) is in each of them, and a small body could
+// make many megabytes of links, held in memory and written to flash.
+type budget struct {
+	left int
+}
+
+// newBudget is the budget of a body: four times its size and 256 KiB. A list of links takes
+// about twice its body (the links, their outbounds), and a configuration less (its template is
+// not taken); the names are cut (maxName), so what one configuration shares stays within it.
+func newBudget(body int) *budget {
+	return &budget{left: 4*body + 256<<10}
+}
+
+// spend takes what a server takes of the budget; false when it is spent.
+func (b *budget) spend(server *Server) bool {
+	if b == nil {
+		return true
+	}
+	b.left -= len(server.Link) + len(server.Name) + len(server.ID) + len(server.Reason) + len(server.outbound)
+	for _, note := range server.Notes {
+		b.left -= len(note)
+	}
+	return b.left >= 0
+}
+
+// oversize is the failure of a body whose servers would take more than its budget.
+func oversize() *Failure {
+	return fail("oversize", true, "the servers the provider's configuration makes would take much more than the configuration itself: it is not read")
 }
 
 // unverifiedNote is the note of a server whose configuration does not verify its certificate:
@@ -173,9 +211,30 @@ func utf8Start(char byte) bool {
 // key is mapped, left out by a reviewed list with its reason, or named in a note.
 type object struct {
 	values map[string]json.RawMessage
-	// lower are the keys by their lower case, the first written of a case
-	lower map[string]string
-	used  map[string]bool
+	// lower are the keys by their folded case (fold), the first written of a case, and
+	// spellings every key written of a case
+	lower     map[string]string
+	spellings map[string][]string
+	used      map[string]bool
+}
+
+// fold is a key as encoding/json matches it to a field: by Unicode's simple case folding (the
+// long s is s, the Kelvin sign k), so a name of another spelling is the same name.
+func fold(name string) string {
+	plain := true
+	for index := 0; index < len(name); index++ {
+		plain = plain && name[index] < utf8.RuneSelf
+	}
+	if plain {
+		return strings.ToLower(name)
+	}
+	return strings.Map(func(r rune) rune {
+		least := r
+		for other := unicode.SimpleFold(r); other != r; other = unicode.SimpleFold(other) {
+			least = min(least, other)
+		}
+		return unicode.ToLower(least)
+	}, name)
 }
 
 // objectOf reads a JSON object; nil for anything else (null included).
@@ -188,16 +247,18 @@ func objectOf(content json.RawMessage) *object {
 	if json.Unmarshal(content, &values) != nil {
 		return nil
 	}
-	found := &object{values: values, lower: make(map[string]string, len(values)), used: make(map[string]bool)}
+	found := &object{values: values, lower: make(map[string]string, len(values)), spellings: make(map[string][]string, len(values)), used: make(map[string]bool)}
 	keys := make([]string, 0, len(values))
 	for key := range values {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		if _, taken := found.lower[strings.ToLower(key)]; !taken {
-			found.lower[strings.ToLower(key)] = key
+		folded := fold(key)
+		if _, taken := found.lower[folded]; !taken {
+			found.lower[folded] = key
 		}
+		found.spellings[folded] = append(found.spellings[folded], key)
 	}
 	return found
 }
@@ -207,19 +268,17 @@ func (o *object) raw(key string) json.RawMessage {
 	if o == nil {
 		return nil
 	}
+	folded := fold(key)
 	name, found := key, false
 	if _, found = o.values[key]; !found {
-		name, found = o.lower[strings.ToLower(key)]
+		name, found = o.lower[folded]
 	}
 	if !found {
 		return nil
 	}
 	// every spelling of the key is read: Xray takes one of them
-	lower := strings.ToLower(key)
-	for written := range o.values {
-		if strings.ToLower(written) == lower {
-			o.used[written] = true
-		}
+	for _, written := range o.spellings[folded] {
+		o.used[written] = true
 	}
 	value := bytes.TrimSpace(o.values[name])
 	if string(value) == "null" {
@@ -347,7 +406,7 @@ func (o *object) without(keys ...string) json.RawMessage {
 	for key, value := range o.values {
 		skip := false
 		for _, name := range keys {
-			skip = skip || strings.EqualFold(key, name)
+			skip = skip || fold(key) == fold(name)
 		}
 		if !skip {
 			left[key] = value

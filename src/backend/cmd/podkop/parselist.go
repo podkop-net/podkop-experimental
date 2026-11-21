@@ -7,6 +7,7 @@ package main
 // Its output holds the secrets of the servers: a product build leaves it out.
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -71,7 +72,7 @@ func parseList(path string, input io.Reader, output io.Writer, errorOutput io.Wr
 		io.WriteString(errorOutput, "error: "+sharelink.OneLine(err.Error())+"\n")
 		return 1
 	}
-	list, err := subscription.ParseList(body, subscription.Codec{Decode: engine.DecodeLink, Normalize: engine.NormalizeOutbound})
+	list, err := subscription.ParseList(context.Background(), body, subscription.Codec{Decode: engine.DecodeLink, Normalize: engine.NormalizeOutbound})
 	if err != nil {
 		io.WriteString(errorOutput, "error: "+sharelink.OneLine(err.Error())+"\n")
 		return 2

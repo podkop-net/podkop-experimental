@@ -3,6 +3,7 @@ package subscription
 import (
 	"encoding/base64"
 	"encoding/json"
+	"net/url"
 	"slices"
 	"sort"
 	"strconv"
@@ -99,7 +100,33 @@ func readXrayConfig(content json.RawMessage) *xrayConfig {
 			config.fallbacks[tag] = true
 		}
 	}
+	config.prefixes = shortestPrefixes(config.prefixes)
 	return config
+}
+
+// shortestPrefixes are the prefixes of the selectors of the balancers, in order, without those
+// another one of them begins: a tag that has one of them has the one before it in order, or none
+// (selects).
+func shortestPrefixes(prefixes []string) []string {
+	slices.Sort(prefixes)
+	var kept []string
+	for _, prefix := range prefixes {
+		if len(kept) == 0 || !strings.HasPrefix(prefix, kept[len(kept)-1]) {
+			kept = append(kept, prefix)
+		}
+	}
+	return kept
+}
+
+// selects tells whether a balancer selects an outbound by its tag (Xray: a prefix of a
+// selector). With no prefix of the kept ones beginning another, the only one a tag can have is
+// the last one not after it.
+func (c *xrayConfig) selects(tag string) bool {
+	at, _ := slices.BinarySearch(c.prefixes, tag)
+	if at < len(c.prefixes) && c.prefixes[at] == tag {
+		return true
+	}
+	return at > 0 && strings.HasPrefix(tag, c.prefixes[at-1])
 }
 
 // xrayOutboundCount is how many server outbounds a configuration has.
@@ -123,10 +150,7 @@ func (c *xrayConfig) servers() []*xrayOutbound {
 		if !outbound.server {
 			continue
 		}
-		member := outbound.tag == "proxy" || c.routed[outbound.tag] || c.fallbacks[outbound.tag]
-		for _, prefix := range c.prefixes {
-			member = member || strings.HasPrefix(outbound.tag, prefix)
-		}
+		member := outbound.tag == "proxy" || c.routed[outbound.tag] || c.fallbacks[outbound.tag] || c.selects(outbound.tag)
 		if member && outbound.tag != "" {
 			chosen = append(chosen, outbound)
 		}
@@ -171,10 +195,13 @@ type xrayListing struct {
 // entries; a server that is the main server of two entries of other names stays two servers, as
 // the provider lists it twice. The provider's chain is noted only when every listing of the server
 // is chained: one listed directly too is connected directly as the provider also does.
-func readXray(configurations []json.RawMessage, decode Decoder) ([]Server, int, int) {
+func readXray(reading *reading, configurations []json.RawMessage, decode Decoder) ([]Server, int, int) {
 	var listings []*xrayListing
 	configs, outbounds := 0, 0
 	for _, content := range configurations {
+		if !reading.goes() {
+			return nil, 0, 0
+		}
 		config := readXrayConfig(content)
 		if config == nil {
 			continue
@@ -183,7 +210,18 @@ func readXray(configurations []json.RawMessage, decode Decoder) ([]Server, int, 
 		outbounds += config.serverCount()
 		var made []*xrayListing
 		for _, outbound := range config.servers() {
+			if !reading.goes() {
+				return nil, 0, 0
+			}
 			listing := convertXray(config, outbound, decode)
+			// what it takes, its name and the name in its link counted
+			listing.server.Name = cleanName(config.remarks, 1)
+			if config.remarks == "" {
+				listing.server.Name = cleanName(outbound.tag, 1)
+			}
+			if !reading.takes(&listing.server) || !reading.takes(&Server{Link: url.PathEscape(listing.server.Name)}) {
+				return nil, 0, 0
+			}
 			listing.key = listing.server.ID
 			if listing.key == "" {
 				listing.key = "\x00" + listing.server.Link
@@ -331,14 +369,18 @@ type xrayConversion struct {
 	fragments []json.RawMessage
 	// chains are the notes on the chain the provider connects the server through
 	chains []string
+	// noted are the notes given
+	noted map[string]bool
 }
 
 func (x *xrayConversion) note(text string) {
-	for _, known := range x.notes {
-		if known == text {
-			return
-		}
+	if x.noted[text] {
+		return
 	}
+	if x.noted == nil {
+		x.noted = make(map[string]bool)
+	}
+	x.noted[text] = true
 	x.notes = append(x.notes, text)
 }
 
@@ -364,7 +406,7 @@ func (x *xrayConversion) keyName(where string, key string) (string, bool) {
 // app's settings, any other with a note that it is not supported.
 func (x *xrayConversion) account(where string, node *object, silent map[string]string, client ...string) {
 	for _, key := range node.rest() {
-		lower := strings.ToLower(key)
+		lower := fold(key)
 		if _, reviewed := silent[lower]; reviewed {
 			continue
 		}
@@ -1117,7 +1159,7 @@ func cleanXHTTP(content json.RawMessage) (json.RawMessage, error) {
 	}
 	drop := func(node map[string]any, silent map[string]string) {
 		for key := range node {
-			if _, reviewed := silent[strings.ToLower(key)]; reviewed {
+			if _, reviewed := silent[fold(key)]; reviewed {
 				delete(node, key)
 			}
 		}
@@ -1125,7 +1167,7 @@ func cleanXHTTP(content json.RawMessage) (json.RawMessage, error) {
 	drop(settings, map[string]string{"h2params": "the server's own"})
 	for key, value := range settings {
 		download, isObject := value.(map[string]any)
-		if !strings.EqualFold(key, "downloadSettings") || !isObject {
+		if fold(key) != "downloadsettings" || !isObject {
 			continue
 		}
 		for name, inner := range download {
@@ -1133,7 +1175,7 @@ func cleanXHTTP(content json.RawMessage) (json.RawMessage, error) {
 			if !isNode {
 				continue
 			}
-			switch strings.ToLower(name) {
+			switch fold(name) {
 			case "tlssettings":
 				drop(node, xrayTLSSilent)
 			case "realitysettings":
@@ -1296,6 +1338,30 @@ func (x *xrayConversion) finalMask(mask *object, on string) {
 	}
 }
 
+// integerRange tells a range of Xray (Int32Range): an integer, or a text of one or of two joined
+// by "-", of 32 bits.
+func integerRange(value json.RawMessage) bool {
+	text := strings.TrimSpace(string(value))
+	if len(text) >= 2 && text[0] == '"' {
+		var unquoted string
+		if json.Unmarshal(value, &unquoted) != nil {
+			return false
+		}
+		text = strings.TrimSpace(unquoted)
+		from, to, isRange := strings.Cut(text, "-")
+		if !isRange {
+			to = from
+		}
+		return int32Text(strings.TrimSpace(from)) && int32Text(strings.TrimSpace(to))
+	}
+	return int32Text(text)
+}
+
+func int32Text(text string) bool {
+	number, err := strconv.ParseInt(text, 10, 32)
+	return err == nil && number >= 0
+}
+
 // chain notes the relay the provider connects the server through: podkop connects it directly
 // (the owner, 2026-11-21: a note only at this stage). A freedom outbound with a fragment is the
 // older form of the cut of the hello: its fragment becomes a mask, as finalmask has it.
@@ -1323,18 +1389,27 @@ func (x *xrayConversion) freedom(outbound *object) {
 	settings := outbound.child("settings")
 	if fragment := settings.child("fragment"); fragment != nil {
 		mask := map[string]any{}
-		if packets := fragment.raw("packets"); packets != nil {
+		// the settings of one dialer go into the link of each server it dials: read as Xray reads
+		// them (ranges of integers, a range or tlshello of packets), not copied as they are
+		packets := fragment.raw("packets")
+		if text := strings.ToLower(fragment.text("packets")); packets != nil && text != "tlshello" && !integerRange(packets) {
+			x.refuse("the fragment of the provider's dialer cannot be read")
+			return
+		}
+		if packets != nil {
 			mask["packets"] = packets
 		}
-		if length := fragment.raw("length"); length != nil {
-			mask["length"] = length
-		}
-		// the interval between the pieces is the delay of the mask
-		if interval := fragment.raw("interval"); interval != nil {
-			mask["delay"] = interval
-		}
-		if split := fragment.raw("maxSplit"); split != nil {
-			mask["maxSplit"] = split
+		for _, field := range [][2]string{{"length", "length"}, {"interval", "delay"}, {"maxSplit", "maxSplit"}} {
+			value := fragment.raw(field[0])
+			if value == nil {
+				continue
+			}
+			if !integerRange(value) {
+				x.refuse("the fragment of the provider's dialer cannot be read")
+				return
+			}
+			// the interval between the pieces is the delay of the mask
+			mask[field[1]] = value
 		}
 		content, err := json.Marshal(map[string]any{"type": "fragment", "settings": mask})
 		if err == nil {
