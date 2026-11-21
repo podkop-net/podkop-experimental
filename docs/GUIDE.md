@@ -42,17 +42,29 @@ A source is one of:
 - an **outbound JSON** of sing-box;
 - an **interface**: a tunnel set up on the router (WireGuard, AmneziaWG …), a modem or a second WAN.
 
-**User-Agent** and **Extra headers** of a subscription: some providers give the list only to the
-apps they name, and send podkop a web page or notes like "open this link in the app". Type the
-app's name alone, without a version, in User-Agent (for example `INCY`) and press **Load**: the
-window says so when the provider sends that name JSON or YAML, which podkop cannot read yet, a web
-page or notes, and a list in use stays in use. The router still sends its own device identifier
-(HWID), so it takes its own place among the subscription's devices: the HWID and the other device
-headers, the client's address (`X-Forwarded-For` …) and the headers of the connection cannot be
-set. Extra headers (`Name: value`, one a line) are for a key the provider asks for: the global
-check shows their names only, and they go to the host of the subscription address only, not to
-another host it redirects to. The User-Agent is the name of an app, not a secret: the global check
-shows it.
+**Ask as** of a subscription: some providers give the servers only to the apps they name, and
+send podkop a web page or notes like "open this link in the app". Choose such an app and press
+**Load**: Happ and INCY may get links or Xray JSON, sing-box (SFA) gets sing-box JSON. podkop reads
+all three and takes only the servers: the provider's rules, DNS, balancers and groups are not used,
+and a server the provider connects through another one (a chain) gets a note and is connected
+directly. The window tells which format came; a link podkop made from the JSON may read
+differently in other apps, as its **Copy** button says. **Another User-Agent** takes the name of
+another app, as the provider names it (often the name alone, without a version): it is the name of
+an app, not a secret, and the global check shows it. The window says so when the provider sends
+the chosen app a web page, notes, links encrypted for Happ (`happ://crypt…`, only Happ reads them)
+or Clash YAML, which podkop does not read; a list in use stays in use.
+
+The router still sends its own device identifier (HWID), whatever it asks as, so it takes its own
+place among the subscription's devices: the HWID and the other device headers, the client's
+address (`X-Forwarded-For` …) and the headers of the connection cannot be set. **Extra headers**
+(`Name: value`, one a line) are for a key the provider asks for: the global check shows their
+names only, and they go to the host of the subscription address only, not to another host it
+redirects to.
+
+If the window says the provider sent Clash YAML, or JSON that is not a configuration of Xray or
+sing-box, look at the end of the subscription address: remove an ending such as `/clash`,
+`/clash-meta`, `/mihomo`, `/stash` or `/outline`. Remnawave and Marzban usually send links to the
+address without it; in 3x-ui take the `sub` address.
 
 The order of the sources (drag ☰) changes nothing but the view. **Do not use for downloading
 lists and subscriptions** keeps a source out of downloads. Use it for a subscription with little
