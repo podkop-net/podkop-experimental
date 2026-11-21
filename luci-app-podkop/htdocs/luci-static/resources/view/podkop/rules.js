@@ -1206,6 +1206,8 @@ function createRulesContent(
   o.placeholder = "2080";
   o.rmempty = false;
   o.depends("mixed_proxy_enabled", "1");
+  // kept while the proxy is off, as its login is: the apps keep the port they were given
+  o.retain = true;
 
   // The login of the proxy: plain text fields, never of the type password. A browser takes a
   // window with a password field for a login form and fills in the router's own login, the
