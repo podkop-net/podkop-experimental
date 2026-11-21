@@ -11,6 +11,7 @@ import {
   sourceAutoLabel,
   sourceFilled,
   sourceLabel,
+  stagedChange,
   unwrapSubscription,
   validateRoutingMark,
 } from '../sources';
@@ -316,5 +317,60 @@ describe('ruleExit and ruleRowProblems', () => {
       ['r', 'fallback', 1],
       ['r', 'fallback', 2],
     ]);
+  });
+});
+
+// the records are those of rpcd's uci changes, as LuCI's uci.changes() gives them for a config
+describe('stagedChange', () => {
+  const OPTIONS = ['user_agent', 'header'];
+
+  it('finds the options of the section saved and not applied', () => {
+    expect(
+      stagedChange([['set', 'src1', 'user_agent', 'INCY']], 'src1', OPTIONS),
+    ).toBe(true);
+    expect(stagedChange([['remove', 'src1', 'header']], 'src1', OPTIONS)).toBe(
+      true,
+    );
+    expect(
+      stagedChange(
+        [['list-add', 'src1', 'header', 'Authorization: Bearer k']],
+        'src1',
+        OPTIONS,
+      ),
+    ).toBe(true);
+    expect(
+      stagedChange([['list-del', 'src1', 'header', 'A: 1']], 'src1', OPTIONS),
+    ).toBe(true);
+    expect(
+      stagedChange([['rename', 'src1', 'header', 'old']], 'src1', OPTIONS),
+    ).toBe(true);
+  });
+
+  it('counts the section itself added, created by name, renamed or removed', () => {
+    expect(stagedChange([['add', 'src1', 'source']], 'src1', OPTIONS)).toBe(
+      true,
+    );
+    expect(stagedChange([['set', 'src1', 'source']], 'src1', OPTIONS)).toBe(
+      true,
+    );
+    expect(stagedChange([['rename', 'src1', 'src9']], 'src1', OPTIONS)).toBe(
+      true,
+    );
+    expect(stagedChange([['remove', 'src1']], 'src1', OPTIONS)).toBe(true);
+  });
+
+  it('leaves out other options, other sections, the order and what is not records', () => {
+    const records = [
+      ['set', 'src1', 'url', 'https://example.com/sub'],
+      ['set', 'src2', 'user_agent', 'INCY'],
+      ['list-add', 'src2', 'header', 'A: 1'],
+      ['order', 'src1', 3],
+      'set',
+      null,
+    ];
+    expect(stagedChange(records, 'src1', OPTIONS)).toBe(false);
+    expect(stagedChange(records, 'src1', ['url'])).toBe(true);
+    expect(stagedChange(undefined, 'src1', OPTIONS)).toBe(false);
+    expect(stagedChange({}, 'src1', OPTIONS)).toBe(false);
   });
 });

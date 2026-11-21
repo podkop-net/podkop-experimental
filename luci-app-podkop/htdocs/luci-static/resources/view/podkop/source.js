@@ -395,13 +395,26 @@ function requestLines(info) {
   return lines;
 }
 
+// The changes saved and not applied yet, of the settings of podkop (LuCI's staged changes): a
+// save puts them into the router's staging area and reads the settings back, so uci.get gives
+// the values saved, not those the router runs with. None when the router does not tell them.
+function stagedRecords() {
+  return L.resolveDefault(
+    Promise.resolve().then(() => uci.changes()),
+    {},
+  ).then((changes) => (changes && changes.podkop ? changes.podkop : []));
+}
+
 // addressPending tells whether the address of a subscription in its window is not the one
-// the router runs with: edited in the window, or saved and not applied yet. The router
-// downloads the address it runs with.
-function addressPending(map, name) {
+// the router runs with: edited in the window, or saved and not applied yet (staged: the records
+// of stagedRecords). The router downloads the address it runs with.
+function addressPending(map, name, staged) {
   const changes = uci.state && uci.state.changes && uci.state.changes.podkop;
   const creates = uci.state && uci.state.creates && uci.state.creates.podkop;
   if ((changes && changes[name] && "url" in changes[name]) || (creates && creates[name])) {
+    return true;
+  }
+  if (main.stagedChange(staged, name, ["url"])) {
     return true;
   }
   return currentValue(map, name, "url") !== uci.get("podkop", name, "url");
@@ -411,12 +424,13 @@ function addressPending(map, name) {
 // as the router reads them: an option never set, an empty field and an empty list are the same
 // (the form gives "" and [] where uci gives none), and so are the same lines as a list or an
 // option.
-function requestPending(map, name) {
+function requestPending(map, name, staged) {
   const changes = uci.state && uci.state.changes && uci.state.changes.podkop;
   if (
-    changes &&
-    changes[name] &&
-    ("user_agent" in changes[name] || "header" in changes[name])
+    (changes &&
+      changes[name] &&
+      ("user_agent" in changes[name] || "header" in changes[name])) ||
+    main.stagedChange(staged, name, ["user_agent", "header"])
   ) {
     return true;
   }
@@ -438,36 +452,38 @@ function updateNow(map, name) {
     }
   };
   const known = stateOf(name);
-  if (!known || addressPending(map, name)) {
-    show(known || null, [
-      _("Save & Apply first: the router downloads the address it runs with"),
-    ]);
-    return Promise.resolve();
-  }
-  if (requestPending(map, name)) {
-    show(known, [
-      _(
-        "Save & Apply first: the router asks with the User-Agent and headers it runs with",
-      ),
-    ]);
-    return Promise.resolve();
-  }
-  // what the download is told apart from: the states read right before the start, not those
-  // of the opening of the window (a planned download may have ended since), nor those the start
-  // returns (a fast provider has answered by then)
-  return refreshStates()
-    .catch(() => [])
-    .then(() => {
-      const current = stateOf(name);
-      if (!current) {
-        show(known, [_("The router did not answer")]);
-        return;
-      }
-      const before = current.attempted || "";
-      return main.PodkopShellMethods.subscriptionUpdateStart(name).then(
-        (response) => started(response, before, current),
-      );
-    });
+  return stagedRecords().then((staged) => {
+    if (!known || addressPending(map, name, staged)) {
+      show(known || null, [
+        _("Save & Apply first: the router downloads the address it runs with"),
+      ]);
+      return;
+    }
+    if (requestPending(map, name, staged)) {
+      show(known, [
+        _(
+          "Save & Apply first: the router asks with the User-Agent and headers it runs with",
+        ),
+      ]);
+      return;
+    }
+    // what the download is told apart from: the states read right before the start, not those
+    // of the opening of the window (a planned download may have ended since), nor those the
+    // start returns (a fast provider has answered by then)
+    return refreshStates()
+      .catch(() => [])
+      .then(() => {
+        const current = stateOf(name);
+        if (!current) {
+          show(known, [_("The router did not answer")]);
+          return;
+        }
+        const before = current.attempted || "";
+        return main.PodkopShellMethods.subscriptionUpdateStart(name).then(
+          (response) => started(response, before, current),
+        );
+      });
+  });
 
   function started(response, before, current) {
       // the states come back at once; none of the subscription: the backend does not run

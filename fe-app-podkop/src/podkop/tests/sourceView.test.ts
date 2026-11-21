@@ -59,3 +59,65 @@ describe('the extra headers of a subscription', () => {
     expect(empty.section.lookup('header').cfgvalue('src1')).toBeUndefined();
   });
 });
+
+describe('Update now of a subscription', () => {
+  const update = (view: Awaited<ReturnType<typeof sourceWindow>>) =>
+    view.section.lookup('_update').call('onclick', null, 'src1');
+
+  it('downloads when the window holds what the router runs with', async () => {
+    const view = await sourceWindow(
+      { user_agent: 'INCY' },
+      { user_agent: 'INCY' },
+    );
+    await update(view);
+    expect(view.updateStart).toHaveBeenCalledWith('src1');
+  });
+
+  // the window's Save stages the User-Agent: uci.get gives the staged value, the router runs the
+  // one before it
+  it('asks for Save & Apply when the User-Agent is saved and not applied', async () => {
+    const view = await sourceWindow(
+      { user_agent: 'INCY' },
+      { user_agent: 'INCY' },
+    );
+    view.uci.records = [['set', 'src1', 'user_agent', 'INCY']];
+    await update(view);
+    expect(view.updateStart).not.toHaveBeenCalled();
+    expect(view.status.textContent).toContain(
+      'Save & Apply first: the router asks with the User-Agent and headers it runs with',
+    );
+  });
+
+  it('asks for Save & Apply when a header is saved and not applied', async () => {
+    const view = await sourceWindow(
+      { header: ['Authorization: Bearer new'] },
+      { header: ['Authorization: Bearer new'] },
+    );
+    view.uci.records = [
+      ['remove', 'src1', 'header'],
+      ['list-add', 'src1', 'header', 'Authorization: Bearer new'],
+    ];
+    await update(view);
+    expect(view.updateStart).not.toHaveBeenCalled();
+  });
+
+  it('asks for Save & Apply when the address is saved and not applied', async () => {
+    const view = await sourceWindow({}, { url: SUBSCRIPTION.url });
+    view.uci.records = [['set', 'src1', 'url', SUBSCRIPTION.url]];
+    await update(view);
+    expect(view.updateStart).not.toHaveBeenCalled();
+    expect(view.status.textContent).toContain(
+      'Save & Apply first: the router downloads the address it runs with',
+    );
+  });
+
+  it('is not held by the changes of another source', async () => {
+    const view = await sourceWindow(
+      { user_agent: 'INCY' },
+      { user_agent: 'INCY' },
+    );
+    view.uci.records = [['set', 'src2', 'user_agent', 'Other']];
+    await update(view);
+    expect(view.updateStart).toHaveBeenCalledWith('src1');
+  });
+});

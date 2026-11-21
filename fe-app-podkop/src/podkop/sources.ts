@@ -54,6 +54,36 @@ export function sourceFilled(source?: Podkop.ConfigSource | null): boolean {
   return false;
 }
 
+// stagedChange tells whether the settings saved and not applied yet change these options of a
+// section, or the section itself. The records are those of one config as LuCI's uci.changes()
+// gives them (rpcd's uci changes): [operation, section, option, value], the option left out when
+// the record is of the section: ["set", name, type] and ["add", name, type] create it,
+// ["remove", name] removes it, ["rename", name, new name] renames it.
+export function stagedChange(
+  records: unknown,
+  section: string,
+  options: string[],
+): boolean {
+  if (!Array.isArray(records)) return false;
+  return records.some((record) => {
+    if (!Array.isArray(record) || record[1] !== section) return false;
+    const option = String(record[2] ?? '');
+    switch (record[0]) {
+      case 'add':
+        return true;
+      case 'set':
+      case 'rename':
+        return record.length < 4 || options.includes(option);
+      case 'remove':
+        return record.length < 3 || options.includes(option);
+      case 'list-add':
+      case 'list-del':
+        return options.includes(option);
+    }
+    return false;
+  });
+}
+
 // isMultiServer tells whether the rows of a source choose its servers by their names: a
 // subscription, or several links (the backend filters only these)
 export function isMultiServer(source?: Podkop.ConfigSource | null): boolean {
