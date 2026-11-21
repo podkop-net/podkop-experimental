@@ -42,17 +42,20 @@ A source is one of:
 - an **outbound JSON** of sing-box;
 - an **interface**: a tunnel set up on the router (WireGuard, AmneziaWG …), a modem or a second WAN.
 
-**Ask as** of a subscription: some providers give the servers only to the apps they name, and
-send podkop a web page or notes like "open this link in the app". Choose such an app and press
-**Load**: Happ and INCY may get links or Xray JSON, sing-box (SFA) gets sing-box JSON. podkop reads
-all three and takes only the servers: the provider's rules, DNS, balancers and groups are not used,
-and a server the provider connects through another one (a chain) gets a note and is connected
-directly. The window tells which format came; a link podkop made from the JSON may read
+**Ask as** of a subscription: some providers give the servers only to the apps they name, and send
+podkop a web page or notes like "open this link in the app". Choose such an app and press **Load**:
+Happ and INCY may get links or Xray JSON, sing-box (SFA) gets sing-box JSON. podkop reads all three
+and takes only the servers: the provider's rules, DNS, balancers and groups are not used, and a
+server the provider connects through another one (a chain) gets a note and is connected directly.
+With Remnawave-like panels prefer Happ or INCY to sing-box when both work: the panels' sing-box
+configuration leaves out settings their Xray configuration has (for example, a pinned certificate
+becomes "not verified", and the HTTP header of TCP and some Host headers are lost), and podkop notes
+this on the servers. The window tells which format came; a link podkop made from the JSON may read
 differently in other apps, as its **Copy** button says. **Another User-Agent** takes the name of
 another app, as the provider names it (often the name alone, without a version): it is the name of
-an app, not a secret, and the global check shows it. The window says so when the provider sends
-the chosen app a web page, notes, links encrypted for Happ (`happ://crypt…`, only Happ reads them)
-or Clash YAML, which podkop does not read; a list in use stays in use.
+an app, not a secret, and the global check shows it. The window says so when the provider sends the
+chosen app a web page, notes, links encrypted for Happ (`happ://crypt…`, only Happ reads them) or
+Clash YAML, which podkop does not read; a list in use stays in use.
 
 The router still sends its own device identifier (HWID), whatever it asks as, so it takes its own
 place among the subscription's devices: the HWID and the other device headers, the client's
