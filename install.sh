@@ -122,6 +122,10 @@ if [ -n "$REL" ]; then
 fi
 [ -n "$FROM" ] && [ -n "$REL" ] && bad "--from and --release do not go together: the release is that of the files"
 [ -z "$FROM" ] || [ -d "$FROM" ] || bad "--from: there is no directory $FROM"
+# the work directory is emptied before the files of --from are looked at
+if [ -n "$FROM" ]; then
+    case "$(cd "$FROM" && pwd -P)/" in "$D"/*) bad "--from cannot take $FROM: install.sh empties its work directory $D first. Put the files in another directory, such as /tmp/pkgs" ;; esac
+fi
 
 if command -v apk >/dev/null 2>&1; then
     EXT=apk PM=apk
