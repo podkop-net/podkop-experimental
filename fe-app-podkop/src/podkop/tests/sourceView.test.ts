@@ -121,3 +121,383 @@ describe('Update now of a subscription', () => {
     expect(view.updateStart).toHaveBeenCalledWith('src1');
   });
 });
+
+// LuCI's parse of the window at Save, for the options of what a subscription is asked with: a
+// shown option writes a value that changed and removes an empty one, a hidden one (its depends
+// not met) is removed. The User-Agent shows for custom only.
+function saveRequest(view: Awaited<ReturnType<typeof sourceWindow>>) {
+  const { section } = view;
+  const preset = section.lookup('user_agent_preset');
+  const shown = (option: string) =>
+    option !== 'user_agent' || preset.formvalue('src1') === 'custom';
+  ['user_agent_preset', 'user_agent'].forEach((name) => {
+    const option = section.lookup(name);
+    const value = option.formvalue('src1');
+    if (!shown(name) || value == null || value === '') {
+      option.call('remove', 'src1');
+    } else if (value !== option.cfgvalue('src1')) {
+      option.call('write', 'src1', value);
+    }
+  });
+  return view.uci.values.src1;
+}
+
+describe('Ask as of a subscription', () => {
+  it.each([
+    [{}, 'podkop'],
+    [{ user_agent_preset: 'happ' }, 'happ'],
+    [{ user_agent_preset: 'custom', user_agent: 'Hiddify' }, 'custom'],
+    // a User-Agent without a preset: a file written by hand
+    [{ user_agent: 'INCY' }, 'custom'],
+    [{ user_agent_preset: 'sing-box', user_agent: 'stale' }, 'sing-box'],
+    [{ user_agent_preset: 'other' }, 'other'],
+  ])('opens %j as %s', async (options, shown) => {
+    const { section } = await sourceWindow(options);
+    expect(section.lookup('user_agent_preset').cfgvalue('src1')).toBe(shown);
+  });
+
+  it('lists the presets, and keeps one set by hand', async () => {
+    const view = await sourceWindow({ user_agent_preset: 'other' });
+    view.form.ListValue.prototype.renderWidget = () => null;
+    const preset = view.section.lookup('user_agent_preset');
+    preset.call('renderWidget', 'src1', 0, 'other');
+    expect(preset.keylist).toEqual([
+      'podkop',
+      'happ',
+      'incy',
+      'sing-box',
+      'custom',
+      'other',
+    ]);
+    expect(preset.vallist).toEqual([
+      'podkop',
+      'Happ',
+      'INCY',
+      'sing-box (SFA)',
+      'Another User-Agent',
+      'other',
+    ]);
+  });
+
+  it('unsets both for podkop', async () => {
+    const view = await sourceWindow(
+      { user_agent_preset: 'custom', user_agent: 'INCY' },
+      { user_agent_preset: 'podkop', user_agent: 'INCY' },
+    );
+    const saved = saveRequest(view);
+    expect(saved.user_agent_preset).toBeUndefined();
+    expect(saved.user_agent).toBeUndefined();
+  });
+
+  it('sets a preset and unsets the User-Agent', async () => {
+    const view = await sourceWindow(
+      { user_agent: 'INCY' },
+      { user_agent_preset: 'happ', user_agent: 'INCY' },
+    );
+    const saved = saveRequest(view);
+    expect(saved.user_agent_preset).toBe('happ');
+    expect(saved.user_agent).toBeUndefined();
+  });
+
+  it('sets both for another User-Agent', async () => {
+    const view = await sourceWindow(
+      {},
+      { user_agent_preset: 'custom', user_agent: ' Hiddify ' },
+    );
+    const saved = saveRequest(view);
+    expect(saved.user_agent_preset).toBe('custom');
+    expect(saved.user_agent).toBe('Hiddify');
+  });
+
+  it('leaves a User-Agent written by hand as it is when nothing changed', async () => {
+    const view = await sourceWindow(
+      { user_agent: 'INCY' },
+      { user_agent_preset: 'custom', user_agent: 'INCY' },
+    );
+    const saved = saveRequest(view);
+    expect(saved.user_agent_preset).toBeUndefined();
+    expect(saved.user_agent).toBe('INCY');
+  });
+
+  it('asks for the User-Agent of another one', async () => {
+    const view = await sourceWindow(
+      {},
+      { user_agent_preset: 'custom', user_agent: '' },
+    );
+    const agent = view.section.lookup('user_agent');
+    expect(agent.call('validate', 'src1', ' ')).toBe(
+      'Type the User-Agent, or choose podkop in Ask as',
+    );
+    expect(agent.call('validate', 'src1', 'Hiddify')).toBe(true);
+    expect(agent.call('validate', 'src1', 'ИНСИ')).toBe(
+      'Only Latin letters, digits, spaces and the signs of the keyboard',
+    );
+    // hidden under a preset: an empty field is no fault
+    view.section.lookup('user_agent_preset').window.src1 = 'happ';
+    expect(agent.call('validate', 'src1', '')).toBe(true);
+  });
+
+  it('is unset with the type of another source', async () => {
+    const view = await sourceWindow(
+      { user_agent_preset: 'happ' },
+      { type: 'links' },
+    );
+    view.section.lookup('user_agent_preset').call('remove', 'src1');
+    expect(view.uci.values.src1.user_agent_preset).toBeUndefined();
+  });
+
+  it('is replaced by a pasted text', async () => {
+    const view = await sourceWindow({
+      user_agent_preset: 'custom',
+      user_agent: 'INCY',
+    });
+    view.section
+      .lookup('_paste')
+      .call('write', 'src1', 'https://other.example.com/sub/x');
+    expect(view.uci.values.src1.user_agent_preset).toBeUndefined();
+    expect(view.uci.values.src1.user_agent).toBeUndefined();
+  });
+});
+
+// the window with Load: the router's download of the list answered at once with preview
+async function loadWindow(
+  window: Record<string, unknown>,
+  preview: Record<string, unknown> = { route: 'direct', servers: [] },
+) {
+  const loadStart = vi.fn(() =>
+    Promise.resolve({
+      success: true,
+      data: { id: 'job1', state: 'done', preview },
+    }),
+  );
+  const view = loadView(
+    'source.js',
+    { src1: { ...SUBSCRIPTION } },
+    {
+      PodkopShellMethods: {
+        subscriptionStatus: () => Promise.resolve({ success: true, data: [] }),
+        subscriptionLoadStart: loadStart,
+      },
+    },
+  );
+  view.exports.createSourceContent(view.section, []);
+  await view.section.load('src1');
+  await view.section.loadOptions('src1');
+  Object.entries(window).forEach(([option, value]) => {
+    view.section.lookup(option).window.src1 = value;
+  });
+  const result = new FakeNode('div');
+  view.elements['pdk-preview-src1'] = result;
+  await view.section.lookup('_load').call('onclick', null, 'src1');
+  return { ...view, loadStart, result };
+}
+
+describe('Load of a subscription', () => {
+  it.each([
+    [{ user_agent_preset: 'podkop', user_agent: 'INCY' }, undefined],
+    [
+      { user_agent_preset: 'happ', user_agent: 'INCY' },
+      { user_agent_preset: 'happ' },
+    ],
+    [
+      { user_agent_preset: 'custom', user_agent: ' INCY ' },
+      { user_agent_preset: 'custom', user_agent: 'INCY' },
+    ],
+  ])('asks as the window says: %j', async (window, request) => {
+    const { loadStart } = await loadWindow(window);
+    expect(loadStart).toHaveBeenCalledWith(SUBSCRIPTION.url, request ?? {});
+  });
+
+  it('asks for the User-Agent of another one before it loads', async () => {
+    const { loadStart, result } = await loadWindow({
+      user_agent_preset: 'custom',
+      user_agent: '',
+    });
+    expect(loadStart).not.toHaveBeenCalled();
+    expect(result.textContent).toBe(
+      'Type the User-Agent, or choose podkop in Ask as',
+    );
+  });
+
+  it('tells the preset, the format and the links podkop made', async () => {
+    const { result } = await loadWindow(
+      { user_agent_preset: 'happ' },
+      {
+        route: 'direct',
+        preset: 'happ',
+        agent: 'Happ/4.8.3/Linux',
+        format: 'xray',
+        configs: 11,
+        servers: [
+          { name: 'NL', scheme: 'vless', link: 'vless://a@nl', made: true },
+          { name: 'DE', scheme: 'vless', link: 'vless://b@de' },
+        ],
+      },
+    );
+    const text = result.textContent;
+    expect(text).toContain('Asked as: Happ');
+    expect(text).toContain('User-Agent: Happ/4.8.3/Linux');
+    expect(text).toContain(
+      "Servers taken from the provider's Xray configurations (11); their rules, DNS and balancers are not used",
+    );
+    const title =
+      "The link was made by podkop from the provider's configuration: other apps may read it differently";
+    const buttons = result.querySelectorAll('button');
+    const copy = buttons.filter((button) => button.textContent === 'Copy');
+    expect(copy.map((button) => button.getAttribute('title'))).toEqual([
+      title,
+      null,
+    ]);
+    const all = buttons.find(
+      (button) => button.textContent === 'Copy all links',
+    );
+    expect(all?.getAttribute('title')).toBe(title);
+  });
+
+  it('tells a list of sing-box and none of links', async () => {
+    const singbox = await loadWindow(
+      { user_agent_preset: 'sing-box' },
+      {
+        route: 'direct',
+        preset: 'sing-box',
+        agent: 'SFA (sing-box 1.14.4; language en_US)',
+        format: 'sing-box',
+        servers: [{ name: 'NL', scheme: 'vless', link: 'vless://a@nl' }],
+      },
+    );
+    expect(singbox.result.textContent).toContain('Asked as: sing-box (SFA)');
+    expect(singbox.result.textContent).toContain(
+      "Servers taken from the provider's sing-box configuration; its rules, DNS and groups are not used",
+    );
+    const links = await loadWindow(
+      { user_agent_preset: 'podkop' },
+      {
+        route: 'direct',
+        servers: [{ name: 'NL', scheme: 'vless', link: 'vless://a@nl' }],
+      },
+    );
+    expect(links.result.textContent).not.toContain('Servers taken');
+    expect(links.result.textContent).not.toContain('Asked as');
+    expect(
+      links.result
+        .querySelectorAll('button')
+        .every((button) => button.getAttribute('title') === null),
+    ).toBe(true);
+  });
+
+  it.each([
+    [
+      'json',
+      'The provider sent JSON that is not a configuration of Xray or sing-box',
+    ],
+    [
+      'happ-crypt',
+      'The provider sent only links encrypted for Happ (happ://crypt…), which only Happ reads. In Ask as, choose another app, such as INCY, or ask the provider for plain links',
+    ],
+    [
+      'happ-crypt-agent',
+      'The provider sent this User-Agent only links encrypted for Happ (happ://crypt…), which only Happ reads. In Ask as, choose another app, such as INCY, or podkop',
+    ],
+    [
+      'json-agent',
+      'The provider sent JSON that is not a configuration of Xray or sing-box to this User-Agent. In Ask as, choose another app or podkop',
+    ],
+  ])('tells the failure %s', async (code, text) => {
+    const { result } = await loadWindow(
+      { user_agent_preset: 'incy' },
+      {
+        error: 'english text of the router',
+        error_code: code,
+        preset: 'incy',
+        agent: 'INCY/3.9.1/linux',
+        servers: [],
+      },
+    );
+    expect(result.textContent).toContain(text);
+    expect(result.textContent).toContain('Asked as: INCY');
+  });
+});
+
+describe('the state of a subscription', () => {
+  it('tells what the list in use came as, and the preset it is asked as', async () => {
+    const view = await sourceWindow(
+      { user_agent_preset: 'incy' },
+      {},
+      {
+        name: 'src1',
+        servers: 3,
+        usable: 3,
+        changed: '2026-11-21T10:00:00Z',
+        checked: '2026-11-21T10:00:00Z',
+        route: 'direct',
+        preset: 'incy',
+        agent: 'INCY/3.9.1/linux',
+        format: 'xray',
+        configs: 2,
+      },
+    );
+    const box = view.section.lookup('_status').call('cfgvalue', 'src1');
+    const text = (box as FakeNode).textContent;
+    expect(text).toContain(
+      "Servers taken from the provider's Xray configurations (2); their rules, DNS and balancers are not used",
+    );
+    expect(text).toContain('Asked as: INCY');
+    expect(text).toContain('User-Agent: INCY/3.9.1/linux');
+  });
+
+  it('tells another User-Agent as it is', async () => {
+    const view = await sourceWindow(
+      { user_agent: 'Hiddify' },
+      {},
+      {
+        name: 'src1',
+        servers: 1,
+        usable: 1,
+        changed: '2026-11-21T10:00:00Z',
+        preset: 'custom',
+        agent: 'Hiddify',
+      },
+    );
+    const box = view.section.lookup('_status').call('cfgvalue', 'src1');
+    const text = (box as FakeNode).textContent;
+    expect(text).toContain('User-Agent: Hiddify');
+    expect(text).not.toContain('Asked as');
+    expect(text).not.toContain('Servers taken');
+  });
+});
+
+describe('Update now with a preset', () => {
+  const update = (view: Awaited<ReturnType<typeof sourceWindow>>) =>
+    view.section.lookup('_update').call('onclick', null, 'src1');
+
+  it('asks for Save & Apply when the preset is saved and not applied', async () => {
+    const view = await sourceWindow(
+      { user_agent_preset: 'happ' },
+      { user_agent_preset: 'happ' },
+    );
+    view.uci.records = [['set', 'src1', 'user_agent_preset', 'happ']];
+    await update(view);
+    expect(view.updateStart).not.toHaveBeenCalled();
+    expect(view.status.textContent).toContain(
+      'Save & Apply first: the router asks with the User-Agent and headers it runs with',
+    );
+  });
+
+  it('asks for Save & Apply when the window chose another preset', async () => {
+    const view = await sourceWindow(
+      { user_agent: 'INCY' },
+      { user_agent_preset: 'incy', user_agent: 'INCY' },
+    );
+    await update(view);
+    expect(view.updateStart).not.toHaveBeenCalled();
+  });
+
+  it('downloads when the window shows a User-Agent written by hand as custom', async () => {
+    const view = await sourceWindow(
+      { user_agent: 'INCY' },
+      { user_agent_preset: 'custom', user_agent: 'INCY' },
+    );
+    await update(view);
+    expect(view.updateStart).toHaveBeenCalledWith('src1');
+  });
+});

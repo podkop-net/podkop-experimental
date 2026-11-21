@@ -31,10 +31,50 @@ export interface ParsedRequest {
   problems: RequestProblem[];
 }
 
-// what the page sends the backend with an address (subscription_load, group_check)
+// what the page sends the backend with an address (subscription_load, group_check): the preset
+// of the User-Agent, the User-Agent of custom, the header lines
 export interface ListRequest {
+  user_agent_preset?: string;
   user_agent?: string;
   headers?: string[];
+}
+
+// The User-Agent a subscription is asked as (option user_agent_preset): podkop's own (none, or
+// podkop), an app whose User-Agent the backend sends (src/backend/subscription, the presets), or
+// another one, typed in the option user_agent (custom). The backend turns a preset into the
+// header at request time.
+export const AGENT_PRESETS = ['podkop', 'happ', 'incy', 'sing-box', 'custom'];
+
+// agentPreset is the preset a subscription is asked as: the one set, else custom when a
+// User-Agent is set (a file written by hand), else podkop
+export function agentPreset(preset: unknown, agent: unknown): string {
+  const chosen = trimmed(preset);
+  if (chosen) return chosen;
+  return trimmed(agent) ? 'custom' : 'podkop';
+}
+
+// customAgent is the User-Agent of the option user_agent that is sent: only that of custom
+export function customAgent(preset: unknown, agent: unknown): string {
+  return agentPreset(preset, agent) === 'custom' ? trimmed(agent) : '';
+}
+
+// presetName is how the page names a preset; one it does not know, as it is
+export function presetName(preset: unknown): string {
+  const chosen = trimmed(preset);
+  switch (chosen) {
+    case '':
+    case 'podkop':
+      return 'podkop';
+    case 'happ':
+      return 'Happ';
+    case 'incy':
+      return 'INCY';
+    case 'sing-box':
+      return 'sing-box (SFA)';
+    case 'custom':
+      return _('Another User-Agent');
+  }
+  return chosen;
 }
 
 // the headers of the connection itself: Go writes them, ignores them or refuses them over
@@ -71,7 +111,7 @@ const CLIENT_ENDS = ['-ip', '-ipv4', '-ipv6', '-ip6', '-addr', '-address'];
 
 // deniedHeader is why a header of this name is not sent, '' when it may be: the identity of
 // the router (it sends its own and takes its own place among the devices), the address of the
-// client, the User-Agent (it has its own field), the connection, a part of the list, a proxy
+// client, the User-Agent (it is chosen in Ask as), the connection, a part of the list, a proxy
 export function deniedHeader(name: string): string {
   const lower = name.toLowerCase();
   if (
@@ -176,7 +216,7 @@ export function requestProblemText(problem: RequestProblem): string {
         "The address of the client is the router's own: %s cannot be set",
       ).format(name);
     case 'agent':
-      return _('The User-Agent has its own field');
+      return _('The User-Agent is chosen in Ask as');
     case 'connection':
       return _('%s belongs to the connection: podkop sets it itself').format(
         name,
@@ -250,29 +290,53 @@ export function validateRequestHeader(
     : { valid: true, message: '' };
 }
 
-// listRequest is what the page sends with an address: the User-Agent and the header lines as
-// the form or the settings have them (the backend reads them as it reads the settings)
-export function listRequest(agent: unknown, lines: unknown): ListRequest {
+// listRequest is what the page sends with an address: the preset, the User-Agent of custom and
+// the header lines as the form or the settings have them (the backend reads them as it reads the
+// settings). podkop's own User-Agent is sent as nothing, a preset by its name, custom with its
+// User-Agent (one left empty is podkop's own); a User-Agent of the form or the settings under
+// another preset is not sent.
+export function listRequest(
+  agent: unknown,
+  lines: unknown,
+  preset?: unknown,
+): ListRequest {
   const request: ListRequest = {};
-  const userAgent = trimmed(agent);
+  const chosen = agentPreset(preset, agent);
+  const userAgent = customAgent(preset, agent);
   const headers = headerLines(lines);
-  if (userAgent) request.user_agent = userAgent;
+  if (chosen === 'custom') {
+    if (userAgent) {
+      request.user_agent_preset = chosen;
+      request.user_agent = userAgent;
+    }
+  } else if (chosen !== 'podkop') {
+    request.user_agent_preset = chosen;
+  }
   if (headers.some((line) => trimmed(line))) request.headers = headers;
   return request;
 }
 
-// sameRequest tells whether two requests are the same: none, '' and [] alike, the lines
-// trimmed and the empty ones left out
+// sameRequest tells whether two requests are the same, as listRequest makes them: none, '' and
+// [] alike, the lines trimmed and the empty ones left out, a User-Agent alone as custom, the
+// User-Agent of another preset left out
 export function sameRequest(
   agent: unknown,
   lines: unknown,
   otherAgent: unknown,
   otherLines: unknown,
+  preset?: unknown,
+  otherPreset?: unknown,
 ): boolean {
   const normal = (value: unknown) =>
     headerLines(value).map(trimmed).filter(Boolean).join('\n');
+  const asked = (chosen: unknown, text: unknown) => {
+    const request = listRequest(text, [], chosen);
+    return (
+      (request.user_agent_preset ?? '') + '\n' + (request.user_agent ?? '')
+    );
+  };
   return (
-    trimmed(agent) === trimmed(otherAgent) &&
+    asked(preset, agent) === asked(otherPreset, otherAgent) &&
     normal(lines) === normal(otherLines)
   );
 }
@@ -284,6 +348,9 @@ export function loadArguments(
   address: string,
   request?: ListRequest,
 ): string[] {
-  const asked = request?.user_agent || request?.headers?.length;
+  const asked =
+    request?.user_agent_preset ||
+    request?.user_agent ||
+    request?.headers?.length;
   return asked ? [address, JSON.stringify(request)] : [address];
 }

@@ -423,9 +423,15 @@ function refreshMatched(table, section_id) {
       include,
       exclude,
       addresses: { [name]: String(item.url || "").trim() },
-      // the User-Agent and the headers as staged: the router reads them as it reads the
-      // settings, and takes the list in use when they are those it runs with
-      requests: { [name]: main.listRequest(item.user_agent, item.header) },
+      // the preset, the User-Agent and the headers as staged: the router reads them as it reads
+      // the settings, and takes the list in use when they are those it runs with
+      requests: {
+        [name]: main.listRequest(
+          item.user_agent,
+          item.header,
+          item.user_agent_preset,
+        ),
+      },
     }).then((response) => {
       if (!response.success || !response.data) {
         return show(_("The router did not answer"));

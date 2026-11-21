@@ -379,8 +379,10 @@ export namespace Podkop {
     label?: string;
     url?: string;
     update_interval?: string;
-    // what a subscription is asked with besides its address: the User-Agent, and the extra
-    // headers (Name: value), a list or one line of an option
+    // what a subscription is asked with besides its address: the preset of the User-Agent
+    // (none: podkop, happ, incy, sing-box, custom), the User-Agent of custom (one without a
+    // preset is custom), and the extra headers (Name: value), a list or one line of an option
+    user_agent_preset?: string;
     user_agent?: string;
     header?: string | string[];
     link?: string | string[];
@@ -500,6 +502,8 @@ export namespace Podkop {
     link: string;
     reason?: string;
     notes?: string[];
+    // the link was made by podkop from the provider's configuration (Xray or sing-box JSON)
+    made?: boolean;
   }
 
   // a try of a download by one way: how far it came, how long, how much, and why it failed
@@ -538,8 +542,13 @@ export namespace Podkop {
     attempts?: Attempt[];
     provider?: ProviderInfo;
     servers: PreviewServer[];
-    // the User-Agent the list was asked with ('' or none: podkop's own)
+    // the preset the list was asked as, the User-Agent sent ('' or none: podkop's own)
+    preset?: string;
     agent?: string;
+    // what the provider sent: '' or none a list of links, xray, sing-box; the number of the
+    // Xray configurations
+    format?: string;
+    configs?: number;
   }
 
   // a download of a list for the page, under way or done (subscription_load_start, _state)
@@ -565,6 +574,7 @@ export namespace Podkop {
 
   // what a subscription is asked with besides its address (validateRequestHeader.listRequest)
   export interface ListRequest {
+    user_agent_preset?: string;
     user_agent?: string;
     headers?: string[];
   }
@@ -601,11 +611,15 @@ export namespace Podkop {
     next?: string;
     busy?: boolean;
     provider?: ProviderInfo;
-    // the User-Agent of the settings, the names of their headers (never the values), the lines
-    // left out of the request
+    // the preset of the settings and the User-Agent it sends ('' or none: podkop's own), the
+    // names of their headers (never the values), the lines left out of the request
+    preset?: string;
     agent?: string;
     headers?: string[];
     request_problems?: RequestProblem[];
+    // what the list in use came as (SubscriptionPreview.format, configs)
+    format?: string;
+    configs?: number;
     now?: string;
   }
 

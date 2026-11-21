@@ -220,33 +220,37 @@ function failureText(code, args, text, attempts) {
     }
     case "page":
       return _(
-        "A web page came instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP. If the provider gives the list only to some apps, type the name of one in User-Agent",
+        "A web page came instead of the list: it may be the address of the provider's site, not of the subscription, or a page of the ISP. If the provider gives the list only to some apps, choose one in Ask as",
       );
-    // the answers to the User-Agent of the settings (HTTPS only for a page: over plain HTTP it
-    // may be one of the ISP)
+    // the answers to the User-Agent of the settings, a preset's or another (HTTPS only for a
+    // page: over plain HTTP it may be one of the ISP)
     case "page-agent":
       return _(
-        "The provider sent a web page to this User-Agent: providers show their page to browsers. Try the name of an app, or clear the field. It may also be the address of the provider's site, not of the subscription",
+        "The provider sent a web page to this User-Agent: providers show their page to browsers. In Ask as, choose an app or podkop. It may also be the address of the provider's site, not of the subscription",
       );
     case "json-agent":
       return _(
-        "The provider sent a configuration in JSON (sing-box or Xray) to this User-Agent: podkop reads only a list of links so far. Try another name, or clear the field",
+        "The provider sent JSON that is not a configuration of Xray or sing-box to this User-Agent. In Ask as, choose another app or podkop",
       );
     case "clash-agent":
       return _(
-        "The provider sent a configuration of Clash (YAML) to this User-Agent: podkop reads only a list of links so far. Try another name, or clear the field",
+        "The provider sent a configuration of Clash (YAML) to this User-Agent: podkop does not read it. In Ask as, choose another app or podkop",
+      );
+    case "happ-crypt-agent":
+      return _(
+        "The provider sent this User-Agent only links encrypted for Happ (happ://crypt…), which only Happ reads. In Ask as, choose another app, such as INCY, or podkop",
       );
     case "refused-agent":
       return _(
-        "The provider refused the address (HTTP %s): it is wrong or out of date, or the subscription is blocked, or the provider does not accept this User-Agent: try another name, or clear the field",
+        "The provider refused the address (HTTP %s): it is wrong or out of date, or the subscription is blocked, or the provider does not accept this User-Agent: in Ask as, choose another app or podkop",
       ).format(args[0]);
     case "placeholder-agent":
       return _(
-        "The provider sent notes instead of servers to this User-Agent: %s. Try another name, or clear the field",
+        "The provider sent notes instead of servers to this User-Agent: %s. In Ask as, choose another app or podkop",
       ).format(args[0]);
     case "nolinks-agent":
       return _(
-        "The answer of the provider to this User-Agent has no links of servers. Try another name, or clear the field",
+        "The answer of the provider to this User-Agent has no servers. In Ask as, choose another app or podkop",
       );
     case "request":
       // the code of the line that cannot be sent, its number, its name, its limit
@@ -295,14 +299,19 @@ function failureText(code, args, text, attempts) {
     case "empty":
       return _("The provider sent an empty list");
     case "nolinks":
-      return _("The answer of the provider has no links of servers");
+      return _("The answer of the provider has no servers");
+    // podkop reads a list of links and the configurations of Xray and sing-box (JSON)
     case "json":
       return _(
-        "The provider sent a configuration in JSON (sing-box or Xray): podkop reads only a list of links so far",
+        "The provider sent JSON that is not a configuration of Xray or sing-box",
       );
     case "clash":
       return _(
-        "The provider sent a configuration of Clash (YAML): podkop reads only a list of links so far",
+        "The provider sent a configuration of Clash (YAML): podkop does not read it. If the address ends with /clash, /clash-meta, /mihomo or /stash, remove that ending: panels then send a list of links",
+      );
+    case "happ-crypt":
+      return _(
+        "The provider sent only links encrypted for Happ (happ://crypt…), which only Happ reads. In Ask as, choose another app, such as INCY, or ask the provider for plain links",
       );
     case "placeholder":
       return _("The provider sent notes instead of servers: %s").format(
@@ -357,10 +366,12 @@ function attemptLine(attempt) {
 
 // What the router knows of a subscription, a line a fact: its servers, the last check and its
 // way, when its servers changed, the next check; a failure with the list kept.
-// The state of a subscription in its window: the check, what it is asked with, then what the
-// provider told.
+// The state of a subscription in its window: the check, what the list in use came as, what it is
+// asked with, then what the provider told.
 function statusLines(state) {
-  const lines = stateLines(state).concat(requestLines(state));
+  const lines = stateLines(state)
+    .concat(state && state.changed ? formatLines(state) : [])
+    .concat(requestLines(state));
   if (state && state.provider) {
     // the data of the provider is of the last check that brought a list: after a failure it
     // is marked with its time; since the start, with the time of the list kept on flash
@@ -373,14 +384,18 @@ function statusLines(state) {
   return lines;
 }
 
-// What a subscription or a list of the window is asked with besides its address: the User-Agent,
-// the names of the extra headers (the router never tells their values), and the lines of the
-// settings the router leaves out.
+// What a subscription or a list of the window is asked with besides its address: the preset of an
+// app and the User-Agent sent (none for podkop's own), the names of the extra headers (the router
+// never tells their values), and the lines of the settings the router leaves out.
 function requestLines(info) {
   if (!info) {
     return [];
   }
   const lines = [];
+  const preset = String(info.preset || "");
+  if (preset && preset !== "podkop" && preset !== "custom") {
+    lines.push(_("Asked as: %s").format(main.presetName(preset)));
+  }
   if (info.agent) {
     lines.push(_("User-Agent: %s").format(info.agent));
   }
@@ -393,6 +408,26 @@ function requestLines(info) {
     );
   });
   return lines;
+}
+
+// What a list came as, when it is not a list of links: the provider's configurations of Xray
+// (their number) or of sing-box, of which only the servers are taken.
+function formatLines(info) {
+  switch (info && info.format) {
+    case "xray":
+      return [
+        _(
+          "Servers taken from the provider's Xray configurations (%d); their rules, DNS and balancers are not used",
+        ).format(info.configs || 0),
+      ];
+    case "sing-box":
+      return [
+        _(
+          "Servers taken from the provider's sing-box configuration; its rules, DNS and groups are not used",
+        ),
+      ];
+  }
+  return [];
 }
 
 // The changes saved and not applied yet, of the settings of podkop (LuCI's staged changes): a
@@ -420,17 +455,20 @@ function addressPending(map, name, staged) {
   return currentValue(map, name, "url") !== uci.get("podkop", name, "url");
 }
 
-// requestPending is addressPending for the User-Agent and the headers. The values are compared
-// as the router reads them: an option never set, an empty field and an empty list are the same
-// (the form gives "" and [] where uci gives none), and so are the same lines as a list or an
-// option.
+// the options of what a subscription is asked with besides its address
+const REQUEST_OPTIONS = ["user_agent_preset", "user_agent", "header"];
+
+// requestPending is addressPending for the preset, the User-Agent and the headers. The values are
+// compared as the router reads them: an option never set, an empty field and an empty list are
+// the same (the form gives "" and [] where uci gives none), and so are the same lines as a list
+// or an option, a User-Agent without a preset and custom, and no preset and podkop.
 function requestPending(map, name, staged) {
   const changes = uci.state && uci.state.changes && uci.state.changes.podkop;
   if (
     (changes &&
       changes[name] &&
-      ("user_agent" in changes[name] || "header" in changes[name])) ||
-    main.stagedChange(staged, name, ["user_agent", "header"])
+      REQUEST_OPTIONS.some((option) => option in changes[name])) ||
+    main.stagedChange(staged, name, REQUEST_OPTIONS)
   ) {
     return true;
   }
@@ -439,6 +477,8 @@ function requestPending(map, name, staged) {
     currentValue(map, name, "header"),
     uci.get("podkop", name, "user_agent"),
     uci.get("podkop", name, "header"),
+    currentValue(map, name, "user_agent_preset"),
+    uci.get("podkop", name, "user_agent_preset"),
   );
 }
 
@@ -798,26 +838,34 @@ function copyBySelection(text) {
   return copied;
 }
 
-// A button that copies text and says for two seconds whether it did.
-function copyButton(label, text) {
-  const button = E(
-    "button",
-    {
-      class: "cbi-button cbi-button-action",
-      click: (ev) => {
-        ev.preventDefault();
-        copyText(text).then((copied) => {
-          button.textContent = copied
-            ? _("Copied")
-            : _("Not copied: show the links and copy them by hand");
-          setTimeout(() => {
-            button.textContent = label;
-          }, 2000);
-        });
-      },
-    },
-    [label],
+// the title of Copy on a link podkop made from the provider's configuration (Xray or sing-box
+// JSON): it carries what the engine reads, which another app may read otherwise
+function madeTitle() {
+  return _(
+    "The link was made by podkop from the provider's configuration: other apps may read it differently",
   );
+}
+
+// A button that copies text and says for two seconds whether it did; title: its tooltip.
+function copyButton(label, text, title) {
+  const attributes = {
+    class: "cbi-button cbi-button-action",
+    click: (ev) => {
+      ev.preventDefault();
+      copyText(text).then((copied) => {
+        button.textContent = copied
+          ? _("Copied")
+          : _("Not copied: show the links and copy them by hand");
+        setTimeout(() => {
+          button.textContent = label;
+        }, 2000);
+      });
+    },
+  };
+  if (title) {
+    attributes.title = title;
+  }
+  const button = E("button", attributes, [label]);
   return button;
 }
 
@@ -849,7 +897,11 @@ function linksBlock(servers) {
     [_("Show links")],
   );
   return E("div", { style: "margin:.5em 0" }, [
-    copyButton(_("Copy all links"), links.join("\n")),
+    copyButton(
+      _("Copy all links"),
+      links.join("\n"),
+      servers.some((server) => server.made && server.link) ? madeTitle() : "",
+    ),
     " ",
     show,
     area,
@@ -901,7 +953,15 @@ function serversTable(preview) {
           E(
             "td",
             { class: "td", "data-title": _("Link") },
-            server.link ? [copyButton(_("Copy"), server.link)] : [],
+            server.link
+              ? [
+                  copyButton(
+                    _("Copy"),
+                    server.link,
+                    server.made ? madeTitle() : "",
+                  ),
+                ]
+              : [],
           ),
         ]),
       ),
@@ -910,8 +970,9 @@ function serversTable(preview) {
 }
 
 // What a download for the window came to: the provider's data and the servers, or why not; the
-// User-Agent it was asked with.
+// preset and the User-Agent it was asked with, what the list came as.
 function previewBlock(preview) {
+  const asked = requestLines({ preset: preview.preset, agent: preview.agent });
   if (preview.error) {
     return block(
       [
@@ -921,11 +982,11 @@ function previewBlock(preview) {
           preview.error,
           preview.attempts,
         ),
-      ].concat(requestLines({ agent: preview.agent })),
+      ].concat(asked),
     );
   }
   return E("div", {}, [
-    block(requestLines({ agent: preview.agent })),
+    block(asked.concat(formatLines(preview))),
     block(providerLines(preview.provider)),
     serversTable(preview),
   ]);
@@ -1178,6 +1239,7 @@ function listItems(option, section_id) {
 const VALUE_OPTIONS = [
   "url",
   "update_interval",
+  "user_agent_preset",
   "user_agent",
   "header",
   "link",
@@ -1440,20 +1502,78 @@ function createSourceContent(section) {
   };
 
   // what the subscription is asked with besides its address; the router's own identifier
-  // (HWID) and device headers go whatever these say
+  // (HWID) and device headers go whatever these say. The preset (user_agent_preset) names an app
+  // whose User-Agent the router sends; custom sends the User-Agent typed (user_agent). Written:
+  // podkop unsets both, a preset unsets the User-Agent, custom sets both. A User-Agent without a
+  // preset (a file written by hand) shows as custom.
+  o = section.option(
+    form.ListValue,
+    "user_agent_preset",
+    _("Ask as"),
+    _(
+      "podkop: its own name and version; most providers send it a list of links. Some providers give the servers only to the apps they name: Happ and INCY may get links or Xray JSON, sing-box (SFA) gets sing-box JSON. podkop reads all three and takes only the servers: the provider's rules, DNS and groups are not used, and a server the provider connects through another one is noted and connected directly. The router still sends its own device identifier (HWID) and keeps its own place among the devices of the subscription. Load shows what the provider sends",
+    ),
+  );
+  o.modalonly = true;
+  o.depends("type", "subscription");
+  o.default = "podkop";
+  o.load = function (section_id) {
+    return main.agentPreset(
+      uci.get("podkop", section_id, "user_agent_preset"),
+      uci.get("podkop", section_id, "user_agent"),
+    );
+  };
+  o.renderWidget = function (section_id, option_index, cfgvalue) {
+    this.keylist = [];
+    this.vallist = [];
+    main.AGENT_PRESETS.forEach((preset) => {
+      this.value(preset, main.presetName(preset));
+    });
+    // a preset set by hand that the page does not know stays shown
+    if (cfgvalue && !this.keylist.includes(cfgvalue)) {
+      this.value(cfgvalue, cfgvalue);
+    }
+    return form.ListValue.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue,
+    );
+  };
+  o.write = function (section_id, value) {
+    if (value === "podkop") {
+      uci.unset("podkop", section_id, "user_agent_preset");
+      uci.unset("podkop", section_id, "user_agent");
+      return;
+    }
+    uci.set("podkop", section_id, "user_agent_preset", value);
+    // the User-Agent of custom is written by its own field
+    if (value !== "custom") {
+      uci.unset("podkop", section_id, "user_agent");
+    }
+  };
+  keptWhilePasting(o);
+
   o = section.option(
     form.Value,
     "user_agent",
     _("User-Agent"),
     _(
-      "Empty: podkop with its version. Some providers give the list only to the apps they name: type the name of such an app alone, without a version (for example INCY). It is the name of an app, not a secret: the global check shows it. The router still sends its own device identifier (HWID) and keeps its own place among the devices of the subscription. Load shows what the provider sends to this name",
+      "The User-Agent of another app, as the provider names it: often the name alone is enough, without a version. It is the name of an app, not a secret: the global check shows it",
     ),
   );
   o.modalonly = true;
-  o.depends("type", "subscription");
+  o.depends({ type: "subscription", user_agent_preset: "custom" });
+  // an empty field is not refused by LuCI (rmempty): validate tells that custom needs one
   o.rmempty = true;
-  o.placeholder = "podkop/…";
+  o.placeholder = "v2rayNG";
   o.validate = function (section_id, value) {
+    if (!String(value || "").trim()) {
+      return currentValue(this.map, section_id, "user_agent_preset") ===
+        "custom"
+        ? _("Type the User-Agent, or choose podkop in Ask as")
+        : true;
+    }
     const validation = main.validateUserAgent(value);
     return validation.valid ? true : validation.message;
   };
@@ -1567,10 +1687,20 @@ function createSourceContent(section) {
       result.replaceChildren(block([_("The address is not set")]));
       return;
     }
-    // the User-Agent and the headers of the window, saved or not: the router refuses a request
-    // it cannot send, and the window says which line before it asks
-    const agent = currentValue(this.map, section_id, "user_agent");
+    // the preset, the User-Agent of custom and the headers of the window, saved or not: the
+    // router refuses a request it cannot send, and the window says which line before it asks
+    const preset = currentValue(this.map, section_id, "user_agent_preset");
+    const agent = main.customAgent(
+      preset,
+      currentValue(this.map, section_id, "user_agent"),
+    );
     const headers = currentValue(this.map, section_id, "header");
+    if (preset === "custom" && !agent) {
+      result.replaceChildren(
+        block([_("Type the User-Agent, or choose podkop in Ask as")]),
+      );
+      return;
+    }
     const problem = main.requestProblem(agent, headers);
     if (problem) {
       result.replaceChildren(
@@ -1580,7 +1710,11 @@ function createSourceContent(section) {
       );
       return;
     }
-    return loadPreview(address, main.listRequest(agent, headers), result);
+    return loadPreview(
+      address,
+      main.listRequest(agent, headers, preset),
+      result,
+    );
   };
 
   o = section.option(form.DummyValue, "_preview");

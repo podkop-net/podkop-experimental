@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AGENT_PRESETS,
+  agentPreset,
+  customAgent,
   headerLines,
   listRequest,
   loadArguments,
   parseRequest,
+  presetName,
   requestProblem,
   sameRequest,
   validateRequestHeader,
@@ -281,7 +285,11 @@ describe('the request of the form', () => {
   it('is sent only when it has something, the lines as they are', () => {
     expect(listRequest(undefined, undefined)).toEqual({});
     expect(listRequest('', [])).toEqual({});
-    expect(listRequest(' INCY ', [])).toEqual({ user_agent: 'INCY' });
+    // a User-Agent without a preset (a file written by hand) is custom
+    expect(listRequest(' INCY ', [])).toEqual({
+      user_agent_preset: 'custom',
+      user_agent: 'INCY',
+    });
     expect(listRequest('', 'X-Api-Key: k 1')).toEqual({
       headers: ['X-Api-Key: k 1'],
     });
@@ -294,6 +302,34 @@ describe('the request of the form', () => {
     expect(
       loadArguments('https://a.example/sub', { user_agent: 'INCY' }),
     ).toEqual(['https://a.example/sub', '{"user_agent":"INCY"}']);
+    expect(
+      loadArguments('https://a.example/sub', { user_agent_preset: 'happ' }),
+    ).toEqual(['https://a.example/sub', '{"user_agent_preset":"happ"}']);
+  });
+
+  it('sends a preset by its name, custom with its User-Agent, podkop as nothing', () => {
+    expect(listRequest('', [], 'podkop')).toEqual({});
+    expect(listRequest('', [], '')).toEqual({});
+    expect(listRequest('', [], 'happ')).toEqual({ user_agent_preset: 'happ' });
+    expect(listRequest('', ['A: 1'], 'sing-box')).toEqual({
+      user_agent_preset: 'sing-box',
+      headers: ['A: 1'],
+    });
+    expect(listRequest(' Hiddify ', [], 'custom')).toEqual({
+      user_agent_preset: 'custom',
+      user_agent: 'Hiddify',
+    });
+    // custom left empty is podkop's own
+    expect(listRequest(' ', [], 'custom')).toEqual({});
+    // the User-Agent of the field under another preset is not sent: the field is hidden then
+    expect(listRequest('INCY', [], 'incy')).toEqual({
+      user_agent_preset: 'incy',
+    });
+    expect(listRequest('INCY', [], 'podkop')).toEqual({});
+    // a preset the page does not know goes as it is: the router reads it as the settings
+    expect(listRequest('', [], ' other ')).toEqual({
+      user_agent_preset: 'other',
+    });
   });
 
   // requestPending of the window: the form against the settings
@@ -309,6 +345,61 @@ describe('the request of the form', () => {
     expect(sameRequest('INCY', [], '', undefined)).toBe(false);
     expect(sameRequest('', ['A: 1'], '', undefined)).toBe(false);
     expect(sameRequest('', ['A: 1', 'B: 2'], '', ['B: 2', 'A: 1'])).toBe(false);
+  });
+
+  // the window's list of presets against the settings
+  it('compares the presets as the router reads them', () => {
+    // the window's podkop against no preset; custom against a User-Agent alone
+    expect(sameRequest('', [], undefined, undefined, 'podkop')).toBe(true);
+    expect(sameRequest('INCY', [], 'INCY', [], 'custom', undefined)).toBe(true);
+    // a hidden field under a preset does not count
+    expect(sameRequest('INCY', [], undefined, [], 'happ', 'happ')).toBe(true);
+    expect(sameRequest('', [], undefined, [], 'happ', undefined)).toBe(false);
+    expect(sameRequest('', [], undefined, [], 'happ', 'incy')).toBe(false);
+    // podkop chosen over a User-Agent of the settings: Save unsets it
+    expect(sameRequest('INCY', [], 'INCY', [], 'podkop', undefined)).toBe(
+      false,
+    );
+    expect(sameRequest('A', [], 'B', [], 'custom', 'custom')).toBe(false);
+  });
+});
+
+describe('the presets of the User-Agent', () => {
+  it('reads the preset of the settings', () => {
+    expect(agentPreset(undefined, undefined)).toBe('podkop');
+    expect(agentPreset('', ' ')).toBe('podkop');
+    expect(agentPreset('podkop', '')).toBe('podkop');
+    expect(agentPreset('happ', '')).toBe('happ');
+    // a User-Agent without a preset (a file written by hand) is custom
+    expect(agentPreset(undefined, 'INCY')).toBe('custom');
+    expect(agentPreset('sing-box', 'INCY')).toBe('sing-box');
+    expect(agentPreset(' incy ', '')).toBe('incy');
+  });
+
+  it('sends the User-Agent of the field for custom only', () => {
+    expect(customAgent('custom', ' INCY ')).toBe('INCY');
+    expect(customAgent(undefined, 'INCY')).toBe('INCY');
+    expect(customAgent('happ', 'INCY')).toBe('');
+    expect(customAgent('podkop', 'INCY')).toBe('');
+  });
+
+  it('names each preset of the list', () => {
+    expect(AGENT_PRESETS).toEqual([
+      'podkop',
+      'happ',
+      'incy',
+      'sing-box',
+      'custom',
+    ]);
+    expect(AGENT_PRESETS.map(presetName)).toEqual([
+      'podkop',
+      'Happ',
+      'INCY',
+      'sing-box (SFA)',
+      'Another User-Agent',
+    ]);
+    expect(presetName(undefined)).toBe('podkop');
+    expect(presetName('other')).toBe('other');
   });
 
   // the window's list loads its value through headerLines (source.js): LuCI's L.toArray keeps an
