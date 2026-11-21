@@ -14,6 +14,9 @@ func TestMaskSystemLog(t *testing.T) {
 		head + "ERROR[0042] inbound/mixed[main-mixed-in]: process connection from 192.168.78.10:40000: socks5: authentication failed, username=pdk-user, password=Wrong",
 		head + "Tail77",
 		head + "AndMore",
+		head + "ERROR[0042] inbound/mixed[main-mixed-in]: process connection from 192.168.78.10:40002: http: authentication failed, no Proxy-Authorization header",
+		head + "[warn] a line of the backend at that second",
+		head + "NotATail after a message of its own",
 		"Sat Nov 21 02:07:22 2026 daemon.err podkop[4525]: ERROR[0043] a later line",
 		head + "a line of the same second after an unmasked one",
 		"Sat Nov 21 02:07:21 2026 daemon.info podkop[4525]: http: authentication failed, Proxy-Authorization=Basic cGRrOldyb25n",
@@ -26,8 +29,11 @@ func TestMaskSystemLog(t *testing.T) {
 		head + "MASKED",
 		lines[3],
 		lines[4],
-		"Sat Nov 21 02:07:21 2026 daemon.info podkop[4525]: http: authentication failed, Proxy-Authorization=MASKED",
+		lines[5],
 		lines[6],
+		lines[7],
+		"Sat Nov 21 02:07:21 2026 daemon.info podkop[4525]: http: authentication failed, Proxy-Authorization=MASKED",
+		lines[9],
 	}
 	for index := range want {
 		if got[index] != want[index] {

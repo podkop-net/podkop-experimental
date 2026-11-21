@@ -569,10 +569,15 @@ func systemLog() []string {
 // process ("Sat Nov 21 02:07:21 2026 daemon.err podkop[4525]: ").
 var systemHead = regexp.MustCompile(`^.*? \S+\[\d+\]: `)
 
+// messageStart is how a message of the backend's process begins: sing-box's "ERROR[0042] ",
+// the backend's own "[warn] ", a command's "error: ". A line that continues a message cut at
+// a line break has none of them.
+var messageStart = regexp.MustCompile(`^([A-Z]+\[\d+\] |\[[a-z]+\] |error: )`)
+
 // maskSystemLog masks the logins in lines of the system log, as engine.MaskLogin does, and the
 // lines that continue a masked one: procd cuts sing-box's output at its line breaks, so what a
 // client sent after a line break of a failed login comes as lines of their own, of the same
-// process at the same second (the same head).
+// process at the same second (the same head), which do not begin as a message does.
 func maskSystemLog(lines []string) []string {
 	after := ""
 	for index, line := range lines {
@@ -582,7 +587,7 @@ func maskSystemLog(lines []string) []string {
 		case masked != line:
 			lines[index] = masked
 			after = head
-		case after != "" && head == after:
+		case after != "" && head == after && !messageStart.MatchString(line[len(head):]):
 			lines[index] = head + "MASKED"
 		default:
 			after = ""
