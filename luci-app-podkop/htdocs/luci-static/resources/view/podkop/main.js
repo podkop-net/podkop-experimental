@@ -7955,21 +7955,20 @@ var styles4 = `
     margin-left: 5px;
 }
 
+/* the kind is told by the border; the text keeps the colour of the page's text, since the tag
+   carries a version to read (the warning colour on white is 1.6:1 in Bootstrap, measured) */
 .pdk_diagnostic-page__right-bar__system-info__row__tag--warning {
     border: 1px var(--warn-color-medium, orange) solid;
-    color: var(--warn-color-medium, orange);
 }
 
 .pdk_diagnostic-page__right-bar__system-info__row__tag--success {
     border: 1px var(--success-color-medium, green) solid;
-    color: var(--success-color-medium, green);
 }
 
-/* in the colour of text, its border too (the base border is transparent); a theme without the
-   variable gives the colour the text has */
+/* the base border is transparent: a neutral tag has one in a grey of the theme, or in the
+   colour of the text */
 .pdk_diagnostic-page__right-bar__system-info__row__tag--neutral {
     border: 1px var(--text-color-medium, currentColor) solid;
-    color: var(--text-color-medium, inherit);
 }
 
 .pdk_diagnostic-page__left-bar {

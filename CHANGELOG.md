@@ -48,6 +48,7 @@ Engine r27, as in 0.8.20.
   apart; a download fails with a hint when api.github.com resolves to podkop's FakeIP.
 - **Fixed:** a final answer of the provider on the direct way (such as a 404) no longer counts as a
   failure of that way, which made the next download of the subscription start two ways at once.
+  Turning a rule's mixed proxy off no longer clears its port.
 - **Downgrade to 0.8.20:** it ignores the new options. The mixed proxy with a login is then open
   to every device that reaches its port, a rule "Only for devices" takes every device, the
   subscription goes without its User-Agent and headers, and the global check and `show_config` of

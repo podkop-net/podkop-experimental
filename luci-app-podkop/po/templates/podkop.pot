@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-21 01:24+0000\n"
-"PO-Revision-Date: 2026-11-21 01:24+0000\n"
+"POT-Creation-Date: 2026-11-21 02:49+0000\n"
+"PO-Revision-Date: 2026-11-21 02:49+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -201,7 +201,7 @@ msgstr ""
 msgid "A client set up without DHT, uTP and peer exchange, with encryption required, shows the router no sign of BitTorrent. With this on, a device that opens connections to many new addresses on uncommon ports at once has its new connections checked through sing-box; when three of them turn out to be BitTorrent, the device is taken as running a client and the connections it opened before are closed. Not found: a download whose tracker names about 20 peers or fewer. An I2P router is taken for BitTorrent. Connections under the check are not offloaded"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1320
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1322
 msgid "A domain is resolved to its real IP before the rule is chosen, so that the lists of subnets match"
 msgstr ""
 
@@ -245,7 +245,7 @@ msgstr ""
 msgid "A search for another server is running; try again when it ends."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1368
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1370
 msgid "A server losing more than this, beyond the loss every server shows, gets no devices"
 msgstr ""
 
@@ -427,7 +427,7 @@ msgstr ""
 msgid "Balance"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1343
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1345
 msgid "Balance between the best"
 msgstr ""
 
@@ -988,19 +988,19 @@ msgstr ""
 msgid "Fallback: %s"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1341
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1343
 #: src/podkop/methods/custom/ruleTiles.ts:39
 #: src/podkop/methods/custom/ruleTiles.ts:212
 #: src/podkop/methods/custom/ruleTiles.ts:262
 msgid "Fastest"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1342
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1344
 #: src/podkop/methods/custom/ruleTiles.ts:263
 msgid "Fastest, avoiding loss"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1336
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1338
 msgid "Fastest: by the delay of the server check. Avoid loss: the delay is weighed by the loss that downloads of 256 KB through the servers count, and a faster server is checked with 1 MB before the switch. Balance: the devices are spread over the best servers by their address, a device keeps its server, servers with loss are left out. Loss checks download about 50 MB a day per rule at the interval of 30 minutes"
 msgstr ""
 
@@ -1052,7 +1052,7 @@ msgstr ""
 msgid "fully routed IPs: %d"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1276
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1278
 msgid "Generate"
 msgstr ""
 
@@ -1072,7 +1072,7 @@ msgstr ""
 msgid "Hide links"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1352
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1354
 msgid "How often the servers the rule may use are checked for loss: four servers, 256 KB each. The traffic grows as the interval shrinks: about 300 MB a day at 5 minutes"
 msgstr ""
 
@@ -1253,7 +1253,7 @@ msgstr ""
 msgid "Latin letters, digits and signs only, without spaces"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1367
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1369
 msgid "Leave out servers with loss above, %"
 msgstr ""
 
@@ -1306,7 +1306,7 @@ msgstr ""
 msgid "Loss"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1351
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1353
 msgid "Loss check interval, minutes"
 msgstr ""
 
@@ -1379,7 +1379,7 @@ msgstr ""
 msgid "missing UUID"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1247
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1249
 msgid "Mixed Proxy Password"
 msgstr ""
 
@@ -1387,7 +1387,7 @@ msgstr ""
 msgid "Mixed Proxy Port"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1219
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1221
 msgid "Mixed Proxy User Name"
 msgstr ""
 
@@ -1875,7 +1875,7 @@ msgstr ""
 msgid "Reset"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1319
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1321
 msgid "Resolve real IP for routing"
 msgstr ""
 
@@ -2000,7 +2000,7 @@ msgstr ""
 msgid "Sent and received as the devices of the LAN see it, counted by the router with packet headers (1 GB = 1000 MB). IPv4 only; a client on the router itself is counted only when its user is named in the settings."
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1248
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1250
 msgid "Sent unencrypted: never the router's password. Generate fills in 16 random letters and digits"
 msgstr ""
 
@@ -2025,7 +2025,7 @@ msgstr ""
 msgid "Server check URLs"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1335
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1337
 msgid "Server choice"
 msgstr ""
 
@@ -3142,7 +3142,7 @@ msgstr ""
 msgid "With %s the provider would send a part of the list or none: podkop needs the whole list"
 msgstr ""
 
-#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1220
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1222
 msgid "With a user name and a password, apps sign in to the proxy (SOCKS5 or HTTP; SOCKS4 no longer works). Both empty: any device that reaches the port can use it"
 msgstr ""
 
