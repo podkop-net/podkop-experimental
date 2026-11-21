@@ -112,7 +112,8 @@ as it should be, the other devices still reach it.
   connections out directly through sing-box, which opens them anew from the router: they are not
   offloaded, **Disable QUIC** applies to them for those names, and per-device firewall rules
   (time limits), pbr or mwan3 rules by source address, SQM per IP and nlbwmon no longer see them
-  as that device's traffic.
+  as that device's traffic. Their IPv6 connections to the IPv6 subnets of the list leave from the
+  router's IPv6 address, not the device's.
 - The **Fully Routed IPs** of such a rule must be among its devices; the page refuses others. The
   **Fully Routed IPs** of every rule and the **Routing Excluded IPs** come before it: a device
   routed whole by another rule, or excluded, is not taken by it (the grid tells it). Not so for
