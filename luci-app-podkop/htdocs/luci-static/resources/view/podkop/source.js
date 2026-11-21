@@ -1460,6 +1460,13 @@ function createSourceContent(section) {
   o.modalonly = true;
   o.depends("type", "subscription");
   o.placeholder = "Authorization: Bearer …";
+  // a single "option header" (set by hand) is one line, as the backend reads it: LuCI's list
+  // would split it at white space, show its words as lines and write them so at Save
+  o.load = function (section_id) {
+    return Promise.resolve(
+      form.DynamicList.prototype.load.call(this, section_id),
+    ).then((value) => (value == null ? value : main.headerLines(value)));
+  };
   o.validate = function (section_id, value) {
     if (!value || !String(value).trim()) {
       return true;

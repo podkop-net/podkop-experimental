@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  headerLines,
   listRequest,
   loadArguments,
   parseRequest,
@@ -308,5 +309,15 @@ describe('the request of the form', () => {
     expect(sameRequest('INCY', [], '', undefined)).toBe(false);
     expect(sameRequest('', ['A: 1'], '', undefined)).toBe(false);
     expect(sameRequest('', ['A: 1', 'B: 2'], '', ['B: 2', 'A: 1'])).toBe(false);
+  });
+
+  // the window's list loads its value through headerLines (source.js): LuCI's L.toArray keeps an
+  // array as it is and splits a string at white space
+  it('reads an option of one line as one line, and a list as its lines', () => {
+    expect(headerLines('Authorization: Bearer abc')).toEqual([
+      'Authorization: Bearer abc',
+    ]);
+    expect(headerLines(['A: 1', 'B: x y'])).toEqual(['A: 1', 'B: x y']);
+    expect(headerLines(undefined)).toEqual([]);
   });
 });
