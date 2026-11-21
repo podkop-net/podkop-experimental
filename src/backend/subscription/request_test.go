@@ -70,7 +70,9 @@ func TestRequestDenied(t *testing.T) {
 	device := Device{HWID: "0123456789abcdef0123456789abcdef", Model: "Xiaomi AX3000T", Release: "24.10.4"}
 	for name, code := range map[string]string{
 		"x-hwid": "device", "X-HWID": "device", "hwid": "device", "x-hwid-limit": "device", "x-device-os": "device", "X-Device-Model": "device", "x-device-locale": "device", "x-ver-os": "device",
+		"Device-Id": "device", "X-App-Device-Id": "device", "X-Client-Device-Id": "device", "X-Hardware-Id": "device",
 		"X-Forwarded-For": "client", "X-Real-IP": "client", "Forwarded": "client", "True-Client-IP": "client", "CF-Connecting-IP": "client", "X-Client-IP": "client", "X-Cluster-Client-IP": "client", "X-Forwarded-Host": "client",
+		"CF-Connecting-IPv6": "client", "X-Envoy-External-Address": "client", "X-Azure-ClientIP": "client", "X-Azure-SocketIP": "client", "X-Client-Address": "client",
 		"User-Agent": "agent", "user-agent": "agent",
 		"Host": "connection", "Content-Length": "connection", "Transfer-Encoding": "connection", "Connection": "connection", "Keep-Alive": "connection", "Proxy-Connection": "connection",
 		"Upgrade": "connection", "TE": "connection", "Trailer": "connection", "Expect": "connection", "Accept-Encoding": "connection",

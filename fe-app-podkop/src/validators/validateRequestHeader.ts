@@ -63,21 +63,26 @@ const PARTIAL_NAMES = [
   'if-unmodified-since',
 ];
 
+// the names of a device's identity (x-hwid, Device-Id, X-Hardware-Id…) and of the address of the
+// client (X-Forwarded-For, CF-Connecting-IPv6, X-Azure-ClientIP, X-Envoy-External-Address…)
+const DEVICE_PARTS = ['hwid', 'device-id', 'deviceid', 'hardware-id'];
+const CLIENT_PARTS = ['forwarded', 'clientip', 'socketip'];
+const CLIENT_ENDS = ['-ip', '-ipv4', '-ipv6', '-ip6', '-addr', '-address'];
+
 // deniedHeader is why a header of this name is not sent, '' when it may be: the identity of
 // the router (it sends its own and takes its own place among the devices), the address of the
 // client, the User-Agent (it has its own field), the connection, a part of the list, a proxy
 export function deniedHeader(name: string): string {
   const lower = name.toLowerCase();
   if (
-    lower.includes('hwid') ||
+    DEVICE_PARTS.some((part) => lower.includes(part)) ||
     lower.startsWith('x-device') ||
     lower === 'x-ver-os'
   )
     return 'device';
   if (
-    lower.includes('forwarded') ||
-    lower.endsWith('-ip') ||
-    lower.endsWith('-addr')
+    CLIENT_PARTS.some((part) => lower.includes(part)) ||
+    CLIENT_ENDS.some((end) => lower.endsWith(end))
   )
     return 'client';
   if (lower === 'user-agent') return 'agent';

@@ -77,18 +77,29 @@ func (p Problem) Describe() string {
 	return p.Where() + " of the settings is left out: " + p.Text
 }
 
-// the names of the identity of the router: podkop sends its own values, so the router takes its
-// own place among the devices of the subscription and never that of another device (the owner's
-// rule)
+// the names of a device's identity (x-hwid, Device-Id, X-Hardware-Id…) and of the address of the
+// client (X-Forwarded-For, CF-Connecting-IPv6, X-Azure-ClientIP, X-Envoy-External-Address…), as
+// parts of a name and as its ends
+var (
+	deviceParts = []string{"hwid", "device-id", "deviceid", "hardware-id"}
+	clientParts = []string{"forwarded", "clientip", "socketip"}
+	clientEnds  = []string{"-ip", "-ipv4", "-ipv6", "-ip6", "-addr", "-address"}
+)
+
+// the names of the identity of the router, or of another device: podkop sends its own values, so
+// the router takes its own place among the devices of the subscription and never that of another
+// device (the owner's rule)
 func deviceName(lower string) bool {
-	return strings.Contains(lower, "hwid") || strings.HasPrefix(lower, "x-device") || lower == "x-ver-os"
+	return slices.ContainsFunc(deviceParts, func(part string) bool { return strings.Contains(lower, part) }) ||
+		strings.HasPrefix(lower, "x-device") || lower == "x-ver-os"
 }
 
 // the names that tell a server behind a proxy the address of the client (X-Forwarded-For,
 // Forwarded, X-Real-IP, CF-Connecting-IP, True-Client-IP, X-Client-IP…): the address the provider
 // sees is the router's own
 func clientName(lower string) bool {
-	return strings.Contains(lower, "forwarded") || strings.HasSuffix(lower, "-ip") || strings.HasSuffix(lower, "-addr")
+	return slices.ContainsFunc(clientParts, func(part string) bool { return strings.Contains(lower, part) }) ||
+		slices.ContainsFunc(clientEnds, func(end string) bool { return strings.HasSuffix(lower, end) })
 }
 
 // the headers of the connection itself: Go writes them, ignores them (Host comes from the
