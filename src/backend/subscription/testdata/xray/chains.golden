@@ -35,6 +35,7 @@
       "name": "🇩🇪 Frankfurt",
       "id": "4024ad6f4c6e928172d64591",
       "notes": [
+        "the provider connects it through relay; podkop connects it directly",
         "the provider connects it through gone, which its configuration does not have; podkop connects it directly"
       ],
       "link": "trojan://fixture-trojan-de@de.example.net:443?security=tls&sni=de.example.net&type=tcp#%F0%9F%87%A9%F0%9F%87%AA%20Frankfurt",
@@ -54,12 +55,12 @@
       }
     },
     {
-      "name": "self",
+      "name": "Through itself",
       "id": "e1c0a49c70366489de0846b5",
       "notes": [
         "the provider connects it through itself; podkop connects it directly"
       ],
-      "link": "vless://c0ffee00-0000-4000-8000-00000000f044@self.example.net:443?encryption=none&security=none&type=tcp#self",
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f044@self.example.net:443?encryption=none&security=none&type=tcp#Through%20itself",
       "outbound": {
         "server": "self.example.net",
         "server_port": 443,
@@ -68,12 +69,12 @@
       }
     },
     {
-      "name": "front",
+      "name": "Through itself",
       "id": "86c0d61c9456ecdb7708c99b",
       "notes": [
         "the provider connects it through hidden; podkop connects it directly"
       ],
-      "link": "vless://c0ffee00-0000-4000-8000-00000000f046@front.example.net:443?encryption=none&security=none&type=tcp#front",
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f046@front.example.net:443?encryption=none&security=none&type=tcp#Through%20itself",
       "outbound": {
         "server": "front.example.net",
         "server_port": 443,

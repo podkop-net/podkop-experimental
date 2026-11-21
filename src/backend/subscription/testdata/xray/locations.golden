@@ -1,0 +1,160 @@
+{
+  "format": "xray",
+  "configs": 7,
+  "outbounds": 18,
+  "servers": [
+    {
+      "name": "🇩🇪 Germany",
+      "id": "e66e2b9eea7b6d8ac2688394",
+      "link": "vless://c0ffee00-0000-4000-8000-000000000101@de1.example.net:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.example.com&fp=chrome&pbk=jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY&sid=01&type=tcp#%F0%9F%87%A9%F0%9F%87%AA%20Germany",
+      "outbound": {
+        "flow": "xtls-rprx-vision",
+        "server": "de1.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "reality": {
+            "enabled": true,
+            "public_key": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+            "short_id": "01"
+          },
+          "server_name": "www.example.com",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-000000000101"
+      }
+    },
+    {
+      "name": "🇸🇪 Sweden",
+      "id": "dc0f514bb04b9fa3d4cd833a",
+      "link": "vless://c0ffee00-0000-4000-8000-000000000102@se1.example.net:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.example.com&fp=chrome&pbk=jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY&sid=02&type=tcp#%F0%9F%87%B8%F0%9F%87%AA%20Sweden",
+      "outbound": {
+        "flow": "xtls-rprx-vision",
+        "server": "se1.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "reality": {
+            "enabled": true,
+            "public_key": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+            "short_id": "02"
+          },
+          "server_name": "www.example.com",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-000000000102"
+      }
+    },
+    {
+      "name": "🇪🇪 Estonia",
+      "id": "9a897c901b84c510ce0870ae",
+      "link": "vless://c0ffee00-0000-4000-8000-000000000103@ee1.example.net:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.example.com&fp=chrome&pbk=jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY&sid=03&type=tcp#%F0%9F%87%AA%F0%9F%87%AA%20Estonia",
+      "outbound": {
+        "flow": "xtls-rprx-vision",
+        "server": "ee1.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "reality": {
+            "enabled": true,
+            "public_key": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+            "short_id": "03"
+          },
+          "server_name": "www.example.com",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-000000000103"
+      }
+    },
+    {
+      "name": "🇵🇱 Poland",
+      "id": "9ba3bc4a397382514bfe1192",
+      "link": "vless://c0ffee00-0000-4000-8000-000000000104@pl1.example.net:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.example.com&fp=chrome&pbk=jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY&sid=04&type=tcp#%F0%9F%87%B5%F0%9F%87%B1%20Poland",
+      "outbound": {
+        "flow": "xtls-rprx-vision",
+        "server": "pl1.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "reality": {
+            "enabled": true,
+            "public_key": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+            "short_id": "04"
+          },
+          "server_name": "www.example.com",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-000000000104"
+      }
+    },
+    {
+      "name": "🇷🇺 Russia",
+      "id": "6918a0c340d0d827f1a933b0",
+      "link": "vless://c0ffee00-0000-4000-8000-000000000199@ru1.example.net:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.example.com&fp=chrome&pbk=jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY&sid=99&type=tcp#%F0%9F%87%B7%F0%9F%87%BA%20Russia",
+      "outbound": {
+        "flow": "xtls-rprx-vision",
+        "server": "ru1.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "reality": {
+            "enabled": true,
+            "public_key": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+            "short_id": "99"
+          },
+          "server_name": "www.example.com",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-000000000199"
+      }
+    },
+    {
+      "name": "🇳🇱 Netherlands via Russia",
+      "id": "f21d9abae4e555d14a432e24",
+      "notes": [
+        "the provider connects it through RU_1_EXIT; podkop connects it directly"
+      ],
+      "link": "vless://c0ffee00-0000-4000-8000-000000000105@nl1.example.net:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.example.com&fp=chrome&pbk=jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY&sid=05&type=tcp#%F0%9F%87%B3%F0%9F%87%B1%20Netherlands%20via%20Russia",
+      "outbound": {
+        "flow": "xtls-rprx-vision",
+        "server": "nl1.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "reality": {
+            "enabled": true,
+            "public_key": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+            "short_id": "05"
+          },
+          "server_name": "www.example.com",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-000000000105"
+      }
+    }
+  ]
+}

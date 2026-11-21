@@ -283,27 +283,62 @@ func TestXraySelection(t *testing.T) {
 		}
 		return found
 	}
-	// balancer members by prefix, the fallback, a rule's target; not the other outbound
-	require.Equal(t, []string{"R", "eu-1", "eu-2", "backup", "routed"}, names(`{"remarks":"R","outbounds":[`+server("proxy", "p.example.net")+`,`+server("eu-1", "a.example.net")+`,`+
+	// balancer members by prefix, the fallback, a rule's target; not the other outbound. The tags
+	// are the configuration's own: its servers take its remarks (the plan numbers them)
+	require.Equal(t, []string{"R", "R", "R", "R", "R"}, names(`{"remarks":"R","outbounds":[`+server("proxy", "p.example.net")+`,`+server("eu-1", "a.example.net")+`,`+
 		server("eu-2", "b.example.net")+`,`+server("backup", "c.example.net")+`,`+server("routed", "d.example.net")+`,`+server("other", "e.example.net")+`],
 		"routing":{"balancers":[{"tag":"b","selector":["eu-"],"fallbackTag":"backup"}],"rules":[{"outboundTag":"routed"},{"outboundTag":"direct"}]}}`))
 	// none of these: every server but a relay of another
-	require.Equal(t, []string{"first", "second"}, names(`{"remarks":"R","outbounds":[`+relayed("first", "a.example.net", "relay")+`,`+server("second", "b.example.net")+`,`+server("relay", "r.example.net")+`]}`))
+	require.Equal(t, []string{"R", "R"}, names(`{"remarks":"R","outbounds":[`+relayed("first", "a.example.net", "relay")+`,`+server("second", "b.example.net")+`,`+server("relay", "r.example.net")+`]}`))
 	// its only server takes the remarks
 	require.Equal(t, []string{"R"}, names(`{"remarks":"R","outbounds":[`+relayed("first", "a.example.net", "relay")+`,`+server("relay", "r.example.net")+`]}`))
-	// the tags Remnawave numbers are no names; no remarks: the tag; neither: the number
+	// no remarks: the tag; neither: the number
 	require.Equal(t, []string{"R", "R"}, names(`{"remarks":"R","outbounds":[`+server("proxy", "a.example.net")+`,`+server("proxy-2", "b.example.net")+`],"routing":{"balancers":[{"selector":["proxy"]}]}}`))
 	require.Equal(t, []string{"server 1"}, names(`{"outbounds":[`+server("", "a.example.net")+`]}`))
-	require.Equal(t, []string{"proxy"}, names(`{"outbounds":[`+server("proxy", "a.example.net")+`]}`))
+	require.Equal(t, []string{"proxy", "eu"}, names(`{"outbounds":[`+server("proxy", "a.example.net")+`,`+server("eu", "b.example.net")+`],"routing":{"rules":[{"outboundTag":"eu"}]}}`))
 	// the same server in two configurations under one name: once; under two names: twice
 	one := `{"remarks":"Same","outbounds":[` + server("proxy", "a.example.net") + `]}`
 	other := `{"remarks":"Other","outbounds":[` + server("proxy", "a.example.net") + `]}`
 	require.Equal(t, []string{"Same"}, names("["+one+","+one+"]"))
 	require.Equal(t, []string{"Same", "Other"}, names("["+one+","+other+"]"))
-	// a member that is the proxy of another configuration takes the name of that one
+	// a member that is the main server of another configuration is that one's entry, where that
+	// one is
 	withExit := `{"remarks":"A","outbounds":[` + server("proxy", "a.example.net") + `,` + server("exit", "b.example.net") + `],"routing":{"balancers":[{"selector":["proxy","exit"]}]}}`
 	exit := `{"remarks":"B","outbounds":[` + server("proxy", "b.example.net") + `]}`
 	require.Equal(t, []string{"A", "B"}, names("["+withExit+","+exit+"]"))
+	require.Equal(t, []string{"B", "A"}, names("["+exit+","+withExit+"]"))
+	// the main server without a proxy: the one server all the servers of the configuration are
+	variants := `{"remarks":"V","outbounds":[` + server("V-DIRECT", "v.example.net") + `,` + relayed("V-VIA", "v.example.net", "relay") + `,` + server("relay", "r.example.net") + `]}`
+	group := `{"remarks":"Group","outbounds":[` + server("V-DIRECT", "v.example.net") + `,` + server("W-DIRECT", "w.example.net") + `],"routing":{"balancers":[{"selector":["V-","W-"]}]}}`
+	require.Equal(t, []string{"Group", "V"}, names("["+group+","+variants+"]"), "a group has no main server; W is listed in it alone")
+}
+
+// Remnawave's configurations of locations (a server DIRECT and VIA a relay in a balancer, the
+// relay only a dialerProxy target), of a group (a balancer over the servers of locations) and of
+// the relay alone: one entry a server, named by its location, the chain noted only for a server
+// the provider lists chained alone.
+func TestXrayLocations(t *testing.T) {
+	t.Parallel()
+	body, err := os.ReadFile("testdata/xray/locations.json")
+	require.NoError(t, err)
+	list, err := ParseList(body, realCodec)
+	require.NoError(t, err)
+	require.Equal(t, 7, list.Configs)
+	var names []string
+	ids := map[string]bool{}
+	for _, server := range list.Servers {
+		names = append(names, server.Name)
+		require.True(t, server.Usable(), server.Name)
+		require.False(t, ids[server.ID], "%s: each server once", server.Name)
+		ids[server.ID] = true
+		require.True(t, strings.HasSuffix(server.Link, "#"+url.PathEscape(server.Name)), "%s: the link has the name", server.Name)
+		if server.Name == "🇳🇱 Netherlands via Russia" {
+			require.Equal(t, []string{"the provider connects it through RU_1_EXIT; podkop connects it directly"}, server.Notes)
+		} else {
+			require.Empty(t, server.Notes, server.Name)
+		}
+	}
+	require.Equal(t, []string{"🇩🇪 Germany", "🇸🇪 Sweden", "🇪🇪 Estonia", "🇵🇱 Poland", "🇷🇺 Russia", "🇳🇱 Netherlands via Russia"}, names)
 }
 
 // The chains of the provider are notes: the server is connected directly.
@@ -315,6 +350,7 @@ func TestXrayChainNotes(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, list.Servers, 1)
 	require.Equal(t, []string{"the provider connects it through 🔒 Relay; podkop connects it directly"}, list.Servers[0].Notes)
+	require.Equal(t, "Exit", list.Servers[0].Name)
 	require.Nil(t, outboundAt(t, list.Servers[0], "detour"))
 	// the older form of the cut of the hello: a freedom dialer with a fragment
 	list, err = ParseList([]byte(`{"remarks":"F","outbounds":[

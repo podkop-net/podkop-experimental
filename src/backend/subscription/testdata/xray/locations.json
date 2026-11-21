@@ -1,0 +1,831 @@
+[
+ {
+  "remarks": "🇩🇪 Germany",
+  "outbounds": [
+   {
+    "tag": "DE_1_EXIT-DIRECT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "de1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000101",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "01"
+     }
+    }
+   },
+   {
+    "tag": "RU_1_EXIT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "ru1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000199",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "99"
+     }
+    }
+   },
+   {
+    "tag": "DE_1_EXIT-VIA-RU-RU_1_EXIT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "de1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000101",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "01"
+     },
+     "sockopt": {
+      "dialerProxy": "RU_1_EXIT"
+     }
+    }
+   },
+   {
+    "tag": "DIRECT",
+    "protocol": "freedom"
+   },
+   {
+    "tag": "BLOCK",
+    "protocol": "blackhole"
+   }
+  ],
+  "routing": {
+   "balancers": [
+    {
+     "tag": "BAL-DE_1_EXIT",
+     "selector": [
+      "DE_1_EXIT-DIRECT",
+      "DE_1_EXIT-VIA-RU-RU_1_EXIT"
+     ],
+     "strategy": {
+      "type": "leastPing"
+     },
+     "fallbackTag": "DE_1_EXIT-DIRECT"
+    }
+   ],
+   "rules": [
+    {
+     "type": "field",
+     "protocol": [
+      "bittorrent"
+     ],
+     "outboundTag": "DIRECT"
+    },
+    {
+     "type": "field",
+     "network": "tcp,udp",
+     "balancerTag": "BAL-DE_1_EXIT"
+    }
+   ]
+  },
+  "burstObservatory": {
+   "subjectSelector": [
+    "DE_1_EXIT-DIRECT",
+    "DE_1_EXIT-VIA-RU-RU_1_EXIT"
+   ],
+   "pingConfig": {
+    "interval": "60s"
+   }
+  }
+ },
+ {
+  "remarks": "🇸🇪 Sweden",
+  "outbounds": [
+   {
+    "tag": "SE_1_EXIT-DIRECT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "se1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000102",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "02"
+     }
+    }
+   },
+   {
+    "tag": "RU_1_EXIT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "ru1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000199",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "99"
+     }
+    }
+   },
+   {
+    "tag": "SE_1_EXIT-VIA-RU-RU_1_EXIT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "se1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000102",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "02"
+     },
+     "sockopt": {
+      "dialerProxy": "RU_1_EXIT"
+     }
+    }
+   },
+   {
+    "tag": "DIRECT",
+    "protocol": "freedom"
+   },
+   {
+    "tag": "BLOCK",
+    "protocol": "blackhole"
+   }
+  ],
+  "routing": {
+   "balancers": [
+    {
+     "tag": "BAL-SE_1_EXIT",
+     "selector": [
+      "SE_1_EXIT-DIRECT",
+      "SE_1_EXIT-VIA-RU-RU_1_EXIT"
+     ],
+     "strategy": {
+      "type": "leastPing"
+     },
+     "fallbackTag": "SE_1_EXIT-DIRECT"
+    }
+   ],
+   "rules": [
+    {
+     "type": "field",
+     "protocol": [
+      "bittorrent"
+     ],
+     "outboundTag": "DIRECT"
+    },
+    {
+     "type": "field",
+     "network": "tcp,udp",
+     "balancerTag": "BAL-SE_1_EXIT"
+    }
+   ]
+  },
+  "burstObservatory": {
+   "subjectSelector": [
+    "SE_1_EXIT-DIRECT",
+    "SE_1_EXIT-VIA-RU-RU_1_EXIT"
+   ],
+   "pingConfig": {
+    "interval": "60s"
+   }
+  }
+ },
+ {
+  "remarks": "🇪🇪 Estonia",
+  "outbounds": [
+   {
+    "tag": "EE_1_EXIT-DIRECT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "ee1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000103",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "03"
+     }
+    }
+   },
+   {
+    "tag": "RU_1_EXIT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "ru1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000199",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "99"
+     }
+    }
+   },
+   {
+    "tag": "EE_1_EXIT-VIA-RU-RU_1_EXIT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "ee1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000103",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "03"
+     },
+     "sockopt": {
+      "dialerProxy": "RU_1_EXIT"
+     }
+    }
+   },
+   {
+    "tag": "DIRECT",
+    "protocol": "freedom"
+   },
+   {
+    "tag": "BLOCK",
+    "protocol": "blackhole"
+   }
+  ],
+  "routing": {
+   "balancers": [
+    {
+     "tag": "BAL-EE_1_EXIT",
+     "selector": [
+      "EE_1_EXIT-DIRECT",
+      "EE_1_EXIT-VIA-RU-RU_1_EXIT"
+     ],
+     "strategy": {
+      "type": "leastPing"
+     },
+     "fallbackTag": "EE_1_EXIT-DIRECT"
+    }
+   ],
+   "rules": [
+    {
+     "type": "field",
+     "protocol": [
+      "bittorrent"
+     ],
+     "outboundTag": "DIRECT"
+    },
+    {
+     "type": "field",
+     "network": "tcp,udp",
+     "balancerTag": "BAL-EE_1_EXIT"
+    }
+   ]
+  },
+  "burstObservatory": {
+   "subjectSelector": [
+    "EE_1_EXIT-DIRECT",
+    "EE_1_EXIT-VIA-RU-RU_1_EXIT"
+   ],
+   "pingConfig": {
+    "interval": "60s"
+   }
+  }
+ },
+ {
+  "remarks": "🇵🇱 Poland",
+  "outbounds": [
+   {
+    "tag": "PL_1_EXIT-DIRECT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "pl1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000104",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "04"
+     }
+    }
+   },
+   {
+    "tag": "RU_1_EXIT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "ru1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000199",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "99"
+     }
+    }
+   },
+   {
+    "tag": "PL_1_EXIT-VIA-RU-RU_1_EXIT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "pl1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000104",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "04"
+     },
+     "sockopt": {
+      "dialerProxy": "RU_1_EXIT"
+     }
+    }
+   },
+   {
+    "tag": "DIRECT",
+    "protocol": "freedom"
+   },
+   {
+    "tag": "BLOCK",
+    "protocol": "blackhole"
+   }
+  ],
+  "routing": {
+   "balancers": [
+    {
+     "tag": "BAL-PL_1_EXIT",
+     "selector": [
+      "PL_1_EXIT-DIRECT",
+      "PL_1_EXIT-VIA-RU-RU_1_EXIT"
+     ],
+     "strategy": {
+      "type": "leastPing"
+     },
+     "fallbackTag": "PL_1_EXIT-DIRECT"
+    }
+   ],
+   "rules": [
+    {
+     "type": "field",
+     "protocol": [
+      "bittorrent"
+     ],
+     "outboundTag": "DIRECT"
+    },
+    {
+     "type": "field",
+     "network": "tcp,udp",
+     "balancerTag": "BAL-PL_1_EXIT"
+    }
+   ]
+  },
+  "burstObservatory": {
+   "subjectSelector": [
+    "PL_1_EXIT-DIRECT",
+    "PL_1_EXIT-VIA-RU-RU_1_EXIT"
+   ],
+   "pingConfig": {
+    "interval": "60s"
+   }
+  }
+ },
+ {
+  "remarks": "⚡ Fastest",
+  "outbounds": [
+   {
+    "tag": "SE_1_EXIT-DIRECT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "se1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000102",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "02"
+     }
+    }
+   },
+   {
+    "tag": "EE_1_EXIT-DIRECT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "ee1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000103",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "03"
+     }
+    }
+   },
+   {
+    "tag": "PL_1_EXIT-DIRECT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "pl1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000104",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "04"
+     }
+    }
+   },
+   {
+    "tag": "DIRECT",
+    "protocol": "freedom"
+   },
+   {
+    "tag": "BLOCK",
+    "protocol": "blackhole"
+   }
+  ],
+  "routing": {
+   "balancers": [
+    {
+     "tag": "NEXT_AUTO",
+     "selector": [
+      "SE_1_EXIT-DIRECT",
+      "EE_1_EXIT-DIRECT",
+      "PL_1_EXIT-DIRECT"
+     ],
+     "strategy": {
+      "type": "leastPing"
+     },
+     "fallbackTag": "SE_1_EXIT-DIRECT"
+    }
+   ],
+   "rules": [
+    {
+     "type": "field",
+     "network": "tcp,udp",
+     "balancerTag": "NEXT_AUTO"
+    }
+   ]
+  }
+ },
+ {
+  "remarks": "🇷🇺 Russia",
+  "outbounds": [
+   {
+    "tag": "RU_1_EXIT-DIRECT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "ru1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000199",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "99"
+     }
+    }
+   },
+   {
+    "tag": "DIRECT",
+    "protocol": "freedom"
+   },
+   {
+    "tag": "BLOCK",
+    "protocol": "blackhole"
+   }
+  ],
+  "routing": {
+   "rules": [
+    {
+     "type": "field",
+     "network": "tcp,udp",
+     "outboundTag": "RU_1_EXIT-DIRECT"
+    }
+   ]
+  }
+ },
+ {
+  "remarks": "🇳🇱 Netherlands via Russia",
+  "outbounds": [
+   {
+    "tag": "NL_1_EXIT-VIA-RU-RU_1_EXIT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "nl1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000105",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "05"
+     },
+     "sockopt": {
+      "dialerProxy": "RU_1_EXIT"
+     }
+    }
+   },
+   {
+    "tag": "RU_1_EXIT",
+    "protocol": "vless",
+    "settings": {
+     "vnext": [
+      {
+       "address": "ru1.example.net",
+       "port": 443,
+       "users": [
+        {
+         "id": "c0ffee00-0000-4000-8000-000000000199",
+         "encryption": "none",
+         "flow": "xtls-rprx-vision"
+        }
+       ]
+      }
+     ]
+    },
+    "streamSettings": {
+     "network": "tcp",
+     "security": "reality",
+     "realitySettings": {
+      "serverName": "www.example.com",
+      "fingerprint": "chrome",
+      "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+      "shortId": "99"
+     }
+    }
+   },
+   {
+    "tag": "DIRECT",
+    "protocol": "freedom"
+   },
+   {
+    "tag": "BLOCK",
+    "protocol": "blackhole"
+   }
+  ],
+  "routing": {
+   "balancers": [
+    {
+     "tag": "BAL-NL_1_EXIT",
+     "selector": [
+      "NL_1_EXIT-VIA-RU-RU_1_EXIT"
+     ]
+    }
+   ],
+   "rules": [
+    {
+     "type": "field",
+     "network": "tcp,udp",
+     "balancerTag": "BAL-NL_1_EXIT"
+    }
+   ]
+  }
+ }
+]

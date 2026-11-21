@@ -3,7 +3,7 @@ package subscription
 import (
 	"encoding/base64"
 	"encoding/json"
-	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -142,36 +142,37 @@ func (c *xrayConfig) servers() []*xrayOutbound {
 	return chosen
 }
 
-// numberedProxy is a tag Remnawave gives the hosts it puts into a configuration (proxy, proxy-2):
-// no name of a server.
-var numberedProxy = regexp.MustCompile(`^proxy(-[0-9]+)?$`)
-
-// nameOf is the name of a server of a configuration: the remarks of the configuration for its
-// proxy outbound, or for its only server; another one is called by its tag, unless that is one
-// of the tags Remnawave numbers (then the remarks: the plan numbers names that repeat).
-func (c *xrayConfig) nameOf(outbound *xrayOutbound, primary bool) string {
-	if primary || numberedProxy.MatchString(outbound.tag) || outbound.tag == "" {
-		if c.remarks != "" {
-			return c.remarks
-		}
-	}
-	return outbound.tag
-}
-
-// xrayCandidate is a server of a configuration before the servers of all of them are put
-// together.
-type xrayCandidate struct {
-	server  Server
-	primary bool
+// xrayListing is a server outbound of a configuration before the servers of all of them are put
+// together: the server, the link made of it (none for a server that has a reason before the
+// decoder), the notes on the chain it is connected through, and where it is listed.
+type xrayListing struct {
+	server Server
+	link   *madeLink
+	chain  []string
+	// key tells the server apart: its ID; the link, or the listing itself, for one without
+	key     string
+	remarks string
+	tag     string
+	// main tells that it is the main server of its configuration
+	main bool
 }
 
 // readXray takes the servers of Xray JSON: configurations, each a JSON object with outbounds. It
-// tells how many configurations there were and how many server outbounds they had. A server that
-// is the proxy of a configuration and also a member of others is listed once, under the name of
-// its own configuration; the same server under two names stays two servers, as the app shows
-// them.
+// tells how many configurations there were and how many server outbounds they had.
+//
+// A configuration is the app's entry for a location (Remnawave: the host, with its relay and its
+// variants, DIRECT and VIA a relay, in a balancer) or for a group (a balancer over the servers of
+// other entries). Its main server is its outbound tagged proxy or, with none, the one server all
+// its servers are (one ID: the variants differ by the chain only, which is a note); a group has
+// none. A server is named as the app shows it: by the remarks of the configuration it is the main
+// server of (the first one), else of the first one it is listed in; the tags of the outbounds are
+// the configuration's own, used only for a configuration without remarks. Each (ID, name) once: the
+// variants of one server and the members of a group that are servers of other entries are those
+// entries; a server that is the main server of two entries of other names stays two servers, as
+// the provider lists it twice. The provider's chain is noted only when every listing of the server
+// is chained: one listed directly too is connected directly as the provider also does.
 func readXray(configurations []json.RawMessage, decode Decoder) ([]Server, int, int) {
-	var candidates []xrayCandidate
+	var listings []*xrayListing
 	configs, outbounds := 0, 0
 	for _, content := range configurations {
 		config := readXrayConfig(content)
@@ -180,71 +181,139 @@ func readXray(configurations []json.RawMessage, decode Decoder) ([]Server, int, 
 		}
 		configs++
 		outbounds += config.serverCount()
-		chosen := config.servers()
-		hasProxy := false
-		for _, outbound := range chosen {
-			hasProxy = hasProxy || outbound.tag == "proxy"
+		var made []*xrayListing
+		for _, outbound := range config.servers() {
+			listing := convertXray(config, outbound, decode)
+			listing.key = listing.server.ID
+			if listing.key == "" {
+				listing.key = "\x00" + listing.server.Link
+				if listing.server.Link == "" {
+					// no link to tell it by: a listing of its own
+					listing.key += "\x00" + strconv.Itoa(len(listings)+len(made))
+				}
+			}
+			made = append(made, listing)
 		}
-		for _, outbound := range chosen {
-			primary := outbound.tag == "proxy" || (!hasProxy && len(chosen) == 1)
-			name := cleanName(config.nameOf(outbound, primary), len(candidates)+1)
-			server := convertXray(config, outbound, name, decode)
-			candidates = append(candidates, xrayCandidate{server: server, primary: primary})
+		// the main server: the proxy, else the one server of the configuration
+		main := ""
+		for _, listing := range made {
+			if listing.tag == "proxy" {
+				main = listing.key
+				break
+			}
+		}
+		if main == "" && len(made) > 0 {
+			main = made[0].key
+			for _, listing := range made {
+				if listing.key != main {
+					main = ""
+				}
+			}
+		}
+		for _, listing := range made {
+			listing.main = main != "" && listing.key == main
+		}
+		listings = append(listings, made...)
+	}
+	// the name of a server where it is not the main server: that of its first entry
+	entryName := make(map[string]string)
+	nameOf := func(listing *xrayListing) string {
+		if listing.remarks != "" {
+			return listing.remarks
+		}
+		return listing.tag
+	}
+	for _, listing := range listings {
+		if _, named := entryName[listing.key]; listing.main && !named {
+			entryName[listing.key] = nameOf(listing)
 		}
 	}
-	// the name a server has as the proxy of a configuration
-	primaries := make(map[string]string)
-	for _, candidate := range candidates {
-		if _, named := primaries[candidate.server.ID]; candidate.primary && candidate.server.ID != "" && !named {
-			primaries[candidate.server.ID] = candidate.server.Name
+	for _, listing := range listings {
+		if _, named := entryName[listing.key]; !named {
+			entryName[listing.key] = nameOf(listing)
 		}
 	}
-	var servers []Server
-	// where each (ID, name) is in the list, and whether it came as the proxy of its
-	// configuration: that one is kept, with what its own configuration says of it
-	seen := make(map[string]int)
-	primary := make(map[string]bool)
-	for _, candidate := range candidates {
-		server := candidate.server
-		if name, found := primaries[server.ID]; found && !candidate.primary {
-			server.Name = name
+	// the chain is noted when every listing of the server is chained
+	chained := make(map[string]bool)
+	chains := make(map[string][]string)
+	for _, listing := range listings {
+		if _, seen := chained[listing.key]; !seen {
+			chained[listing.key] = true
 		}
-		key := server.ID + "\x00" + server.Name
-		if server.ID == "" {
-			key = "\x00" + server.Link + "\x00" + server.Reason + "\x00" + server.Name
+		chained[listing.key] = chained[listing.key] && len(listing.chain) > 0
+		for _, note := range listing.chain {
+			if !slices.Contains(chains[listing.key], note) {
+				chains[listing.key] = append(chains[listing.key], note)
+			}
 		}
-		if at, found := seen[key]; found {
-			if candidate.primary && !primary[key] {
-				servers[at], primary[key] = server, true
+	}
+	// the entries, each where its main listing is (else its first one), with what that listing
+	// says of the server
+	type entry struct {
+		listing *xrayListing
+		name    string
+		main    bool
+	}
+	var entries []*entry
+	byKey := make(map[string]*entry)
+	for _, listing := range listings {
+		name := entryName[listing.key]
+		if listing.main {
+			name = nameOf(listing)
+		}
+		name = cleanName(name, len(entries)+1)
+		key := listing.key + "\x00" + name
+		if known := byKey[key]; known != nil {
+			if listing.main && !known.main {
+				// the main listing is the entry: in its place, with its notes
+				known.listing, known.main = listing, true
+				entries = slices.DeleteFunc(entries, func(item *entry) bool { return item == known })
+				entries = append(entries, known)
 			}
 			continue
 		}
-		seen[key], primary[key] = len(servers), candidate.primary
+		byKey[key] = &entry{listing: listing, name: name, main: listing.main}
+		entries = append(entries, byKey[key])
+	}
+	servers := make([]Server, 0, len(entries))
+	for _, item := range entries {
+		server := item.listing.server
+		server.Name = item.name
+		if item.listing.link != nil {
+			item.listing.link.name = item.name
+			server.Link = item.listing.link.String()
+		}
+		if chained[item.listing.key] {
+			server.Notes = append(slices.Clone(chains[item.listing.key]), server.Notes...)
+		}
 		servers = append(servers, server)
 	}
 	return servers, configs, outbounds
 }
 
 // convertXray makes the server of an outbound: its link through the decoder, the notes of the
-// conversion before the warnings of the decoder; a reason when it cannot be made.
-func convertXray(config *xrayConfig, outbound *xrayOutbound, name string, decode Decoder) Server {
+// conversion before the warnings of the decoder, those on the chain apart; a reason when it
+// cannot be made.
+func convertXray(config *xrayConfig, outbound *xrayOutbound, decode Decoder) *xrayListing {
 	conversion := &xrayConversion{config: config, outbound: outbound}
-	conversion.link.name = name
+	listing := &xrayListing{remarks: config.remarks, tag: outbound.tag}
 	conversion.convert()
 	if conversion.odd {
 		conversion.note("a key of the configuration that is not a name is ignored")
 	}
+	listing.chain = conversion.chains
 	if conversion.reason != "" {
-		return Server{Name: name, Reason: conversion.reason, Notes: conversion.notes}
+		listing.server = Server{Reason: conversion.reason, Notes: conversion.notes}
+		return listing
 	}
-	link := conversion.link.String()
-	server := parseLink(link, 1, decode)
-	server.Name = name
+	listing.link = &conversion.link
+	server := parseLink(conversion.link.String(), 1, decode)
 	if unverified(server.outbound) {
 		conversion.note(unverifiedNote)
 	}
 	server.Notes = append(conversion.notes, server.Notes...)
-	return server
+	listing.server = server
+	return listing
 }
 
 type xrayConversion struct {
@@ -260,6 +329,8 @@ type xrayConversion struct {
 	// fragments are the fragment masks of the older form, a freedom outbound the server is
 	// dialed through
 	fragments []json.RawMessage
+	// chains are the notes on the chain the provider connects the server through
+	chains []string
 }
 
 func (x *xrayConversion) note(text string) {
@@ -1237,13 +1308,13 @@ func (x *xrayConversion) chain() {
 	shown := shownName(relay)
 	switch {
 	case target == nil:
-		x.note("the provider connects it through " + shown + ", which its configuration does not have; podkop connects it directly")
+		x.chains = append(x.chains, "the provider connects it through "+shown+", which its configuration does not have; podkop connects it directly")
 	case target.protocol == "freedom":
 		// read before the masks (freedom)
 	case target == x.outbound:
-		x.note("the provider connects it through itself; podkop connects it directly")
+		x.chains = append(x.chains, "the provider connects it through itself; podkop connects it directly")
 	default:
-		x.note("the provider connects it through " + shown + "; podkop connects it directly")
+		x.chains = append(x.chains, "the provider connects it through "+shown+"; podkop connects it directly")
 	}
 }
 
@@ -1290,7 +1361,7 @@ func (x *xrayConversion) freedom(outbound *object) {
 			x.link.set("tfo", "1")
 		}
 		if relay := sockopt.text("dialerProxy"); relay != "" {
-			x.note("the provider connects it through " + shownName(relay) + " too; podkop connects it directly")
+			x.chains = append(x.chains, "the provider connects it through "+shownName(relay)+" too; podkop connects it directly")
 		}
 		x.account("dialerProxy streamSettings.sockopt.", sockopt, xrayFreedomSockoptSilent)
 	}
