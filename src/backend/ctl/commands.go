@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -561,10 +562,33 @@ func systemLog() []string {
 	if len(all) > 100 {
 		all = all[len(all)-100:]
 	}
-	for index := range all {
-		all[index] = engine.MaskLogin(all[index])
+	return maskSystemLog(all)
+}
+
+// systemHead is the head of a line of logread: the date, the facility and level, and the
+// process ("Sat Nov 21 02:07:21 2026 daemon.err podkop[4525]: ").
+var systemHead = regexp.MustCompile(`^.*? \S+\[\d+\]: `)
+
+// maskSystemLog masks the logins in lines of the system log, as engine.MaskLogin does, and the
+// lines that continue a masked one: procd cuts sing-box's output at its line breaks, so what a
+// client sent after a line break of a failed login comes as lines of their own, of the same
+// process at the same second (the same head).
+func maskSystemLog(lines []string) []string {
+	after := ""
+	for index, line := range lines {
+		head := systemHead.FindString(line)
+		masked := engine.MaskLogin(line)
+		switch {
+		case masked != line:
+			lines[index] = masked
+			after = head
+		case after != "" && head == after:
+			lines[index] = head + "MASKED"
+		default:
+			after = ""
+		}
 	}
-	return all
+	return lines
 }
 
 // logs prints the log of this run of the backend. When no backend answers, what the
