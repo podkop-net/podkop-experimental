@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-21 21:09+0000\n"
-"PO-Revision-Date: 2026-11-21 21:09+0000\n"
+"POT-Creation-Date: 2026-11-21 22:32+0000\n"
+"PO-Revision-Date: 2026-11-21 22:32+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -274,6 +274,12 @@ msgstr "Как остальной трафик"
 
 msgid "Ask as"
 msgstr "Запрашивать как"
+
+msgid "Ask as has a value this podkop does not know: choose another one in the list"
+msgstr "В «Запрашивать как» значение, которого этот podkop не знает: выберите другое из списка"
+
+msgid "Ask as has a value this podkop does not know: podkop's own User-Agent is sent"
+msgstr "В «Запрашивать как» значение, которого этот podkop не знает: отправляется собственный User-Agent podkop"
 
 msgid "Asked as: %s"
 msgstr "Запрашивается как: %s"
@@ -1954,6 +1960,9 @@ msgstr "Сервер работает через запасной отпечат
 
 msgid "The servers may refuse connections until the subscription is renewed"
 msgstr "Пока подписку не продлят, серверы могут не пускать"
+
+msgid "The servers of the provider's configuration would take much more than the configuration itself: it is not read"
+msgstr "Серверы конфигурации провайдера заняли бы намного больше места, чем сама конфигурация: она не читается"
 
 msgid "The sets of the BitTorrent detector are full, it tells less: %d packets and peers found no room"
 msgstr "Наборы детектора BitTorrent заполнены, он распознаёт меньше: для %d пакетов и пиров не нашлось места"

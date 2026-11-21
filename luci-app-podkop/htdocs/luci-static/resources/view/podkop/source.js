@@ -323,6 +323,12 @@ function failureText(code, args, text, attempts) {
       return _("The provider sent notes instead of servers: %s").format(
         args[0],
       );
+    // a configuration whose servers would take far more than its own size (a value it shares
+    // copied into every server): refused before it fills the memory and the flash of the router
+    case "oversize":
+      return _(
+        "The servers of the provider's configuration would take much more than the configuration itself: it is not read",
+      );
     case "address":
       return _("An address of HTTP or HTTPS is expected");
     case "noway":

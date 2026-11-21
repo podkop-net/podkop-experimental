@@ -17,7 +17,7 @@
     "call": "(data as of %s)",
     "key": "(data as of %s)",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:792"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:804"
     ]
   },
   {
@@ -74,7 +74,7 @@
     "call": "%d servers, %d can be used",
     "key": "%d servers, %d can be used",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:918"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:930"
     ]
   },
   {
@@ -119,14 +119,14 @@
     "call": "%s belongs to the connection: podkop sets it itself",
     "key": "%s belongs to the connection: podkop sets it itself",
     "places": [
-      "src/validators/validateRequestHeader.ts:221"
+      "src/validators/validateRequestHeader.ts:226"
     ]
   },
   {
     "call": "%s in %s s",
     "key": "%s in %s s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:920"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:932"
     ]
   },
   {
@@ -140,14 +140,14 @@
     "call": "%s is for a proxy on the way: the router has none, and the value would go to the provider",
     "key": "%s is for a proxy on the way: the router has none, and the value would go to the provider",
     "places": [
-      "src/validators/validateRequestHeader.ts:229"
+      "src/validators/validateRequestHeader.ts:234"
     ]
   },
   {
     "call": "%s is given twice",
     "key": "%s is given twice",
     "places": [
-      "src/validators/validateRequestHeader.ts:247"
+      "src/validators/validateRequestHeader.ts:252"
     ]
   },
   {
@@ -203,7 +203,7 @@
     "call": "%s of %s",
     "key": "%s of %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1110"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1122"
     ]
   },
   {
@@ -217,14 +217,14 @@
     "call": "%s received",
     "key": "%s received",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:356"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:368"
     ]
   },
   {
     "call": "%s s",
     "key": "%s s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:624"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:636"
     ]
   },
   {
@@ -337,7 +337,7 @@
     "call": "A header name has Latin letters, digits and dashes only",
     "key": "A header name has Latin letters, digits and dashes only",
     "places": [
-      "src/validators/validateRequestHeader.ts:235"
+      "src/validators/validateRequestHeader.ts:240"
     ]
   },
   {
@@ -414,14 +414,14 @@
     "call": "A subscription address, links of servers (one per line) or an outbound JSON",
     "key": "A subscription address, links of servers (one per line) or an outbound JSON",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1324"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1336"
     ]
   },
   {
     "call": "A tunnel, a modem or a second WAN. Empty: the main route",
     "key": "A tunnel, a modem or a second WAN. Empty: the main route",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1795"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1807"
     ]
   },
   {
@@ -471,8 +471,8 @@
     "key": "Address",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:145",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:932",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:944"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:944",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:956"
     ]
   },
   {
@@ -514,9 +514,9 @@
     "call": "An address of HTTP or HTTPS is expected",
     "key": "An address of HTTP or HTTPS is expected",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:321",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1453",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1456"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:333",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1465",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1468"
     ]
   },
   {
@@ -558,7 +558,7 @@
     "call": "An outbound of sing-box is expected: {\"type\": \"vless\", …}",
     "key": "An outbound of sing-box is expected: {\"type\": \"vless\", …}",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1786",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1798",
       "src/podkop/sources.ts:384"
     ]
   },
@@ -587,7 +587,7 @@
     "call": "Applicable for SOCKS and Shadowsocks proxy",
     "key": "Applicable for SOCKS and Shadowsocks proxy",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1759"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1771"
     ]
   },
   {
@@ -611,14 +611,28 @@
     "call": "Ask as",
     "key": "Ask as",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1512"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1524"
+    ]
+  },
+  {
+    "call": "Ask as has a value this podkop does not know: choose another one in the list",
+    "key": "Ask as has a value this podkop does not know: choose another one in the list",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:259"
+    ]
+  },
+  {
+    "call": "Ask as has a value this podkop does not know: podkop's own User-Agent is sent",
+    "key": "Ask as has a value this podkop does not know: podkop's own User-Agent is sent",
+    "places": [
+      "src/validators/validateRequestHeader.ts:212"
     ]
   },
   {
     "call": "Asked as: %s",
     "key": "Asked as: %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:397"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:409"
     ]
   },
   {
@@ -661,14 +675,14 @@
     "call": "At most %d characters",
     "key": "At most %d characters",
     "places": [
-      "src/validators/validateRequestHeader.ts:245"
+      "src/validators/validateRequestHeader.ts:250"
     ]
   },
   {
     "call": "At most %d headers",
     "key": "At most %d headers",
     "places": [
-      "src/validators/validateRequestHeader.ts:249"
+      "src/validators/validateRequestHeader.ts:254"
     ]
   },
   {
@@ -683,21 +697,21 @@
     "key": "At most 64 characters",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:784",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1891"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1903"
     ]
   },
   {
     "call": "Automatically",
     "key": "Automatically",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1484"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1496"
     ]
   },
   {
     "call": "Automatically: as the provider advises, otherwise once a day",
     "key": "Automatically: as the provider advises, otherwise once a day",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1476"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1488"
     ]
   },
   {
@@ -855,7 +869,7 @@
     "call": "Cancel",
     "key": "Cancel",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1013",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1025",
       "src/podkop/tabs/dashboard/initController.ts:329",
       "src/podkop/tabs/dashboard/partials/renderSections.ts:314"
     ]
@@ -864,7 +878,7 @@
     "call": "cannot be used: %s",
     "key": "cannot be used: %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:948"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:960"
     ]
   },
   {
@@ -925,7 +939,7 @@
     "call": "Checking now…",
     "key": "Checking now…",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:593",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:605",
       "src/podkop/tabs/dashboard/initController.ts:730"
     ]
   },
@@ -1030,7 +1044,7 @@
     "call": "connecting…",
     "key": "connecting…",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:345"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:357"
     ]
   },
   {
@@ -1079,14 +1093,14 @@
     "call": "Copied",
     "key": "Copied",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:857"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:869"
     ]
   },
   {
     "call": "Copy",
     "key": "Copy",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:959",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:971",
       "src/partials/modal/renderModal.ts:20"
     ]
   },
@@ -1094,7 +1108,7 @@
     "call": "Copy all links",
     "key": "Copy all links",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:901"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:913"
     ]
   },
   {
@@ -1151,14 +1165,14 @@
     "call": "Detect from the pasted text",
     "key": "Detect from the pasted text",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1302"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1314"
     ]
   },
   {
     "call": "Detect: the type follows the pasted text",
     "key": "Detect: the type follows the pasted text",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1299"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1311"
     ]
   },
   {
@@ -1270,7 +1284,7 @@
     "key": "DNS over HTTPS (DoH)",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:137",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1837"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1849"
     ]
   },
   {
@@ -1278,14 +1292,14 @@
     "key": "DNS over TLS (DoT)",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:138",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1836"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1848"
     ]
   },
   {
     "call": "DNS Protocol Type",
     "key": "DNS Protocol Type",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1831"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1843"
     ]
   },
   {
@@ -1299,7 +1313,7 @@
     "call": "DNS Server",
     "key": "DNS Server",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1844"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1856"
     ]
   },
   {
@@ -1327,14 +1341,14 @@
     "call": "Do not use for downloading lists and subscriptions",
     "key": "Do not use for downloading lists and subscriptions",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1863"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1875"
     ]
   },
   {
     "call": "Domain Resolver",
     "key": "Domain Resolver",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1819"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1831"
     ]
   },
   {
@@ -1348,7 +1362,7 @@
     "call": "done in %s s",
     "key": "done in %s s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:359"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:371"
     ]
   },
   {
@@ -1391,7 +1405,7 @@
     "call": "Downloaded after Save & Apply",
     "key": "Downloaded after Save & Apply",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1097"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1109"
     ]
   },
   {
@@ -1413,7 +1427,7 @@
     "call": "Empty: the name is made from the address, the link or the interface",
     "key": "Empty: the name is made from the address, the link or the interface",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1877"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1889"
     ]
   },
   {
@@ -1462,7 +1476,7 @@
     "call": "Enter complete outbound configuration in JSON format",
     "key": "Enter complete outbound configuration in JSON format",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1770"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1782"
     ]
   },
   {
@@ -1504,21 +1518,21 @@
     "call": "Every 12 hours",
     "key": "Every 12 hours",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1490"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1502"
     ]
   },
   {
     "call": "Every 20 minutes",
     "key": "Every 20 minutes",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1485"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1497"
     ]
   },
   {
     "call": "Every 3 hours",
     "key": "Every 3 hours",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1487"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1499"
     ]
   },
   {
@@ -1546,14 +1560,14 @@
     "call": "Every 6 hours",
     "key": "Every 6 hours",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1488"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1500"
     ]
   },
   {
     "call": "Every 9 hours",
     "key": "Every 9 hours",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1489"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1501"
     ]
   },
   {
@@ -1567,14 +1581,14 @@
     "call": "Every day",
     "key": "Every day",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1491"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1503"
     ]
   },
   {
     "call": "Every hour",
     "key": "Every hour",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1486"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1498"
     ]
   },
   {
@@ -1595,7 +1609,7 @@
     "call": "Expired on %s (%s)",
     "key": "Expired on %s (%s)",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:718"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:730"
     ]
   },
   {
@@ -1609,14 +1623,14 @@
     "call": "Extra headers",
     "key": "Extra headers",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1591"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1603"
     ]
   },
   {
     "call": "Extra headers: %s",
     "key": "Extra headers: %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:403"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:415"
     ]
   },
   {
@@ -1747,14 +1761,14 @@
     "call": "From the provider",
     "key": "From the provider",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:677"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:689"
     ]
   },
   {
     "call": "From the provider: %s",
     "key": "From the provider: %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:785"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:797"
     ]
   },
   {
@@ -1803,14 +1817,14 @@
     "call": "Header %d",
     "key": "Header %d",
     "places": [
-      "src/validators/validateRequestHeader.ts:259"
+      "src/validators/validateRequestHeader.ts:266"
     ]
   },
   {
     "call": "Hide links",
     "key": "Hide links",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:894"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:906"
     ]
   },
   {
@@ -1908,8 +1922,8 @@
     "call": "Interface",
     "key": "Interface",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1083",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1306"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1095",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1318"
     ]
   },
   {
@@ -2089,21 +2103,21 @@
     "call": "Last check: %s, %s",
     "key": "Last check: %s, %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:628"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:640"
     ]
   },
   {
     "call": "Last check: %s, failed",
     "key": "Last check: %s, failed",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:599"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:611"
     ]
   },
   {
     "call": "Last check: none since podkop started",
     "key": "Last check: none since podkop started",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:634"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:646"
     ]
   },
   {
@@ -2131,7 +2145,7 @@
     "call": "Left out of the request: %s",
     "key": "Left out of the request: %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:407"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:419"
     ]
   },
   {
@@ -2152,15 +2166,15 @@
     "call": "Link",
     "key": "Link",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:934",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:955"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:946",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:967"
     ]
   },
   {
     "call": "Link or subscription",
     "key": "Link or subscription",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1323"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1335"
     ]
   },
   {
@@ -2181,7 +2195,7 @@
     "call": "Lists and subscriptions download directly first, then through the servers of the rules, those that brought them before first. Mark a source that should not carry them: a subscription with little traffic, a test one kept as the last reserve, a tunnel to a closed network, a local helper",
     "key": "Lists and subscriptions download directly first, then through the servers of the rules, those that brought them before first. Mark a source that should not carry them: a subscription with little traffic, a test one kept as the last reserve, a tunnel to a closed network, a local helper",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1864"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1876"
     ]
   },
   {
@@ -2195,7 +2209,7 @@
     "call": "Load",
     "key": "Load",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1674"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1686"
     ]
   },
   {
@@ -2237,7 +2251,7 @@
     "call": "Main route",
     "key": "Main route",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1135",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1147",
       "src/podkop/sources.ts:176"
     ]
   },
@@ -2266,7 +2280,7 @@
     "call": "mark %s",
     "key": "mark %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1137"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1149"
     ]
   },
   {
@@ -2391,15 +2405,15 @@
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:729",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:770",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1274",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1876"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1286",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1888"
     ]
   },
   {
     "call": "Name at the provider: %s",
     "key": "Name at the provider: %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:679"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:691"
     ]
   },
   {
@@ -2420,7 +2434,7 @@
     "call": "Name: value is expected",
     "key": "Name: value is expected",
     "places": [
-      "src/validators/validateRequestHeader.ts:233"
+      "src/validators/validateRequestHeader.ts:238"
     ]
   },
   {
@@ -2441,7 +2455,7 @@
     "call": "Network Interface",
     "key": "Network Interface",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1794"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1806"
     ]
   },
   {
@@ -2455,14 +2469,14 @@
     "call": "Next check: %s",
     "key": "Next check: %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:662"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:674"
     ]
   },
   {
     "call": "Next try: %s",
     "key": "Next try: %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:662"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:674"
     ]
   },
   {
@@ -2521,7 +2535,7 @@
     "call": "No end date",
     "key": "No end date",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:732"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:744"
     ]
   },
   {
@@ -2556,14 +2570,14 @@
     "call": "No list yet",
     "key": "No list yet",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1100"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1112"
     ]
   },
   {
     "call": "No list yet: the rows of this source name no server",
     "key": "No list yet: the rows of this source name no server",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:619"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:631"
     ]
   },
   {
@@ -2641,14 +2655,14 @@
     "call": "Not copied: show the links and copy them by hand",
     "key": "Not copied: show the links and copy them by hand",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:858"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:870"
     ]
   },
   {
     "call": "Not downloaded yet: the router downloads the list after Save & Apply",
     "key": "Not downloaded yet: the router downloads the list after Save & Apply",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:582"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:594"
     ]
   },
   {
@@ -2665,7 +2679,7 @@
     "call": "Not filled",
     "key": "Not filled",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1085"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1097"
     ]
   },
   {
@@ -2722,15 +2736,15 @@
     "call": "Note",
     "key": "Note",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:933",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:947"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:945",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:959"
     ]
   },
   {
     "call": "Nothing yet: press Add and paste a subscription or a link",
     "key": "Nothing yet: press Add and paste a subscription or a link",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1269"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1281"
     ]
   },
   {
@@ -2852,7 +2866,7 @@
     "call": "Only Latin letters, digits, spaces and the signs of the keyboard",
     "key": "Only Latin letters, digits, spaces and the signs of the keyboard",
     "places": [
-      "src/validators/validateRequestHeader.ts:241"
+      "src/validators/validateRequestHeader.ts:246"
     ]
   },
   {
@@ -2868,7 +2882,7 @@
     "call": "Only when the provider asks for them: one a line, as Name: value. A key of the provider goes here, not in User-Agent: the global check hides the values, and they go to the host of the subscription address only. The device identifier (x-hwid, x-device-…), the address of the client (X-Forwarded-For…) and the headers of the connection (Host, Connection, Accept-Encoding…) are the router's own and are not set here",
     "key": "Only when the provider asks for them: one a line, as Name: value. A key of the provider goes here, not in User-Agent: the global check hides the values, and they go to the host of the subscription address only. The device identifier (x-hwid, x-device-…), the address of the client (X-Forwarded-For…) and the headers of the connection (Host, Connection, Accept-Encoding…) are the router's own and are not set here",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1592"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1604"
     ]
   },
   {
@@ -2882,22 +2896,22 @@
     "call": "Options that changed: %s",
     "key": "Options that changed: %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:655"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:667"
     ]
   },
   {
     "call": "Outbound Configuration",
     "key": "Outbound Configuration",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1769"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1781"
     ]
   },
   {
     "call": "Outbound JSON",
     "key": "Outbound JSON",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1081",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1305"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1093",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1317"
     ]
   },
   {
@@ -3016,7 +3030,7 @@
     "call": "podkop is not running: start it to load the list",
     "key": "podkop is not running: start it to load the list",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:327"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:339"
     ]
   },
   {
@@ -3060,7 +3074,7 @@
     "call": "podkop: its own name and version; most providers send it a list of links. Some providers give the servers only to the apps they name: Happ and INCY may get links or Xray JSON, sing-box (SFA) gets sing-box JSON. podkop reads all three and takes only the servers: the provider's rules, DNS and groups are not used, and a server the provider connects through another one is noted and connected directly. The router still sends its own device identifier (HWID) and keeps its own place among the devices of the subscription. Load shows what the provider sends",
     "key": "podkop: its own name and version; most providers send it a list of links. Some providers give the servers only to the apps they name: Happ and INCY may get links or Xray JSON, sing-box (SFA) gets sing-box JSON. podkop reads all three and takes only the servers: the provider's rules, DNS and groups are not used, and a server the provider connects through another one is noted and connected directly. The router still sends its own device identifier (HWID) and keeps its own place among the devices of the subscription. Load shows what the provider sends",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1513"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1525"
     ]
   },
   {
@@ -3081,8 +3095,8 @@
     "call": "Protocol",
     "key": "Protocol",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:931",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:941"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:943",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:953"
     ]
   },
   {
@@ -3110,8 +3124,8 @@
     "call": "Ready",
     "key": "Ready",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1129",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1141"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1141",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1153"
     ]
   },
   {
@@ -3125,7 +3139,7 @@
     "call": "Recognized: %s",
     "key": "Recognized: %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1394"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1406"
     ]
   },
   {
@@ -3223,7 +3237,7 @@
     "call": "Routing mark",
     "key": "Routing mark",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1804"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1816"
     ]
   },
   {
@@ -3294,14 +3308,14 @@
     "call": "Save & Apply first: the router asks with the User-Agent and headers it runs with",
     "key": "Save & Apply first: the router asks with the User-Agent and headers it runs with",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:504"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:516"
     ]
   },
   {
     "call": "Save & Apply first: the router downloads the address it runs with",
     "key": "Save & Apply first: the router downloads the address it runs with",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:498"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:510"
     ]
   },
   {
@@ -3322,7 +3336,7 @@
     "call": "secure connection…",
     "key": "secure connection…",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:348"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:360"
     ]
   },
   {
@@ -3343,7 +3357,7 @@
     "call": "Select or enter DNS server address",
     "key": "Select or enter DNS server address",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1845"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1857"
     ]
   },
   {
@@ -3357,7 +3371,7 @@
     "call": "Select the DNS protocol type for the domain resolver",
     "key": "Select the DNS protocol type for the domain resolver",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1832"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1844"
     ]
   },
   {
@@ -3413,8 +3427,8 @@
     "call": "Server",
     "key": "Server",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:930",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:938"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:942",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:950"
     ]
   },
   {
@@ -3456,7 +3470,7 @@
     "call": "Server link",
     "key": "Server link",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1077"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1089"
     ]
   },
   {
@@ -3470,15 +3484,15 @@
     "call": "Server links",
     "key": "Server links",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1304",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1738"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1316",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1750"
     ]
   },
   {
     "call": "Server links: %d",
     "key": "Server links: %d",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1078"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1090"
     ]
   },
   {
@@ -3496,51 +3510,51 @@
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/podkop.js:362",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:716",
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:745",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1258",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1667"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1270",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1679"
     ]
   },
   {
     "call": "Servers changed: %s",
     "key": "Servers changed: %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:639"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:651"
     ]
   },
   {
     "call": "Servers changed: when a check last found other servers or names. A new order alone does not count. The router takes the new servers without a restart",
     "key": "Servers changed: when a check last found other servers or names. A new order alone does not count. The router takes the new servers without a restart",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1622"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1634"
     ]
   },
   {
     "call": "Servers taken from the provider's sing-box configuration; its rules, DNS and groups are not used",
     "key": "Servers taken from the provider's sing-box configuration; its rules, DNS and groups are not used",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:425"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:437"
     ]
   },
   {
     "call": "Servers taken from the provider's Xray configurations (%d); their rules, DNS and balancers are not used",
     "key": "Servers taken from the provider's Xray configurations (%d); their rules, DNS and balancers are not used",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:419"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:431"
     ]
   },
   {
     "call": "Servers: %d",
     "key": "Servers: %d",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1100",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1130"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1112",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1142"
     ]
   },
   {
     "call": "Servers: %d, usable: %d",
     "key": "Servers: %d, usable: %d",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:589"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:601"
     ]
   },
   {
@@ -3596,7 +3610,7 @@
     "call": "Share links: vless, ss, trojan, socks, http(s), hysteria2, tuic, and vmess, anytls, hysteria, naive where the engine has them",
     "key": "Share links: vless, ss, trojan, socks, http(s), hysteria2, tuic, and vmess, anytls, hysteria, naive where the engine has them",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1739"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1751"
     ]
   },
   {
@@ -3610,8 +3624,8 @@
     "call": "Show links",
     "key": "Show links",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:894",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:897"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:906",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:909"
     ]
   },
   {
@@ -3703,8 +3717,8 @@
     "call": "State",
     "key": "State",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1287",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1621"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1299",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1633"
     ]
   },
   {
@@ -3725,22 +3739,22 @@
     "call": "Subscription",
     "key": "Subscription",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1073",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1303"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1085",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1315"
     ]
   },
   {
     "call": "Subscription address",
     "key": "Subscription address",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1431"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1443"
     ]
   },
   {
     "call": "Subscription page",
     "key": "Subscription page",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:775"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:787"
     ]
   },
   {
@@ -3770,7 +3784,7 @@
     "call": "Support",
     "key": "Support",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:759"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:771"
     ]
   },
   {
@@ -3876,8 +3890,8 @@
     "call": "The address is not set",
     "key": "The address is not set",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1443",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1687"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1455",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1699"
     ]
   },
   {
@@ -3905,7 +3919,7 @@
     "call": "The address of the client is the router's own: %s cannot be set",
     "key": "The address of the client is the router's own: %s cannot be set",
     "places": [
-      "src/validators/validateRequestHeader.ts:215"
+      "src/validators/validateRequestHeader.ts:220"
     ]
   },
   {
@@ -3919,14 +3933,14 @@
     "call": "The address your provider gave for apps (often /sub/… or /api/sub/…). It is a secret: podkop masks it where it shows the settings",
     "key": "The address your provider gave for apps (often /sub/… or /api/sub/…). It is a secret: podkop masks it where it shows the settings",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1432"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1444"
     ]
   },
   {
     "call": "The answer of the provider has no servers",
     "key": "The answer of the provider has no servers",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:302"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:308"
     ]
   },
   {
@@ -4003,7 +4017,7 @@
     "call": "The deleted source was used by the rules: %s. Their rows show it as deleted: choose another source there",
     "key": "The deleted source was used by the rules: %s. Their rows show it as deleted: choose another source there",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1194"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1206"
     ]
   },
   {
@@ -4031,21 +4045,21 @@
     "call": "The download is lost: podkop restarted, or it ended long ago. Press Load again",
     "key": "The download is lost: podkop restarted, or it ended long ago. Press Load again",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:329"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:341"
     ]
   },
   {
     "call": "The download stopped on a fault of podkop: see the log",
     "key": "The download stopped on a fault of podkop: see the log",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:325"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:337"
     ]
   },
   {
     "call": "The download takes long: the state tells what it came to once it ends",
     "key": "The download takes long: the state tells what it came to once it ends",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:563"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:575"
     ]
   },
   {
@@ -4066,7 +4080,7 @@
     "call": "The download was canceled",
     "key": "The download was canceled",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:335"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:347"
     ]
   },
   {
@@ -4122,7 +4136,7 @@
     "call": "The headers together are longer than %d bytes",
     "key": "The headers together are longer than %d bytes",
     "places": [
-      "src/validators/validateRequestHeader.ts:251"
+      "src/validators/validateRequestHeader.ts:256"
     ]
   },
   {
@@ -4150,7 +4164,7 @@
     "call": "The last check failed",
     "key": "The last check failed",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1103"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1115"
     ]
   },
   {
@@ -4171,7 +4185,7 @@
     "call": "The link was made by podkop from the provider's configuration: other apps may read it differently",
     "key": "The link was made by podkop from the provider's configuration: other apps may read it differently",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:844"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:856"
     ]
   },
   {
@@ -4192,35 +4206,35 @@
     "call": "The list from %s stays in use",
     "key": "The list from %s stays in use",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:614"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:626"
     ]
   },
   {
     "call": "The list is larger than %s MiB",
     "key": "The list is larger than %s MiB",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:298"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:304"
     ]
   },
   {
     "call": "The list is not downloaded yet",
     "key": "The list is not downloaded yet",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:636"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:648"
     ]
   },
   {
     "call": "The mark of the connections for pbr or the router's own routing rules (not the bits of mwan3, 0x3F00, nor those of podkop). Empty: no mark",
     "key": "The mark of the connections for pbr or the router's own routing rules (not the bits of mwan3, 0x3F00, nor those of podkop). Empty: no mark",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1805"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1817"
     ]
   },
   {
     "call": "The name is longer than %d characters",
     "key": "The name is longer than %d characters",
     "places": [
-      "src/validators/validateRequestHeader.ts:237"
+      "src/validators/validateRequestHeader.ts:242"
     ]
   },
   {
@@ -4234,7 +4248,7 @@
     "call": "The outbound JSON of %s connects through the deleted source (detour): change its detour",
     "key": "The outbound JSON of %s connects through the deleted source (detour): change its detour",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1182"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1194"
     ]
   },
   {
@@ -4269,35 +4283,35 @@
     "call": "The provider advises to update every %d h",
     "key": "The provider advises to update every %d h",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:744"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:756"
     ]
   },
   {
     "call": "The provider answered HTTP %s instead of the list",
     "key": "The provider answered HTTP %s instead of the list",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:286"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:292"
     ]
   },
   {
     "call": "The provider asks to wait (HTTP 429): the router tries again later",
     "key": "The provider asks to wait (HTTP 429): the router tries again later",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:278"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:284"
     ]
   },
   {
     "call": "The provider did not accept this device (HWID)",
     "key": "The provider did not accept this device (HWID)",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:290"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:296"
     ]
   },
   {
     "call": "The provider has no subscription at this address (HTTP %s): the address is wrong, or the subscription was removed",
     "key": "The provider has no subscription at this address (HTTP %s): the address is wrong, or the subscription was removed",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:270"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:276"
     ]
   },
   {
@@ -4311,7 +4325,7 @@
     "call": "The provider refused the address (HTTP %s): it is wrong or out of date, or the subscription is blocked",
     "key": "The provider refused the address (HTTP %s): it is wrong or out of date, or the subscription is blocked",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:266"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:272"
     ]
   },
   {
@@ -4339,7 +4353,7 @@
     "call": "The provider sent a configuration of Clash (YAML): podkop does not read it. If the address ends with /clash, /clash-meta, /mihomo or /stash, remove that ending: panels then send a list of links",
     "key": "The provider sent a configuration of Clash (YAML): podkop does not read it. If the address ends with /clash, /clash-meta, /mihomo or /stash, remove that ending: panels then send a list of links",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:309"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:315"
     ]
   },
   {
@@ -4353,14 +4367,14 @@
     "call": "The provider sent an empty list",
     "key": "The provider sent an empty list",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:300"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:306"
     ]
   },
   {
     "call": "The provider sent JSON that is not a configuration of Xray or sing-box",
     "key": "The provider sent JSON that is not a configuration of Xray or sing-box",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:305"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:311"
     ]
   },
   {
@@ -4381,21 +4395,21 @@
     "call": "The provider sent notes instead of servers: %s",
     "key": "The provider sent notes instead of servers: %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:317"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:323"
     ]
   },
   {
     "call": "The provider sent nothing (HTTP 204): the address is wrong, or the subscription was removed",
     "key": "The provider sent nothing (HTTP 204): the address is wrong, or the subscription was removed",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:274"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:280"
     ]
   },
   {
     "call": "The provider sent only links encrypted for Happ (happ://crypt…), which only Happ reads. In Ask as, choose another app, such as INCY, or ask the provider for plain links",
     "key": "The provider sent only links encrypted for Happ (happ://crypt…), which only Happ reads. In Ask as, choose another app, such as INCY, or ask the provider for plain links",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:313"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:319"
     ]
   },
   {
@@ -4437,21 +4451,21 @@
     "call": "The provider's limit of devices is reached: delete an old device in the provider's bot or account, then check again",
     "key": "The provider's limit of devices is reached: delete an old device in the provider's bot or account, then check again",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:293"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:299"
     ]
   },
   {
     "call": "The provider's server failed (HTTP %s): the router tries again later",
     "key": "The provider's server failed (HTTP %s): the router tries again later",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:282"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:288"
     ]
   },
   {
     "call": "The real IP of a site is resolved by a DNS server reached through this interface",
     "key": "The real IP of a site is resolved by a DNS server reached through this interface",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1820"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1832"
     ]
   },
   {
@@ -4459,12 +4473,12 @@
     "key": "The router did not answer",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:437",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:518",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:533",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:552",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1038",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1046",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1058"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:530",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:545",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:564",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1050",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1058",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1070"
     ]
   },
   {
@@ -4478,28 +4492,28 @@
     "call": "The router downloads the list of the address above to show it here, first directly, then through the working servers. It is taken after Save & Apply",
     "key": "The router downloads the list of the address above to show it here, first directly, then through the working servers. It is taken after Save & Apply",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1668"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1680"
     ]
   },
   {
     "call": "The router downloads the list of the saved address now and takes it, as at its time. When a list comes, the next download is counted from now; when the download fails, the list in use and the planned time stay",
     "key": "The router downloads the list of the saved address now and takes it, as at its time. When a list comes, the next download is counted from now; when the download fails, the list in use and the planned time stay",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1652"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1664"
     ]
   },
   {
     "call": "The router downloads the list…",
     "key": "The router downloads the list…",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1055"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1067"
     ]
   },
   {
     "call": "The router downloads the list… %s s",
     "key": "The router downloads the list… %s s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1023"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1035"
     ]
   },
   {
@@ -4520,7 +4534,7 @@
     "call": "The router sends the device identifier itself: %s cannot be set",
     "key": "The router sends the device identifier itself: %s cannot be set",
     "places": [
-      "src/validators/validateRequestHeader.ts:211"
+      "src/validators/validateRequestHeader.ts:216"
     ]
   },
   {
@@ -4660,7 +4674,14 @@
     "call": "The servers may refuse connections until the subscription is renewed",
     "key": "The servers may refuse connections until the subscription is renewed",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:736"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:748"
+    ]
+  },
+  {
+    "call": "The servers of the provider's configuration would take much more than the configuration itself: it is not read",
+    "key": "The servers of the provider's configuration would take much more than the configuration itself: it is not read",
+    "places": [
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:329"
     ]
   },
   {
@@ -4780,29 +4801,29 @@
     "call": "The User-Agent is chosen in Ask as",
     "key": "The User-Agent is chosen in Ask as",
     "places": [
-      "src/validators/validateRequestHeader.ts:219"
+      "src/validators/validateRequestHeader.ts:224"
     ]
   },
   {
     "call": "The User-Agent of another app, as the provider names it: often the name alone is enough, without a version. It is the name of an app, not a secret: the global check shows it",
     "key": "The User-Agent of another app, as the provider names it: often the name alone is enough, without a version. It is the name of an app, not a secret: the global check shows it",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1561"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1573"
     ]
   },
   {
     "call": "The User-Agent or a header cannot be sent: %s",
     "key": "The User-Agent or a header cannot be sent: %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:257",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1708"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:263",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1720"
     ]
   },
   {
     "call": "The value is empty",
     "key": "The value is empty",
     "places": [
-      "src/validators/validateRequestHeader.ts:239"
+      "src/validators/validateRequestHeader.ts:244"
     ]
   },
   {
@@ -4816,7 +4837,7 @@
     "call": "There is no way to the provider to try",
     "key": "There is no way to the provider to try",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:323"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:335"
     ]
   },
   {
@@ -4958,7 +4979,7 @@
     "call": "Traffic resets %s",
     "key": "Traffic resets %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:740"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:752"
     ]
   },
   {
@@ -4972,21 +4993,21 @@
     "call": "Traffic: %s of %s",
     "key": "Traffic: %s of %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:691"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:703"
     ]
   },
   {
     "call": "Traffic: %s of %s, used up",
     "key": "Traffic: %s of %s, used up",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:690"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:702"
     ]
   },
   {
     "call": "Traffic: %s, no limit",
     "key": "Traffic: %s, no limit",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:709"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:721"
     ]
   },
   {
@@ -5058,7 +5079,7 @@
     "call": "Two lists are being downloaded for the page: wait for them",
     "key": "Two lists are being downloaded for the page: wait for them",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:333"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:345"
     ]
   },
   {
@@ -5066,16 +5087,16 @@
     "key": "Type",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:136",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1281",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1298"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1293",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1310"
     ]
   },
   {
     "call": "Type the User-Agent, or choose podkop in Ask as",
     "key": "Type the User-Agent, or choose podkop in Ask as",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1574",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1700"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1586",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1712"
     ]
   },
   {
@@ -5083,14 +5104,14 @@
     "key": "UDP (Unprotected DNS)",
     "places": [
       "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:139",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1835"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1847"
     ]
   },
   {
     "call": "UDP over TCP",
     "key": "UDP over TCP",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1758"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1770"
     ]
   },
   {
@@ -5132,7 +5153,7 @@
     "call": "until %s",
     "key": "until %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1117"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1129"
     ]
   },
   {
@@ -5146,15 +5167,15 @@
     "call": "Update interval",
     "key": "Update interval",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1475"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1487"
     ]
   },
   {
     "call": "Update now",
     "key": "Update now",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1651",
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1658"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1663",
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1670"
     ]
   },
   {
@@ -5218,14 +5239,14 @@
     "call": "User-Agent",
     "key": "User-Agent",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1560"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1572"
     ]
   },
   {
     "call": "User-Agent: %s",
     "key": "User-Agent: %s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:400"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:412"
     ]
   },
   {
@@ -5283,7 +5304,7 @@
     "call": "Valid until %s (%s)",
     "key": "Valid until %s (%s)",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:725"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:737"
     ]
   },
   {
@@ -5320,7 +5341,7 @@
     "call": "Waiting for a link",
     "key": "Waiting for a link",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1092"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:1104"
     ]
   },
   {
@@ -5334,7 +5355,7 @@
     "call": "waiting for the provider: %s s",
     "key": "waiting for the provider: %s s",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:351"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:363"
     ]
   },
   {
@@ -5362,7 +5383,7 @@
     "call": "What changed: renamed %d, other server under the name %d, removed %d, added %d",
     "key": "What changed: renamed %d, other server under the name %d, removed %d, added %d",
     "places": [
-      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:644"
+      "../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:656"
     ]
   },
   {
@@ -5404,7 +5425,7 @@
     "call": "With %s the provider would send a part of the list or none: podkop needs the whole list",
     "key": "With %s the provider would send a part of the list or none: podkop needs the whole list",
     "places": [
-      "src/validators/validateRequestHeader.ts:225"
+      "src/validators/validateRequestHeader.ts:230"
     ]
   },
   {
