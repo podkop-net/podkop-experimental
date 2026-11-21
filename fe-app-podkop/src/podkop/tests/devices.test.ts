@@ -108,4 +108,26 @@ describe('the devices the router knows', () => {
     expect(hostChoices(null)).toEqual([]);
     expect(hostChoices({})).toEqual([]);
   });
+
+  // luci-rpc getHostHints lists the router's own addresses (getifaddrs) under the MACs of its
+  // interfaces: behind another router its WAN address would be offered as a device
+  it("leaves out the router's own addresses, by the MACs of its interfaces", () => {
+    const hints = {
+      hosts: {
+        // br-lan and the WAN of a router behind another router
+        'D4:5F:AA:00:00:01': { name: 'OpenWrt', ipaddrs: ['192.168.1.1'] },
+        'D4:5F:AA:00:00:02': { name: 'OpenWrt', ipaddrs: ['192.168.0.2'] },
+        'AA:BB:CC:00:00:02': { name: 'tv', ipaddrs: ['192.168.1.50'] },
+      },
+    };
+    expect(
+      hostChoices(hints, ['D4:5F:AA:00:00:01', 'D4:5F:AA:00:00:02']),
+    ).toEqual([['192.168.1.50', '192.168.1.50 (tv)']]);
+    // the case of a MAC does not matter, and a device without one is skipped
+    expect(hostChoices(hints, ['d4:5f:aa:00:00:02', null])).toEqual([
+      ['192.168.1.1', '192.168.1.1 (OpenWrt)'],
+      ['192.168.1.50', '192.168.1.50 (tv)'],
+    ]);
+    expect(hostChoices(hints, null)).toHaveLength(3);
+  });
 });

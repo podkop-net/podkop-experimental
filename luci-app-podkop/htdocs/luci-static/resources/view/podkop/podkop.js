@@ -206,12 +206,16 @@ const EntryPoint = {
     main.injectGlobalStyles();
 
     // Options of features the installed sing-box does not have are not created. The devices the
-    // router knows are offered in "Only for devices" of a rule, none when it does not tell them;
-    // both are asked at once.
-    const [singBoxFeatures, hostHints] = await Promise.all([
+    // router knows are offered in "Only for devices" of a rule, none when it does not tell them,
+    // and not the router itself (the MACs of its own interfaces); all are asked at once.
+    const [singBoxFeatures, hostHints, routerDevices] = await Promise.all([
       main.CustomPodkopMethods.getSingBoxFeatures(),
       L.resolveDefault(network.getHostHints(), null),
+      L.resolveDefault(network.getDevices(), []),
     ]);
+    const routerMacs = (routerDevices || [])
+      .map((device) => (device && device.getMAC ? device.getMAC() : null))
+      .filter(Boolean);
 
     const podkopMap = new form.Map(
       "podkop",
@@ -254,7 +258,12 @@ const EntryPoint = {
     rulesSection.anonymous = true;
     rulesSection.addremove = true;
     rulesSection.sortable = true;
-    rules.createRulesContent(rulesSection, singBoxFeatures, hostHints);
+    rules.createRulesContent(
+      rulesSection,
+      singBoxFeatures,
+      hostHints,
+      routerMacs,
+    );
     gridSection(rulesSection, "rule", {
       added: (name) => rules.ruleAdded(name),
       removed: (name) => rules.ruleRemoved(name),

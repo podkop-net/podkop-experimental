@@ -668,7 +668,12 @@ function linksField(section, option, title, remote, local, placeholder) {
   return o;
 }
 
-function createRulesContent(section, singBoxFeatures = [], hostHints = null) {
+function createRulesContent(
+  section,
+  singBoxFeatures = [],
+  hostHints = null,
+  routerMacs = [],
+) {
   section.modaltitle = function (section_id) {
     return _("Rules") + " » " + ruleLabel(section_id);
   };
@@ -1067,7 +1072,7 @@ function createRulesContent(section, singBoxFeatures = [], hostHints = null) {
   o.rmempty = true;
   o.placeholder = "192.168.1.50 or 192.168.1.0/24";
   main
-    .hostChoices(hostHints)
+    .hostChoices(hostHints, routerMacs)
     .forEach(([address, label]) => o.value(address, label));
   o.validate = function (section_id, value) {
     if (!value || value.length === 0) {

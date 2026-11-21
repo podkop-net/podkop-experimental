@@ -90,16 +90,23 @@ interface HostHint {
 // hostChoices are the IPv4 addresses the router knows its devices by (LuCI's host hints: the DHCP
 // leases and the neighbours, by MAC), as [address, "address (name)"], each once, in the order of
 // the addresses. IPv6 is typed by hand: the hints have link-local and rotating addresses, which a
-// rule cannot go by.
+// rule cannot go by. The hints also hold the router's own addresses, under the MACs of its own
+// interfaces (routerMacs): they are left out, since a rule for the router's WAN address takes the
+// router's own traffic.
 export function hostChoices(
   hints?: {
     hosts?: Record<string, HostHint>;
   } | null,
+  routerMacs?: unknown[] | null,
 ): [string, string][] {
   const hosts = hints?.hosts ?? {};
+  const own = new Set(
+    (routerMacs ?? []).map((mac) => String(mac ?? '').toUpperCase()),
+  );
   const seen = new Set<string>();
   const choices: [string, string][] = [];
   Object.keys(hosts).forEach((mac) => {
+    if (own.has(mac.toUpperCase())) return;
     const host = hosts[mac] ?? {};
     deviceItems(host.ipaddrs ?? host.ipv4).forEach((address) => {
       if (!validateIPV4(address).valid || seen.has(address)) return;
