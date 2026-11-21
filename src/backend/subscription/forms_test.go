@@ -155,7 +155,7 @@ type remnawaveServer struct {
 	// Reason is a part of the reason the server of the form has (the link's has none, or
 	// another)
 	Reason string `json:"reason,omitempty"`
-	// Notes are parts of notes the server of the form has
+	// Notes are the notes the server of the form has, all of them: a server of no entry has none
 	Notes []string `json:"notes,omitempty"`
 	Why   string   `json:"why,omitempty"`
 }
@@ -181,8 +181,10 @@ func remnawaveDifferences(forms map[string]readResult) map[string]map[string]rem
 			names[name] = true
 		}
 	}
+	xray := byName(forms["xray"])
 	for name := range names {
 		reference, hasReference := links[name]
+		fromXray, hasXray := xray[name]
 		for _, form := range []string{"links", "xray", "singbox"} {
 			result, read := forms[form]
 			if !read || result.Error != "" {
@@ -195,6 +197,12 @@ func remnawaveDifferences(forms map[string]readResult) map[string]map[string]rem
 				difference.Missing = true
 			case form == "links":
 				difference.Reason = server.Reason
+			case !hasReference && form == "singbox" && hasXray:
+				// no link: the sing-box form against the Xray form
+				difference.Differ = outboundPaths(fromXray.Outbound, server.Outbound)
+				if server.Reason != fromXray.Reason {
+					difference.Reason = server.Reason
+				}
 			case !hasReference:
 				difference.Differ = []string{"(no link)"}
 				difference.Reason = server.Reason
@@ -309,18 +317,11 @@ func TestRemnawaveForms(t *testing.T) {
 				t.Errorf("%s: %s %s differs and expect.json does not say so: %+v", directory, name, form, have)
 			}
 		}
-		// the notes a form must have for a server
-		for name, byForm := range expect.Servers {
-			for form, want := range byForm {
-				for _, note := range want.Notes {
-					var notes []string
-					for _, server := range forms[form].Servers {
-						if server.Name == name {
-							notes = server.Notes
-						}
-					}
-					require.True(t, containsPart(notes, note), "%s %s %s: a note with %q in %q", directory, name, form, note, notes)
-				}
+		// the notes of every server of every form, all of them
+		for _, form := range []string{"links", "xray", "singbox"} {
+			for _, server := range forms[form].Servers {
+				want := expect.Servers[server.Name][form].Notes
+				require.Equal(t, want, server.Notes, "%s %s %s: the notes", directory, server.Name, form)
 			}
 		}
 		// the extended clients' bodies: the same servers under the same names

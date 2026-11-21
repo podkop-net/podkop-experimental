@@ -6,7 +6,10 @@
         "differ": [
           "finalmask.tcp"
         ],
-        "why": "Remnawave's Trojan links carry no fm; the Xray JSON has the host's finalmask, which r28's dialer applies. The sing-box JSON has none either."
+        "why": "Remnawave's Trojan links carry no fm; the Xray JSON has the host's finalmask, which r28's dialer applies. The sing-box JSON has none either.",
+        "notes": [
+          "fm (finalmask): the delays of the fragment mask are not applied, a pause of this host is not a link's to set"
+        ]
       }
     }
   }

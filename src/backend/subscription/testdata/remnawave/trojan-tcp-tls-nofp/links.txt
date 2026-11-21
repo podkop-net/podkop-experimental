@@ -1,0 +1,1 @@
+trojan://fixture-trojan-password-0001@srv4.example.net:443?type=tcp&security=tls&sni=srv4.example.net&alpn=h2%2Chttp%2F1.1#%F0%9F%87%AC%F0%9F%87%A7%20London%20Trojan%20TLS%20no%20fingerprint

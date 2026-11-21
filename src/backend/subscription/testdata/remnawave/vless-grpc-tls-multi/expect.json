@@ -1,3 +1,21 @@
 {
-  "why": "The same server in the three forms."
+  "why": "The same server in the three forms.",
+  "servers": {
+    "📡 gRPC TLS multi": {
+      "links": {
+        "why": "the decoder's warnings on the provider's link",
+        "notes": [
+          "the gRPC mode multi is not supported, gun is used",
+          "the gRPC authority is not supported: the server name of TLS is sent instead, and a reverse proxy that chooses the server by the authority may not find it"
+        ]
+      },
+      "xray": {
+        "why": "the notes of the conversion and the decoder's warnings",
+        "notes": [
+          "the gRPC mode multi is not supported, gun is used",
+          "the gRPC authority is not supported: the server name of TLS is sent instead, and a reverse proxy that chooses the server by the authority may not find it"
+        ]
+      }
+    }
+  }
 }

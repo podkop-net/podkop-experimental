@@ -2,10 +2,16 @@
   "why": "The same server in the three forms.",
   "servers": {
     "🇫🇮 Helsinki Reality PQ": {
-      "xray": {
-        "why": "the notes the conversion gives",
+      "links": {
+        "why": "the decoder's warnings on the provider's link",
         "notes": [
-          "pqv"
+          "pqv (the ML-DSA-65 check of the REALITY server) is not supported, the server is not verified with it"
+        ]
+      },
+      "xray": {
+        "why": "the notes of the conversion and the decoder's warnings",
+        "notes": [
+          "pqv (the ML-DSA-65 check of the REALITY server) is not supported, the server is not verified with it"
         ]
       }
     }

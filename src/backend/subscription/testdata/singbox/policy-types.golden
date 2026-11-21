@@ -48,9 +48,6 @@
     {
       "name": "VMess",
       "id": "1b4136fd6db516093610123a",
-      "notes": [
-        "sb.security replaces what the link sets otherwise"
-      ],
       "link": "vmess://c0ffee00-0000-4000-8000-00000000f064@vm.example.net:443?sb.authenticated_length=true&sb.security=none&sb.tls.enabled=true&sb.tls.server_name=vm.example.net&sb.transport.host=vm.example.net&sb.transport.path=%2Fhu&sb.transport.type=httpupgrade#VMess",
       "outbound": {
         "authenticated_length": true,

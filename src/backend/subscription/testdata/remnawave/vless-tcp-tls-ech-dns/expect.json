@@ -9,7 +9,7 @@
         ],
         "why": "Remnawave's links carry no ECH, and its sing-box JSON drops it; the Xray JSON asks for the ECH configuration by its name (the decoder notes that the resolver named is not used).",
         "notes": [
-          "the resolver named in ech is not used"
+          "the resolver named in ech is not used: the ECH configuration is asked from the DNS of sing-box"
         ]
       }
     }

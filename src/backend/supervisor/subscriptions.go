@@ -663,7 +663,8 @@ func (s *Supervisor) takeList(result downloaded) {
 		old.Info = result.list.Info
 		reformatted := old.Format != result.list.Format || old.Configs != result.list.Configs
 		if reformatted {
-			result.list.Info = old.Info
+			// the servers did not change: when they did is when they last did
+			result.list.Info, result.list.Changed = old.Info, old.Changed
 			t.lists[result.name] = result.list
 		}
 		t.access.Unlock()

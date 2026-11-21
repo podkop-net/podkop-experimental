@@ -3,6 +3,7 @@ package subscription
 import (
 	"encoding/base64"
 	"encoding/json"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -181,6 +182,12 @@ func convertSingBox(content json.RawMessage, kind string, name string, kinds map
 	if unverified(server.outbound) {
 		conversion.note(unverifiedNote)
 	}
+	// a path replaces what the decoder sets of a scheme of its own (the security of VMess): the
+	// option is the configuration's, and no parameter the user sees replaces another
+	server.Notes = slices.DeleteFunc(server.Notes, func(note string) bool {
+		path, rest, found := strings.Cut(note, " ")
+		return found && strings.HasPrefix(path, "sb.") && rest == "replaces what the link sets otherwise"
+	})
 	server.Notes = append(conversion.notes, server.Notes...)
 	return server
 }
@@ -346,13 +353,14 @@ func (c *singBoxConversion) normalize(kind string, fields map[string]any) map[st
 		delete(normal, "packet_encoding")
 	}
 	// the ALPN a transport asks for when none is set (transport/v2raywebsocket, v2rayhttpupgrade,
-	// v2raygrpc; sing-quic's Hysteria 2): the same, and what a link of it decodes to
+	// v2raygrpc, v2rayhttp; sing-quic's Hysteria 2): the same, and what a link of it decodes to
 	defaultALPN := ""
 	if transport, has := normal["transport"].(map[string]any); has {
 		switch transport["type"] {
 		case "ws", "httpupgrade":
 			defaultALPN = "http/1.1"
-		case "grpc":
+		case "grpc", "http":
+			// the http transport over TLS speaks HTTP/2 (transport/v2rayhttp)
 			defaultALPN = "h2"
 		}
 	} else if kind == "hysteria2" {

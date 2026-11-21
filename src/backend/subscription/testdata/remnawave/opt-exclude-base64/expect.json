@@ -5,17 +5,11 @@
   },
   "servers": {
     "🚫 Not in links": {
-      "singbox": {
-        "differ": [
-          "(no link)"
-        ],
-        "why": "The host is not in the links: no link to compare with."
-      },
       "xray": {
         "differ": [
           "(no link)"
         ],
-        "why": "The host is not in the links: no link to compare with."
+        "why": "The host is not in the links: no link to compare with (the sing-box JSON is compared with this one, and is the same server)."
       }
     }
   }

@@ -2,5 +2,21 @@
   "why": "XHTTP: the same server in the links and the Xray JSON; Remnawave's sing-box generator (singbox.generator.service.ts) skips xhttp hosts (UNSUPPORTED_TRANSPORTS).",
   "errors": {
     "singbox": "nolinks"
+  },
+  "servers": {
+    "🚄 XHTTP upload CDN, download Reality": {
+      "links": {
+        "why": "the decoder's warnings on the provider's link",
+        "notes": [
+          "downloadSettings: sockopt is not supported and is ignored"
+        ]
+      },
+      "xray": {
+        "why": "the notes of the conversion and the decoder's warnings",
+        "notes": [
+          "downloadSettings: sockopt is not supported and is ignored"
+        ]
+      }
+    }
   }
 }

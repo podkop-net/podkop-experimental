@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -76,14 +78,34 @@ func optionLeaves(valueType reflect.Type, path string, denied bool, leaves map[s
 	}
 }
 
+// engineOptions is the decoder's own list of every option of every outbound a link makes, in the
+// engine this backend is built with (common/sharelink testdata/options-1.14.txt of the module of
+// sing-box, as go list finds it in the module cache).
+func engineOptions(t *testing.T) string {
+	t.Helper()
+	output, err := exec.Command("go", "list", "-m", "-json", "github.com/sagernet/sing-box").Output()
+	require.NoError(t, err, "go list of the engine's module")
+	var module struct {
+		Dir     string
+		Replace *struct{ Dir string }
+	}
+	require.NoError(t, json.Unmarshal(output, &module))
+	directory := module.Dir
+	if module.Replace != nil && module.Replace.Dir != "" {
+		directory = module.Replace.Dir
+	}
+	require.NotEmpty(t, directory, "the engine's module is in the module cache")
+	return filepath.Join(directory, "common", "sharelink", "testdata", "options-1.14.txt")
+}
+
 // The options the sing-box reader leaves out are those the decoder denies: the decoder's list of
-// every option of every outbound a link makes (its testdata/options-1.14.txt at the pinned engine,
-// copied as testdata/sharelink-options-1.14.txt) has the same options, and the same ones denied,
-// as this sing-box's option types walked with singBoxDenied. An option the engine adds, or a name
-// it denies, fails this until both are looked at.
+// every option of every outbound a link makes, read from the engine this backend is built with,
+// has the same options, and the same ones denied, as this sing-box's option types walked with
+// singBoxDenied. An option the engine adds, or a name it denies, fails this until both are looked
+// at.
 func TestSingBoxDeniedAgreesWithTheDecoder(t *testing.T) {
 	t.Parallel()
-	file, err := os.Open("testdata/sharelink-options-1.14.txt")
+	file, err := os.Open(engineOptions(t))
 	require.NoError(t, err)
 	defer file.Close()
 	decoder := map[string]bool{}
@@ -168,13 +190,17 @@ func TestSingBoxIDsOfTheLinks(t *testing.T) {
 		 "transport":{"type":"grpc","service_name":"s"}},
 		{"type":"hysteria2","tag":"hy2","server":"h.example.net","server_port":443,"password":"a-1","obfs":{"type":"salamander","password":"o-1"},"tls":{"enabled":true,"server_name":"h.example.net","alpn":["h3"]}},
 		{"type":"vless","tag":"alpn","server":"a.example.net","server_port":443,"uuid":"`+uuid+`","tls":{"enabled":true,"server_name":"a.example.net","alpn":["h2"],"utls":{"enabled":true,"fingerprint":"chrome"}}},
-		{"type":"selector","tag":"proxy","outbounds":["reality","ws","grpc","hy2","alpn"]},{"type":"direct","tag":"direct"}]}`)
+		{"type":"vless","tag":"h2","server":"h2.example.net","server_port":443,"uuid":"`+uuid+`","tls":{"enabled":true,"server_name":"h2.example.net","alpn":["h2"],"utls":{"enabled":true,"fingerprint":"chrome"}},
+		 "transport":{"type":"http","host":["h2.example.net"],"path":"/h2"}},
+		{"type":"selector","tag":"proxy","outbounds":["reality","ws","grpc","hy2","alpn","h2"]},{"type":"direct","tag":"direct"}]}`)
 	for name, link := range map[string]string{
 		"reality": "vless://" + uuid + "@r.example.net:443?encryption=none&flow=xtls-rprx-vision&type=tcp&security=reality&sni=www.example.com&fp=chrome&pbk=" + key + "&sid=0123#x",
 		"ws":      "trojan://p-1@t.example.net:443?type=ws&path=%2Fw&host=t.example.net&security=tls&sni=t.example.net&fp=chrome&alpn=http%2F1.1#x",
 		"grpc":    "trojan://p-2@g.example.net:443?type=grpc&serviceName=s&mode=gun&security=tls&sni=g.example.net&fp=chrome&alpn=h2#x",
 		"hy2":     "hysteria2://a-1@h.example.net:443/?obfs=salamander&obfs-password=o-1&sni=h.example.net#x",
 		"alpn":    "vless://" + uuid + "@a.example.net:443?encryption=none&type=tcp&security=tls&sni=a.example.net&fp=chrome&alpn=h2#x",
+		// Marzban's h2 host: sing-box's http transport asks for h2 itself, the decoder drops alpn=h2
+		"h2": "vless://" + uuid + "@h2.example.net:443?encryption=none&type=http&host=h2.example.net&path=%2Fh2&security=tls&sni=h2.example.net&fp=chrome&alpn=h2#x",
 	} {
 		server, found := servers[name]
 		require.True(t, found, name)
@@ -269,4 +295,17 @@ func TestSingBoxValues(t *testing.T) {
 	var made map[string]any
 	require.NoError(t, json.Unmarshal(server.outbound, &made))
 	require.NotContains(t, made, "tag")
+}
+
+// A VMess security the decoder would read as auto is the configuration's, set by its path, and no
+// note names a parameter the user never saw.
+func TestSingBoxVMessSecurity(t *testing.T) {
+	t.Parallel()
+	for _, security := range []string{"none", "zero", "aes-128-gcm"} {
+		servers := readSingBoxBody(t, `{"outbounds":[{"type":"vmess","tag":"V","server":"v.example.net","server_port":443,"uuid":"c0ffee00-0000-4000-8000-000000000046","security":"`+security+`"}]}`)
+		server := servers["V"]
+		require.True(t, server.Usable(), server.Reason)
+		require.Equal(t, security, outboundAt(t, server, "security"), security)
+		require.Empty(t, server.Notes, security)
+	}
 }

@@ -18,15 +18,19 @@
       },
       "singbox": {
         "differ": [
-          "(no link)"
+          "finalmask.tcp",
+          "tcp_fast_open"
         ],
-        "why": "the JSON forms name the server as the host does; the link has another name"
+        "why": "No link names it: against the Xray JSON, Remnawave's sing-box generator (singbox.generator.service.ts) writes neither the host's finalmask nor its sockopt (tcpFastOpen)."
       },
       "xray": {
         "differ": [
           "(no link)"
         ],
-        "why": "the JSON forms name the server as the host does; the link has another name"
+        "why": "the JSON forms name the server as the host does; the link has another name",
+        "notes": [
+          "fm (finalmask): the delays of the fragment mask are not applied, a pause of this host is not a link's to set"
+        ]
       }
     }
   }

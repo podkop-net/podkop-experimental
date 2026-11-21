@@ -3,17 +3,17 @@
   "servers": {
     "🇳🇱 Exit Amsterdam via relay": {
       "xray": {
-        "why": "the notes the conversion gives",
+        "why": "the notes of the conversion and the decoder's warnings",
         "notes": [
-          "which its configuration does not have; podkop connects it directly"
+          "the provider connects it through relay, which its configuration does not have; podkop connects it directly"
         ]
       }
     },
     "🇩🇪 Exit Frankfurt via relay": {
       "xray": {
-        "why": "the notes the conversion gives",
+        "why": "the notes of the conversion and the decoder's warnings",
         "notes": [
-          "which its configuration does not have; podkop connects it directly"
+          "the provider connects it through relay, which its configuration does not have; podkop connects it directly"
         ]
       }
     }

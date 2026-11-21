@@ -46,6 +46,7 @@ func TestSubscriptionPresetAndFormat(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, "xray", saved.Format)
 	require.Equal(t, 2, saved.Configs)
+	first := saved.Changed
 	content, err := os.ReadFile(filepath.Join(directory, "subscriptions", "prov1.json"))
 	require.NoError(t, err)
 	require.Contains(t, string(content), `"format":"xray"`)
@@ -65,6 +66,8 @@ func TestSubscriptionPresetAndFormat(t *testing.T) {
 	fake.access.Unlock()
 	saved, _ = s.store().Load("prov1", "https://sub.example/api/sub/TOKEN")
 	require.Equal(t, "", saved.Format)
+	require.True(t, first.Equal(saved.Changed), "the servers did not change: neither does the time they last did")
+	require.True(t, first.Equal(*state.Changed))
 	// no log line repeats a value of the servers
 	for _, line := range lines.lines {
 		require.NotContains(t, line, "nl1.example")

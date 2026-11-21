@@ -1,3 +1,19 @@
 {
-  "why": "The same server in the three forms."
+  "why": "The same server in the three forms.",
+  "servers": {
+    "🗺️ Mapper same change everywhere": {
+      "links": {
+        "why": "the decoder's warnings on the provider's link",
+        "notes": [
+          "cs (the cipher suites of TLS) is not supported and is ignored"
+        ]
+      },
+      "xray": {
+        "why": "the notes of the conversion and the decoder's warnings",
+        "notes": [
+          "cs (the cipher suites of TLS) is not supported and is ignored"
+        ]
+      }
+    }
+  }
 }

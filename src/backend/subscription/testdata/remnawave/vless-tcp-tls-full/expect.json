@@ -10,7 +10,7 @@
         ],
         "why": "Remnawave's sing-box generator (singbox.generator.service.ts) writes the pins as tls.insecure and drops verifyPeerCertByName; the link (pcs, vcn) and the Xray JSON verify the certificate. The server of the sing-box JSON is noted as not verified.",
         "notes": [
-          "does not verify the certificate"
+          "the provider's configuration does not verify the certificate of the server"
         ]
       },
       "xray": {
@@ -18,7 +18,17 @@
           "tls.ech.config",
           "tls.ech.enabled"
         ],
-        "why": "The Xray JSON has the host's echConfigList; Remnawave's links carry no ECH (xray.generator.service.ts), and its sing-box JSON drops it."
+        "why": "The Xray JSON has the host's echConfigList; Remnawave's links carry no ECH (xray.generator.service.ts), and its sing-box JSON drops it.",
+        "notes": [
+          "streamSettings.tlsSettings.echForceQuery is a setting of the provider's app and is left out",
+          "cs (the cipher suites of TLS) is not supported and is ignored"
+        ]
+      },
+      "links": {
+        "why": "the decoder's warnings on the provider's link",
+        "notes": [
+          "cs (the cipher suites of TLS) is not supported and is ignored"
+        ]
       }
     }
   }

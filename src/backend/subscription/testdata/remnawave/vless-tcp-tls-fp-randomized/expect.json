@@ -1,3 +1,19 @@
 {
-  "why": "The same server in the three forms."
+  "why": "The same server in the three forms.",
+  "servers": {
+    "🇨🇭 Zurich TLS randomizednoalpn": {
+      "links": {
+        "why": "the decoder's warnings on the provider's link",
+        "notes": [
+          "the fingerprint: randomizednoalpn has no counterpart, randomized is used"
+        ]
+      },
+      "xray": {
+        "why": "the notes of the conversion and the decoder's warnings",
+        "notes": [
+          "the fingerprint: randomizednoalpn has no counterpart, randomized is used"
+        ]
+      }
+    }
+  }
 }

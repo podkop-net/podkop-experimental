@@ -1,0 +1,14 @@
+{
+  "why": "VLESS over TLS without a fingerprint (made with lab/v0821/rwgen on a host of the matrix with its fingerprint emptied).",
+  "servers": {
+    "🇩🇪 Frankfurt TLS no fingerprint": {
+      "singbox": {
+        "differ": [
+          "tls.utls.enabled",
+          "tls.utls.fingerprint"
+        ],
+        "why": "Remnawave's sing-box generator (singbox.generator.service.ts) writes no uTLS for a host without a fingerprint: SFA says Go's hello. Xray takes Chrome's when none is named (tls.GetFingerprint), and so does the decoder for the link and the Xray JSON."
+      }
+    }
+  }
+}

@@ -9,7 +9,7 @@
         ],
         "why": "Remnawave's sing-box generator (singbox.generator.service.ts) writes a pinned certificate as tls.insecure without the pin; the link (pinSHA256) and the Xray JSON (pinnedPeerCertSha256) pin it. The server of the sing-box JSON is noted as not verified.",
         "notes": [
-          "does not verify the certificate"
+          "the provider's configuration does not verify the certificate of the server"
         ]
       }
     }
