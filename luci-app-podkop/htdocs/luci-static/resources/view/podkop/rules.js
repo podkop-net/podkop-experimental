@@ -266,14 +266,14 @@ function listsLines(grid, section_id) {
 // What the fully routed IPs of the window have against its devices: those that are not among them.
 // LuCI checks a list by the entry being typed only, so the items already there are checked here,
 // where both lists are seen.
-function devicesProblem(section, section_id) {
-  const { devices } = main.ruleDevices({
-    only_devices: section.formvalue(section_id, "only_devices"),
-  });
-  const outside = main.routedOutside(
-    devices,
-    section.formvalue(section_id, "fully_routed_ips"),
-  );
+// (stored: the values the window opened with, before its fields are drawn)
+function devicesProblem(section, section_id, stored) {
+  const value = (option) =>
+    stored
+      ? section.cfgvalue(section_id, option)
+      : section.formvalue(section_id, option);
+  const { devices } = main.ruleDevices({ only_devices: value("only_devices") });
+  const outside = main.routedOutside(devices, value("fully_routed_ips"));
   if (!outside.length) {
     return null;
   }
@@ -282,8 +282,16 @@ function devicesProblem(section, section_id) {
   ).format(outside.join(", "));
 }
 
-// The problem of devicesProblem shown under the field "Only for devices" while the window is open
-function showDevicesProblem(option, section_id) {
+function devicesNote(problem) {
+  return E("div", { class: "pdk-devices-note cbi-value-description" }, [
+    E("strong", {}, [problem]),
+  ]);
+}
+
+// The problem of devicesProblem shown under the field "Only for devices" while the window is
+// open. Shown (reveal): its tab is brought to the front and the note into view, since LuCI
+// saves a window silently and the field may be on a tab not shown.
+function showDevicesProblem(option, section_id, reveal) {
   const frame = option.map.findElement(
     "id",
     "cbi-podkop-" + section_id + "-only_devices",
@@ -294,12 +302,27 @@ function showDevicesProblem(option, section_id) {
   }
   field.querySelectorAll(".pdk-devices-note").forEach((node) => node.remove());
   const problem = devicesProblem(option.section, section_id);
-  if (problem) {
-    field.appendChild(
-      E("div", { class: "pdk-devices-note cbi-value-description" }, [
-        E("strong", {}, [problem]),
-      ]),
-    );
+  if (!problem) {
+    return;
+  }
+  const note = field.appendChild(devicesNote(problem));
+  if (!reveal) {
+    return;
+  }
+  // the tabs of LuCI: a pane [data-tab] after the menu of its group, li[data-tab] > a
+  const pane = frame.closest("[data-tab]");
+  const menu =
+    pane && pane.parentNode && pane.parentNode.previousElementSibling;
+  const link = menu
+    ? menu.querySelector(
+        '[data-tab="' + pane.getAttribute("data-tab") + '"] > a',
+      )
+    : null;
+  if (link) {
+    link.click();
+  }
+  if (note.scrollIntoView) {
+    note.scrollIntoView({ block: "nearest" });
   }
 }
 
@@ -1098,6 +1121,39 @@ function createRulesContent(
   };
   o.onchange = function (ev, section_id) {
     showDevicesProblem(this, section_id);
+  };
+  // the note is there when the window opens too: the lists may disagree already (a hand edit),
+  // and the window is not saved then
+  o.render = function (option_index, section_id, in_table) {
+    return Promise.resolve(
+      form.DynamicList.prototype.render.call(
+        this,
+        option_index,
+        section_id,
+        in_table,
+      ),
+    ).then((frame) => {
+      const problem = devicesProblem(this.section, section_id, true);
+      const field =
+        problem && frame && frame.querySelector
+          ? frame.querySelector(".cbi-value-field")
+          : null;
+      if (field) {
+        field.appendChild(devicesNote(problem));
+      }
+      return frame;
+    });
+  };
+  // LuCI saves a window silently: a window not saved for the devices tells why
+  section.handleModalSave = function (modalMap, ev) {
+    const found =
+      modalMap && modalMap.lookupOption
+        ? modalMap.lookupOption("only_devices", modalMap.section)
+        : null;
+    if (found && devicesProblem(found[0].section, found[1])) {
+      showDevicesProblem(found[0], found[1], true);
+    }
+    return form.GridSection.prototype.handleModalSave.call(this, modalMap, ev);
   };
 
   // the tabs Servers and Fallback: rows of their own
