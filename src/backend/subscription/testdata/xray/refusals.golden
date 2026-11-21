@@ -1,0 +1,94 @@
+{
+  "format": "xray",
+  "configs": 14,
+  "outbounds": 14,
+  "servers": [
+    {
+      "name": "WireGuard",
+      "reason": "a server of type wireguard is not taken from a subscription"
+    },
+    {
+      "name": "Two servers",
+      "reason": "the outbound names several servers or none, which Xray does not take"
+    },
+    {
+      "name": "Two users",
+      "reason": "the outbound names several users, which Xray does not take"
+    },
+    {
+      "name": "Bad address",
+      "reason": "the address of the server is not an address"
+    },
+    {
+      "name": "Bad port",
+      "reason": "the port of the server is not a port"
+    },
+    {
+      "name": "Unknown protocol",
+      "reason": "a server of type fancyproto is not taken from a subscription"
+    },
+    {
+      "name": "XTLS",
+      "reason": "unsupported flow: xtls-rprx-direct",
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f055@xtls.example.net:443?encryption=none&flow=xtls-rprx-direct&security=xtls&type=tcp#XTLS"
+    },
+    {
+      "name": "SRV",
+      "reason": "the address and the port of the server come from DNS records (addressPortStrategy), which podkop does not read"
+    },
+    {
+      "name": "Masque",
+      "reason": "unsupported transport: masque",
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f057@mq.example.net:443?encryption=none&security=none&type=masque#Masque"
+    },
+    {
+      "name": "Redirect",
+      "reason": "the provider's configuration sends the connections of the server to another address (redirect)"
+    },
+    {
+      "name": "Hysteria 1",
+      "reason": "a Hysteria server of another version than 2 is not supported"
+    },
+    {
+      "name": "Proxy over WS",
+      "reason": "an HTTP proxy over a transport is not supported"
+    },
+    {
+      "name": "Unknown keys",
+      "id": "16e0efe2c57031feb23d86b8",
+      "notes": [
+        "reverse is a setting of the provider's app and is left out",
+        "streamSettings.tlsSettings.certificates is a setting of the provider's app and is left out",
+        "streamSettings.tlsSettings.fancyTLS is not supported and is ignored",
+        "fancyKey is not supported and is ignored",
+        "a key of the configuration that is not a name is ignored"
+      ],
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f059@uk.example.net:443?encryption=none&security=tls&sni=uk.example.net&type=tcp#Unknown%20keys",
+      "outbound": {
+        "server": "uk.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "server_name": "uk.example.net",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f059"
+      }
+    },
+    {
+      "name": "Placeholder-free",
+      "id": "41e4010d3595e35e835be2e0",
+      "link": "vless://short-id-string@ok.example.net:443?encryption=none&security=none&type=tcp#Placeholder-free",
+      "outbound": {
+        "server": "ok.example.net",
+        "server_port": 443,
+        "type": "vless",
+        "uuid": "short-id-string"
+      }
+    }
+  ]
+}

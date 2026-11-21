@@ -136,7 +136,7 @@ func TestSubscriptionRequestChanged(t *testing.T) {
 	require.True(t, s.Apply().OK)
 	require.Equal(t, 1, lines.count("the User-Agent or the headers changed"))
 
-	source.serve(`{"outbounds":[{"type":"vless"}]}`)
+	source.serve(`{"log":{"level":"info"},"rules":[]}`)
 	downloadNow(t, s)
 	state = s.subscriptionStates()[0]
 	require.Equal(t, "json-agent", state.ErrorCode)

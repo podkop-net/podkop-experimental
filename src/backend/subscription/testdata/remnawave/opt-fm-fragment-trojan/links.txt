@@ -1,0 +1,1 @@
+trojan://fixture-trojan-password-0001@srv15.example.net:443?type=tcp&security=tls&sni=srv15.example.net&fp=chrome#%E2%9C%82%EF%B8%8F%20Trojan%20with%20finalmask%20fragment

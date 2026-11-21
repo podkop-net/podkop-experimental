@@ -1,0 +1,1 @@
+vless://c0ffee00-0000-4000-8000-0000000000a1@203.0.113.15:4500?encryption=none&type=kcp&mtu=1350&tti=20&security=none#%F0%9F%90%A2%20mKCP%20plain

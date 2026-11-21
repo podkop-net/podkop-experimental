@@ -1,0 +1,6 @@
+{
+  "why": "VLESS Encryption: the same server in the links and the Xray JSON; Remnawave's sing-box generator (singbox.generator.service.ts) skips hosts with VLESS Encryption.",
+  "errors": {
+    "singbox": "nolinks"
+  }
+}

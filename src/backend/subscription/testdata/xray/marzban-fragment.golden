@@ -1,0 +1,81 @@
+{
+  "format": "xray",
+  "configs": 2,
+  "outbounds": 2,
+  "servers": [
+    {
+      "name": "🇩🇪 Marzban WS fragment",
+      "id": "52e35bed5c11d184e9b68bf4",
+      "notes": [
+        "fm (finalmask): the delays of the fragment mask are not applied, a pause of this host is not a link's to set"
+      ],
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f001@ws.example.net:443?encryption=none&security=tls&sni=ws.example.net&alpn=h2%2Chttp%2F1.1&fp=chrome&type=ws&path=%2Fmarzban%3Fed%3D2560&sb.transport.headers.User-Agent=Mozilla%2F5.0+%28fixture%29&host=ws.example.net&fm=%7B%22tcp%22%3A%5B%7B%22settings%22%3A%7B%22delay%22%3A%2210-20%22%2C%22length%22%3A%22100-200%22%2C%22packets%22%3A%22tlshello%22%7D%2C%22type%22%3A%22fragment%22%7D%5D%7D#%F0%9F%87%A9%F0%9F%87%AA%20Marzban%20WS%20fragment",
+      "outbound": {
+        "finalmask": {
+          "tcp": [
+            {
+              "delays": [
+                "0",
+                "0"
+              ],
+              "length": "100-200",
+              "packets": "tlshello",
+              "type": "fragment"
+            }
+          ]
+        },
+        "server": "ws.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "server_name": "ws.example.net",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "transport": {
+          "early_data_header_name": "Sec-WebSocket-Protocol",
+          "headers": {
+            "Host": "ws.example.net",
+            "User-Agent": "Mozilla/5.0 (fixture)"
+          },
+          "max_early_data": 2560,
+          "path": "/marzban",
+          "type": "ws"
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f001"
+      }
+    },
+    {
+      "name": "🇳🇱 Marzban TCP mux noises",
+      "id": "fd6a1691f23af42c5e4ad72f",
+      "notes": [
+        "noise is a setting of the client of Xray and is not applied",
+        "Xray's mux is not in sing-box: the server is used without it"
+      ],
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f002@203.0.113.40:8443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.example.com&fp=firefox&pbk=jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY&sid=0123abcd&spx=%2F&type=tcp#%F0%9F%87%B3%F0%9F%87%B1%20Marzban%20TCP%20mux%20noises",
+      "outbound": {
+        "flow": "xtls-rprx-vision",
+        "server": "203.0.113.40",
+        "server_port": 8443,
+        "tls": {
+          "enabled": true,
+          "reality": {
+            "enabled": true,
+            "public_key": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+            "short_id": "0123abcd"
+          },
+          "server_name": "www.example.com",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "firefox"
+          }
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f002"
+      }
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+vless://c0ffee00-0000-4000-8000-0000000000a1@cdn.example.com:443?encryption=none&type=ws&path=%2Fws-path%3Fed%3D2048&host=ws.example.net&heartbeatPeriod=30&security=tls&sni=ws.example.net&fp=chrome&alpn=http%2F1.1#%F0%9F%8C%90%20WS%20TLS%20early%20data

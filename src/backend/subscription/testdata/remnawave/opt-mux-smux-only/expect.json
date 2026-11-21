@@ -1,0 +1,15 @@
+{
+  "why": "sing-box's smux alone.",
+  "servers": {
+    "🔀 smux only": {
+      "singbox": {
+        "differ": [
+          "multiplex.enabled",
+          "multiplex.max_streams",
+          "multiplex.protocol"
+        ],
+        "why": "Remnawave's sing-box generator (singbox.generator.service.ts) writes the host's smux as sing-box's multiplex; the link and the Xray JSON have none."
+      }
+    }
+  }
+}

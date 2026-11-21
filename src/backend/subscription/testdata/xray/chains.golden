@@ -1,0 +1,85 @@
+{
+  "format": "xray",
+  "configs": 3,
+  "outbounds": 10,
+  "servers": [
+    {
+      "name": "🇳🇱 Exit via relay",
+      "id": "87985dbda92527132cec97c4",
+      "notes": [
+        "the provider connects it through relay; podkop connects it directly"
+      ],
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f041@nl.example.net:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.example.com&pbk=jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY&sid=01&type=tcp#%F0%9F%87%B3%F0%9F%87%B1%20Exit%20via%20relay",
+      "outbound": {
+        "flow": "xtls-rprx-vision",
+        "server": "nl.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "reality": {
+            "enabled": true,
+            "public_key": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+            "short_id": "01"
+          },
+          "server_name": "www.example.com",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f041"
+      }
+    },
+    {
+      "name": "🇩🇪 Frankfurt",
+      "id": "4024ad6f4c6e928172d64591",
+      "notes": [
+        "the provider connects it through gone, which its configuration does not have; podkop connects it directly"
+      ],
+      "link": "trojan://fixture-trojan-de@de.example.net:443?security=tls&sni=de.example.net&type=tcp#%F0%9F%87%A9%F0%9F%87%AA%20Frankfurt",
+      "outbound": {
+        "password": "fixture-trojan-de",
+        "server": "de.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "server_name": "de.example.net",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "type": "trojan"
+      }
+    },
+    {
+      "name": "self",
+      "id": "e1c0a49c70366489de0846b5",
+      "notes": [
+        "the provider connects it through itself; podkop connects it directly"
+      ],
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f044@self.example.net:443?encryption=none&security=none&type=tcp#self",
+      "outbound": {
+        "server": "self.example.net",
+        "server_port": 443,
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f044"
+      }
+    },
+    {
+      "name": "front",
+      "id": "86c0d61c9456ecdb7708c99b",
+      "notes": [
+        "the provider connects it through hidden; podkop connects it directly"
+      ],
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f046@front.example.net:443?encryption=none&security=none&type=tcp#front",
+      "outbound": {
+        "server": "front.example.net",
+        "server_port": 443,
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f046"
+      }
+    }
+  ]
+}

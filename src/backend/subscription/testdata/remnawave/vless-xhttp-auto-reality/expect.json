@@ -1,0 +1,6 @@
+{
+  "why": "XHTTP: the same server in the links and the Xray JSON; Remnawave's sing-box generator (singbox.generator.service.ts) skips xhttp hosts (UNSUPPORTED_TRANSPORTS).",
+  "errors": {
+    "singbox": "nolinks"
+  }
+}

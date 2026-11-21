@@ -1,0 +1,2 @@
+vless://c0ffee00-0000-4000-8000-0000000000a1@srv22.example.net:443?encryption=none&flow=xtls-rprx-vision&type=tcp&security=reality&sni=www.example.org&fp=chrome&pbk=b569T23aSYOiVSCgMBFgW7qS8M15rP8lCkHhJDGS-wc&sid=9b91a0017af4a541#%F0%9F%87%B3%F0%9F%87%B1%20Amsterdam
+vless://c0ffee00-0000-4000-8000-0000000000a1@srv23.example.net:443?encryption=none&flow=xtls-rprx-vision&type=tcp&security=reality&sni=www.example.org&fp=chrome&pbk=b569T23aSYOiVSCgMBFgW7qS8M15rP8lCkHhJDGS-wc&sid=9b91a0017af4a541#%F0%9F%87%B3%F0%9F%87%B1%20Amsterdam%20%5E~2~%5E

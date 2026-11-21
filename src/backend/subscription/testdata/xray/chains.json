@@ -1,0 +1,44 @@
+[
+  {
+    "remarks": "🇳🇱 Exit via relay",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "vless", "settings": {"vnext": [{"address": "nl.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f041", "encryption": "none", "flow": "xtls-rprx-vision"}]}]},
+       "streamSettings": {"network": "tcp", "security": "reality", "realitySettings": {"serverName": "www.example.com", "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY", "shortId": "01"}, "sockopt": {"dialerProxy": "relay"}}},
+      {"tag": "relay", "protocol": "vless", "settings": {"vnext": [{"address": "relay.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f042", "encryption": "none", "flow": "xtls-rprx-vision"}]}]},
+       "streamSettings": {"network": "tcp", "security": "reality", "realitySettings": {"serverName": "www.example.com", "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY", "shortId": "02"}}},
+      {"tag": "🇩🇪 Frankfurt", "protocol": "trojan", "settings": {"servers": [{"address": "de.example.net", "port": 443, "password": "fixture-trojan-de"}]},
+       "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "de.example.net"}}, "proxySettings": {"tag": "relay", "transportLayer": true}},
+      {"tag": "lonely", "protocol": "vless", "settings": {"vnext": [{"address": "lonely.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f043", "encryption": "none"}]}]},
+       "streamSettings": {"network": "tcp", "security": "none"}},
+      {"tag": "direct", "protocol": "freedom"},
+      {"tag": "block", "protocol": "blackhole"}
+    ],
+    "routing": {
+      "balancers": [{"tag": "auto", "selector": ["proxy", "🇩🇪"], "fallbackTag": "proxy"}],
+      "rules": [{"type": "field", "network": "udp", "outboundTag": "block"}, {"type": "field", "port": "0-65535", "balancerTag": "auto"}]
+    }
+  },
+  {
+    "remarks": "🇩🇪 Frankfurt",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "trojan", "settings": {"servers": [{"address": "de.example.net", "port": 443, "password": "fixture-trojan-de"}]},
+       "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "de.example.net"}, "sockopt": {"dialerProxy": "gone"}}},
+      {"tag": "exit", "protocol": "vless", "settings": {"vnext": [{"address": "nl.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f041", "encryption": "none", "flow": "xtls-rprx-vision"}]}]},
+       "streamSettings": {"network": "tcp", "security": "reality", "realitySettings": {"serverName": "www.example.com", "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY", "shortId": "01"}, "sockopt": {"dialerProxy": "relay"}}},
+      {"tag": "relay", "protocol": "vless", "settings": {"vnext": [{"address": "relay.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f042", "encryption": "none", "flow": "xtls-rprx-vision"}]}]},
+       "streamSettings": {"network": "tcp", "security": "reality", "realitySettings": {"serverName": "www.example.com", "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY", "shortId": "02"}}}
+    ],
+    "routing": {"rules": [{"type": "field", "outboundTag": "exit"}]}
+  },
+  {
+    "remarks": "Through itself",
+    "outbounds": [
+      {"protocol": "vless", "tag": "self", "settings": {"vnext": [{"address": "self.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f044", "encryption": "none"}]}]},
+       "streamSettings": {"network": "tcp", "security": "none", "sockopt": {"dialerProxy": "self"}}},
+      {"protocol": "vless", "tag": "hidden", "settings": {"vnext": [{"address": "hidden.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f045", "encryption": "none"}]}]},
+       "streamSettings": {"network": "tcp", "security": "none"}},
+      {"protocol": "vless", "tag": "front", "settings": {"vnext": [{"address": "front.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f046", "encryption": "none"}]}]},
+       "streamSettings": {"network": "tcp", "security": "none", "sockopt": {"dialerProxy": "hidden"}}}
+    ]
+  }
+]

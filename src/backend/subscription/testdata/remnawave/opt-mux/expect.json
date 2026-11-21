@@ -1,0 +1,13 @@
+{
+  "why": "The same server in the three forms.",
+  "servers": {
+    "🔀 Xray mux": {
+      "xray": {
+        "why": "the notes the conversion gives",
+        "notes": [
+          "Xray's mux is not in sing-box"
+        ]
+      }
+    }
+  }
+}

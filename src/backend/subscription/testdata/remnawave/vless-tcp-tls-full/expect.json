@@ -1,0 +1,25 @@
+{
+  "why": "TLS with every option of Remnawave: pins, other names, ECH, cipher suites.",
+  "servers": {
+    "🇺🇸 New York TLS all options": {
+      "singbox": {
+        "differ": [
+          "tls.certificate_server_name",
+          "tls.certificate_sha256",
+          "tls.insecure"
+        ],
+        "why": "Remnawave's sing-box generator (singbox.generator.service.ts) writes the pins as tls.insecure and drops verifyPeerCertByName; the link (pcs, vcn) and the Xray JSON verify the certificate. The server of the sing-box JSON is noted as not verified.",
+        "notes": [
+          "does not verify the certificate"
+        ]
+      },
+      "xray": {
+        "differ": [
+          "tls.ech.config",
+          "tls.ech.enabled"
+        ],
+        "why": "The Xray JSON has the host's echConfigList; Remnawave's links carry no ECH (xray.generator.service.ts), and its sing-box JSON drops it."
+      }
+    }
+  }
+}

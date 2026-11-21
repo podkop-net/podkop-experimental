@@ -1,0 +1,4 @@
+[
+  {"remarks": "⌛ Subscription expired", "outbounds": [{"tag": "proxy", "protocol": "vless", "settings": {"vnext": [{"address": "0.0.0.0", "port": 1, "users": [{"id": "00000000-0000-0000-0000-000000000000", "encryption": "none"}]}]}, "streamSettings": {"network": "tcp", "security": "none"}}]},
+  {"remarks": "Contact support", "outbounds": [{"tag": "proxy", "protocol": "vless", "settings": {"vnext": [{"address": "0.0.0.0", "port": 1, "users": [{"id": "00000000-0000-0000-0000-000000000000", "encryption": "none"}]}]}, "streamSettings": {"network": "tcp", "security": "none"}}]}
+]

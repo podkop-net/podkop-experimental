@@ -1,0 +1,15 @@
+{
+  "why": "Hysteria 2 with salamander and a packet size (gecko in Xray).",
+  "servers": {
+    "⚡ Hysteria2 salamander packetSize": {
+      "singbox": {
+        "differ": [
+          "obfs.max_packet_size",
+          "obfs.min_packet_size",
+          "obfs.type"
+        ],
+        "why": "Remnawave's sing-box generator (singbox.generator.service.ts) writes salamander without its packet size, which Xray reads as gecko (infra/conf Salamander.Build): the server of the sing-box JSON is plain salamander and does not talk to a gecko server. The link's fm and the Xray JSON make gecko."
+      }
+    }
+  }
+}

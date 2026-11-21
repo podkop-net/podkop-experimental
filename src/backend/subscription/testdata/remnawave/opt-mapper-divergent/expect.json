@@ -1,0 +1,33 @@
+{
+  "why": "The host's mapper rewrites the name and the address of the link only: the forms legitimately name different servers.",
+  "servers": {
+    "Renamed in links only": {
+      "singbox": {
+        "missing": true,
+        "why": "the mapper renamed the server in the link only: the JSON forms have it under its own name"
+      },
+      "xray": {
+        "missing": true,
+        "why": "the mapper renamed the server in the link only: the JSON forms have it under its own name"
+      }
+    },
+    "🗺️ Mapper link-only rewrite": {
+      "links": {
+        "missing": true,
+        "why": "the JSON forms name the server as the host does; the link has another name"
+      },
+      "singbox": {
+        "differ": [
+          "(no link)"
+        ],
+        "why": "the JSON forms name the server as the host does; the link has another name"
+      },
+      "xray": {
+        "differ": [
+          "(no link)"
+        ],
+        "why": "the JSON forms name the server as the host does; the link has another name"
+      }
+    }
+  }
+}

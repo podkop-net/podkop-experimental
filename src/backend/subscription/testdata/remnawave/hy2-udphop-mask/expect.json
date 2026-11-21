@@ -1,0 +1,15 @@
+{
+  "why": "Hysteria 2 with the udphop mask of finalmask.",
+  "servers": {
+    "⚡ Hysteria2 udphop mask": {
+      "singbox": {
+        "differ": [
+          "hop_interval",
+          "hop_interval_max",
+          "server_ports"
+        ],
+        "why": "Remnawave's sing-box generator (singbox.generator.service.ts) reads only quicParams.udpHop: its server does not hop; the link's fm and the Xray JSON hop by the udphop mask."
+      }
+    }
+  }
+}

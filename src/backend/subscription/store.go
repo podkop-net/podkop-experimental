@@ -26,6 +26,25 @@ type Saved struct {
 	// Info are the headers the provider tells about the subscription with (traffic, its
 	// end, the interval it asks for), as they were then.
 	Info map[string]string `json:"info,omitempty"`
+	// Format is what the list came as: "" a list of links (a list kept before formats were
+	// read too), FormatXray or FormatSingBox, whose servers podkop made links of; Configs is the
+	// number of the configurations of Xray JSON.
+	Format  string `json:"format,omitempty"`
+	Configs int    `json:"configs,omitempty"`
+
+	// outbounds is how many outbounds of servers the configurations had, for the log
+	outbounds int
+}
+
+// Outbounds is how many outbounds of servers the configurations of the list had when it was
+// downloaded (0 for a list kept on flash).
+func (s *Saved) Outbounds() int {
+	return s.outbounds
+}
+
+// SavedList is the list to keep of what the provider sent.
+func SavedList(list List) *Saved {
+	return &Saved{Servers: list.Servers, Format: list.Format, Configs: list.Configs, outbounds: list.Outbounds}
 }
 
 // Verdicts are the reasons of the servers of the list by their ID (Check).

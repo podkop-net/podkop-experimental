@@ -1,0 +1,1 @@
+hysteria2://c0ffee00-0000-4000-8000-0000000000a1@hy.example.net:443/?sni=hy.example.net#%E2%9A%A1%20Hysteria2%20basic

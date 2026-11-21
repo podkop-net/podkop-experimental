@@ -1,0 +1,1 @@
+vless://c0ffee00-0000-4000-8000-0000000000a1@grpc.example.net:443?encryption=none&type=grpc&serviceName=fixture-grpc&mode=multi&authority=grpc-auth.example.net&security=tls&sni=grpc.example.net&fp=chrome&alpn=h2#%F0%9F%93%A1%20gRPC%20TLS%20multi

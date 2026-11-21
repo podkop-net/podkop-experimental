@@ -1,0 +1,19 @@
+{
+  "why": "A finalmask fragment with lists of lengths and delays.",
+  "servers": {
+    "✂️ finalmask fragment lengths/delays": {
+      "singbox": {
+        "differ": [
+          "finalmask.tcp"
+        ],
+        "why": "Remnawave's sing-box generator (singbox.generator.service.ts) writes no finalmask: its server does not cut the hello."
+      },
+      "xray": {
+        "why": "the notes the conversion gives",
+        "notes": [
+          "delays of the fragment mask are not applied"
+        ]
+      }
+    }
+  }
+}

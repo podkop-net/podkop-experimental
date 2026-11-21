@@ -1,0 +1,15 @@
+{
+  "why": "Shadowsocks 2022 with UDP over TCP, version 1.",
+  "servers": {
+    "🇸🇬 Singapore SS2022 UoT v1": {
+      "singbox": {
+        "differ": [
+          "network",
+          "udp_over_tcp.enabled",
+          "udp_over_tcp.version"
+        ],
+        "why": "Remnawave's sing-box generator (singbox.generator.service.ts) writes the host's UoT v1 (udp_over_tcp, network tcp); Xray reads no uot and the link carries none."
+      }
+    }
+  }
+}

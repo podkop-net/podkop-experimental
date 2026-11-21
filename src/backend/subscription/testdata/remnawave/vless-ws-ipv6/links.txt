@@ -1,0 +1,1 @@
+vless://c0ffee00-0000-4000-8000-0000000000a1@[2001:db8::10]:443?encryption=none&type=ws&path=%2Fv6&host=v6.example.net&security=tls&sni=v6.example.net&fp=chrome&alpn=http%2F1.1#IPv6%20literal%20WS%20TLS

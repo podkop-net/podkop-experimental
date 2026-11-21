@@ -1,0 +1,1 @@
+vless://c0ffee00-0000-4000-8000-0000000000a1@203.0.113.19:8080?encryption=none&type=ws&path=%2Fhdr&security=none#WS%20Host%20only%20in%20headers

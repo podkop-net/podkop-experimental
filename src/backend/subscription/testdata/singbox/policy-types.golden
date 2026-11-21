@@ -1,0 +1,266 @@
+{
+  "format": "sing-box",
+  "outbounds": 18,
+  "servers": [
+    {
+      "name": "Trojan policy",
+      "id": "ba770d9e01b2cfc322c30f15",
+      "notes": [
+        "the provider connects it through relay; podkop connects it directly",
+        "bind_interface is a setting of the provider's app and is left out",
+        "domain_resolver is a setting of the provider's app and is left out",
+        "domain_strategy is a setting of the provider's app and is left out",
+        "routing_mark is a setting of the provider's app and is left out",
+        "tls.certificate_path is a setting of the provider's app and is left out",
+        "tls.handshake_timeout is a setting of the provider's app and is left out"
+      ],
+      "link": "trojan://fixture-trojan-sb@tr.example.net:443?security=none&sb.connect_timeout=5s&sb.tls.enabled=true&sb.tls.server_name=tr.example.net&sb.transport.service_name=tr-grpc&sb.transport.type=grpc#Trojan%20policy",
+      "outbound": {
+        "connect_timeout": "5s",
+        "password": "fixture-trojan-sb",
+        "server": "tr.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "server_name": "tr.example.net"
+        },
+        "transport": {
+          "service_name": "tr-grpc",
+          "type": "grpc"
+        },
+        "type": "trojan"
+      }
+    },
+    {
+      "name": "Trojan plain",
+      "id": "030bf638c56b716883ef6f72",
+      "notes": [
+        "the provider connects it through direct, which its configuration does not have; podkop connects it directly"
+      ],
+      "link": "trojan://fixture-trojan-sb-2@tr2.example.net:8080?security=none#Trojan%20plain",
+      "outbound": {
+        "password": "fixture-trojan-sb-2",
+        "server": "tr2.example.net",
+        "server_port": 8080,
+        "type": "trojan"
+      }
+    },
+    {
+      "name": "VMess",
+      "id": "1b4136fd6db516093610123a",
+      "notes": [
+        "sb.security replaces what the link sets otherwise"
+      ],
+      "link": "vmess://c0ffee00-0000-4000-8000-00000000f064@vm.example.net:443?sb.authenticated_length=true&sb.security=none&sb.tls.enabled=true&sb.tls.server_name=vm.example.net&sb.transport.host=vm.example.net&sb.transport.path=%2Fhu&sb.transport.type=httpupgrade#VMess",
+      "outbound": {
+        "authenticated_length": true,
+        "security": "none",
+        "server": "vm.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "server_name": "vm.example.net"
+        },
+        "transport": {
+          "host": "vm.example.net",
+          "path": "/hu",
+          "type": "httpupgrade"
+        },
+        "type": "vmess",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f064"
+      }
+    },
+    {
+      "name": "SS plugin",
+      "id": "cb4e388cd989857c56ad8f14",
+      "link": "ss://YWVzLTI1Ni1nY206Zml4dHVyZS1zcy1zYg@ss.example.net:8388?sb.plugin=obfs-local&sb.plugin_opts=obfs%3Dhttp%3Bobfs-host%3Dwww.example.com&sb.udp_over_tcp=true#SS%20plugin",
+      "outbound": {
+        "method": "aes-256-gcm",
+        "password": "fixture-ss-sb",
+        "plugin": "obfs-local",
+        "plugin_opts": "obfs=http;obfs-host=www.example.com",
+        "server": "ss.example.net",
+        "server_port": 8388,
+        "type": "shadowsocks",
+        "udp_over_tcp": true
+      }
+    },
+    {
+      "name": "SS over WS",
+      "reason": "this sing-box has no option tls for the outbound (the syntax of another version, or of another type)"
+    },
+    {
+      "name": "SOCKS",
+      "id": "b53f489fc32c7b0fb8f8d783",
+      "link": "socks5://fixture-user:fixture-pass@198.51.100.9:1080?sb.version=5#SOCKS",
+      "outbound": {
+        "password": "fixture-pass",
+        "server": "198.51.100.9",
+        "server_port": 1080,
+        "type": "socks",
+        "username": "fixture-user",
+        "version": "5"
+      }
+    },
+    {
+      "name": "HTTPS",
+      "id": "51095c494d7aa73c0cdc24a5",
+      "link": "http://u:fixture-pass@px.example.net:8443?sb.headers.X-Fixture=proxy&sb.tls.enabled=true&sb.tls.server_name=px.example.net#HTTPS",
+      "outbound": {
+        "headers": {
+          "X-Fixture": "proxy"
+        },
+        "password": "fixture-pass",
+        "server": "px.example.net",
+        "server_port": 8443,
+        "tls": {
+          "enabled": true,
+          "server_name": "px.example.net"
+        },
+        "type": "http",
+        "username": "u"
+      }
+    },
+    {
+      "name": "Hysteria2",
+      "id": "c84e3a574b44489307cffca6",
+      "notes": [
+        "the provider's configuration does not verify the certificate of the server"
+      ],
+      "link": "hysteria2://fixture-hy-sb@hy.example.net:443/?sb.down_mbps=200&sb.hop_interval=30s&sb.obfs.password=fixture-obfs&sb.obfs.type=salamander&sb.server_ports=%2220000%3A30000%22&sb.tls.enabled=true&sb.tls.insecure=true&sb.tls.server_name=hy.example.net&sb.up_mbps=100#Hysteria2",
+      "outbound": {
+        "down_mbps": 200,
+        "hop_interval": "30s",
+        "obfs": {
+          "password": "fixture-obfs",
+          "type": "salamander"
+        },
+        "password": "fixture-hy-sb",
+        "server": "hy.example.net",
+        "server_port": 443,
+        "server_ports": "20000:30000",
+        "tls": {
+          "enabled": true,
+          "insecure": true,
+          "server_name": "hy.example.net"
+        },
+        "type": "hysteria2",
+        "up_mbps": 100
+      }
+    },
+    {
+      "name": "Hysteria",
+      "id": "60ff1e5ee5467914775b1577",
+      "link": "hysteria://hy1.example.net:443?sb.auth_str=fixture-hy1&sb.down_mbps=50&sb.obfs=fixture-xplus&sb.tls.enabled=true&sb.tls.server_name=hy1.example.net&sb.up_mbps=10#Hysteria",
+      "outbound": {
+        "auth_str": "fixture-hy1",
+        "down_mbps": 50,
+        "obfs": "fixture-xplus",
+        "server": "hy1.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "server_name": "hy1.example.net"
+        },
+        "type": "hysteria",
+        "up_mbps": 10
+      }
+    },
+    {
+      "name": "TUIC",
+      "id": "ae71e44fe672ad3e2e5e084f",
+      "link": "tuic://c0ffee00-0000-4000-8000-00000000f065:fixture-tuic@tuic.example.net:443?alpn=h3&sb.congestion_control=bbr&sb.tls.enabled=true&sb.tls.server_name=tuic.example.net#TUIC",
+      "outbound": {
+        "congestion_control": "bbr",
+        "password": "fixture-tuic",
+        "server": "tuic.example.net",
+        "server_port": 443,
+        "tls": {
+          "alpn": "h3",
+          "enabled": true,
+          "server_name": "tuic.example.net"
+        },
+        "type": "tuic",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f065"
+      }
+    },
+    {
+      "name": "AnyTLS",
+      "id": "afce38e872eef4fba88d3aea",
+      "link": "anytls://fixture-any@any.example.net:443?sb.tls.enabled=true&sb.tls.server_name=any.example.net&sb.tls.utls.enabled=true&sb.tls.utls.fingerprint=chrome#AnyTLS",
+      "outbound": {
+        "password": "fixture-any",
+        "server": "any.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "server_name": "any.example.net",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "type": "anytls"
+      }
+    },
+    {
+      "name": "Naive",
+      "id": "00c11a716682e55a546e1547",
+      "link": "naive+quic://nv:fixture-naive@nv.example.net:443?sb.tls.enabled=true&sb.tls.server_name=nv.example.net#Naive",
+      "outbound": {
+        "password": "fixture-naive",
+        "quic": true,
+        "server": "nv.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "server_name": "nv.example.net"
+        },
+        "type": "naive",
+        "username": "nv"
+      }
+    },
+    {
+      "name": "WireGuard",
+      "reason": "a server of type wireguard is not taken from a subscription"
+    },
+    {
+      "name": "ShadowTLS",
+      "reason": "a server of type shadowtls is not taken from a subscription"
+    },
+    {
+      "name": "Legacy option",
+      "reason": "this sing-box has no option tls_fragment for the outbound (the syntax of another version, or of another type)"
+    },
+    {
+      "name": "List of objects",
+      "reason": "the option finalmask.tcp cannot be carried by a link"
+    },
+    {
+      "name": "Headers list",
+      "id": "52c34492d6ef8a0ae389d7cc",
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f068@hl.example.net:443?sb.tls.enabled=true&sb.tls.server_name=hl.example.net&sb.transport.headers.Host=%5B%22a.example.net%22%2C%22b.example.net%22%5D&sb.transport.headers.X-Quote=%22%5Bnot+json%22&sb.transport.path=%2Fw&sb.transport.type=ws#Headers%20list",
+      "outbound": {
+        "server": "hl.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "server_name": "hl.example.net"
+        },
+        "transport": {
+          "headers": {
+            "Host": [
+              "a.example.net",
+              "b.example.net"
+            ],
+            "X-Quote": "[not json"
+          },
+          "path": "/w",
+          "type": "ws"
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f068"
+      }
+    }
+  ]
+}

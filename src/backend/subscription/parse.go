@@ -1,7 +1,8 @@
 // Package subscription reads what a provider lists at the address of a subscription: proxy
-// links, one a line, the whole often in base64. It downloads the list (Download), takes it
-// apart into servers (Parse), finds the servers this sing-box cannot use (Check), keeps the
-// last list that was taken (Store) and tells the provider which device asks (ReadDevice).
+// links, one a line, the whole often in base64, or the configurations of Xray and sing-box
+// (JSON), whose servers become links. It downloads the list (Download), takes it apart into
+// servers (ParseList), finds the servers this sing-box cannot use (Check), keeps the last list
+// that was taken (Store) and tells the provider which device asks (ReadDevice).
 //
 // The address and the links are secrets: the token in the address is the account, a link
 // holds the keys of a server. No message of this package repeats them.
@@ -42,18 +43,64 @@ func (s *Server) Usable() bool {
 	return s.Reason == ""
 }
 
+// Codec is what the readers of a list ask the engine: Decode makes the outbound of a link
+// (engine.DecodeLink), Normalize has this sing-box read the options of an outbound of a type of
+// sing-box JSON and write them again (engine.NormalizeOutbound; none: sing-box JSON gives its
+// servers a reason).
+type Codec struct {
+	Decode    Decoder
+	Normalize func(kind string, options []byte) ([]byte, error)
+}
+
 // Decoder turns a proxy link into an outbound, a JSON object whose tag is the name of the
 // link, and the warnings about it (engine.DecodeLink).
 type Decoder func(link string) (outbound []byte, warnings []string, err error)
 
-// Parse takes the body of an answer of a provider apart into its servers, in its order. A
-// line that is not a proxy link is skipped: the comments some providers put in (#…) and the
-// lines for other programs (happ://…). Links that cannot be decoded are servers with a
-// reason; a body with no link at all is refused.
+// The formats of a list besides links (List.Format).
+const (
+	FormatXray    = "xray"
+	FormatSingBox = "sing-box"
+)
+
+// List is what an answer of a provider was read as: its servers, and the format it came in.
+type List struct {
+	Servers []Server
+	// Format is "" for a list of links, FormatXray or FormatSingBox for a configuration whose
+	// servers podkop made links of
+	Format string
+	// Configs is the number of the configurations of Xray JSON; Outbounds the number of the
+	// outbounds of servers the configurations had, of which Servers are those taken
+	Configs   int
+	Outbounds int
+}
+
+// FormatText names a format for the log: "a list of links", "Xray JSON", "sing-box JSON".
+func FormatText(format string) string {
+	switch format {
+	case FormatXray:
+		return "Xray JSON"
+	case FormatSingBox:
+		return "sing-box JSON"
+	}
+	return "a list of links"
+}
+
+// Parse takes the body of an answer of a provider apart into its servers (ParseList).
 func Parse(body []byte, decode Decoder) ([]Server, error) {
+	list, err := ParseList(body, Codec{Decode: decode})
+	return list.Servers, err
+}
+
+// ParseList takes the body of an answer of a provider apart into its servers, in its order,
+// whatever the format the provider sent: a list of links, or the configurations of Xray or
+// sing-box (JSON). A line that is not a proxy link is skipped: the comments some providers put
+// in (#…) and the lines for other programs (happ://…). Links that cannot be decoded are servers
+// with a reason; a body with no server at all is refused.
+func ParseList(body []byte, codec Codec) (List, error) {
+	decode := codec.Decode
 	text := strings.TrimSpace(strings.TrimPrefix(string(body), "\ufeff"))
 	if text == "" {
-		return nil, fail("empty", true, "the provider sent an empty list")
+		return List{}, fail("empty", true, "the provider sent an empty list")
 	}
 	if !strings.Contains(text, "://") {
 		if decoded, isBase64 := decodeBase64(text); isBase64 {
@@ -62,31 +109,102 @@ func Parse(body []byte, decode Decoder) ([]Server, error) {
 	}
 	switch {
 	case strings.HasPrefix(text, "<"):
-		return nil, fail("page", true, "the provider sent a web page, not a list of servers")
+		return List{}, fail("page", true, "the provider sent a web page, not a list of servers")
 	case strings.HasPrefix(text, "{"), strings.HasPrefix(text, "["):
-		return nil, fail("json", true, "the provider sent a configuration in JSON (sing-box or Xray): podkop reads only a list of links so far")
+		return parseJSON([]byte(text), codec)
 	case isClashYAML(text):
-		return nil, fail("clash", true, "the provider sent a configuration of Clash (YAML): podkop reads only a list of links so far")
+		return List{}, fail("clash", true, "the provider sent a configuration of Clash (YAML), which podkop does not read: an address that ends with /clash, /clash-meta, /mihomo or /stash gets a list of links without that ending")
 	}
 	var servers []Server
+	encrypted := 0
 	for _, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") {
 			continue
 		}
-		scheme, _, isLink := strings.Cut(line, "://")
+		scheme, rest, isLink := strings.Cut(line, "://")
+		if strings.EqualFold(scheme, "happ") && len(rest) >= len("crypt") && strings.EqualFold(rest[:len("crypt")], "crypt") {
+			encrypted++
+		}
 		if !isLink || strings.ContainsAny(scheme, " \t") || strings.EqualFold(scheme, "happ") {
 			continue
 		}
 		servers = append(servers, parseLink(line, len(servers)+1, decode))
 	}
-	if len(servers) == 0 {
-		return nil, fail("nolinks", true, "the answer of the provider has no links of servers")
+	if len(servers) == 0 && encrypted > 0 {
+		return List{}, fail("happ-crypt", true, "the provider sent only links encrypted for Happ (happ://crypt…), which only Happ reads")
 	}
-	if notes := placeholderNotes(servers); notes != nil {
-		return nil, fail("placeholder", true, "the provider sent notes instead of servers: "+strings.Join(notes, "; "), strings.Join(notes, "; "))
+	return finished(List{Servers: servers})
+}
+
+// finished refuses a list with no server, and one of placeholders.
+func finished(list List) (List, error) {
+	if len(list.Servers) == 0 {
+		return List{}, fail("nolinks", true, "the answer of the provider has no servers")
 	}
-	return servers, nil
+	if notes := placeholderNotes(list.Servers); notes != nil {
+		return List{}, fail("placeholder", true, "the provider sent notes instead of servers: "+strings.Join(notes, "; "), strings.Join(notes, "; "))
+	}
+	return list, nil
+}
+
+// parseJSON reads a configuration: a list of Xray's (each an object with outbounds), one of
+// Xray's (its outbounds have a protocol) or one of sing-box (its outbounds have a type). Other
+// JSON is refused; a configuration with no server is a list with no server.
+func parseJSON(content []byte, codec Codec) (List, error) {
+	other := fail("json", true, "the provider sent JSON that is not a configuration of Xray or sing-box")
+	if !json.Valid(content) {
+		return List{}, other
+	}
+	if content[0] == '[' {
+		var items []json.RawMessage
+		if json.Unmarshal(content, &items) != nil {
+			return List{}, other
+		}
+		var configurations []json.RawMessage
+		for _, item := range items {
+			if outbounds := objectOf(item).raw("outbounds"); outbounds != nil && outbounds[0] == '[' {
+				configurations = append(configurations, item)
+			}
+		}
+		if len(items) > 0 && len(configurations) == 0 {
+			return List{}, other
+		}
+		list := List{Format: FormatXray}
+		list.Servers, list.Configs, list.Outbounds = readXray(configurations, codec.Decode)
+		return finished(list)
+	}
+	root := objectOf(content)
+	outbounds := root.raw("outbounds")
+	if outbounds == nil || outbounds[0] != '[' {
+		return List{}, other
+	}
+	format := ""
+	items := root.list("outbounds")
+	for _, item := range items {
+		outbound := objectOf(item)
+		switch {
+		case format != "":
+		case outbound.has("protocol"):
+			format = FormatXray
+		case outbound.has("type"):
+			format = FormatSingBox
+		}
+	}
+	switch {
+	case format == FormatXray:
+		list := List{Format: FormatXray}
+		list.Servers, list.Configs, list.Outbounds = readXray([]json.RawMessage{content}, codec.Decode)
+		return finished(list)
+	case format == FormatSingBox:
+		list := List{Format: FormatSingBox}
+		list.Servers, list.Outbounds = readSingBox(root, codec)
+		return finished(list)
+	case len(items) == 0:
+		// a configuration with no outbound at all: no server
+		return finished(List{})
+	}
+	return List{}, other
 }
 
 // placeholderNotes are the names of a list whose every server is the address 0.0.0.0: what

@@ -1,0 +1,1 @@
+hysteria2://c0ffee00-0000-4000-8000-0000000000a1@203.0.113.22:20000/?sni=hy.example.net&fm=%7B%22quicParams%22%3A%7B%22udpHop%22%3A%7B%22ports%22%3A%2220000-30000%2C40000%22%2C%22interval%22%3A%2230%22%7D%2C%22brutalUp%22%3A%22100%20mbps%22%2C%22brutalDown%22%3A%22200%20mbps%22%2C%22congestion%22%3A%22brutal%22%7D%7D#%E2%9A%A1%20Hysteria2%20brutal%20%2B%20udpHop%20(quicParams)

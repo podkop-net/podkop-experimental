@@ -1,0 +1,1 @@
+trojan://fixture-trojan-password-0001@cdn.example.com:443?type=ws&path=%2Ftrojan&host=trojan-ws.example.net&security=tls&sni=trojan-ws.example.net&fp=chrome&alpn=http%2F1.1#%F0%9F%87%AC%F0%9F%87%A7%20London%20Trojan%20WS

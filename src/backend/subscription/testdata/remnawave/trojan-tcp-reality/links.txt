@@ -1,0 +1,1 @@
+trojan://fixture-trojan-password-0001@srv11.example.net:443?type=tcp&security=reality&sni=www.example.org&fp=chrome&pbk=Yvd40ASrxTAIsRrnmxBf3nbDGvqdf9FPbe22iCY-_RQ&sid=9b91a0017af4a541#%F0%9F%87%AE%F0%9F%87%AA%20Dublin%20Trojan%20Reality

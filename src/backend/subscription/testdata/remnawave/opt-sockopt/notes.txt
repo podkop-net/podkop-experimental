@@ -1,0 +1,17 @@
+case: opt-sockopt
+about: single host
+source: refs/remnawave-backend 6853666, generators unchanged (see README.md for the stubs)
+templates: XRAY_JSON = default (DEFAULT_TEMPLATE_XRAY_JSON); SINGBOX = default (DEFAULT_TEMPLATE_SINGBOX) (keys in jsonb order, as the panel serves them from the database)
+hosts passed: links/singbox 1 of 1, xray-json 1 of 1 (the hosts query drops hidden hosts except for XRAY_JSON/MIHOMO, and disabled hosts always)
+
+links (XrayGeneratorService): 1 link(s); extended client: same output
+xray-json (XrayJsonGeneratorService): 1 config(s); extended client: same output
+singbox (SingBoxGeneratorService): 1 host outbound(s) after the template's 2
+
+per host:
+- 🔧 sockopt TFO mark interface
+  links:     link vless://
+  xray-json: 1 config(s) with remarks = its finalRemark
+  singbox:   outbound type=vless
+
+generator log: nothing logged

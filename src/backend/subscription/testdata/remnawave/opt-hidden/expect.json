@@ -1,0 +1,8 @@
+{
+  "why": "A hidden host: no form lists it of its own (it is only injected into the configurations of others).",
+  "errors": {
+    "links": "empty",
+    "singbox": "nolinks",
+    "xray": "nolinks"
+  }
+}

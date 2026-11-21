@@ -1,0 +1,1 @@
+vless://c0ffee00-0000-4000-8000-0000000000a1@srv3.example.net:8443?encryption=mlkem768x25519plus.native.0rtt.Z4IBeiWXmDfoEvsaFn0ybC8T6EfwDq4j0iY6wwJqDC8&flow=xtls-rprx-vision&type=tcp&security=none#%F0%9F%94%90%20VLESS%20Encryption%20X25519

@@ -1,0 +1,1 @@
+vless://c0ffee00-0000-4000-8000-0000000000a1@203.0.113.14:8080?encryption=none&type=ws&path=%2F&security=none#WS%20plain%20minimal

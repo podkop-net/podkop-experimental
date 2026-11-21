@@ -1,0 +1,21 @@
+{
+  "why": "The hosts of multi-injector-chain through the default template: the dialerProxy relay of two exits names no outbound of the configuration.",
+  "servers": {
+    "🇳🇱 Exit Amsterdam via relay": {
+      "xray": {
+        "why": "the notes the conversion gives",
+        "notes": [
+          "which its configuration does not have; podkop connects it directly"
+        ]
+      }
+    },
+    "🇩🇪 Exit Frankfurt via relay": {
+      "xray": {
+        "why": "the notes the conversion gives",
+        "notes": [
+          "which its configuration does not have; podkop connects it directly"
+        ]
+      }
+    }
+  }
+}

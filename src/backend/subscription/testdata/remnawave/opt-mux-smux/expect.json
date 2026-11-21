@@ -1,0 +1,26 @@
+{
+  "why": "Xray's mux and sing-box's smux on one host.",
+  "servers": {
+    "🔀 Xray mux + smux": {
+      "singbox": {
+        "differ": [
+          "multiplex.brutal.down_mbps",
+          "multiplex.brutal.enabled",
+          "multiplex.brutal.up_mbps",
+          "multiplex.enabled",
+          "multiplex.max_connections",
+          "multiplex.min_streams",
+          "multiplex.padding",
+          "multiplex.protocol"
+        ],
+        "why": "Remnawave's sing-box generator (singbox.generator.service.ts) writes the host's smux as sing-box's multiplex; the link and the Xray JSON have none (Xray's mux is not sing-box's, and an Xray server speaks neither to sing-box)."
+      },
+      "xray": {
+        "why": "the notes the conversion gives",
+        "notes": [
+          "Xray's mux is not in sing-box"
+        ]
+      }
+    }
+  }
+}

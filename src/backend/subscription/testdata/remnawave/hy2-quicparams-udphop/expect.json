@@ -1,0 +1,14 @@
+{
+  "why": "Hysteria 2 with Brutal and the port hopping of quicParams.",
+  "servers": {
+    "⚡ Hysteria2 brutal + udpHop (quicParams)": {
+      "xray": {
+        "differ": [
+          "hop_interval",
+          "server_ports"
+        ],
+        "why": "Xray 26 reads no quicParams.udpHop (infra/conf QuicParamsConfig) and hops by the udphop mask alone: the server of the Xray JSON connects to its one port, as Xray does. The decoder reads quicParams.udpHop of the link's fm, and the sing-box JSON has it as server_ports."
+      }
+    }
+  }
+}

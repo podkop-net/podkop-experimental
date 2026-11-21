@@ -1,0 +1,14 @@
+{
+  "why": "Shadowsocks with UDP over TCP, version 2.",
+  "servers": {
+    "🇯🇵 Tokyo SS aes-256 UoT v2": {
+      "singbox": {
+        "differ": [
+          "network",
+          "udp_over_tcp"
+        ],
+        "why": "Remnawave's sing-box generator (singbox.generator.service.ts) writes the host's UoT (udp_over_tcp, network tcp); Xray reads no uot (infra/conf/shadowsocks.go) and the link carries none."
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "why": "A host excluded from both JSON forms: only the links have it.",
+  "errors": {
+    "singbox": "nolinks",
+    "xray": "nolinks"
+  }
+}

@@ -1,0 +1,1 @@
+trojan://fixture-trojan-password-0001@cdn.example.com:443?type=ws&path=%2Fsmux&host=smux.example.net&security=tls&sni=smux.example.net&fp=chrome&alpn=http%2F1.1#%F0%9F%94%80%20Xray%20mux%20%2B%20smux

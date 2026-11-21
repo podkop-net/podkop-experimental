@@ -1,0 +1,125 @@
+[
+  {
+    "remarks": "Flat REALITY password",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "vless",
+       "settings": {"address": "203.0.113.50", "port": 443, "id": "c0ffee00-0000-4000-8000-00000000f021", "flow": "xtls-rprx-vision-udp443", "encryption": "none", "testseed": [900, 500, 900, 256]},
+       "streamSettings": {"network": "raw", "security": "reality",
+         "realitySettings": {"serverName": "www.example.com", "password": "KbGYQL56K1aLeair9OW-f4xU3HQNFSzC7pLp_r4pHt0", "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY", "shortId": "ab", "spiderX": "/s", "mldsa65Verify": "fixture-mldsa65-verify-key", "fingerprint": "hellochrome_120", "show": true},
+         "rawSettings": {"header": {"type": "none"}},
+         "finalmask": {"tcp": [{"type": "fragment", "settings": {"packets": "tlshello", "length": "100-200", "delay": "0"}}, {"type": "filter", "settings": {"allowedSourceIPs": ["10.0.0.0/8"]}}],
+                       "udp": [{"type": "noise", "settings": {"noise": [{"type": "rand", "packet": "10-20"}]}}]},
+         "sockopt": {"tcpFastOpen": 256, "interface": "wan", "domainStrategy": "UseIPv4", "tcpMptcp": true, "fooBar": 1}}}
+    ]
+  },
+  {
+    "remarks": "TLS everything",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "vless",
+       "settings": {"vnext": [{"address": "tls.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f022", "encryption": "none"}]}]},
+       "streamSettings": {"network": "tcp", "security": "tls",
+         "tlsSettings": {"serverName": "tls.example.net", "alpn": ["h2", "http/1.1"], "fingerprint": "", "pinnedPeerCertSha256": "0458d1060b5385cfda9a8db103896253318203af84ed7c547ec763e7c0d80928", "verifyPeerCertByName": "alt.example.net",
+           "echConfigList": "AEL+DQA+KgAgACDiDO4a+09GPL3CAMy+VQyUbJg1AiEONbgMaGs4EZIvPQAEAAEAAQAPZWNoLmV4YW1wbGUubmV0AAA=", "echForceQuery": "full", "cipherSuites": "TLS_AES_128_GCM_SHA256", "enableSessionResumption": true, "minVersion": "1.3"}}}
+    ]
+  },
+  {
+    "remarks": "WS heartbeat and HTTPUpgrade Host",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "vless",
+       "settings": {"vnext": [{"address": "cdn.example.com", "port": 80, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f023", "encryption": "none"}]}]},
+       "streamSettings": {"network": "websocket", "security": "none", "wsSettings": {"path": "/ws", "host": "", "headers": {"Host": "ws-host.example.net", "X-Weird.Name": "x"}, "heartbeatPeriod": 30}}},
+      {"tag": "proxy-2", "protocol": "vless",
+       "settings": {"vnext": [{"address": "cdn.example.com", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f024", "encryption": "none"}]}]},
+       "streamSettings": {"network": "httpupgrade", "security": "tls", "tlsSettings": {"serverName": "hu.example.net"}, "httpupgradeSettings": {"path": "/hu?ed=2048", "host": "hu.example.net", "headers": {"Host": "ignored.example.net"}}}}
+    ],
+    "routing": {"balancers": [{"tag": "b", "selector": ["proxy"]}]}
+  },
+  {
+    "remarks": "XHTTP flat settings",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "vless",
+       "settings": {"vnext": [{"address": "xh.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f025", "encryption": "none"}]}]},
+       "streamSettings": {"network": "splithttp", "security": "tls", "tlsSettings": {"serverName": "xh.example.net", "alpn": ["h2"]},
+         "splithttpSettings": {"path": "/xh", "host": "xh.example.net", "mode": "stream-up", "xPaddingBytes": "100-1000", "noGRPCHeader": true, "h2Params": {"x": 1},
+           "xmux": {"maxConcurrency": "16-32", "hMaxRequestTimes": "600-900"},
+           "downloadSettings": {"address": "dl.example.net", "port": 443, "network": "xhttp", "security": "tls",
+             "tlsSettings": {"serverName": "dl.example.net", "enableSessionResumption": true, "pinnedPeerCertSha256": "0458d1060b5385cfda9a8db103896253318203af84ed7c547ec763e7c0d80928"},
+             "xhttpSettings": {"path": "/dl"}, "sockopt": {"mark": 1, "dialerProxy": "x"}}}}}
+    ]
+  },
+  {
+    "remarks": "XHTTP h3 udp mask",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "vless",
+       "settings": {"vnext": [{"address": "h3.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f026", "encryption": "none"}]}]},
+       "streamSettings": {"network": "xhttp", "security": "tls", "tlsSettings": {"serverName": "h3.example.net", "alpn": ["h3"]},
+         "xhttpSettings": {"path": "/h3", "mode": "packet-up", "extra": {"xPaddingBytes": "10-20"}, "xPaddingBytes": "1-2"},
+         "finalmask": {"udp": [{"type": "salamander", "settings": {"password": "fixture-obfs"}}], "quicParams": {"congestion": "bbr"}}}}
+    ]
+  },
+  {
+    "remarks": "TCP HTTP header",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "vless",
+       "settings": {"vnext": [{"address": "203.0.113.51", "port": 80, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f027", "encryption": "none"}]}]},
+       "streamSettings": {"network": "tcp", "tcpSettings": {"header": {"type": "http", "request": {"version": "1.1", "method": "GET", "path": ["/a", "/b"], "headers": {"Host": ["h1.example.net", "h2.example.net"], "User-Agent": ["UA-1", "UA-2"], "Accept-Encoding": "gzip, deflate"}}, "response": {"status": "200"}}}}}
+    ]
+  },
+  {
+    "remarks": "TCP HTTP header over TLS",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "vless",
+       "settings": {"vnext": [{"address": "203.0.113.52", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f028", "encryption": "none"}]}]},
+       "streamSettings": {"network": "tcp", "security": "tls", "tcpSettings": {"header": {"type": "http", "request": {"path": ["/"]}}}}}
+    ]
+  },
+  {
+    "remarks": "mKCP",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "vless", "settings": {"vnext": [{"address": "kcp.example.net", "port": 5000, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f029", "encryption": "none"}]}]},
+       "streamSettings": {"network": "mkcp", "kcpSettings": {"mtu": 1350, "tti": 20, "congestion": true}}}
+    ]
+  },
+  {
+    "remarks": "QUIC transport",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "vless", "settings": {"vnext": [{"address": "quic.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f030", "encryption": "none"}]}]},
+       "streamSettings": {"network": "quic", "security": "tls", "quicSettings": {"security": "aes-128-gcm", "key": "fixture-quic-key", "header": {"type": "none"}}}}
+    ]
+  },
+  {
+    "remarks": "HTTP/2",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "vless", "settings": {"vnext": [{"address": "h2.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f031", "encryption": "none"}]}]},
+       "streamSettings": {"network": "h2", "security": "tls", "tlsSettings": {"serverName": "h2.example.net"}, "httpSettings": {"host": ["h2.example.net"], "path": "/h2", "read_idle_timeout": 10}}}
+    ]
+  },
+  {
+    "remarks": "VLESS Encryption over XHTTP",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "vless",
+       "settings": {"vnext": [{"address": "enc.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f032", "flow": "xtls-rprx-vision", "encryption": "mlkem768x25519plus.native.0rtt.jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY"}]}]},
+       "streamSettings": {"network": "xhttp", "security": "none", "xhttpSettings": {"path": "/enc"}}}
+    ]
+  },
+  {
+    "remarks": "Hysteria gecko udphop",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "hysteria", "settings": {"version": 2, "address": "hy.example.net", "port": 443},
+       "streamSettings": {"network": "hysteria", "security": "tls",
+         "hysteriaSettings": {"version": 2, "auth": "fixture-hy-auth", "udpIdleTimeout": 60},
+         "tlsSettings": {"serverName": "hy.example.net", "alpn": ["h3"], "fingerprint": "chrome", "pinnedPeerCertSha256": "0458d1060b5385cfda9a8db103896253318203af84ed7c547ec763e7c0d80928"},
+         "finalmask": {"tcp": [{"type": "fragment"}],
+           "udp": [{"type": "salamander", "settings": {"password": "fixture-obfs", "packetSize": "1200-1350"}}, {"type": "udphop", "settings": {"mode": "intervalRemote", "interval": "20-40", "remotePorts": "20000-30000"}}],
+           "quicParams": {"congestion": "brutal", "brutalUp": "100 mbps", "brutalDown": "200 mbps", "udpHop": {"ports": "40000-50000"}, "maxIdleTimeout": 30}}}}
+    ]
+  },
+  {
+    "remarks": "Hysteria bbr",
+    "outbounds": [
+      {"tag": "proxy", "protocol": "hysteria", "settings": {"version": 2, "address": "hy2.example.net", "port": 8443},
+       "streamSettings": {"network": "hysteria", "security": "tls", "hysteriaSettings": {"version": 2, "auth": "fixture-hy-auth-2"},
+         "tlsSettings": {"serverName": "hy2.example.net", "alpn": ["h3", "h2"]}, "finalmask": {"quicParams": {"congestion": "bbr", "brutalUp": "100 mbps"}}}}
+    ]
+  }
+]

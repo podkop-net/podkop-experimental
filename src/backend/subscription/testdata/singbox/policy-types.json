@@ -1,0 +1,28 @@
+{
+  "outbounds": [
+    {"type": "trojan", "tag": "Trojan policy", "server": "tr.example.net", "server_port": 443, "password": "fixture-trojan-sb",
+     "detour": "relay", "bind_interface": "wan", "routing_mark": 255, "domain_resolver": "local", "domain_strategy": "ipv4_only", "connect_timeout": "5s",
+     "tls": {"enabled": true, "server_name": "tr.example.net", "certificate_path": "/etc/ca.pem", "handshake_timeout": "1h", "alpn": ["h2"]},
+     "transport": {"type": "grpc", "service_name": "tr-grpc"}},
+    {"type": "vless", "tag": "relay", "server": "relay.example.net", "server_port": 443, "uuid": "c0ffee00-0000-4000-8000-00000000f063"},
+    {"type": "trojan", "tag": "Trojan plain", "server": "tr2.example.net", "server_port": 8080, "password": "fixture-trojan-sb-2", "detour": "direct"},
+    {"type": "vmess", "tag": "VMess", "server": "vm.example.net", "server_port": 443, "uuid": "c0ffee00-0000-4000-8000-00000000f064", "security": "none", "alter_id": 0, "authenticated_length": true,
+     "tls": {"enabled": true, "server_name": "vm.example.net"}, "transport": {"type": "httpupgrade", "path": "/hu", "host": "vm.example.net"}},
+    {"type": "shadowsocks", "tag": "SS plugin", "server": "ss.example.net", "server_port": 8388, "method": "aes-256-gcm", "password": "fixture-ss-sb", "plugin": "obfs-local", "plugin_opts": "obfs=http;obfs-host=www.example.com", "udp_over_tcp": {"enabled": true, "version": 2}},
+    {"type": "shadowsocks", "tag": "SS over WS", "server": "ssws.example.net", "server_port": 443, "method": "aes-128-gcm", "password": "fixture-ss-sb-2", "transport": {"type": "ws", "path": "/ss"}, "tls": {"enabled": true}},
+    {"type": "socks", "tag": "SOCKS", "server": "198.51.100.9", "server_port": 1080, "version": "5", "username": "fixture-user", "password": "fixture-pass"},
+    {"type": "http", "tag": "HTTPS", "server": "px.example.net", "server_port": 8443, "username": "u", "password": "fixture-pass", "headers": {"X-Fixture": "proxy"}, "tls": {"enabled": true, "server_name": "px.example.net"}},
+    {"type": "hysteria2", "tag": "Hysteria2", "server": "hy.example.net", "server_port": 443, "password": "fixture-hy-sb", "server_ports": ["20000:30000"], "hop_interval": "30s", "up_mbps": 100, "down_mbps": 200,
+     "obfs": {"type": "salamander", "password": "fixture-obfs"}, "tls": {"enabled": true, "server_name": "hy.example.net", "alpn": ["h3"], "insecure": true}},
+    {"type": "hysteria", "tag": "Hysteria", "server": "hy1.example.net", "server_port": 443, "auth_str": "fixture-hy1", "up_mbps": 10, "down_mbps": 50, "obfs": "fixture-xplus", "tls": {"enabled": true, "server_name": "hy1.example.net"}},
+    {"type": "tuic", "tag": "TUIC", "server": "tuic.example.net", "server_port": 443, "uuid": "c0ffee00-0000-4000-8000-00000000f065", "password": "fixture-tuic", "congestion_control": "bbr", "tls": {"enabled": true, "server_name": "tuic.example.net", "alpn": ["h3"]}},
+    {"type": "anytls", "tag": "AnyTLS", "server": "any.example.net", "server_port": 443, "password": "fixture-any", "tls": {"enabled": true, "server_name": "any.example.net", "utls": {"enabled": true, "fingerprint": "chrome"}}},
+    {"type": "naive", "tag": "Naive", "server": "nv.example.net", "server_port": 443, "username": "nv", "password": "fixture-naive", "quic": true, "tls": {"enabled": true, "server_name": "nv.example.net"}},
+    {"type": "wireguard", "tag": "WireGuard", "server": "wg.example.net", "server_port": 51820, "private_key": "fixture-wg"},
+    {"type": "shadowtls", "tag": "ShadowTLS", "server": "st.example.net", "server_port": 443, "version": 3, "password": "fixture-st"},
+    {"type": "vless", "tag": "Legacy option", "server": "lg.example.net", "server_port": 443, "uuid": "c0ffee00-0000-4000-8000-00000000f066", "tls": {"enabled": true, "server_name": "lg.example.net", "tls_fragment": true}},
+    {"type": "vless", "tag": "List of objects", "server": "lo.example.net", "server_port": 443, "uuid": "c0ffee00-0000-4000-8000-00000000f067", "finalmask": {"tcp": [{"type": "fragment"}]}},
+    {"type": "vless", "tag": "Headers list", "server": "hl.example.net", "server_port": 443, "uuid": "c0ffee00-0000-4000-8000-00000000f068", "transport": {"type": "ws", "path": "/w", "headers": {"Host": ["a.example.net", "b.example.net"], "X-Quote": "[not json"}}, "tls": {"enabled": true, "server_name": "hl.example.net", "alpn": ["http/1.1"]}}
+  ],
+  "route": {"final": "Trojan policy"}
+}

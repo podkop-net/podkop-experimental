@@ -1,0 +1,13 @@
+{
+  "why": "WebSocket with its Host only among the headers.",
+  "servers": {
+    "WS Host only in headers": {
+      "xray": {
+        "differ": [
+          "transport.headers.Host"
+        ],
+        "why": "The Host only among the headers: the Xray JSON keeps it, as Xray takes it; the link and the sing-box JSON lose it."
+      }
+    }
+  }
+}

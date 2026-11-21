@@ -1,0 +1,24 @@
+{
+  "why": "The HTTP header of the TCP transport.",
+  "servers": {
+    "🎭 TCP HTTP camouflage": {
+      "singbox": {
+        "differ": [
+          "transport.host",
+          "transport.path",
+          "transport.type"
+        ],
+        "why": "Remnawave's sing-box generator (singbox.generator.service.ts) drops the HTTP header of the TCP transport: its server is plain TCP."
+      },
+      "xray": {
+        "differ": [
+          "transport.headers.Accept-Encoding",
+          "transport.headers.Connection",
+          "transport.headers.Pragma",
+          "transport.headers.User-Agent"
+        ],
+        "why": "The link keeps only the path and the Host of the header; the Xray JSON sends its other request headers too, as Xray does (the first value of each list)."
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "why": "Trojan with a finalmask fragment.",
+  "servers": {
+    "✂️ Trojan with finalmask fragment": {
+      "xray": {
+        "differ": [
+          "finalmask.tcp"
+        ],
+        "why": "Remnawave's Trojan links carry no fm; the Xray JSON has the host's finalmask, which r28's dialer applies. The sing-box JSON has none either."
+      }
+    }
+  }
+}

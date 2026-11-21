@@ -1,0 +1,19 @@
+{
+  "log": {"level": "warn"},
+  "dns": {"servers": [{"tag": "remote", "address": "tls://1.1.1.1"}]},
+  "inbounds": [{"type": "tun", "inet4_address": "172.19.0.1/30", "auto_route": true}],
+  "outbounds": [
+    {"type": "selector", "tag": "proxy", "outbounds": ["🇩🇪 Germany", "🇳🇱 Netherlands"]},
+    {"type": "urltest", "tag": "auto", "outbounds": ["🇩🇪 Germany", "🇳🇱 Netherlands"], "interval": "1m"},
+    {"type": "vless", "tag": "🇩🇪 Germany", "server": "de.example.net", "server_port": 443, "uuid": "c0ffee00-0000-4000-8000-00000000f061", "flow": "xtls-rprx-vision", "packet_encoding": "xudp",
+     "tls": {"enabled": true, "server_name": "www.example.com", "utls": {"enabled": true, "fingerprint": "chrome"}, "reality": {"enabled": true, "public_key": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY", "short_id": "0123"}},
+     "multiplex": {"enabled": false, "protocol": "smux", "max_streams": 32}},
+    {"type": "vless", "tag": "🇳🇱 Netherlands", "server": "nl.example.net", "server_port": 443, "uuid": "c0ffee00-0000-4000-8000-00000000f062", "domain_strategy": "prefer_ipv4",
+     "tls": {"enabled": true, "server_name": "nl.example.net", "alpn": "http/1.1", "utls": {"enabled": true, "fingerprint": "firefox"}},
+     "transport": {"type": "ws", "path": "/ws", "headers": {"Host": "nl.example.net"}, "max_early_data": 2048, "early_data_header_name": "Sec-WebSocket-Protocol"}},
+    {"type": "direct", "tag": "direct"},
+    {"type": "block", "tag": "block"},
+    {"type": "dns", "tag": "dns-out"}
+  ],
+  "route": {"geoip": {"download_url": "https://example.org/geoip.db"}, "rules": [{"geoip": "private", "outbound": "direct"}], "final": "proxy"}
+}

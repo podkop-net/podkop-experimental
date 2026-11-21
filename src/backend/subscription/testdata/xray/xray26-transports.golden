@@ -1,0 +1,316 @@
+{
+  "format": "xray",
+  "configs": 13,
+  "outbounds": 14,
+  "servers": [
+    {
+      "name": "Flat REALITY password",
+      "id": "66d5c6447edf070917ea0439",
+      "notes": [
+        "streamSettings.sockopt.fooBar is not supported and is ignored",
+        "the fingerprint: hellochrome_120 has no counterpart, chrome is used",
+        "pqv (the ML-DSA-65 check of the REALITY server) is not supported, the server is not verified with it"
+      ],
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f021@203.0.113.50:443?encryption=none&flow=xtls-rprx-vision-udp443&security=reality&sni=www.example.com&fp=hellochrome_120&pbk=KbGYQL56K1aLeair9OW-f4xU3HQNFSzC7pLp_r4pHt0&sid=ab&spx=%2Fs&pqv=fixture-mldsa65-verify-key&type=tcp&fm=%7B%22tcp%22%3A%5B%7B%22type%22%3A%22fragment%22%2C%22settings%22%3A%7B%22packets%22%3A%22tlshello%22%2C%22length%22%3A%22100-200%22%2C%22delay%22%3A%220%22%7D%7D%5D%7D&tfo=1#Flat%20REALITY%20password",
+      "outbound": {
+        "finalmask": {
+          "tcp": [
+            {
+              "length": "100-200",
+              "packets": "tlshello",
+              "type": "fragment"
+            }
+          ]
+        },
+        "flow": "xtls-rprx-vision",
+        "server": "203.0.113.50",
+        "server_port": 443,
+        "tcp_fast_open": true,
+        "tls": {
+          "enabled": true,
+          "reality": {
+            "enabled": true,
+            "public_key": "KbGYQL56K1aLeair9OW-f4xU3HQNFSzC7pLp_r4pHt0",
+            "short_id": "ab"
+          },
+          "server_name": "www.example.com",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f021"
+      }
+    },
+    {
+      "name": "TLS everything",
+      "id": "dd5c2b4fea4ad3d9884266b0",
+      "notes": [
+        "streamSettings.tlsSettings.echForceQuery is a setting of the provider's app and is left out",
+        "cs (the cipher suites of TLS) is not supported and is ignored"
+      ],
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f022@tls.example.net:443?encryption=none&security=tls&sni=tls.example.net&alpn=h2%2Chttp%2F1.1&pcs=0458d1060b5385cfda9a8db103896253318203af84ed7c547ec763e7c0d80928&vcn=alt.example.net&ech=AEL%2BDQA%2BKgAgACDiDO4a%2B09GPL3CAMy%2BVQyUbJg1AiEONbgMaGs4EZIvPQAEAAEAAQAPZWNoLmV4YW1wbGUubmV0AAA%3D&cs=TLS_AES_128_GCM_SHA256&type=tcp#TLS%20everything",
+      "outbound": {
+        "server": "tls.example.net",
+        "server_port": 443,
+        "tls": {
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ],
+          "certificate_server_name": "alt.example.net",
+          "certificate_sha256": "BFjRBgtThc/amo2xA4liUzGCA6+E7XxUfsdj58DYCSg=",
+          "ech": {
+            "config": [
+              "-----BEGIN ECH CONFIGS-----",
+              "AEL+DQA+KgAgACDiDO4a+09GPL3CAMy+VQyUbJg1AiEONbgMaGs4EZIvPQAEAAEA",
+              "AQAPZWNoLmV4YW1wbGUubmV0AAA=",
+              "-----END ECH CONFIGS-----"
+            ],
+            "enabled": true
+          },
+          "enabled": true,
+          "server_name": "tls.example.net",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f022"
+      }
+    },
+    {
+      "name": "WS heartbeat and HTTPUpgrade Host",
+      "id": "5ba48bdcf0908b9069817578",
+      "notes": [
+        "a key of the configuration that is not a name is ignored"
+      ],
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f023@cdn.example.com:80?encryption=none&security=none&type=ws&path=%2Fws&host=ws-host.example.net&heartbeatPeriod=30#WS%20heartbeat%20and%20HTTPUpgrade%20Host",
+      "outbound": {
+        "server": "cdn.example.com",
+        "server_port": 80,
+        "transport": {
+          "headers": {
+            "Host": "ws-host.example.net"
+          },
+          "path": "/ws",
+          "type": "ws"
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f023"
+      }
+    },
+    {
+      "name": "WS heartbeat and HTTPUpgrade Host",
+      "id": "4135eced0326cb335a18ff5a",
+      "notes": [
+        "early data is not supported with the httpupgrade transport and is not sent"
+      ],
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f024@cdn.example.com:443?encryption=none&security=tls&sni=hu.example.net&type=httpupgrade&path=%2Fhu%3Fed%3D2048&host=hu.example.net#WS%20heartbeat%20and%20HTTPUpgrade%20Host",
+      "outbound": {
+        "server": "cdn.example.com",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "server_name": "hu.example.net",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "transport": {
+          "host": "hu.example.net",
+          "path": "/hu",
+          "type": "httpupgrade"
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f024"
+      }
+    },
+    {
+      "name": "XHTTP flat settings",
+      "id": "1b06c8e4c832bcf368e71860",
+      "notes": [
+        "downloadSettings: sockopt is not supported and is ignored"
+      ],
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f025@xh.example.net:443?encryption=none&security=tls&sni=xh.example.net&alpn=h2&type=xhttp&path=%2Fxh&host=xh.example.net&mode=stream-up&extra=%7B%22downloadSettings%22%3A%7B%22address%22%3A%22dl.example.net%22%2C%22network%22%3A%22xhttp%22%2C%22port%22%3A443%2C%22security%22%3A%22tls%22%2C%22sockopt%22%3A%7B%22dialerProxy%22%3A%22x%22%7D%2C%22tlsSettings%22%3A%7B%22pinnedPeerCertSha256%22%3A%220458d1060b5385cfda9a8db103896253318203af84ed7c547ec763e7c0d80928%22%2C%22serverName%22%3A%22dl.example.net%22%7D%2C%22xhttpSettings%22%3A%7B%22path%22%3A%22%2Fdl%22%7D%7D%2C%22noGRPCHeader%22%3Atrue%2C%22xPaddingBytes%22%3A%22100-1000%22%2C%22xmux%22%3A%7B%22hMaxRequestTimes%22%3A%22600-900%22%2C%22maxConcurrency%22%3A%2216-32%22%7D%7D#XHTTP%20flat%20settings",
+      "outbound": {
+        "server": "xh.example.net",
+        "server_port": 443,
+        "tls": {
+          "alpn": "h2",
+          "enabled": true,
+          "server_name": "xh.example.net",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "transport": {
+          "download": {
+            "path": "/dl",
+            "server": "dl.example.net",
+            "server_port": 443,
+            "tls": {
+              "certificate_sha256": "BFjRBgtThc/amo2xA4liUzGCA6+E7XxUfsdj58DYCSg=",
+              "enabled": true,
+              "server_name": "dl.example.net",
+              "utls": {
+                "enabled": true,
+                "fingerprint": "chrome"
+              }
+            }
+          },
+          "host": "xh.example.net",
+          "mode": "stream-up",
+          "no_grpc_header": true,
+          "path": "/xh",
+          "type": "xhttp",
+          "x_padding_bytes": "100-1000",
+          "xmux": {
+            "h_max_request_times": "600-900",
+            "max_concurrency": "16-32"
+          }
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f025"
+      }
+    },
+    {
+      "name": "XHTTP h3 udp mask",
+      "reason": "fm (finalmask) asks for the mask: salamander, which is not supported: the server expects it",
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f026@h3.example.net:443?encryption=none&security=tls&sni=h3.example.net&alpn=h3&type=xhttp&path=%2Fh3&mode=packet-up&extra=%7B%22xPaddingBytes%22%3A%2210-20%22%7D&fm=%7B%22udp%22%3A%5B%7B%22type%22%3A%22salamander%22%2C%22settings%22%3A%7B%22password%22%3A%22fixture-obfs%22%7D%7D%5D%7D#XHTTP%20h3%20udp%20mask"
+    },
+    {
+      "name": "TCP HTTP header",
+      "id": "5ee347336a73f0f6eb612a3b",
+      "notes": [
+        "only the first of the values of the header Accept-Encoding is sent",
+        "only the first of the values of the header User-Agent is sent"
+      ],
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f027@203.0.113.51:80?encryption=none&security=none&type=tcp&headerType=http&path=%2Fa%2C%2Fb&sb.transport.headers.Accept-Encoding=gzip&sb.transport.headers.User-Agent=UA-1&host=h1.example.net%2Ch2.example.net#TCP%20HTTP%20header",
+      "outbound": {
+        "server": "203.0.113.51",
+        "server_port": 80,
+        "transport": {
+          "headers": {
+            "Accept-Encoding": "gzip",
+            "User-Agent": "UA-1"
+          },
+          "host": [
+            "h1.example.net",
+            "h2.example.net"
+          ],
+          "path": "/a",
+          "type": "http"
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f027"
+      }
+    },
+    {
+      "name": "TCP HTTP header over TLS",
+      "reason": "the HTTP header of the TCP transport (headerType=http) is not supported together with TLS",
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f028@203.0.113.52:443?encryption=none&security=tls&type=tcp&headerType=http&path=%2F#TCP%20HTTP%20header%20over%20TLS"
+    },
+    {
+      "name": "mKCP",
+      "reason": "the mKCP transport is not supported",
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f029@kcp.example.net:5000?encryption=none&security=none&type=kcp#mKCP"
+    },
+    {
+      "name": "QUIC transport",
+      "reason": "the encryption of the QUIC transport (quicSecurity) is not supported",
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f030@quic.example.net:443?encryption=none&security=tls&type=quic&quicSecurity=aes-128-gcm&headerType=none#QUIC%20transport"
+    },
+    {
+      "name": "HTTP/2",
+      "id": "d88312c433acf8ba889ea96d",
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f031@h2.example.net:443?encryption=none&security=tls&sni=h2.example.net&type=http&host=h2.example.net&path=%2Fh2#HTTP%2F2",
+      "outbound": {
+        "server": "h2.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "server_name": "h2.example.net",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "transport": {
+          "host": "h2.example.net",
+          "path": "/h2",
+          "type": "http"
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f031"
+      }
+    },
+    {
+      "name": "VLESS Encryption over XHTTP",
+      "id": "5bbf8fe920a9b4618d01e151",
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f032@enc.example.net:443?encryption=mlkem768x25519plus.native.0rtt.jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY&flow=xtls-rprx-vision&security=none&type=xhttp&path=%2Fenc#VLESS%20Encryption%20over%20XHTTP",
+      "outbound": {
+        "encryption": "mlkem768x25519plus.native.0rtt.jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+        "flow": "xtls-rprx-vision",
+        "server": "enc.example.net",
+        "server_port": 443,
+        "transport": {
+          "path": "/enc",
+          "type": "xhttp"
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f032"
+      }
+    },
+    {
+      "name": "Hysteria gecko udphop",
+      "id": "3494b6aada03c50c04daf661",
+      "link": "hysteria2://fixture-hy-auth@hy.example.net:443/?sni=hy.example.net&pcs=0458d1060b5385cfda9a8db103896253318203af84ed7c547ec763e7c0d80928&fm=%7B%22quicParams%22%3A%7B%22brutalDown%22%3A%22200+mbps%22%2C%22brutalUp%22%3A%22100+mbps%22%7D%2C%22udp%22%3A%5B%7B%22type%22%3A%22salamander%22%2C%22settings%22%3A%7B%22password%22%3A%22fixture-obfs%22%2C%22packetSize%22%3A%221200-1350%22%7D%7D%2C%7B%22type%22%3A%22udphop%22%2C%22settings%22%3A%7B%22mode%22%3A%22intervalRemote%22%2C%22interval%22%3A%2220-40%22%2C%22remotePorts%22%3A%2220000-30000%22%7D%7D%5D%7D#Hysteria%20gecko%20udphop",
+      "outbound": {
+        "down_mbps": 200,
+        "hop_interval": "20s",
+        "hop_interval_max": "40s",
+        "obfs": {
+          "max_packet_size": 1350,
+          "min_packet_size": 1200,
+          "password": "fixture-obfs",
+          "type": "gecko"
+        },
+        "password": "fixture-hy-auth",
+        "server": "hy.example.net",
+        "server_port": 443,
+        "server_ports": "20000:30000",
+        "tls": {
+          "certificate_sha256": "BFjRBgtThc/amo2xA4liUzGCA6+E7XxUfsdj58DYCSg=",
+          "enabled": true,
+          "server_name": "hy.example.net"
+        },
+        "type": "hysteria2",
+        "up_mbps": 100
+      }
+    },
+    {
+      "name": "Hysteria bbr",
+      "id": "670f831a6ae9dec9143979b7",
+      "link": "hysteria2://fixture-hy-auth-2@hy2.example.net:8443/?sni=hy2.example.net&alpn=h3%2Ch2#Hysteria%20bbr",
+      "outbound": {
+        "password": "fixture-hy-auth-2",
+        "server": "hy2.example.net",
+        "server_port": 8443,
+        "tls": {
+          "alpn": [
+            "h3",
+            "h2"
+          ],
+          "enabled": true,
+          "server_name": "hy2.example.net"
+        },
+        "type": "hysteria2"
+      }
+    }
+  ]
+}

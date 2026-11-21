@@ -1,0 +1,17 @@
+case: opt-exclude-json-singbox
+about: single host
+source: refs/remnawave-backend 6853666, generators unchanged (see README.md for the stubs)
+templates: XRAY_JSON = default (DEFAULT_TEMPLATE_XRAY_JSON); SINGBOX = default (DEFAULT_TEMPLATE_SINGBOX) (keys in jsonb order, as the panel serves them from the database)
+hosts passed: links/singbox 1 of 1, xray-json 1 of 1 (the hosts query drops hidden hosts except for XRAY_JSON/MIHOMO, and disabled hosts always)
+
+links (XrayGeneratorService): 1 link(s); extended client: same output
+xray-json (XrayJsonGeneratorService): 0 config(s); extended client: same output
+singbox (SingBoxGeneratorService): 0 host outbound(s) after the template's 2
+
+per host:
+- 🚫 Only in links
+  links:     link vless://
+  xray-json: skipped by the generator: excludeFromSubscriptionTypes has XRAY_JSON (src/modules/subscription-template/generators/xray-json.generator.service.ts:222)
+  singbox:   skipped by the generator: excludeFromSubscriptionTypes has SINGBOX (src/modules/subscription-template/generators/singbox.generator.service.ts:128)
+
+generator log: nothing logged

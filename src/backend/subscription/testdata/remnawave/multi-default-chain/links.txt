@@ -1,0 +1,3 @@
+vless://c0ffee00-0000-4000-8000-0000000000a1@nl.example.net:443?encryption=none&flow=xtls-rprx-vision&type=tcp&security=tls&sni=nl.example.net&fp=chrome&alpn=h2%2Chttp%2F1.1#%F0%9F%87%B3%F0%9F%87%B1%20Exit%20Amsterdam%20via%20relay
+trojan://fixture-trojan-password-0001@de.example.net:443?type=tcp&security=tls&sni=de.example.net&fp=chrome#%F0%9F%87%A9%F0%9F%87%AA%20Exit%20Frankfurt%20via%20relay
+vless://c0ffee00-0000-4000-8000-0000000000a1@fi.example.net:443?encryption=none&flow=xtls-rprx-vision&type=tcp&security=reality&sni=www.example.org&fp=chrome&pbk=pJ6kRycLqUlvigK8lioKnWNNImVVRQJmN6CkxhBOcHg&sid=9b91a0017af4a541#%F0%9F%87%AB%F0%9F%87%AE%20Exit%20Helsinki%20direct

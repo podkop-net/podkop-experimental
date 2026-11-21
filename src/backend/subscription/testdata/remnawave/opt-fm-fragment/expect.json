@@ -1,0 +1,13 @@
+{
+  "why": "A finalmask fragment (tlshello).",
+  "servers": {
+    "✂️ finalmask fragment tlshello": {
+      "singbox": {
+        "differ": [
+          "finalmask.tcp"
+        ],
+        "why": "Remnawave's sing-box generator (singbox.generator.service.ts) writes no finalmask: its server does not cut the hello."
+      }
+    }
+  }
+}

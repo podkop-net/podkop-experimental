@@ -1,0 +1,1 @@
+vless://c0ffee00-0000-4000-8000-0000000000a1@srv5.example.net:443?encryption=none&type=tcp&security=reality&sni=www.example.org&fp=safari&pbk=Yvd40ASrxTAIsRrnmxBf3nbDGvqdf9FPbe22iCY-_RQ#%F0%9F%87%B8%F0%9F%87%AA%20Stockholm%20Reality%20no%20flow

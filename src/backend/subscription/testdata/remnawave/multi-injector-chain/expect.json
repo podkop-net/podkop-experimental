@@ -1,0 +1,21 @@
+{
+  "why": "A template with Remnawave's injector: each visible host its own configuration with itself as proxy, the hidden relay and the other exits; a leastPing balancer over proxy and exit. The relay is only a dialerProxy target and is not taken; each exit is listed once, under the name of its own configuration; the chains are notes.",
+  "servers": {
+    "🇳🇱 Exit Amsterdam via relay": {
+      "xray": {
+        "why": "the notes the conversion gives",
+        "notes": [
+          "the provider connects it through relay; podkop connects it directly"
+        ]
+      }
+    },
+    "🇩🇪 Exit Frankfurt via relay": {
+      "xray": {
+        "why": "the notes the conversion gives",
+        "notes": [
+          "the provider connects it through relay; podkop connects it directly"
+        ]
+      }
+    }
+  }
+}

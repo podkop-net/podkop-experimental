@@ -1,0 +1,1 @@
+trojan://fixture-trojan-password-0001@srv4.example.net:443?type=tcp&security=tls&sni=srv4.example.net&fp=chrome&alpn=h2%2Chttp%2F1.1#%F0%9F%87%AC%F0%9F%87%A7%20London%20Trojan

@@ -1,0 +1,21 @@
+{
+  "why": "WebSocket over TLS with early data and headers.",
+  "servers": {
+    "🌐 WS TLS early data": {
+      "singbox": {
+        "differ": [
+          "transport.headers.User-Agent",
+          "transport.headers.X-Fixture"
+        ],
+        "why": "The link carries no headers of WebSocket; the sing-box JSON sends the host's User-Agent and X-Fixture."
+      },
+      "xray": {
+        "differ": [
+          "transport.headers.User-Agent",
+          "transport.headers.X-Fixture"
+        ],
+        "why": "The link carries no headers of WebSocket; the Xray JSON sends the host's User-Agent and X-Fixture."
+      }
+    }
+  }
+}

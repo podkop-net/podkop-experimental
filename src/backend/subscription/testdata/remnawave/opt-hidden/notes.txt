@@ -1,0 +1,17 @@
+case: opt-hidden
+about: single host
+source: refs/remnawave-backend 6853666, generators unchanged (see README.md for the stubs)
+templates: XRAY_JSON = default (DEFAULT_TEMPLATE_XRAY_JSON); SINGBOX = default (DEFAULT_TEMPLATE_SINGBOX) (keys in jsonb order, as the panel serves them from the database)
+hosts passed: links/singbox 0 of 1, xray-json 1 of 1 (the hosts query drops hidden hosts except for XRAY_JSON/MIHOMO, and disabled hosts always)
+
+links (XrayGeneratorService): 0 link(s); extended client: same output
+xray-json (XrayJsonGeneratorService): 0 config(s); extended client: same output
+singbox (SingBoxGeneratorService): 0 host outbound(s) after the template's 2
+
+per host:
+- 🙈 Hidden host
+  links:     not passed: hidden host (the hosts query drops hidden hosts for XRAY_BASE64; subscription.service.ts:259-266)
+  xray-json: own config skipped by the generator: isHidden (src/modules/subscription-template/generators/xray-json.generator.service.ts:221)
+  singbox:   not passed: hidden host (the hosts query drops hidden hosts for SINGBOX; subscription.service.ts:259-266)
+
+generator log: nothing logged

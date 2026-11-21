@@ -1,0 +1,13 @@
+{
+  "why": "sockopt with TCP Fast Open, a mark and an interface.",
+  "servers": {
+    "🔧 sockopt TFO mark interface": {
+      "xray": {
+        "differ": [
+          "tcp_fast_open"
+        ],
+        "why": "The Xray JSON has the host's sockopt.tcpFastOpen; the link and the sing-box JSON carry no sockopt. Its mark and interface are the app's own route and are left out."
+      }
+    }
+  }
+}

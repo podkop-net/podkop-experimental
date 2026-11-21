@@ -1,0 +1,1 @@
+vless://c0ffee00-0000-4000-8000-0000000000a1@203.0.113.18:80?encryption=none&type=tcp&headerType=http&path=%2Findex.html%2C%2Fassets%2Fapp.js&host=cdn1.example.com%2Ccdn2.example.com&security=none#%F0%9F%8E%AD%20TCP%20HTTP%20camouflage

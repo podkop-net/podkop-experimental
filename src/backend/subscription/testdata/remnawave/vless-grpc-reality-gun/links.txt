@@ -1,0 +1,1 @@
+vless://c0ffee00-0000-4000-8000-0000000000a1@srv8.example.net:443?encryption=none&type=grpc&serviceName=fixture-grpc&mode=gun&security=reality&sni=www.example.org&fp=chrome&pbk=b569T23aSYOiVSCgMBFgW7qS8M15rP8lCkHhJDGS-wc&sid=9b91a0017af4a541#%F0%9F%93%A1%20gRPC%20Reality%20gun

@@ -1,0 +1,1 @@
+trojan://fixture-trojan-password-0001@srv16.example.net:443?type=tcp&security=tls&sni=srv16.example.net&fp=chrome#%F0%9F%94%80%20smux%20only

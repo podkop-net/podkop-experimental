@@ -1,0 +1,142 @@
+{
+  "format": "xray",
+  "configs": 9,
+  "outbounds": 9,
+  "servers": [
+    {
+      "name": "VMess WS",
+      "id": "ae224d6bf7c9d1e775c3c206",
+      "link": "vmess://c0ffee00-0000-4000-8000-00000000f011@vm.example.net:443?encryption=auto&security=tls&sni=vm.example.net&type=ws&path=%2Fvm&host=vm.example.net#VMess%20WS",
+      "outbound": {
+        "security": "auto",
+        "server": "vm.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "server_name": "vm.example.net",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "transport": {
+          "headers": {
+            "Host": "vm.example.net"
+          },
+          "path": "/vm",
+          "type": "ws"
+        },
+        "type": "vmess",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f011"
+      }
+    },
+    {
+      "name": "VMess flat AEAD-length",
+      "id": "203fd57bf7115d8aa551d4ba",
+      "link": "vmess://c0ffee00-0000-4000-8000-00000000f012@vm2.example.net:8080?encryption=chacha20-poly1305&sb.authenticated_length=true&security=none&type=tcp#VMess%20flat%20AEAD-length",
+      "outbound": {
+        "authenticated_length": true,
+        "security": "chacha20-poly1305",
+        "server": "vm2.example.net",
+        "server_port": 8080,
+        "type": "vmess",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f012"
+      }
+    },
+    {
+      "name": "Trojan gRPC multi",
+      "id": "0edeaf13ec17584553d2781c",
+      "notes": [
+        "streamSettings.grpcSettings.user_agent is a setting of the provider's app and is left out",
+        "the gRPC mode multi is not supported, gun is used",
+        "the gRPC authority is not supported: the server name of TLS is sent instead, and a reverse proxy that chooses the server by the authority may not find it"
+      ],
+      "link": "trojan://fixture-trojan-p@ss%2Fword=@tr.example.net:443?security=tls&sni=tr.example.net&alpn=h2&type=grpc&serviceName=tr-grpc&mode=multi&authority=cdn.example.com#Trojan%20gRPC%20multi",
+      "outbound": {
+        "password": "fixture-trojan-p@ss/word=",
+        "server": "tr.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "server_name": "tr.example.net",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "transport": {
+          "service_name": "tr-grpc",
+          "type": "grpc"
+        },
+        "type": "trojan"
+      }
+    },
+    {
+      "name": "Trojan plain",
+      "id": "d5dac578b50243d6db75f000",
+      "link": "trojan://fixture-trojan-2@tr2.example.net:8443?security=none&type=tcp#Trojan%20plain",
+      "outbound": {
+        "password": "fixture-trojan-2",
+        "server": "tr2.example.net",
+        "server_port": 8443,
+        "type": "trojan"
+      }
+    },
+    {
+      "name": "SS 2022",
+      "id": "8ba44ab79270e54cf90c70b4",
+      "link": "ss://MjAyMi1ibGFrZTMtYWVzLTEyOC1nY206ZVJGNTVkazBrbngwR2g3dnhhYk5HUT09@ss.example.net:8388?security=none&type=tcp#SS%202022",
+      "outbound": {
+        "method": "2022-blake3-aes-128-gcm",
+        "password": "eRF55dk0knx0Gh7vxabNGQ==",
+        "server": "ss.example.net",
+        "server_port": 8388,
+        "type": "shadowsocks"
+      }
+    },
+    {
+      "name": "SS over WS TLS",
+      "reason": "Shadowsocks over the transport: ws is not supported",
+      "link": "ss://YWVzLTEyOC1nY206Zml4dHVyZS1zcy1wYXNzd29yZA@ssws.example.net:443?security=tls&sni=ssws.example.net&type=ws&path=%2Fss#SS%20over%20WS%20TLS"
+    },
+    {
+      "name": "SOCKS",
+      "id": "e6e3de20ccbfe8b9a92f55a8",
+      "link": "socks5://fixture-user:fixture:pa%20ss@198.51.100.7:1080#SOCKS",
+      "outbound": {
+        "password": "fixture:pa ss",
+        "server": "198.51.100.7",
+        "server_port": 1080,
+        "type": "socks",
+        "username": "fixture-user"
+      }
+    },
+    {
+      "name": "SOCKS over TLS",
+      "reason": "SOCKS over TLS or over a transport is not supported"
+    },
+    {
+      "name": "HTTPS proxy",
+      "id": "b4311c2f61bdd3b96ca7f1fe",
+      "link": "https://fixture-user:fixture-pass@px.example.net:8443?sb.headers.X-Fixture=proxy&sni=px.example.net&fp=safari#HTTPS%20proxy",
+      "outbound": {
+        "headers": {
+          "X-Fixture": "proxy"
+        },
+        "password": "fixture-pass",
+        "server": "px.example.net",
+        "server_port": 8443,
+        "tls": {
+          "enabled": true,
+          "server_name": "px.example.net",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "safari"
+          }
+        },
+        "type": "http",
+        "username": "fixture-user"
+      }
+    }
+  ]
+}

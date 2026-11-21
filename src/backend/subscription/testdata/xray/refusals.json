@@ -1,0 +1,18 @@
+[
+  {"remarks": "WireGuard", "outbounds": [{"tag": "proxy", "protocol": "wireguard", "settings": {"secretKey": "fixture-wg-secret", "peers": [{"publicKey": "x", "endpoint": "wg.example.net:51820"}]}}]},
+  {"remarks": "Two servers", "outbounds": [{"tag": "proxy", "protocol": "vless", "settings": {"vnext": [{"address": "a.example.net", "port": 1, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f051"}]}, {"address": "b.example.net", "port": 1, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f052"}]}]}}]},
+  {"remarks": "Two users", "outbounds": [{"tag": "proxy", "protocol": "vless", "settings": {"vnext": [{"address": "a.example.net", "port": 1, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f053"}, {"id": "c0ffee00-0000-4000-8000-00000000f054"}]}]}}]},
+  {"remarks": "Bad address", "outbounds": [{"tag": "proxy", "protocol": "trojan", "settings": {"address": "evil.example.net/x?y#z", "port": 443, "password": "fixture-trojan-bad"}}]},
+  {"remarks": "Bad port", "outbounds": [{"tag": "proxy", "protocol": "trojan", "settings": {"address": "a.example.net", "port": 70000, "password": "fixture-trojan-bad"}}]},
+  {"remarks": "Unknown protocol", "outbounds": [{"tag": "proxy", "protocol": "fancyproto", "settings": {}}]},
+  {"remarks": "XTLS", "outbounds": [{"tag": "proxy", "protocol": "vless", "settings": {"address": "xtls.example.net", "port": 443, "id": "c0ffee00-0000-4000-8000-00000000f055", "flow": "xtls-rprx-direct"}, "streamSettings": {"security": "xtls"}}]},
+  {"remarks": "SRV", "outbounds": [{"tag": "proxy", "protocol": "vless", "settings": {"address": "srv.example.net", "port": 443, "id": "c0ffee00-0000-4000-8000-00000000f056"}, "streamSettings": {"sockopt": {"addressPortStrategy": "SrvPortOnly"}}}]},
+  {"remarks": "Masque", "outbounds": [{"tag": "proxy", "protocol": "vless", "settings": {"address": "mq.example.net", "port": 443, "id": "c0ffee00-0000-4000-8000-00000000f057"}, "streamSettings": {"network": "masque"}}]},
+  {"remarks": "Redirect", "outbounds": [{"tag": "proxy", "protocol": "vless", "settings": {"address": "rd.example.net", "port": 443, "id": "c0ffee00-0000-4000-8000-00000000f058"}, "streamSettings": {"sockopt": {"dialerProxy": "jump"}}},
+    {"tag": "jump", "protocol": "freedom", "settings": {"redirect": "198.51.100.1:443"}}]},
+  {"remarks": "Hysteria 1", "outbounds": [{"tag": "proxy", "protocol": "hysteria", "settings": {"version": 1, "address": "hy1.example.net", "port": 443}}]},
+  {"remarks": "Proxy over WS", "outbounds": [{"tag": "proxy", "protocol": "http", "settings": {"address": "px.example.net", "port": 80}, "streamSettings": {"network": "ws"}}]},
+  {"remarks": "Unknown keys", "outbounds": [{"tag": "proxy", "protocol": "vless", "fancyKey": 1, "settings": {"address": "uk.example.net", "port": 443, "id": "c0ffee00-0000-4000-8000-00000000f059", "reverse": {"tag": "r"}},
+    "streamSettings": {"network": "tcp", "security": "tls", "tlsSettings": {"serverName": "uk.example.net", "fancyTLS": true, "certificates": [{"usage": "verify", "certificateFile": "/etc/ca.pem"}]}, "sockopt": {"odd key": 1}}}]},
+  {"remarks": "Placeholder-free", "outbounds": [{"tag": "proxy", "protocol": "vless", "settings": {"address": "ok.example.net", "port": 443, "id": "short-id-string"}}]}
+]

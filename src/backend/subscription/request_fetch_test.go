@@ -269,7 +269,7 @@ func TestDownloadPageIsAnswer(t *testing.T) {
 // answer to it.
 func TestDownloadAnswersToTheAgent(t *testing.T) {
 	bodies := map[string]string{
-		"/json":        `{"outbounds":[{"type":"vless"}]}`,
+		"/json":        `{"log":{"level":"info"},"rules":[]}`,
 		"/clash":       "proxies:\n  - name: a\n",
 		"/placeholder": "vless://u@0.0.0.0:1#Open%20in%20the%20app\n",
 		"/nolinks":     "# no servers for this app\n",

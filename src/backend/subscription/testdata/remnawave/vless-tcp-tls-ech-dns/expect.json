@@ -1,0 +1,17 @@
+{
+  "why": "TLS with ECH asked from a resolver by its name.",
+  "servers": {
+    "🇨🇦 Toronto TLS ECH via DNS": {
+      "xray": {
+        "differ": [
+          "tls.ech.enabled",
+          "tls.ech.query_server_name"
+        ],
+        "why": "Remnawave's links carry no ECH, and its sing-box JSON drops it; the Xray JSON asks for the ECH configuration by its name (the decoder notes that the resolver named is not used).",
+        "notes": [
+          "the resolver named in ech is not used"
+        ]
+      }
+    }
+  }
+}

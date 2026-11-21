@@ -1,0 +1,14 @@
+{
+  "why": "mKCP with a noise mask, which the engine does not speak; Remnawave's sing-box generator (singbox.generator.service.ts) skips kcp hosts.",
+  "errors": {
+    "singbox": "nolinks"
+  },
+  "servers": {
+    "🐢 mKCP with noise mask": {
+      "links": {
+        "reason": "the mKCP transport is not supported",
+        "why": "mKCP: the decoder's refusal, the same for the Xray JSON; the sing-box generator skips kcp hosts."
+      }
+    }
+  }
+}

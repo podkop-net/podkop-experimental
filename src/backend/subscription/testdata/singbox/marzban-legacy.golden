@@ -1,0 +1,62 @@
+{
+  "format": "sing-box",
+  "outbounds": 2,
+  "servers": [
+    {
+      "name": "🇩🇪 Germany",
+      "id": "25367e6382bf7c333e496c3b",
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f061@de.example.net:443?sb.flow=xtls-rprx-vision&sb.tls.enabled=true&sb.tls.reality.enabled=true&sb.tls.reality.public_key=jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY&sb.tls.reality.short_id=0123&sb.tls.server_name=www.example.com&sb.tls.utls.enabled=true&sb.tls.utls.fingerprint=chrome#%F0%9F%87%A9%F0%9F%87%AA%20Germany",
+      "outbound": {
+        "flow": "xtls-rprx-vision",
+        "server": "de.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "reality": {
+            "enabled": true,
+            "public_key": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY",
+            "short_id": "0123"
+          },
+          "server_name": "www.example.com",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          }
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f061"
+      }
+    },
+    {
+      "name": "🇳🇱 Netherlands",
+      "id": "f278e9776154531ed794f32c",
+      "notes": [
+        "domain_strategy is a setting of the provider's app and is left out"
+      ],
+      "link": "vless://c0ffee00-0000-4000-8000-00000000f062@nl.example.net:443?sb.tls.enabled=true&sb.tls.server_name=nl.example.net&sb.tls.utls.enabled=true&sb.tls.utls.fingerprint=firefox&sb.transport.early_data_header_name=Sec-WebSocket-Protocol&sb.transport.headers.Host=nl.example.net&sb.transport.max_early_data=2048&sb.transport.path=%2Fws&sb.transport.type=ws#%F0%9F%87%B3%F0%9F%87%B1%20Netherlands",
+      "outbound": {
+        "server": "nl.example.net",
+        "server_port": 443,
+        "tls": {
+          "enabled": true,
+          "server_name": "nl.example.net",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "firefox"
+          }
+        },
+        "transport": {
+          "early_data_header_name": "Sec-WebSocket-Protocol",
+          "headers": {
+            "Host": "nl.example.net"
+          },
+          "max_early_data": 2048,
+          "path": "/ws",
+          "type": "ws"
+        },
+        "type": "vless",
+        "uuid": "c0ffee00-0000-4000-8000-00000000f062"
+      }
+    }
+  ]
+}

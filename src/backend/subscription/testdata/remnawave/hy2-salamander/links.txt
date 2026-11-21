@@ -1,0 +1,1 @@
+hysteria2://c0ffee00-0000-4000-8000-0000000000a1@hy.example.net:8443/?obfs=salamander&obfs-password=fixture-obfs-password&sni=hy.example.net&fm=%7B%22udp%22%3A%5B%7B%22type%22%3A%22salamander%22%2C%22settings%22%3A%7B%22password%22%3A%22fixture-obfs-password%22%7D%7D%5D%7D#%E2%9A%A1%20Hysteria2%20salamander

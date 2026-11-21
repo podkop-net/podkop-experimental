@@ -1,0 +1,29 @@
+{
+  "why": "Shadowsocks over WebSocket and TLS, which the engine does not speak.",
+  "servers": {
+    "🇰🇷 Seoul SS over WS TLS": {
+      "singbox": {
+        "differ": [
+          "method",
+          "password",
+          "server",
+          "server_port",
+          "type"
+        ],
+        "reason": "this sing-box has no option tls for the ",
+        "why": "Remnawave's sing-box generator (singbox.generator.service.ts) puts transport and tls on a shadowsocks outbound, which sing-box does not have: the server gets that reason instead of becoming another server."
+      },
+      "xray": {
+        "differ": [
+          "method",
+          "password",
+          "server",
+          "server_port",
+          "type"
+        ],
+        "reason": "Shadowsocks over the transport: ws is no",
+        "why": "The link drops the transport and the TLS of Shadowsocks (another, plain server, which the link makes usable); the Xray JSON keeps them, and the server gets the decoder's reason for Shadowsocks over a transport."
+      }
+    }
+  }
+}

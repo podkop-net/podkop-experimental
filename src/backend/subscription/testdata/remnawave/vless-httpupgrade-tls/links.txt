@@ -1,0 +1,1 @@
+vless://c0ffee00-0000-4000-8000-0000000000a1@hu.example.net:443?encryption=none&type=httpupgrade&path=%2Fhu&host=hu.example.net&security=tls&sni=hu.example.net&fp=firefox&alpn=http%2F1.1#%E2%AC%86%EF%B8%8F%20HTTPUpgrade%20TLS

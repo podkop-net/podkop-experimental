@@ -1,0 +1,50 @@
+[
+  {
+    "remarks": "🇩🇪 Marzban WS fragment",
+    "log": {"loglevel": "warning"},
+    "inbounds": [{"tag": "socks", "port": 10808, "listen": "127.0.0.1", "protocol": "socks", "settings": {"udp": true}}],
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vless",
+        "settings": {"vnext": [{"address": "ws.example.net", "port": 443, "users": [{"id": "c0ffee00-0000-4000-8000-00000000f001", "encryption": "none", "flow": "", "level": 8, "email": "user@example.org"}]}]},
+        "streamSettings": {
+          "network": "ws",
+          "security": "tls",
+          "tlsSettings": {"serverName": "ws.example.net", "allowInsecure": false, "fingerprint": "chrome", "alpn": "h2,http/1.1", "show": false},
+          "wsSettings": {"path": "/marzban?ed=2560", "headers": {"Host": "ws.example.net", "User-Agent": "Mozilla/5.0 (fixture)"}},
+          "sockopt": {"dialerProxy": "fragment", "mark": 255, "tcpKeepAliveIdle": 100}
+        },
+        "mux": {"enabled": false, "concurrency": -1}
+      },
+      {
+        "tag": "fragment",
+        "protocol": "freedom",
+        "settings": {"domainStrategy": "AsIs", "fragment": {"packets": "tlshello", "length": "100-200", "interval": "10-20"}},
+        "streamSettings": {"sockopt": {"TcpNoDelay": true}}
+      },
+      {"tag": "direct", "protocol": "freedom", "settings": {"domainStrategy": "UseIP"}},
+      {"tag": "block", "protocol": "blackhole", "settings": {"response": {"type": "http"}}}
+    ],
+    "routing": {"domainStrategy": "AsIs", "rules": [{"type": "field", "ip": ["geoip:private"], "outboundTag": "direct"}]}
+  },
+  {
+    "remarks": "🇳🇱 Marzban TCP mux noises",
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "vless",
+        "settings": {"vnext": [{"address": "203.0.113.40", "port": "8443", "users": [{"id": "c0ffee00-0000-4000-8000-00000000f002", "flow": "xtls-rprx-vision"}]}]},
+        "streamSettings": {
+          "network": "tcp",
+          "security": "reality",
+          "realitySettings": {"serverName": "www.example.com", "fingerprint": "firefox", "publicKey": "jYM97hnBoGvH3Wyf0ExRqCn75nTpzcUVIVb0_q18RvY", "shortId": "0123abcd", "spiderX": "/"},
+          "sockopt": {"dialerProxy": "noise"}
+        },
+        "mux": {"enabled": true, "concurrency": 8}
+      },
+      {"tag": "noise", "protocol": "freedom", "settings": {"noises": [{"type": "rand", "packet": "10-20", "delay": "10-16"}]}},
+      {"tag": "direct", "protocol": "freedom"}
+    ]
+  }
+]

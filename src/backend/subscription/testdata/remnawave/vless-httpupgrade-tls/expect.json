@@ -1,0 +1,19 @@
+{
+  "why": "HTTPUpgrade over TLS with headers (and a Host header beside host).",
+  "servers": {
+    "⬆️ HTTPUpgrade TLS": {
+      "singbox": {
+        "differ": [
+          "transport.headers.X-Fixture"
+        ],
+        "why": "The link carries no headers of HTTPUpgrade; the sing-box JSON sends the host's X-Fixture."
+      },
+      "xray": {
+        "differ": [
+          "transport.headers.X-Fixture"
+        ],
+        "why": "The link carries no headers of HTTPUpgrade; the Xray JSON sends the host's X-Fixture. Its Host header beside host, which Xray would refuse, is left to host."
+      }
+    }
+  }
+}
