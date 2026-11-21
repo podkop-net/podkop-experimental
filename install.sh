@@ -474,7 +474,10 @@ if [ "$CMP" = 1 ]; then
         SET=$(uci -q show podkop)
         set_has() { echo "$SET" | grep -Eq "^podkop\.[^.=]+\.($1)="; }
         set_has 'mixed_proxy_username|mixed_proxy_password' && note "A rule's mixed proxy has a login: $TAG has none, so the proxy is open to every device that reaches its port, and its global check and show_config print the login unmasked."
-        set_has 'user_agent|header' && note "A subscription has its own User-Agent or extra headers: $TAG does not send them, and its global check and show_config print the headers unmasked."
+        # Ask as: a preset of an app (user_agent_preset: custom is asked as podkop without a
+        # user_agent), another User-Agent (user_agent) or extra headers (header)
+        asked_as_app() { echo "$SET" | grep -E "^podkop\.[^.=]+\.user_agent_preset=" | grep -vqE "^[^=]+='(podkop|custom)'\$"; }
+        { set_has 'user_agent|header' || asked_as_app; } && note "A subscription is asked as an app (Happ, INCY, sing-box or another User-Agent) or with extra headers: $TAG asks it as podkop, without the headers, and does not read the servers of Xray JSON or sing-box JSON; its global check and show_config print the headers unmasked."
         set_has only_devices && note "A rule has Only for devices: $TAG ignores it, and the rule takes every device."
     fi
     ask "Install the older release $TAG?" || die "$TAG is not installed: podkop-exp v$INST stays."
