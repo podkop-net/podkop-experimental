@@ -7,6 +7,53 @@ What changed in each release of podkop-exp, newest first. The engine is the sing
 notes, with the measurements and the limits, are on the
 [releases page](https://github.com/podkop-net/podkop-experimental/releases).
 
+## 0.8.21 — 2026-11-21
+
+Engine r27, as in 0.8.20.
+
+- **A rule for chosen devices (new): "Only for devices"** on the Main tab of a rule, IPv4 or IPv6
+  addresses and subnets. The rule then takes the traffic of these devices only, and the rest of its
+  conditions stay as they are: any of its lists. The other devices go on to the rules below, and
+  directly when none takes them. For example, YouTube through the servers on the TV only, with a
+  rule with Block below it for the other devices. The DNS answers stay the same for every device;
+  the rule's mixed proxy is not limited by the field, and the router's own traffic is normally not
+  taken. The page offers the devices the router knows; `podkop device <address>` lists the rules
+  that take a device. Fully Routed IPs that sing-box cannot read are left out with a warning
+  instead of refusing the whole configuration.
+- **A login for the mixed proxy of a rule (new):** a user name and a password on the Extra tab, for
+  SOCKS5 and HTTP; **Generate** fills in a random password. Without them the proxy stays open to
+  every device that reaches its port, as before. The global check, `show_config`,
+  `show_sing_box_config` and podkop's log hide the login; the global check tells for each proxy
+  whether it listens and whether it asks for a login.
+- **User-Agent and extra headers of a subscription (new):** some providers give the list only to
+  the apps they name and send podkop a web page or notes. Type the app's name, without a version
+  (for example `INCY`), and press **Load**: the window says when the provider sends that name a
+  configuration in JSON or YAML, which podkop does not read yet. The router still sends its own
+  device identifier (HWID) and device headers, which cannot be set here, nor can the client's
+  address or the headers of the connection. The values of the extra headers are hidden in the
+  global check and the log; on a redirect to another host they are not sent. A pasted
+  `incy://import/…` link gives its address.
+- **Test latency** no longer asks only www.gstatic.com: one server is tested with the first server
+  check URL of the settings, and with the next one when it does not answer; a rule of several
+  servers runs a round of its own server check. The direct line of the global check and of
+  Diagnostics asks all the check URLs at once and names the ones that do not answer.
+- **Diagnostics, the version:** "Outdated" no longer shows right after an upgrade. The release
+  GitHub names is kept for the version of the page that asked, and the versions are compared in
+  order: **Latest**, **Update available: vX** or **Test build**.
+- **Install script:** every question comes before the first change, so "Nothing was changed" is
+  true when you answer no; the question names the packages it removes and why, and says that your
+  podkop settings stay. New options: `-y` (yes to the questions), `--release X.Y.Z` (that release,
+  an older one too, 0.8.8 or newer), `--from DIR` (package files downloaded on a computer, when
+  GitHub's API refuses: it allows 60 requests an hour from one address). GitHub's refusals are told
+  apart; a download fails with a hint when api.github.com resolves to podkop's FakeIP.
+- **Fixed:** a final answer of the provider on the direct way (such as a 404) no longer counts as a
+  failure of that way, which made the next download of the subscription start two ways at once.
+- **Downgrade to 0.8.20:** it ignores the new options. The mixed proxy with a login is then open
+  to every device that reaches its port, a rule "Only for devices" takes every device, the
+  subscription goes without its User-Agent and headers, and the global check and `show_config` of
+  0.8.20 print the login and the headers unmasked. `install.sh --release` says so before it
+  installs an older release.
+
 ## 0.8.20 — 2026-11-19
 
 Engine r27, as in 0.8.19.
