@@ -7,7 +7,7 @@ What changed in each release of podkop-exp, newest first. The engine is the sing
 notes, with the measurements and the limits, are on the
 [releases page](https://github.com/podkop-net/podkop-experimental/releases).
 
-## 0.8.21 — 2026-11-21
+## 0.8.21 — 2026-11-22
 
 Engine r28. A server whose link pins its certificate (`pcs`, `pinSHA256`) or names others to
 verify it by (`vcn`) is now checked as Xray checks it; r27 checked it against the system roots
@@ -64,8 +64,9 @@ applied, and Hysteria 2 links with port hopping (`udphop`) or gecko are read.
   Turning a rule's mixed proxy off no longer clears its port.
 - **Downgrade to 0.8.20:** it ignores the new options. The mixed proxy with a login is then open
   to every device that reaches its port, a rule "Only for devices" takes every device, the
-  subscription goes without its User-Agent and headers, and the global check and `show_config` of
-  0.8.20 print the login and the headers unmasked. `install.sh --release` says so before it
+  subscription is asked as podkop, without its headers, and the servers of Xray JSON or sing-box
+  JSON are not read; the global check and `show_config` of 0.8.20 print the login and the headers
+  unmasked. `install.sh --release` says so before it
   installs an older release.
 
 ## 0.8.20 — 2026-11-19
