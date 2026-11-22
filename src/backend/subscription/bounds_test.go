@@ -135,7 +135,9 @@ func TestBoundsTime(t *testing.T) {
 		started := time.Now()
 		_, err := ParseList(context.Background(), []byte(shape.body), realCodec)
 		t.Logf("%s: %v (%v)", shape.name, time.Since(started).Round(time.Millisecond), err)
-		if took := time.Since(started); took > shape.most {
+		// the race detector slows the code many times: the shapes run (and must end), but their
+		// time is told only without it
+		if took := time.Since(started); took > shape.most && !raceDetector {
 			t.Errorf("%s took %v, more than %v", shape.name, took.Round(time.Millisecond), shape.most)
 		}
 	}
