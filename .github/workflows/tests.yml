@@ -1,0 +1,171 @@
+name: Tests
+# The tests of the backend on every push of main and rc/** and on every pull request. A tag runs
+# build.yml, whose own test job gates the release; this workflow builds no package.
+on:
+  push:
+    branches:
+      - main
+      - 'rc/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# a newer push of a pull request makes its older run useless; runs of main and rc/** all finish
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GOFLAGS: -buildvcs=false
+  GOMODCACHE: /cache/mod
+  GOCACHE: /cache/build
+  # the tags of build.yml's test job: SLIM is the build of the package (podkop_slim), FULL has
+  # every protocol of podkop-engine
+  FULL: with_quic,with_utls,with_clash_api,badlinkname,tfogo_checklinkname0
+  SLIM: with_quic,with_utls,with_clash_api,podkop_slim,badlinkname,tfogo_checklinkname0
+
+defaults:
+  run:
+    shell: bash
+    working-directory: src/backend
+
+# Each job has a cache of its own (modules and builds: 0.7 GB for lint, 1.3 GB for unit on nexus),
+# keyed by go.sum as build.yml's: saved by the first run of a go.sum, restored by the next ones.
+# The timeouts: the run times of the jobs' commands on nexus with an empty build cache and the 4
+# processors of GitHub's runner (lab/v0822/ci, 2026-11-23), times 3 or more for a slower runner,
+# the download of the modules and the save of the cache (2.5 min for build.yml's 1.6 GB).
+jobs:
+  lint:
+    name: gofmt, go mod tidy, go vet
+    runs-on: ubuntu-latest
+    container: golang:1.26.8
+    # 83 s on nexus (vet SLIM 53 s, vet FULL 23 s)
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5.0.0
+
+      - name: Cache Go modules and builds
+        uses: actions/cache@v4.2.3
+        with:
+          path: /cache
+          key: tests-lint-${{ hashFiles('src/backend/go.sum') }}
+          restore-keys: tests-lint-
+
+      - name: Formatting
+        run: |
+          unformatted=$(gofmt -l . ../../.github/ci)
+          [ -z "$unformatted" ] || { echo "::error::not formatted by gofmt: $unformatted"; exit 1; }
+
+      - name: go.mod and go.sum are tidy
+        run: |
+          cp go.mod /tmp/go.mod.before && cp go.sum /tmp/go.sum.before
+          go mod tidy
+          if ! cmp go.mod /tmp/go.mod.before || ! cmp go.sum /tmp/go.sum.before; then echo "::error::run go mod tidy"; exit 1; fi
+
+      - name: go vet SLIM
+        run: go vet -tags "$SLIM" ./...
+
+      - name: go vet FULL
+        if: success() || failure()
+        run: go vet -tags "$FULL" ./...
+
+      - name: go vet of the summarizer of the tests
+        if: success() || failure()
+        working-directory: .github/ci
+        run: go vet testsum.go
+
+  unit:
+    name: go test SLIM, FULL and -race
+    runs-on: ubuntu-latest
+    container: golang:1.26.8
+    # 373 s on nexus (SLIM 124 s, FULL 94 s, -race 148 s); build.yml's test job took 9 min on
+    # GitHub, 2.5 min of it the save of its cache
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5.0.0
+
+      - name: Cache Go modules and builds
+        uses: actions/cache@v4.2.3
+        with:
+          path: /cache
+          key: tests-unit-${{ hashFiles('src/backend/go.sum') }}
+          restore-keys: tests-unit-
+
+      # reads go test -json: the failures, the skipped tests and their reasons, into the log and
+      # the summary of the job
+      - name: The summarizer of the tests
+        working-directory: .github/ci
+        run: go build -o /usr/local/bin/testsum testsum.go
+
+      # as root in the container: the tests of the supervisor with a real engine run; a skip
+      # for "not root" fails the job. The firewall's and netcfg's tests skip here (no nft, no
+      # ip): the job kernel runs them.
+      - name: go test SLIM (the build of the package), every package
+        run: |
+          rc=0
+          CGO_ENABLED=0 go test -json -ldflags=-checklinkname=0 -count=1 -tags "$SLIM" ./... > /tmp/slim.json || rc=$?
+          testsum -title "go test SLIM" -forbid ': not root$' < /tmp/slim.json || rc=1
+          exit $rc
+
+      # cmd/podkop holds the slim build in its tests (check_links of VMess)
+      - name: go test FULL, every package but cmd/podkop
+        if: success() || failure()
+        run: |
+          rc=0
+          packages=$(go list -tags "$FULL" ./... | grep -v '/cmd/podkop$')
+          # shellcheck disable=SC2086 # one word for each package
+          CGO_ENABLED=0 go test -json -ldflags=-checklinkname=0 -count=1 -tags "$FULL" $packages > /tmp/full.json || rc=$?
+          testsum -title "go test FULL" -forbid ': not root$' < /tmp/full.json || rc=1
+          exit $rc
+
+      # the packages that start goroutines (go statements in their code or their tests) or run
+      # tests in parallel (t.Parallel): api has no tests yet; a package that starts goroutines
+      # joins the list
+      - name: go test -race SLIM
+        if: success() || failure()
+        run: |
+          rc=0
+          # shellcheck disable=SC2086 # one word for each package
+          CGO_ENABLED=1 go test -json -ldflags=-checklinkname=0 -count=1 -race -tags "$SLIM" $RACE > /tmp/race.json || rc=$?
+          testsum -title "go test -race SLIM" -forbid ': not root$' < /tmp/race.json || rc=1
+          exit $rc
+        env:
+          RACE: ./api/ ./clock/ ./cmd/podkop/ ./ctl/ ./detect/ ./diag/ ./dnsmasq/ ./engine/ ./engine/bittorrent/ ./logbuf/ ./migrate/ ./model/ ./plan/ ./probe/ ./subscription/ ./supervisor/ ./ubus/ ./uci/
+
+  # the tests that need the kernel: nft and ip, the right to administer the container's network
+  # (a network namespace of its own), conntrack accounting and IPv6 on in it, as root; as
+  # lab/v0821/nxgo.sh fw runs them on nexus. In golang:1.26.8-alpine for its nft (see
+  # .github/ci/kernel.sh), started by a step: the actions (checkout, cache) stay on the runner,
+  # where they need neither a node of musl nor GNU tar in the container. Any skip but those of
+  # the studies run by hand fails the job. 56 s on nexus with an empty build cache.
+  kernel:
+    name: go test of the firewall, the routing and the traces (kernel)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v5.0.0
+
+      - name: Cache Go modules and builds
+        uses: actions/cache@v4.2.3
+        with:
+          path: ${{ runner.temp }}/cache
+          key: tests-kernel-${{ hashFiles('src/backend/go.sum') }}
+          restore-keys: tests-kernel-
+
+      - name: go test SLIM of firewall, netcfg, diag, engine/bittorrent
+        env:
+          # the studies, run by hand (POLLCOST=1, A6=1)
+          ALLOW: '^(firewall\.TestBitTorrentPollCost: .*: POLLCOST not set|engine/bittorrent\.TestA6: .*: A6=1 runs study A6|engine/bittorrent\.TestA6Endpoints: .*: A6''s child)$'
+        run: |
+          mkdir -p "$RUNNER_TEMP/cache"
+          touch "$GITHUB_STEP_SUMMARY"
+          docker run --rm --cap-add NET_ADMIN --sysctl net.netfilter.nf_conntrack_acct=1 \
+            --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
+            -e GOFLAGS -e SLIM -e ALLOW -e GOMODCACHE=/cache/mod -e GOCACHE=/cache/build -e GITHUB_STEP_SUMMARY=/summary.md \
+            -v "$PWD:/w" -v "$RUNNER_TEMP/cache:/cache" -v "$GITHUB_STEP_SUMMARY:/summary.md" -w /w/src/backend \
+            golang:1.26.8-alpine sh /w/.github/ci/kernel.sh
