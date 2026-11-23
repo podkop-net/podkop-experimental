@@ -27,7 +27,18 @@ import { withTimeout } from '../helpers';
 // is confirmed, so what the page waits for is kept in sessionStorage, and the page that loads
 // asks get_status until last_at is another than the base.
 
-// Measured on the pk8 stand (lab/runs/2026-11-23-applybar/RESULTS.md): FILLED IN BY THE STAND.
+// The times, measured on the pk8 stand (OpenWrt 24.10.8 in a container, LuCI's defaults: holdoff
+// 4 s, display 1.5 s; 7 applies, lab/runs/2026-11-23-applybar/RESULTS.md), from LuCI's apply
+// request: the backend's new last_at after 1052-1102 ms (procd's reload trigger waits 1 s, the
+// apply itself took 9-53 ms), uci-applied after 4087-4108 ms, LuCI's reload after 5615-5664 ms;
+// the first get_status of the page LuCI loaded had the result every time, the bar showed it after
+// 5896-6085 ms. A get_status of the page took 47-56 ms (in the backend, ubus podkop.run).
+// A router waits longer only for its own apply: 4.4 s for a configuration kept running with
+// 100 000 subnets (arm64 in qemu), 7.6 s for a start of the owner's router at boot, 23 s for a
+// start in a VM (notes/handoff/research_notes: podkop08/results/measure, dns-after-reboot,
+// podkop-exp/diag). So: a get_status a second while it waits (the result shown at most a second
+// after it is there, for a call of some 50 ms a second) and 60 s from the apply in all (more
+// than twice the slowest start known, 23 s, with LuCI's 6 s before the reload).
 export const APPLY_POLL_MS = 1000;
 export const APPLY_DEADLINE_MS = 60000;
 // a record older than this when a page loads is of another visit: dropped unseen

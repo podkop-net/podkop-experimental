@@ -22,9 +22,13 @@ ${PartialStyles}
 
 /* The apply bar (podkop/applyBar.ts): LuCI's alert-message, the text and the buttons in a row
    that wraps on a phone. Argon gives .alert-message a fixed width of 20rem (made for its
-   centred notices): the bar takes the width of the page. */
+   centred notices), and the first div of #view a column (#view > div:first-child:not(.cbi-map,
+   .Dashboard), stronger than one id: the text took 18em of height there): the bar takes the
+   width of the page, in a row, by two ids. */
+#view > #podkop-apply-bar,
 #podkop-apply-bar {
     display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
     gap: .5em 1em;
