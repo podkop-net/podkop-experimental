@@ -131,7 +131,7 @@ func TestSubscriptionRequestChanged(t *testing.T) {
 	require.Equal(t, "SFA/1.11", state.Agent)
 	require.WithinDuration(t, time.Now().Add(firstDownloadDelay), *state.Next, 3*time.Second)
 	require.Zero(t, s.subscriptions.failures["prov1"])
-	require.Equal(t, 1, lines.count("[info] subscription prov1: the User-Agent or the headers changed: the list is downloaded again in 10 s, the one in use stays until then"))
+	require.Equal(t, 1, lines.count("[info] subscription prov1: the User-Agent or the headers changed: the list is downloaded again in 10 to 25 s, the one in use stays until then"))
 	// the same again changes nothing
 	require.True(t, s.Apply().OK)
 	require.Equal(t, 1, lines.count("the User-Agent or the headers changed"))

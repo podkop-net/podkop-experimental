@@ -183,8 +183,10 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
 					next := now.Add(firstDownloadDelay)
 					state.Next = &next
 				}
+				// the download waits for the first tick of the scheduler after the delay
 				s.log("info", "subscription ", item.Name, ": the User-Agent or the headers changed: the list is downloaded again in ",
-					int(firstDownloadDelay/time.Second), " s, the one in use stays until then")
+					int(firstDownloadDelay/time.Second), " to ", int((firstDownloadDelay+subscriptionTick)/time.Second),
+					" s, the one in use stays until then")
 			}
 			t.customs[item.Name] = custom
 			state.Agent, state.Preset, state.Headers, state.Problems = custom.UserAgent, custom.Preset, custom.Names(), problemsOf(problems)
