@@ -794,8 +794,11 @@ function createRulesContent(
   );
   o.modalonly = true;
   o.placeholder = "Service list";
+  // the names of the community lists, as the lists call themselves, in every language (as
+  // upstream's page shows them): through _() the list "Block" took the translation of the
+  // action Block ("Блокировать"), the only name that met a msgid of its own
   Object.entries(main.DOMAIN_LIST_OPTIONS).forEach(([key, label]) => {
-    o.value(key, _(label));
+    o.value(key, label);
   });
   o.rmempty = true;
   let isProcessing = false;
