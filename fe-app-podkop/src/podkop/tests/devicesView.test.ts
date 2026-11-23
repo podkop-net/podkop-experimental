@@ -34,10 +34,21 @@ function device(
   };
 }
 
-const ETHER = 1;
-const ARPHRD_NONE = 65534;
-const LOOPBACK = 772;
-const PPP = 512;
+// the kernel flags luci-rpc getNetworkDevices gives (a device only named in the settings has none);
+// a tun of a program has no mac and is called "ethernet" (stand, OpenWrt 24.10.8)
+const ETHER = {
+  broadcast: true,
+  multicast: true,
+  pointtopoint: false,
+  noarp: false,
+};
+const P2P = {
+  broadcast: false,
+  multicast: true,
+  pointtopoint: true,
+  noarp: true,
+};
+const LOOPBACK = { loopback: true, pointtopoint: false, noarp: false };
 
 const DEVICES = [
   // the LAN and the WAN
@@ -45,25 +56,28 @@ const DEVICES = [
     'br-lan',
     'bridge',
     [{ name: 'lan', proto: 'static' }],
-    { type: ETHER, macaddr: '02:00:00:00:00:01' },
+    { flags: ETHER, macaddr: '02:00:00:00:00:01' },
     ['192.168.1.1/24'],
   ),
-  device('lan1', 'ethernet', [], { type: ETHER, macaddr: '02:00:00:00:00:02' }),
+  device('lan1', 'ethernet', [], {
+    flags: ETHER,
+    macaddr: '02:00:00:00:00:02',
+  }),
   device(
     'eth0',
     'ethernet',
     [{ name: 'wan', proto: 'dhcp' }],
-    { type: ETHER, macaddr: '02:00:00:00:00:03' },
+    { flags: ETHER, macaddr: '02:00:00:00:00:03' },
     ['100.64.0.2/24'],
   ),
   device('pppoe-wan', 'ethernet', [{ name: 'wan6', proto: 'pppoe' }], {
-    type: PPP,
+    flags: P2P,
   }),
   device(
     'lo',
     'ethernet',
     [{ name: 'loopback', proto: 'static' }],
-    { type: LOOPBACK, macaddr: '00:00:00:00:00:00' },
+    { flags: LOOPBACK, macaddr: '00:00:00:00:00:00' },
     ['127.0.0.1/8'],
   ),
   // tunnels netifd knows
@@ -71,17 +85,17 @@ const DEVICES = [
     'wg0',
     'wireguard',
     [{ name: 'vpn', proto: 'wireguard' }],
-    { type: ARPHRD_NONE },
+    { flags: P2P },
     ['10.8.0.2/32'],
   ),
   // the tun of a program, no interface of netifd: a name of the list, and names of their own (a
   // VK TURN client such as CSQTT names its tun as it likes)
-  device('tun0', 'ethernet', [], { type: ARPHRD_NONE }, ['10.9.0.2/30']),
-  device('csqtt0', 'ethernet', [], { type: ARPHRD_NONE }, ['10.10.0.2/30']),
-  device('vkturn', 'ethernet', [], { type: ARPHRD_NONE }),
+  device('tun0', 'ethernet', [], { flags: P2P }, ['10.9.0.2/30']),
+  device('csqtt0', 'ethernet', [], { flags: P2P }, ['10.10.0.2/30']),
+  device('vkturn', 'ethernet', [], { flags: P2P }),
   // the same kind of tun with an interface of netifd of the protocol "none", in a zone of its own
   device('mytunnel', 'ethernet', [{ name: 'turn', proto: 'none' }], {
-    type: ARPHRD_NONE,
+    flags: P2P,
   }),
   // a device only named in the settings (a USB modem not plugged in): no state of the kernel
   device('eth9', 'ethernet', [{ name: 'guest', proto: 'static' }], {}),
