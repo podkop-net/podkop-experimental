@@ -163,8 +163,28 @@ func TestCommands(t *testing.T) {
 		AutostartPath: write("S99podkop", "#!/bin/sh\n"),
 	}
 	output, status := run(env, "get_status")
-	require.Equal(t, "{\"enabled\":1,\"status\":\"enabled\"}\n", output)
+	require.Equal(t, "{\"enabled\":1,\"status\":\"enabled\",\"backend\":true,\"running\":true}\n", output, "a backend with no result yet")
 	require.Zero(t, status)
+	// what the backend told of itself: the times in UTC with milliseconds, as Date.parse reads them
+	msk := time.FixedZone("MSK", 3*60*60)
+	running.status = api.Status{Running: true, Since: time.Date(2026, 11, 23, 12, 3, 4, 123456789, msk),
+		Last: api.Result{OK: true, Message: "applied in 50 ms, sing-box runs the new configuration"}, LastAt: time.Date(2026, 11, 23, 12, 3, 4, 173000000, msk)}
+	output, _ = run(env, "get_status")
+	require.Equal(t, `{"enabled":1,"status":"enabled","backend":true,"running":true,"since":"2026-11-23T09:03:04.123Z",`+
+		`"last":{"ok":true,"message":"applied in 50 ms, sing-box runs the new configuration"},"last_at":"2026-11-23T09:03:04.173Z"}`+"\n", output)
+	// a refusal with sing-box down (a boot on settings that cannot be used): no since; the text as it is, with no escapes for HTML
+	running.status = api.Status{Since: time.Date(2026, 11, 23, 12, 0, 0, 0, msk),
+		Last: api.Result{Message: "the settings cannot be used: rule a: mixed proxy port 2080 <taken> by rule b"}, LastAt: time.Date(2026, 11, 23, 12, 5, 0, 0, time.UTC)}
+	output, _ = run(env, "get_status")
+	require.Equal(t, `{"enabled":1,"status":"enabled","backend":true,"running":false,`+
+		`"last":{"ok":false,"message":"the settings cannot be used: rule a: mixed proxy port 2080 <taken> by rule b"},"last_at":"2026-11-23T12:05:00.000Z"}`+"\n", output)
+	var told struct {
+		Running bool      `json:"running"`
+		LastAt  time.Time `json:"last_at"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(output), &told))
+	require.True(t, told.LastAt.Equal(running.status.LastAt), "RFC 3339: %v", told.LastAt)
+	running.status = api.Status{Running: true}
 	output, _ = run(env, "get_sing_box_status")
 	require.Equal(t, "{\"running\":1,\"enabled\":0,\"status\":\"running but disabled\",\"dns_configured\":1}\n", output)
 	output, _ = run(env, "get_sing_box_features")
@@ -268,7 +288,7 @@ func TestCommands(t *testing.T) {
 	// no backend runs, the service does not start at boot
 	env.Socket, env.AutostartPath = filepath.Join(directory, "none.sock"), filepath.Join(directory, "none")
 	output, _ = run(env, "get_status")
-	require.Equal(t, "{\"enabled\":0,\"status\":\"disabled\"}\n", output)
+	require.Equal(t, "{\"enabled\":0,\"status\":\"disabled\",\"backend\":false,\"running\":false}\n", output)
 	output, _ = run(env, "get_sing_box_status")
 	require.Equal(t, "{\"running\":0,\"enabled\":0,\"status\":\"stopped & disabled\",\"dns_configured\":1}\n", output)
 	_, status = run(env, "reload")

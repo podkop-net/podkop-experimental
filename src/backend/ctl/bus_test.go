@@ -43,7 +43,7 @@ func TestBusObject(t *testing.T) {
 	// the answer of the program, in the form of file.exec
 	answer, status := run(ctx, map[string]any{"command": "get_status"})
 	require.Equal(t, ubus.StatusOK, status)
-	require.Equal(t, ExecResult{Code: 0, Stdout: "{\"enabled\":1,\"status\":\"enabled\"}\n"}, answer)
+	require.Equal(t, ExecResult{Code: 0, Stdout: "{\"enabled\":1,\"status\":\"enabled\",\"backend\":true,\"running\":true}\n"}, answer)
 	answer, status = run(ctx, map[string]any{"command": "check_logs", "params": []any{"--since", logs.Run() + ":0"}})
 	require.Equal(t, ubus.StatusOK, status)
 	require.Zero(t, answer.(ExecResult).Code)

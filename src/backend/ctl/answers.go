@@ -1,6 +1,11 @@
 package ctl
 
-import "github.com/podkop-net/podkop-experimental/src/backend/diag"
+import (
+	"time"
+
+	"github.com/podkop-net/podkop-experimental/src/backend/api"
+	"github.com/podkop-net/podkop-experimental/src/backend/diag"
+)
 
 // compat: page-answers
 // The answers of the checks in the shapes the shell backend printed: the names and the
@@ -94,4 +99,54 @@ type systemAnswer struct {
 func answerSystem(found *diag.System, engine string) systemAnswer {
 	return systemAnswer{PodkopVersion: found.PodkopVersion, PodkopLatestVersion: found.PodkopLatestVersion, LuCIAppVersion: found.LuCIAppVersion,
 		SingBoxVersion: found.SingBoxVersion, Engine: engine, OpenWrtVersion: found.OpenWrtVersion, DeviceModel: found.DeviceModel}
+}
+
+// statusAnswer is the answer of get_status. "enabled" and "status" tell whether the backend
+// starts at boot, as the shell backend told it. The rest is this backend's own, its flags JSON
+// booleans: what the backend that runs tells of itself (api.Status), which the page shows
+// after an apply. "backend" tells whether it runs and answers at all, "running" whether
+// sing-box runs ("since": when the configuration that runs was started), "last" what its last
+// boot or change of the settings came to (the message of its log line) and "last_at" when.
+// "backend" is always there: by it the page tells a backend that does not run from the
+// backend of 0.8.21, which answered "enabled" and "status" only.
+type statusAnswer struct {
+	Enabled int         `json:"enabled"`
+	Status  string      `json:"status"`
+	Backend bool        `json:"backend"`
+	Running bool        `json:"running"`
+	Since   string      `json:"since,omitempty"`
+	Last    *api.Result `json:"last,omitempty"`
+	LastAt  string      `json:"last_at,omitempty"`
+}
+
+// stampLayout is RFC 3339 in UTC with milliseconds: the date-time format of ECMAScript
+// (Date.parse reads it the same in every browser; nine digits of a fraction it reads as each
+// browser likes), and readable in the output of the command. The page tells a new result by
+// its time: two results it could take for one would have to end within the same millisecond.
+const stampLayout = "2006-01-02T15:04:05.000Z07:00"
+
+// stamp is a time as the answers write it; none for the zero time.
+func stamp(at time.Time) string {
+	if at.IsZero() {
+		return ""
+	}
+	return at.UTC().Format(stampLayout)
+}
+
+// answerStatus is the answer of get_status: the autostart, and what the running backend told
+// of itself (nil when none answered).
+func answerStatus(enabled bool, status *api.Status) statusAnswer {
+	answer := statusAnswer{Enabled: asNumber(enabled), Status: words(enabled, "enabled", "disabled")}
+	if status == nil {
+		return answer
+	}
+	answer.Backend, answer.Running = true, status.Running
+	if status.Running {
+		answer.Since = stamp(status.Since)
+	}
+	if !status.LastAt.IsZero() {
+		last := status.Last
+		answer.Last, answer.LastAt = &last, stamp(status.LastAt)
+	}
+	return answer
 }

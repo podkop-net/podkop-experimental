@@ -303,11 +303,34 @@ func TestBootApplyStop(t *testing.T) {
 	require.False(t, answer("two.lab.example"))
 	first := s.current.instance
 	require.Equal(t, string(s.current.result.Config), f.kept(RunningConfig), "the configuration that runs is kept for the user interface")
+	// the state the page reads after an apply (get_status): what each boot or change came to,
+	// the message of its log line, and when; since when the configuration that runs runs
+	status := s.Status()
+	require.True(t, status.Running)
+	require.True(t, status.Last.OK, status.Last.Message)
+	require.Regexp(t, `^started in \d+ ms$`, status.Last.Message)
+	require.False(t, status.LastAt.IsZero())
+	require.Equal(t, status.LastAt, status.Since, "the boot started what runs")
+	// each result is later than the one before; Since moves only when sing-box is replaced
+	after := func(previous Status, replaced bool) Status {
+		t.Helper()
+		next := s.Status()
+		require.True(t, next.LastAt.After(previous.LastAt), "%v is not after %v", next.LastAt, previous.LastAt)
+		if replaced {
+			require.Equal(t, next.LastAt, next.Since)
+		} else {
+			require.Equal(t, previous.Since, next.Since)
+		}
+		return next
+	}
 
 	// the same settings again: sing-box is left alone
 	s.Apply()
 	require.Same(t, first, s.current.instance)
 	require.Equal(t, []string{"routing", "firewall update", "dns"}, f.system.take())
+	status = after(status, false)
+	require.True(t, status.Last.OK)
+	require.Regexp(t, `^applied in \d+ ms, sing-box keeps running$`, status.Last.Message)
 
 	// a name added to a list: the configuration is the same, a file changes, and
 	// sing-box reads it again by itself
@@ -317,6 +340,7 @@ func TestBootApplyStop(t *testing.T) {
 	require.Eventually(t, func() bool { return answer("two.lab.example") }, 10*time.Second, 100*time.Millisecond, "the new name of the list is not answered from FakeIP")
 	require.True(t, answer("one.lab.example"))
 	f.system.take()
+	status = after(status, false)
 
 	// another configuration: sing-box is replaced
 	f.settings("\toption dns_rewrite_ttl '120'\n", oneName+"\tlist user_domains 'two.lab.example'\n")
@@ -325,6 +349,9 @@ func TestBootApplyStop(t *testing.T) {
 	require.True(t, answer("two.lab.example"))
 	require.Equal(t, []string{"routing", "firewall update", "dns"}, f.system.take())
 	second := s.current.instance
+	status = after(status, true)
+	require.True(t, status.Last.OK)
+	require.Regexp(t, `^applied in \d+ ms, sing-box runs the new configuration$`, status.Last.Message)
 
 	// settings that cannot be used change nothing
 	f.settings("\toption dns_rewrite_ttl '120'\n", strings.Replace(oneName, "one.lab.example", "three.lab.example", 1)+"\toption proxy_string 'vless://broken'\n")
@@ -334,6 +361,11 @@ func TestBootApplyStop(t *testing.T) {
 	require.Empty(t, f.system.take())
 	require.True(t, answer("two.lab.example"))
 	require.False(t, answer("three.lab.example"))
+	status = after(status, false)
+	require.True(t, status.Running, "what ran runs on")
+	require.False(t, status.Last.OK)
+	require.True(t, strings.HasPrefix(status.Last.Message, "the settings cannot be used, nothing is changed: "), status.Last.Message)
+	require.True(t, f.logged(status.Last.Message), "the refusal is the message of the log line: %v", f.lines())
 
 	// a configuration sing-box builds and cannot start: a port of it is taken. The
 	// previous configuration is started again.
@@ -351,6 +383,10 @@ func TestBootApplyStop(t *testing.T) {
 	require.NotSame(t, second, s.current.instance)
 	require.True(t, answer("two.lab.example"), "the previous configuration does not answer after the way back")
 	require.False(t, answer("four.lab.example"))
+	status = after(status, true)
+	require.True(t, status.Running)
+	require.False(t, status.Last.OK)
+	require.True(t, strings.HasPrefix(status.Last.Message, "the new configuration does not come up, the previous one runs again: "), status.Last.Message)
 	f.system.take()
 	// what is shown is what runs: the previous configuration; the refused one, with the
 	// mixed proxy at the port that is taken, is beside it

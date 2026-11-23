@@ -74,7 +74,7 @@ const singBoxAutostartPath = "/etc/rc.d/S99sing-box"
 
 // Commands lists the commands with what each does, for the help.
 var Commands = [][2]string{
-	{"get_status", "Whether the backend starts at boot"},
+	{"get_status", "Whether the backend starts at boot; whether it runs, and then whether sing-box runs and since when, and what the last boot or change of the settings came to and when, as JSON: {enabled, status, backend, running, since, last: {ok, message}, last_at} (times in RFC 3339, UTC)"},
 	{"get_sing_box_status", "Whether sing-box runs and the DNS of the LAN asks it"},
 	{"get_system_info", "Versions and the model of the device"},
 	{"get_sing_box_features", "What this build adds to sing-box, as a JSON list"},
@@ -148,11 +148,11 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 	links := func() []string { return oneOffURLs(checkURLs(env.ConfigDir, settings.Check)) }
 	switch arguments[0] {
 	case "get_status":
-		enabled := executable(env.AutostartPath)
-		return compact(struct {
-			Enabled int    `json:"enabled"`
-			Status  string `json:"status"`
-		}{asNumber(enabled), words(enabled, "enabled", "disabled")})
+		status, err := client.Status()
+		if err != nil {
+			status = nil
+		}
+		return compact(answerStatus(executable(env.AutostartPath), status))
 	case "get_sing_box_status":
 		// "enabled" is the autostart of a sing-box service of its own, which the shell
 		// backend switches off and this backend does not have: sing-box starts with it
