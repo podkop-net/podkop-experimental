@@ -1,5 +1,9 @@
-name: Differential ShellCheck
+name: ShellCheck
 
+# Two checks of the shell scripts: the differential one (the new findings of a change, severity
+# error, as code scanning alerts) and a full one (every script, severity warning, the findings of
+# .github/ci/shellcheck.baseline aside), which also reads the scripts that only the packages'
+# Makefiles hold (postinst, prerm) and what runs on OpenWrt as busybox's sh.
 on:
   push:
     branches:
@@ -7,11 +11,11 @@ on:
       - 'rc/**'
     paths:
       - 'install.sh'
-      - 'podkop/files/etc/init.d/**'
-      - 'podkop/files/etc/uci-defaults/**'
-      - 'podkop/files/etc/hotplug.d/**'
-      - 'podkop/files/usr/libexec/**'
+      - 'podkop/**'
+      - 'luci-app-podkop/**'
       - 'sdk/**'
+      - 'yacd/**'
+      - '.github/ci/shellcheck.*'
       - '.github/workflows/shellcheck.yml'
   pull_request:
     branches:
@@ -19,11 +23,11 @@ on:
       - 'rc/**'
     paths:
       - 'install.sh'
-      - 'podkop/files/etc/init.d/**'
-      - 'podkop/files/etc/uci-defaults/**'
-      - 'podkop/files/etc/hotplug.d/**'
-      - 'podkop/files/usr/libexec/**'
+      - 'podkop/**'
+      - 'luci-app-podkop/**'
       - 'sdk/**'
+      - 'yacd/**'
+      - '.github/ci/shellcheck.*'
       - '.github/workflows/shellcheck.yml'
 
 permissions:
@@ -55,3 +59,15 @@ jobs:
             sdk/*.sh
             install.sh
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  full:
+    name: ShellCheck of every script
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5.0.0
+
+      # a pinned image: another version of ShellCheck words its findings otherwise (the baseline)
+      - name: ShellCheck, severity warning
+        run: docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck-alpine:v0.11.0 sh .github/ci/shellcheck.sh

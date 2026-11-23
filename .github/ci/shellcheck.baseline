@@ -1,0 +1,19 @@
+# The findings of ShellCheck (severity warning) that .github/ci/shellcheck.sh lets pass, as it
+# prints them without line and column: FILE: SEVERITY: MESSAGE [CODE]. Each with its reason; the
+# list only shrinks (a finding fixed must leave it).
+
+# /etc/rc.common sources the init scripts: it reads START, STOP and USE_PROCD and sets action
+podkop/files/etc/init.d/podkop: warning: START appears unused. Verify use (or export if used externally). [SC2034]
+podkop/files/etc/init.d/podkop: warning: STOP appears unused. Verify use (or export if used externally). [SC2034]
+podkop/files/etc/init.d/podkop: warning: USE_PROCD appears unused. Verify use (or export if used externally). [SC2034]
+podkop/files/etc/init.d/podkop: warning: action is referenced but not assigned. [SC2154]
+podkop/files/etc/init.d/podkop-early: warning: START appears unused. Verify use (or export if used externally). [SC2034]
+
+# a list of one service, on purpose: the shape of the loop of more
+podkop/files/etc/uci-defaults/99-podkop: warning: This loop will only ever run once. Bad quoting or missing glob/expansion? [SC2043]
+
+# as in itdoginfo/podkop: $timestamp is never set, the log line starts with a space
+luci-app-podkop/root/etc/uci-defaults/50_luci-podkop: warning: timestamp is referenced but not assigned. [SC2154]
+
+# the list of the files removed from Yacd split into words on purpose (no spaces in the names)
+yacd/build.sh: warning: Quote this to prevent word splitting. [SC2046]
