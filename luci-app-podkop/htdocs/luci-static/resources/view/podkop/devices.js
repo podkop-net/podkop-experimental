@@ -1,6 +1,7 @@
 "use strict";
 "require baseclass";
 "require firewall";
+"require network";
 "require tools.widgets as widgets";
 
 // The lists of devices in the settings, by what each field is for. The backend takes every
@@ -15,7 +16,9 @@
 //   out     where podkop's own connections go out (the output, a VPN section): the devices
 //           of the networks of the WAN and tunnels, whether they have an address now or
 //           not (PPPoE that is down, a tunnel not yet up); one without an IPv4 address now
-//           is marked so
+//           is marked so. A tunnel a program makes for itself (a tun of a VK TURN client
+//           such as CSQTT, of a VPN client) is there only while it runs, and the list is read
+//           again each time the window opens; one that is not up then is typed by name
 
 // protocols of netifd whose interface is a tunnel
 const TUNNEL_PROTOCOLS = [
@@ -73,6 +76,17 @@ function ofWAN(device, wanNetworks) {
     .some((network) => wanNetworks.includes(network.getName()));
 }
 
+// the link type of the kernel of a device that carries IP packets alone, with no link layer:
+// the tun of a program, WireGuard (ARPHRD_NONE of linux/if_arp.h)
+const ARPHRD_NONE = 65534;
+
+// isLayer3 tells such a device that is there now (LuCI's state of the kernel's devices: a
+// device only named in the settings has none). LuCI types the tun of a program "ethernet",
+// whatever its name, when no protocol of netifd made it.
+function isLayer3(device) {
+  return (device.dev || {}).type === ARPHRD_NONE;
+}
+
 function isTunnel(device) {
   const networks = device.getNetworks();
   return (
@@ -80,7 +94,8 @@ function isTunnel(device) {
     networks.some((network) =>
       TUNNEL_PROTOCOLS.includes(network.getProtocol()),
     ) ||
-    (networks.length === 0 && TUNNEL_NAME.test(device.getName()))
+    (networks.length === 0 && TUNNEL_NAME.test(device.getName())) ||
+    isLayer3(device)
   );
 }
 
@@ -97,9 +112,14 @@ function forRole(option, role) {
   option.nobridges = false;
   option.noinactive = false;
   option.load = function (section_id) {
+    // the devices as they are now, not as the page found them: a tunnel that came up
+    // (or was made again under another name) since the page loaded is offered
+    const fresh = role === "out" ? network.flushCache() : Promise.resolve();
     return Promise.all([
       firewall.getZones(),
-      widgets.DeviceSelect.prototype.load.call(this, section_id),
+      fresh.then(() =>
+        widgets.DeviceSelect.prototype.load.call(this, section_id),
+      ),
     ]).then(([zones, value]) => {
       // the networks of the WAN: those of the zones with masquerading
       this.wanNetworks = zones

@@ -1804,7 +1804,9 @@ function createSourceContent(section) {
     widgets.DeviceSelect,
     "interface",
     _("Network Interface"),
-    _("A tunnel, a modem or a second WAN. Empty: the main route"),
+    _(
+      "A tunnel, a modem or a second WAN. A tunnel that is not up now is not in the list: type its name. Empty: the main route",
+    ),
   );
   o.modalonly = true;
   o.depends("type", "interface");
