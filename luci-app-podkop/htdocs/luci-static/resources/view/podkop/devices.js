@@ -77,12 +77,19 @@ function ofWAN(device, wanNetworks) {
 }
 
 // isLayer3 tells a device of IP packets alone, with no link layer, that is there now: the tun
-// of a program, WireGuard, PPP. The kernel flags it point-to-point (and no ARP); LuCI's state
-// of the kernel's devices (luci-rpc getNetworkDevices) carries those flags, and a device only
-// named in the settings has none. LuCI gives the tun of a program no MAC and no link type and
-// calls it "ethernet", whatever its name, when no protocol of netifd made it (stand, 24.10.8).
+// of a program, WireGuard, PPP. LuCI's state of the kernel's devices (luci-rpc
+// getNetworkDevices) gives such a device the kernel's flags (point-to-point, no ARP) once it
+// has an address (all of them false before), and no MAC in any case, while an ethernet, a
+// bridge, Wi-Fi and the loopback
+// have one; a device only named in the settings has no state at all. LuCI gives the tun of a
+// program no link type and calls it "ethernet", whatever its name, when no protocol of netifd
+// made it (stand, OpenWrt 24.10.8).
 function isLayer3(device) {
-  return ((device.dev || {}).flags || {}).pointtopoint === true;
+  const dev = device.dev || {};
+  return (
+    Boolean(dev.name) &&
+    ((dev.flags || {}).pointtopoint === true || !dev.macaddr)
+  );
 }
 
 function isTunnel(device) {

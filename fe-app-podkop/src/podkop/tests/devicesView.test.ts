@@ -20,7 +20,8 @@ function device(
   ipv4: string[] = [],
 ) {
   return {
-    dev,
+    // LuCI's state of a device of the kernel carries its name; one only named in the settings has none
+    dev: Object.keys(dev).length ? { name, ...dev } : dev,
     getName: () => name,
     getType: () => type,
     getMAC: () => (dev.macaddr as string | undefined) ?? null,
@@ -35,7 +36,8 @@ function device(
 }
 
 // the kernel flags luci-rpc getNetworkDevices gives (a device only named in the settings has none);
-// a tun of a program has no mac and is called "ethernet" (stand, OpenWrt 24.10.8)
+// a tun of a program has no mac and is called "ethernet", and its flags are all false until it has
+// an address (stand, OpenWrt 24.10.8)
 const ETHER = {
   broadcast: true,
   multicast: true,
@@ -47,6 +49,13 @@ const P2P = {
   multicast: true,
   pointtopoint: true,
   noarp: true,
+};
+const NOFLAGS = {
+  up: false,
+  broadcast: false,
+  noarp: false,
+  multicast: false,
+  pointtopoint: false,
 };
 const LOOPBACK = { loopback: true, pointtopoint: false, noarp: false };
 
@@ -92,10 +101,11 @@ const DEVICES = [
   // VK TURN client such as CSQTT names its tun as it likes)
   device('tun0', 'ethernet', [], { flags: P2P }, ['10.9.0.2/30']),
   device('csqtt0', 'ethernet', [], { flags: P2P }, ['10.10.0.2/30']),
-  device('vkturn', 'ethernet', [], { flags: P2P }),
+  // with no address: luci-rpc gives it flags all false, and no MAC
+  device('vkturn', 'ethernet', [], { flags: NOFLAGS }),
   // the same kind of tun with an interface of netifd of the protocol "none", in a zone of its own
   device('mytunnel', 'ethernet', [{ name: 'turn', proto: 'none' }], {
-    flags: P2P,
+    flags: NOFLAGS,
   }),
   // a device only named in the settings (a USB modem not plugged in): no state of the kernel
   device('eth9', 'ethernet', [{ name: 'guest', proto: 'static' }], {}),
