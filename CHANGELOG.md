@@ -7,6 +7,36 @@ What changed in each release of podkop-exp, newest first. The engine is the sing
 notes, with the measurements and the limits, are on the
 [releases page](https://github.com/podkop-net/podkop-experimental/releases).
 
+## 0.8.22 — not released yet
+
+Engine r28, as 0.8.21.
+
+- **Saved, applied, and what came of it (new):** a bar above the tabs. When changes are saved but
+  not applied (the Save of a window or of the page keeps them only), it reads "Changes saved but not
+  applied: N" with Save & Apply, Show and Revert. After Save & Apply it reads what the router did:
+  "Applied 12:03: sing-box runs the new configuration", or "Not applied" with the reason, for
+  example two mixed proxies on the same port. `podkop get_status` gives the same: whether the
+  backend runs, since when, and what the last start or change of the settings came to.
+- **The way back to podkop 0.7 works again:** the copy of the settings kept for it
+  (`/etc/config/podkop.pre-0.8.8`) was taken after the upgrade had changed them, and podkop 0.7 put
+  back from it routed nothing (no `config_path`). The copy is now the file as it was. Checked on
+  OpenWrt 24.10 and 25.12: 0.7.24 → podkop-exp → 0.7.24 routes again. The copies kept by earlier
+  releases stay wrong: after putting one back, run `uci set
+  podkop.settings.config_path=/etc/sing-box/config.json; uci set
+  podkop.settings.cache_path=/tmp/sing-box/cache.db; uci commit podkop` before installing podkop.
+- **An interface source offers the tunnel of any program:** the tun of a VK TURN client such as
+  CSQTT, or of a VPN client, was left out of the list unless its name began with tun, wg, ovpn…; any
+  tunnel the router has now is offered, whatever its name. The list is read again each time the
+  window opens, and a tunnel that is not up has to be typed by name, as the field says now. The same
+  goes for the output interface in Settings.
+- The community list Block is called Block in Russian too (it was "Блокировать", the action).
+- The log says that a subscription asked differently is downloaded again in 10 to 25 s (it said
+  10 s); the installer counts every feed the router reads (it said "0 of them" for feeds outside
+  distfeeds).
+- For developers: the tests run on every push and pull request (with nftables and iproute2 for the
+  firewall's, the race detector on every package that starts goroutines, ShellCheck of every
+  script), and new tests hold the ways into sing-box to the package engine.
+
 ## 0.8.21 — 2026-11-22
 
 Engine r28. A server whose link pins its certificate (`pcs`, `pinSHA256`) or names others to
