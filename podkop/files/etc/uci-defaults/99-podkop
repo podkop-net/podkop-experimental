@@ -24,6 +24,18 @@ for service in podkop; do
 	fi
 done
 
+# The settings of podkop 0.7 (and of podkop-exp up to 0.8.7) are kept as they are, before this
+# script changes anything in them, as /etc/config/podkop.pre-0.8.8: the way back to podkop puts
+# that file in place (README "Back to podkop"), and podkop 0.7 needs its config_path and
+# cache_path, which are changed below. podkop migrate (further down) keeps a copy that is there
+# already; a copy of an earlier install is left as it is, as migrate leaves it. The format of
+# today is settings.config_version 2 (migrate.Version of the backend).
+if [ -f /etc/config/podkop ] && [ ! -e /etc/config/podkop.pre-0.8.8 ] &&
+	[ "$(uci -q get podkop.settings)" = settings ] && [ "$(uci -q get podkop.settings.config_version)" != 2 ]; then
+	cp -p /etc/config/podkop /etc/config/podkop.pre-0.8.8 &&
+		logger -t podkop "the settings of podkop as they were are kept as /etc/config/podkop.pre-0.8.8"
+fi
+
 # podkop 0.7 kept its files in the directories of the sing-box package: this package uses
 # none of them, nor the settings of sing-box (the backend has sing-box inside). config_path
 # named where the shell backend wrote its configuration: nothing is written there now. The
