@@ -150,6 +150,16 @@ else
     del() { opkg remove --force-depends "$@"; }
 fi
 has() { installed | grep -qx "$1"; }
+# feeds: how many feeds the package manager reads: those of the firmware and the ones added by
+# hand or by another installer (apk: /etc/apk/repositories and every list of repositories.d, a
+# repository a line; opkg: the src lines of opkg.conf and of every file of /etc/opkg)
+feeds() {
+    if [ "$PM" = apk ]; then
+        cat /etc/apk/repositories /etc/apk/repositories.d/*.list 2>/dev/null | grep -c -v -e '^[[:space:]]*#' -e '^[[:space:]]*$'
+    else
+        cat /etc/opkg.conf /etc/opkg/*.conf 2>/dev/null | grep -c -e '^[[:space:]]*src'
+    fi
+}
 
 # ubifs and jffs2 compress: the Go binary of a package takes 40-58% of its size there
 # (measured by the install mirror); elsewhere a package takes a little more than its size.
@@ -556,7 +566,7 @@ TOTAL=$(df -kP /overlay / 2>/dev/null | awk 'NR == 2 { print $2 }')
 
 # 3. the kernel modules, asked for by name: a dependency of podkop 0.7 would go with it. A feed
 # of the firmware that does not answer is no reason to stop yet.
-msg "Updating the package lists ($PM update): the feeds of your firmware, $(grep -c -e '^src' -e '^http' /etc/opkg/distfeeds.conf /etc/apk/repositories.d/distfeeds.list 2>/dev/null | awk -F: '{ n += $NF } END { print n + 0 }') of them..."
+msg "Updating the package lists ($PM update): the feeds of the router, $(feeds) of them..."
 LISTS=
 run update || {
     LISTS="; the package lists were not updated, the likely cause: check the router's connection to the feeds of OpenWrt (above)"
