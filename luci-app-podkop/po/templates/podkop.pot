@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-21 22:32+0000\n"
-"PO-Revision-Date: 2026-11-21 22:32+0000\n"
+"POT-Creation-Date: 2026-11-23 21:49+0000\n"
+"PO-Revision-Date: 2026-11-23 21:49+0000\n"
 "Last-Translator: FiyeroT <me@fiyero.xyz>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -22,6 +22,10 @@ msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:554
 msgid "“Find a mask” on the dashboard also tries the names of public whitelists, downloaded for each search directly or through your servers. Off: only the built-in names"
+msgstr ""
+
+#: src/podkop/applyBar.ts:204
+msgid "(and %d on other pages: the buttons take them too)"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:804
@@ -358,9 +362,17 @@ msgstr ""
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr ""
 
+#: src/podkop/applyBar.ts:216
+msgid "Applied %s: %s"
+msgstr ""
+
 #: src/podkop/tabs/dashboard/initController.ts:436
 #: src/podkop/tabs/dashboard/initController.ts:764
 msgid "Apply"
+msgstr ""
+
+#: src/podkop/applyBar.ts:195
+msgid "Applying the settings…"
 msgstr ""
 
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:422
@@ -538,6 +550,10 @@ msgstr ""
 
 #: src/podkop/tabs/dashboard/helpers/verdictText.ts:75
 msgid "certificate"
+msgstr ""
+
+#: src/podkop/applyBar.ts:198
+msgid "Changes saved but not applied: %d"
 msgstr ""
 
 #: src/podkop/tabs/dashboard/partials/renderSections.ts:329
@@ -1570,6 +1586,10 @@ msgstr ""
 msgid "No whitelisted name lifted the limit on this server. The network may limit by address too, where masking does not help."
 msgstr ""
 
+#: src/podkop/applyBar.ts:222
+msgid "Not applied %s: %s"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:870
 msgid "Not copied: show the links and copy them by hand"
 msgstr ""
@@ -1795,6 +1815,10 @@ msgstr ""
 msgid "Podkop"
 msgstr ""
 
+#: src/podkop/applyBar.ts:239
+msgid "podkop did not tell within %d s whether it applied the settings: see Diagnostics → View logs"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/source.js:339
 msgid "podkop is not running: start it to load the list"
 msgstr ""
@@ -1968,6 +1992,10 @@ msgstr ""
 msgid "Saved treatments for servers not in use now: %d. A server changed, was removed, or its subscription is not loaded yet."
 msgstr ""
 
+#: src/podkop/applyBar.ts:231
+msgid "Saved. podkop does not run: the settings take effect when it starts"
+msgstr ""
+
 #: src/podkop/tabs/dashboard/initController.ts:469
 msgid "Searching…"
 msgstr ""
@@ -2136,6 +2164,7 @@ msgstr ""
 msgid "Share links: vless, ss, trojan, socks, http(s), hysteria2, tuic, and vmess, anytls, hysteria, naive where the engine has them"
 msgstr ""
 
+#: src/podkop/applyBar.ts:385
 #: src/podkop/linkCheck.ts:186
 msgid "Show"
 msgstr ""

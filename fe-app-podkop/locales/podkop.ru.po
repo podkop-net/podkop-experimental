@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-21 22:32+0000\n"
-"PO-Revision-Date: 2026-11-21 22:32+0000\n"
+"POT-Creation-Date: 2026-11-23 21:49+0000\n"
+"PO-Revision-Date: 2026-11-23 21:49+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -22,6 +22,9 @@ msgstr "«%s» — не имя хоста вроде packagist.org."
 
 msgid "“Find a mask” on the dashboard also tries the names of public whitelists, downloaded for each search directly or through your servers. Off: only the built-in names"
 msgstr "«Подобрать маску» на дашборде пробует и имена из открытых белых списков: они скачиваются при каждом подборе, напрямую или через ваши серверы. Выключено: только встроенные имена"
+
+msgid "(and %d on other pages: the buttons take them too)"
+msgstr "(и ещё %d на других страницах: кнопки затронут и их)"
 
 msgid "(data as of %s)"
 msgstr "(данные на %s)"
@@ -266,8 +269,14 @@ msgstr "другой путь принёс список раньше"
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr "Применимо для SOCKS и Shadowsocks прокси"
 
+msgid "Applied %s: %s"
+msgstr "Применено %s: %s"
+
 msgid "Apply"
 msgstr "Применить"
+
+msgid "Applying the settings…"
+msgstr "Настройки применяются…"
 
 msgid "As the other traffic"
 msgstr "Как остальной трафик"
@@ -391,6 +400,9 @@ msgstr "Не удалось получить результаты проверк
 
 msgid "certificate"
 msgstr "сертификат"
+
+msgid "Changes saved but not applied: %d"
+msgstr "Изменения сохранены, но не применены: %d"
 
 msgid "Check problem servers"
 msgstr "Проверить проблемные"
@@ -1115,6 +1127,9 @@ msgstr "Без обхода"
 msgid "No whitelisted name lifted the limit on this server. The network may limit by address too, where masking does not help."
 msgstr "Ни одно имя из белого списка не сняло лимит на этом сервере. Сеть может резать и по адресу — тогда маскировка не поможет."
 
+msgid "Not applied %s: %s"
+msgstr "Не применено %s: %s"
+
 msgid "Not copied: show the links and copy them by hand"
 msgstr "Не скопировано: покажите ссылки и скопируйте их вручную"
 
@@ -1265,6 +1280,9 @@ msgstr "Ожидает запуска"
 msgid "Podkop"
 msgstr "Podkop"
 
+msgid "podkop did not tell within %d s whether it applied the settings: see Diagnostics → View logs"
+msgstr "podkop не сообщил за %d с, применены ли настройки: см. Диагностика → Посмотреть логи"
+
 msgid "podkop is not running: start it to load the list"
 msgstr "podkop не запущен: запустите его, чтобы загрузить список"
 
@@ -1390,6 +1408,9 @@ msgstr "Сначала «Сохранить и применить»: роуте�
 
 msgid "Saved treatments for servers not in use now: %d. A server changed, was removed, or its subscription is not loaded yet."
 msgstr "Сохранённых обходов для серверов, которых сейчас нет в работе: %d. Сервер изменился, удалён или его подписка ещё не загружена."
+
+msgid "Saved. podkop does not run: the settings take effect when it starts"
+msgstr "Сохранено. podkop не запущен: настройки вступят в силу, когда он запустится"
 
 msgid "Searching…"
 msgstr "Поиск…"

@@ -8271,6 +8271,332 @@ function showLinkProblems(problems, show) {
   );
 }
 
+// src/podkop/applyBar.ts
+var APPLY_POLL_MS = 1e3;
+var APPLY_DEADLINE_MS = 6e4;
+var STALE_MS = 2 * APPLY_DEADLINE_MS;
+var BEFORE_MS = 3e3;
+var RECORD_KEY = "podkop-apply";
+function countChanges(changes) {
+  const count = { podkop: 0, other: 0 };
+  if (!changes || typeof changes !== "object") return count;
+  for (const [config, list] of Object.entries(changes)) {
+    const n = Array.isArray(list) ? list.length : 0;
+    if (config === "podkop") count.podkop += n;
+    else count.other += n;
+  }
+  return count;
+}
+function tellsResult(status) {
+  return !!status && typeof status === "object" && typeof status.backend === "boolean";
+}
+function newRecord(fresh, known, now) {
+  const status = tellsResult(fresh) ? fresh : tellsResult(known) ? known : null;
+  if (!status) return null;
+  return {
+    started: now,
+    base: status.last_at || null,
+    backend: !!status.backend
+  };
+}
+function judge(record, status, now) {
+  if (status?.backend && status.last && status.last_at && status.last_at !== record.base) {
+    return {
+      kind: status.last.ok ? "applied" : "refused",
+      at: status.last_at,
+      message: status.last.message
+    };
+  }
+  if (status?.backend === false && !record.backend) return { kind: "stopped" };
+  if (now - record.started >= APPLY_DEADLINE_MS) {
+    return { kind: status?.backend === false ? "stopped" : "unknown" };
+  }
+  return void 0;
+}
+function parseRecord(text, now) {
+  if (!text) return null;
+  try {
+    const value = JSON.parse(text);
+    if (!value || typeof value.started !== "number" || value.base !== null && typeof value.base !== "string" || typeof value.backend !== "boolean" || Math.abs(now - value.started) > STALE_MS) {
+      return null;
+    }
+    return value;
+  } catch {
+    return null;
+  }
+}
+function clockOf(at) {
+  const time = Date.parse(at ?? "");
+  if (isNaN(time)) return at ?? "";
+  const date = new Date(time);
+  const two = (n) => String(n).padStart(2, "0");
+  return two(date.getHours()) + ":" + two(date.getMinutes());
+}
+function barView(state) {
+  if (state.waiting) {
+    return { kind: "waiting", text: _("Applying the settings\u2026"), buttons: [] };
+  }
+  if (state.changes.podkop > 0) {
+    let text = _("Changes saved but not applied: %d").format(
+      state.changes.podkop
+    );
+    if (state.changes.other > 0) {
+      text += " " + _("(and %d on other pages: the buttons take them too)").format(
+        state.changes.other
+      );
+    }
+    return { kind: "pending", text, buttons: ["apply", "show", "revert"] };
+  }
+  const result = state.result;
+  if (!result) return { kind: "none", text: "", buttons: [] };
+  switch (result.kind) {
+    case "applied":
+      return {
+        kind: "applied",
+        text: _("Applied %s: %s").format(clockOf(result.at), result.message),
+        buttons: ["dismiss"]
+      };
+    case "refused":
+      return {
+        kind: "refused",
+        text: _("Not applied %s: %s").format(
+          clockOf(result.at),
+          result.message
+        ),
+        buttons: ["dismiss"]
+      };
+    case "stopped":
+      return {
+        kind: "stopped",
+        text: _(
+          "Saved. podkop does not run: the settings take effect when it starts"
+        ),
+        buttons: ["dismiss"]
+      };
+    default:
+      return {
+        kind: "unknown",
+        text: _(
+          "podkop did not tell within %d s whether it applied the settings: see Diagnostics \u2192 View logs"
+        ).format(APPLY_DEADLINE_MS / 1e3),
+        buttons: ["dismiss"]
+      };
+  }
+}
+var BAR_CLASSES = {
+  none: "",
+  pending: "warning",
+  waiting: "notice spinning",
+  applied: "success",
+  refused: "danger error",
+  unknown: "warning",
+  stopped: "warning"
+};
+function wrapApply(target, before) {
+  if (target.podkopWrapped || typeof target.apply !== "function") return;
+  const original = target.apply;
+  let starting = false;
+  target.apply = function(checked) {
+    if (starting) return;
+    starting = true;
+    const self = this || target;
+    const go = () => {
+      starting = false;
+      return original.call(self, checked);
+    };
+    let first;
+    try {
+      first = Promise.resolve(before());
+    } catch (err) {
+      first = Promise.reject(err);
+    }
+    first.then(go, go);
+  };
+  target.podkopWrapped = true;
+}
+function readRecord() {
+  try {
+    return parseRecord(sessionStorage.getItem(RECORD_KEY), Date.now());
+  } catch {
+    return null;
+  }
+}
+function writeRecord(record) {
+  try {
+    if (record) sessionStorage.setItem(RECORD_KEY, JSON.stringify(record));
+    else sessionStorage.removeItem(RECORD_KEY);
+  } catch {
+  }
+}
+async function readStatus() {
+  const reply = await PodkopShellMethods.getStatus();
+  return reply.success && reply.data && typeof reply.data === "object" ? reply.data : null;
+}
+function luciChanges() {
+  return ui.changes;
+}
+var luciText = (key) => _(key);
+function createApplyBar(options) {
+  const bar = E("div", {
+    id: "podkop-apply-bar",
+    class: "alert-message",
+    role: "status",
+    "aria-live": "polite",
+    style: "display: none"
+  });
+  const state = {
+    changes: { podkop: 0, other: 0 },
+    waiting: false
+  };
+  let known = null;
+  let applying = false;
+  let following = false;
+  let changesAsked = 0;
+  const button = (label, classes, action) => {
+    const element = E("button", {
+      class: "btn cbi-button " + classes,
+      type: "button"
+    });
+    element.textContent = label;
+    element.addEventListener("click", (event) => {
+      element.disabled = true;
+      Promise.resolve().then(() => action(event)).catch((err) => logger.warn("[APPLY]", err)).finally(() => {
+        element.disabled = false;
+      });
+    });
+    return element;
+  };
+  const actions = {
+    apply: () => button(
+      luciText("Save & Apply"),
+      "cbi-button-apply important",
+      options.saveApply
+    ),
+    show: () => button(
+      _("Show"),
+      "cbi-button-neutral",
+      () => uci.changes().then((changes) => {
+        const changesUI2 = luciChanges();
+        changesUI2?.renderChangeIndicator(changes);
+        changesUI2?.displayChanges();
+      })
+    ),
+    revert: () => button(
+      luciText("Revert"),
+      "cbi-button-reset",
+      () => luciChanges()?.revert()
+    ),
+    dismiss: () => button(luciText("Dismiss"), "cbi-button-neutral", () => {
+      state.result = void 0;
+      writeRecord(null);
+      render3();
+    })
+  };
+  const render3 = () => {
+    const view = barView(state);
+    bar.className = ["alert-message", BAR_CLASSES[view.kind]].join(" ").trim();
+    bar.setAttribute("data-kind", view.kind);
+    bar.style.display = view.kind === "none" ? "none" : "";
+    while (bar.firstChild) bar.removeChild(bar.firstChild);
+    if (view.kind === "none") return;
+    const text = E("p", { class: "podkop-apply-text" });
+    text.textContent = view.text;
+    bar.appendChild(text);
+    if (view.buttons.length) {
+      bar.appendChild(
+        E(
+          "div",
+          { class: "podkop-apply-actions" },
+          view.buttons.map((name) => actions[name]())
+        )
+      );
+    }
+  };
+  const refreshChanges = () => {
+    const asked = ++changesAsked;
+    Promise.resolve(uci.changes()).then((changes) => {
+      if (asked !== changesAsked) return;
+      state.changes = countChanges(changes);
+      render3();
+    }).catch((err) => logger.warn("[APPLY]", "uci changes:", err));
+  };
+  const show = (record2, result) => {
+    state.waiting = false;
+    state.result = result;
+    writeRecord(applying ? { ...record2, result } : null);
+    render3();
+    refreshChanges();
+  };
+  const follow = async (record2) => {
+    if (following) return;
+    following = true;
+    try {
+      for (; ; ) {
+        let status = null;
+        try {
+          status = await readStatus();
+        } catch (err) {
+          logger.warn("[APPLY]", "get_status:", err);
+        }
+        const result = judge(record2, status, Date.now());
+        if (result) {
+          show(record2, result);
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, APPLY_POLL_MS));
+      }
+    } finally {
+      following = false;
+    }
+  };
+  const before = async () => {
+    const changesUI2 = luciChanges();
+    changesUI2?.displayStatus?.(
+      "notice spinning",
+      E("p", {}, [luciText("Starting configuration apply\u2026")])
+    );
+    let changes = null;
+    let fresh = null;
+    try {
+      [changes, fresh] = await withTimeout(
+        Promise.all([
+          Promise.resolve(uci.changes()).catch(() => null),
+          readStatus().catch(() => null)
+        ]),
+        BEFORE_MS,
+        "apply bar: the reads before an apply"
+      );
+    } catch (err) {
+      logger.warn("[APPLY]", err);
+    }
+    if (changes && countChanges(changes).podkop === 0) return;
+    const record2 = newRecord(fresh, known, Date.now());
+    if (!record2) return;
+    applying = true;
+    writeRecord(record2);
+    state.waiting = true;
+    state.result = void 0;
+    render3();
+    follow(record2);
+  };
+  const changesUI = luciChanges();
+  if (changesUI) wrapApply(changesUI, before);
+  document.addEventListener("uci-loaded", refreshChanges);
+  refreshChanges();
+  const record = readRecord();
+  if (record?.result) {
+    show(record, record.result);
+  } else if (record) {
+    state.waiting = true;
+    render3();
+    follow(record);
+  }
+  readStatus().then((status) => {
+    known = status;
+  }).catch(() => void 0);
+  return bar;
+}
+
 // src/styles.ts
 var GlobalStyles = `
 ${DashboardTab.styles}
@@ -8288,6 +8614,40 @@ ${PartialStyles}
 #cbi-podkop-dns_server .td.cbi-value-field.inactive::before,
 #cbi-podkop-dns_server .td.cbi-value-field:has(> [data-field].hidden)::before {
     content: none;
+}
+
+/* The apply bar (podkop/applyBar.ts): LuCI's alert-message, the text and the buttons in a row
+   that wraps on a phone. Argon gives .alert-message a fixed width of 20rem (made for its
+   centred notices), and the first div of #view a column (#view > div:first-child:not(.cbi-map,
+   .Dashboard), stronger than one id: the text took 18em of height there): the bar takes the
+   width of the page, in a row, by two ids. */
+#view > #podkop-apply-bar,
+#podkop-apply-bar {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5em 1em;
+    width: auto;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+#podkop-apply-bar .podkop-apply-text {
+    flex: 1 1 18em;
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+#podkop-apply-bar .podkop-apply-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5em;
+}
+
+#podkop-apply-bar .podkop-apply-actions .btn {
+    margin: 0;
 }
 
 /* Centered class helper */
@@ -8590,6 +8950,8 @@ if (typeof structuredClone !== "function")
 return baseclass.extend({
   AGENT_PRESETS,
   ALLOWED_WITH_RUSSIA_INSIDE,
+  APPLY_DEADLINE_MS,
+  APPLY_POLL_MS,
   BOOTSTRAP_DNS_SERVER_OPTIONS,
   BUTTON_FEEDBACK_TIMEOUT,
   CACHE_TIMEOUT,
@@ -8628,9 +8990,13 @@ return baseclass.extend({
   URLTEST_DOWNLOAD_URL_OPTIONS,
   agentPreset,
   asList,
+  barView,
   bulkValidate,
   checkLinksBeforeSave,
+  clockOf,
   coreService,
+  countChanges,
+  createApplyBar,
   customAgent,
   deniedHeader,
   detectPasted,
@@ -8650,6 +9016,7 @@ return baseclass.extend({
   isMultiServer,
   isUniqueLocal,
   isUnspecifiedIPv6,
+  judge,
   linkBatches,
   linkHost,
   linkLabel,
@@ -8661,8 +9028,10 @@ return baseclass.extend({
   maskIP,
   nameHas,
   narrower,
+  newRecord,
   onMount,
   parseQueryString,
+  parseRecord,
   parseRequest,
   parseValueList,
   preserveScrollForPage,
@@ -8691,6 +9060,7 @@ return baseclass.extend({
   store,
   subnetContains,
   svgEl,
+  tellsResult,
   unwrapSubscription,
   validateAnytlsUrl,
   validateDNS,
@@ -8720,5 +9090,6 @@ return baseclass.extend({
   validateUserAgent,
   validateVlessUrl,
   validateVmessUrl,
-  withTimeout
+  withTimeout,
+  wrapApply
 });

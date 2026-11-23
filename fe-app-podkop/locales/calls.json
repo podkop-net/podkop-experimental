@@ -14,6 +14,13 @@
     ]
   },
   {
+    "call": "(and %d on other pages: the buttons take them too)",
+    "key": "(and %d on other pages: the buttons take them too)",
+    "places": [
+      "src/podkop/applyBar.ts:204"
+    ]
+  },
+  {
     "call": "(data as of %s)",
     "key": "(data as of %s)",
     "places": [
@@ -591,11 +598,25 @@
     ]
   },
   {
+    "call": "Applied %s: %s",
+    "key": "Applied %s: %s",
+    "places": [
+      "src/podkop/applyBar.ts:216"
+    ]
+  },
+  {
     "call": "Apply",
     "key": "Apply",
     "places": [
       "src/podkop/tabs/dashboard/initController.ts:436",
       "src/podkop/tabs/dashboard/initController.ts:764"
+    ]
+  },
+  {
+    "call": "Applying the settings…",
+    "key": "Applying the settings…",
+    "places": [
+      "src/podkop/applyBar.ts:195"
     ]
   },
   {
@@ -896,6 +917,13 @@
     "key": "certificate",
     "places": [
       "src/podkop/tabs/dashboard/helpers/verdictText.ts:75"
+    ]
+  },
+  {
+    "call": "Changes saved but not applied: %d",
+    "key": "Changes saved but not applied: %d",
+    "places": [
+      "src/podkop/applyBar.ts:198"
     ]
   },
   {
@@ -2652,6 +2680,13 @@
     ]
   },
   {
+    "call": "Not applied %s: %s",
+    "key": "Not applied %s: %s",
+    "places": [
+      "src/podkop/applyBar.ts:222"
+    ]
+  },
+  {
     "call": "Not copied: show the links and copy them by hand",
     "key": "Not copied: show the links and copy them by hand",
     "places": [
@@ -3027,6 +3062,13 @@
     ]
   },
   {
+    "call": "podkop did not tell within %d s whether it applied the settings: see Diagnostics → View logs",
+    "key": "podkop did not tell within %d s whether it applied the settings: see Diagnostics → View logs",
+    "places": [
+      "src/podkop/applyBar.ts:239"
+    ]
+  },
+  {
     "call": "podkop is not running: start it to load the list",
     "key": "podkop is not running: start it to load the list",
     "places": [
@@ -3326,6 +3368,13 @@
     ]
   },
   {
+    "call": "Saved. podkop does not run: the settings take effect when it starts",
+    "key": "Saved. podkop does not run: the settings take effect when it starts",
+    "places": [
+      "src/podkop/applyBar.ts:231"
+    ]
+  },
+  {
     "call": "Searching…",
     "key": "Searching…",
     "places": [
@@ -3617,6 +3666,7 @@
     "call": "Show",
     "key": "Show",
     "places": [
+      "src/podkop/applyBar.ts:385",
       "src/podkop/linkCheck.ts:186"
     ]
   },
