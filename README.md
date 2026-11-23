@@ -133,7 +133,16 @@ apk del luci-i18n-podkop-exp-ru luci-app-podkop-exp podkop-exp       # OpenWrt 2
 
 Put the old settings back with `mv /etc/config/podkop.pre-0.8.8 /etc/config/podkop` (if there is no such file, remove
 `/etc/config/podkop`; if the installer named a dated copy, `/etc/config/podkop.pre-0.8.8-<date>`,
-that one holds the settings of your last podkop). Then install podkop as its README says.
+that one holds the settings of your last podkop). A copy kept by podkop-exp 0.8.21 or older lacks
+two settings of podkop 0.7: put them back with
+
+```sh
+uci set podkop.settings.config_path=/etc/sing-box/config.json
+uci set podkop.settings.cache_path=/tmp/sing-box/cache.db
+uci commit podkop
+```
+
+Then install podkop as its README says.
 
 ## Documentation
 

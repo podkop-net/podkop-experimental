@@ -3,8 +3,11 @@
 [Русский](GUIDE.ru.md)
 
 The page is in LuCI under **Services → Podkop**. It has five tabs: Servers, Rules, Settings,
-Diagnostics and Dashboard. Changes take effect after **Save & Apply**. Most fields have a hint
-under them; this guide covers what the hints do not.
+Diagnostics and Dashboard. Changes take effect after **Save & Apply**. **Save** alone, in a window
+or at the bottom of the page, only keeps them: the bar above the tabs then reads "Changes saved but
+not applied", and after Save & Apply it tells what the router did with them ("Applied 12:03: …", or
+"Not applied" with the reason). Most fields have a hint under them; this guide covers what the
+hints do not.
 
 - [First start](#first-start)
 - [Servers](#servers)

@@ -131,7 +131,16 @@ apk del luci-i18n-podkop-exp-ru luci-app-podkop-exp podkop-exp       # OpenWrt 2
 
 Верните прежние настройки командой `mv /etc/config/podkop.pre-0.8.8 /etc/config/podkop` (если такого файла нет, удалите
 `/etc/config/podkop`; если установщик назвал копию с датой, `/etc/config/podkop.pre-0.8.8-<дата>`,
-в ней настройки вашего последнего podkop). Затем поставьте podkop по его README.
+в ней настройки вашего последнего podkop). В копии, сделанной podkop-exp 0.8.21 и более ранними, нет двух
+настроек podkop 0.7: верните их командами
+
+```sh
+uci set podkop.settings.config_path=/etc/sing-box/config.json
+uci set podkop.settings.cache_path=/tmp/sing-box/cache.db
+uci commit podkop
+```
+
+Затем поставьте podkop по его README.
 
 ## Документация
 
