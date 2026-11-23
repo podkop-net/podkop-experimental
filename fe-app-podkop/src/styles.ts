@@ -20,6 +20,36 @@ ${PartialStyles}
     content: none;
 }
 
+/* The apply bar (podkop/applyBar.ts): LuCI's alert-message, the text and the buttons in a row
+   that wraps on a phone. Argon gives .alert-message a fixed width of 20rem (made for its
+   centred notices): the bar takes the width of the page. */
+#podkop-apply-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5em 1em;
+    width: auto;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+#podkop-apply-bar .podkop-apply-text {
+    flex: 1 1 18em;
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+#podkop-apply-bar .podkop-apply-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5em;
+}
+
+#podkop-apply-bar .podkop-apply-actions .btn {
+    margin: 0;
+}
+
 /* Centered class helper */
 .centered {
     display: flex;

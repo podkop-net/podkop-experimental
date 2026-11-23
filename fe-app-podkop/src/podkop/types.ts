@@ -633,6 +633,14 @@ export namespace Podkop {
   export interface GetStatus {
     enabled: number;
     status: string;
+    // what the backend tells of itself (0.8.22 on; the backend of 0.8.21 answers the two above
+    // only): whether it runs at all; whether sing-box runs and since when; what its last boot or
+    // change of the settings came to and when (RFC 3339, UTC)
+    backend?: boolean;
+    running?: boolean;
+    since?: string;
+    last?: { ok: boolean; message: string };
+    last_at?: string;
   }
 
   export interface GetSingBoxStatus {

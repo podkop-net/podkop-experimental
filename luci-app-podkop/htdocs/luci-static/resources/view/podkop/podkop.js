@@ -385,7 +385,13 @@ const EntryPoint = {
     // Inject core service
     main.coreService();
 
-    return podkopMap.render();
+    // The apply bar above the map, on every tab: the changes saved and not applied, and what
+    // an apply came to (applyBar.ts). Its Save & Apply is the footer's.
+    const applyBar = main.createApplyBar({
+      saveApply: (ev) => this.handleSaveApply(ev, "0"),
+    });
+
+    return podkopMap.render().then((node) => [applyBar, node]);
   },
 };
 

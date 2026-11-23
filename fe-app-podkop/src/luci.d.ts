@@ -55,6 +55,8 @@ declare global {
       type?: string,
     ) => Array<Record<string, unknown> & { '.name': string; '.type': string }>;
     get: (conf: string, sid: string, opt?: string) => unknown;
+    // the changes staged in this login and not applied, by configuration (ubus uci changes)
+    changes: () => Promise<Record<string, unknown[]>>;
   };
 
   const _ = (_key: string) => string;
