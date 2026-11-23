@@ -1,9 +1,18 @@
 name: Frontend CI
 
 on:
+  push:
+    branches:
+      - main
+      - 'rc/**'
+    paths:
+      - 'fe-app-podkop/**'
+      - 'luci-app-podkop/htdocs/**'
+      - '.github/workflows/frontend-ci.yml'
   pull_request:
     paths:
       - 'fe-app-podkop/**'
+      - 'luci-app-podkop/htdocs/**'
       - '.github/workflows/frontend-ci.yml'
 
 jobs:
@@ -29,7 +38,9 @@ jobs:
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         working-directory: fe-app-podkop
-        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+        # yarn 1 (corepack without a packageManager field): "yarn config get cacheFolder" of yarn 2+
+        # says "undefined" there
+        run: echo "dir=$(yarn cache dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache yarn dependencies
         uses: actions/cache@v4.3.0
