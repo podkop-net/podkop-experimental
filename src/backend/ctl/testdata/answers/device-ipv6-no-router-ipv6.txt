@@ -1,0 +1,5 @@
+$ podkop device 2001:db8:1::50
+# IPv6 through podkop in the settings, on a router without IPv6 (no ::1)
+exit 0
+--- stdout
+ℹ️ IPv6 traffic goes past podkop: it is set to go through podkop, but the router has no IPv6 (no address ::1): no rule takes the traffic of 2001:db8:1::50

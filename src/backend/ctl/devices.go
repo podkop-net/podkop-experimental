@@ -6,6 +6,7 @@ import (
 
 	"github.com/podkop-net/podkop-experimental/src/backend/engine"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
+	"github.com/podkop-net/podkop-experimental/src/backend/netcfg"
 	"github.com/podkop-net/podkop-experimental/src/backend/plan"
 )
 
@@ -98,6 +99,9 @@ func deviceReport(config *model.Config, facts plan.Facts, text string) ([]string
 		return []string{"❌ The settings make no configuration, podkop does not apply them: " + err.Error()}, false
 	}
 	if address.Is6() && !routes.IPv6 {
+		if config.Settings.IPv6Routing == model.IPv6Podkop {
+			return []string{"ℹ️ IPv6 traffic goes past podkop: it is set to go through podkop, but the router has no IPv6 (no address ::1): no rule takes the traffic of " + address.String()}, true
+		}
 		return []string{"ℹ️ IPv6 traffic goes past podkop (IPv6 traffic: Past podkop): no rule takes the traffic of " + address.String()}, true
 	}
 	names := config.Names()
@@ -145,6 +149,18 @@ func deviceReport(config *model.Config, facts plan.Facts, text string) ([]string
 		}
 	}
 	return append(lines, "➡️ What no rule takes goes directly"), true
+}
+
+// routerFacts are the facts of the router the route rules of a device depend on, read as the
+// backend reads them (supervisor.prepare): whether it has IPv6. The others (the address of the
+// LAN, the devices of the interfaces, the NTP servers, the users) change no route rule of a
+// device.
+func routerFacts(env Environment) plan.Facts {
+	hasIPv6 := netcfg.IPv6Loopback
+	if env.IPv6 != nil {
+		hasIPv6 = env.IPv6
+	}
+	return plan.Facts{IPv6: hasIPv6()}
 }
 
 // deviceOf is the first of the devices the address is one of, or within.

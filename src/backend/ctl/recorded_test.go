@@ -359,33 +359,19 @@ func recordDevices(t *testing.T, r *recorder) {
 		{"device-ipv6-excluded", "2001:db8:1::70", "an IPv6 address in Routing Excluded IPs", "devices", routerIPv6, ""},
 		{"device-ipv6-no-rule", "2001:db8:9::9", "an IPv6 address no rule takes", "devices", routerIPv6, ""},
 		{"device-ipv6-bypass", "2001:db8:1::50", "IPv6 traffic past podkop in the settings", "devices-bypass", routerIPv6, ""},
+		{"device-ipv6-no-router-ipv6", "2001:db8:1::50", "IPv6 through podkop in the settings, on a router without IPv6 (no ::1)", "devices", plan.Facts{}, ""},
 		{"device-not-an-address", "tv.lan", "no address", "devices", routerIPv6, ""},
 		{"device-ipv6-every-device", "2001:db8:5::5", "an IPv6 address, and a rule of every device (Main)", "podkop", routerIPv6, ""},
 	}
 	for _, test := range cases {
-		env := Environment{Paths: diag.Paths{Settings: filepath.Join(inputsDir, test.settings)}, Socket: filepath.Join(t.TempDir(), "none.sock")}
+		env := Environment{Paths: diag.Paths{Settings: filepath.Join(inputsDir, test.settings)}, Socket: filepath.Join(t.TempDir(), "none.sock"),
+			IPv6: func() bool { return test.facts.IPv6 }}
 		output := r.record(test.name, test.about, env, "device", test.address)
 		compareWithPlan(t, test, output)
 	}
 	// settings the planner refuses, which the backend does not apply either: no plan to compare with
 	r.record("device-refused", "settings the planner refuses: a link the engine cannot use", Environment{Paths: diag.Paths{Settings: filepath.Join(inputsDir, "devices-refused")},
-		Socket: filepath.Join(t.TempDir(), "none.sock")}, "device", "192.168.1.10")
-	// the report reads the settings alone: on a router without IPv6 (no ::1) the plan sends IPv6
-	// past podkop while the report names the rules of IPv6 traffic through podkop. A finding of
-	// the 0.8.22 review of the lists, kept as it is.
-	compareWithPlan(t, deviceCase{name: "device-ipv6-only-devices", address: "2001:db8:1::50", settings: "devices",
-		differs: "the router has no IPv6: the plan sends IPv6 past podkop, the report does not know the facts of the router"},
-		r.recordedStdout("device-ipv6-only-devices"))
-}
-
-// recordedStdout is the standard output a case recorded (or wrote with -update).
-func (r *recorder) recordedStdout(name string) string {
-	content, err := os.ReadFile(filepath.Join(answersDir, name+".txt"))
-	require.NoError(r.t, err)
-	_, stdout, found := strings.Cut(string(content), "\n--- stdout\n")
-	require.True(r.t, found)
-	stdout, _, _ = strings.Cut(stdout, "--- stderr\n")
-	return stdout
+		Socket: filepath.Join(t.TempDir(), "none.sock"), IPv6: func() bool { return true }}, "device", "192.168.1.10")
 }
 
 // compareWithPlan fails when the report of a device and the plan disagree, or agree where a

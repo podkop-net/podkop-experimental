@@ -51,6 +51,10 @@ type Environment struct {
 	// CheckLink tells why the engine of this build cannot use a proxy link, as the
 	// configuration would refuse it (engine.CheckLink); nil returns are links it can use.
 	CheckLink func(link string) error
+	// IPv6 tells whether the router has IPv6, the address ::1 the inbound of IPv6 listens on
+	// (netcfg.IPv6Loopback when nil): podkop device builds the route rules with it, as the
+	// backend does.
+	IPv6 func() bool
 }
 
 // LinkCheck is what check_links tells of a link: whether the engine takes it, and why not.
@@ -362,8 +366,7 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 			io.WriteString(errorOutput, "the address of the device is missing: podkop device <address>\n")
 			return 1
 		}
-		// the router taken to have IPv6 (::1): the report reads the settings alone
-		lines, ok := deviceReport(config, plan.Facts{IPv6: true}, arguments[1])
+		lines, ok := deviceReport(config, routerFacts(env), arguments[1])
 		io.WriteString(output, strings.Join(lines, "\n")+"\n")
 		if !ok {
 			return 1
