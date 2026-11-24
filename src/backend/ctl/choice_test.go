@@ -23,15 +23,19 @@ func windows(lost ...int) map[string]any {
 // not count, a group the engine runs otherwise, and the traffic of the probes, once a server.
 func TestChoiceLines(t *testing.T) {
 	proxies := map[string]map[string]any{
-		"av-out":          {"type": "Selector", "now": "av-urltest-out"},
-		"av-urltest-out":  {"type": "URLTest", "now": "s-b", "mode": "loss", "all": []string{"s-a", "s-b", "s-g", "av-fallback-1-out"}, "fallbacks": []string{"av-fallback-1-out"}},
-		"bl-out":          {"type": "Selector", "now": "bl-urltest-out"},
-		"bl-urltest-out":  {"type": "URLTest", "now": "s-a", "mode": "balance", "all": []string{"s-a", "s-b"}, "balance": []map[string]any{{"name": "s-a", "devices": 2}, {"name": "s-b", "devices": 1}}},
-		"old-out":         {"type": "Selector", "now": "old-urltest-out"},
-		"old-urltest-out": {"type": "URLTest", "now": "s-a", "all": []string{"s-a", "s-b"}},
-		"s-a":             {"type": "VLESS", "history": []map[string]any{{"delay": 80}}, "loss": windows(0, 2, 6, 12, 30)},
-		"s-b":             {"type": "VLESS", "history": []map[string]any{{"delay": 120}}, "loss": windows(0, 0, 0, 0, 0)},
-		"s-g":             {"type": "VLESS", "history": []map[string]any{{"delay": 90}}, "loss": map[string]any{"not_counted": "2026-11-06T06:00:00Z"}},
+		"av-out":            {"type": "Selector", "now": "av-urltest-out"},
+		"av-urltest-out":    {"type": "URLTest", "now": "s-b", "mode": "loss", "all": []string{"s-a", "s-b", "s-g", "av-fallback-1-out"}, "fallbacks": []string{"av-fallback-1-out"}},
+		"bl-out":            {"type": "Selector", "now": "bl-urltest-out"},
+		"rest-out":          {"type": "Selector", "now": "rest-urltest-out"},
+		"rest-urltest-out":  {"type": "URLTest", "now": "s-a", "mode": "balance", "all": []string{"s-a"}},
+		"empty-out":         {"type": "Selector", "now": "empty-urltest-out"},
+		"empty-urltest-out": {"type": "URLTest", "now": "s-a", "mode": "balance", "all": []string{"s-a"}, "balance": []map[string]any{}},
+		"bl-urltest-out":    {"type": "URLTest", "now": "s-a", "mode": "balance", "all": []string{"s-a", "s-b"}, "balance": []map[string]any{{"name": "s-a", "devices": 2}, {"name": "s-b", "devices": 1}}},
+		"old-out":           {"type": "Selector", "now": "old-urltest-out"},
+		"old-urltest-out":   {"type": "URLTest", "now": "s-a", "all": []string{"s-a", "s-b"}},
+		"s-a":               {"type": "VLESS", "history": []map[string]any{{"delay": 80}}, "loss": windows(0, 2, 6, 12, 30)},
+		"s-b":               {"type": "VLESS", "history": []map[string]any{{"delay": 120}}, "loss": windows(0, 0, 0, 0, 0)},
+		"s-g":               {"type": "VLESS", "history": []map[string]any{{"delay": 90}}, "loss": map[string]any{"not_counted": "2026-11-06T06:00:00Z"}},
 	}
 	caller := outboundsCaller(t, proxies, nil)
 	rows := []model.Member{{Source: "src"}}
@@ -41,6 +45,8 @@ func TestChoiceLines(t *testing.T) {
 		{Name: "av", Enabled: true, Servers: rows, Choice: model.ChoiceLoss},
 		{Name: "bl", Enabled: true, Servers: rows, Choice: model.ChoiceBalance},
 		{Name: "old", Enabled: true, Servers: rows, Choice: model.ChoiceLoss},
+		{Name: "rest", Enabled: true, Servers: rows, Choice: model.ChoiceBalance},
+		{Name: "empty", Enabled: true, Servers: rows, Choice: model.ChoiceBalance},
 	}
 	require.Equal(t, []string{
 		"🎯 av: avoiding loss, now s-b",
@@ -53,6 +59,10 @@ func TestChoiceLines(t *testing.T) {
 		"⚠️ old: avoiding loss is set but not applied yet: Save & Apply",
 		"\ts-a: delay 80 ms, loss 1 h 0.00% (0 of 400, 2 probes), 6 h 0.50% (6 of 1200, 6 probes), 24 h 1.50% (30 of 2000, 10 probes) RTT 42 ms",
 		"\ts-b: delay 120 ms, loss 1 h 0.00% (0 of 400, 2 probes), 6 h 0.00% (0 of 1200, 6 probes), 24 h 0.00% (0 of 2000, 10 probes) RTT 42 ms",
+		"ℹ️ rest: balance, at rest: no connection goes through it now",
+		"\ts-a: delay 80 ms, loss 1 h 0.00% (0 of 400, 2 probes), 6 h 0.50% (6 of 1200, 6 probes), 24 h 1.50% (30 of 2000, 10 probes) RTT 42 ms",
+		"⚠️ empty: balance, but no server is in it now: the connections go by the fastest, s-a",
+		"\ts-a: delay 80 ms, loss 1 h 0.00% (0 of 400, 2 probes), 6 h 0.50% (6 of 1200, 6 probes), 24 h 1.50% (30 of 2000, 10 probes) RTT 42 ms",
 		"📶 Loss probes of the last 24 hours: 20, about 5.8 MB",
 	}, choiceLines(caller, config))
 	config.Sections = config.Sections[:1]

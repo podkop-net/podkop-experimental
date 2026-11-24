@@ -180,6 +180,9 @@ func choiceLine(name string, choice string, group choiceProxy) string {
 		return "⚠️ " + name + ": " + want + " is set, the engine chooses by " + group.Mode
 	case choice != model.ChoiceBalance:
 		return "🎯 " + name + ": avoiding loss, now " + group.Now
+	case group.Balance == nil:
+		// the engine tells no balance of a group that carries no connections: it keeps one choice
+		return "ℹ️ " + name + ": balance, at rest: no connection goes through it now"
 	case len(group.Balance) == 0:
 		return "⚠️ " + name + ": balance, but no server is in it now: the connections go by the fastest, " + group.Now
 	}
