@@ -461,6 +461,65 @@ func TestSubscriptionRetriesAndPlaces(t *testing.T) {
 	s.Stop()
 }
 
+// Subscriptions due at the same time, as those an apply adds are (each at 10 s after it), start
+// in the order of their names, the others as places come free; it was the order of a map. The
+// settings name them out of order.
+func TestSubscriptionsDueTogetherByName(t *testing.T) {
+	directory := t.TempDir()
+	fake := &fakeEngine{refuse: map[string]error{}}
+	source := &provider{body: "vless://u1@nl1.example:443?security=tls&sni=nl1.example#NL%201\n"}
+	options := Options{
+		SettingsPath: filepath.Join(directory, "podkop"), RuleSetDir: filepath.Join(directory, "rulesets"),
+		StagingDir: filepath.Join(directory, "candidate"), StatePath: filepath.Join(directory, "state"),
+		ConfigDir: filepath.Join(directory, "run"), ReadyTimeout: time.Second, System: new(recorder), Engine: fake,
+		Download: source.download,
+	}
+	settings := subscriptionSettings(directory, "block")
+	for _, name := range []string{"prov5", "prov2", "prov4", "prov3"} {
+		settings += "\nconfig subscription '" + name + "'\n\toption url 'https://other.example/sub/" + name + "'\n"
+	}
+	require.NoError(t, os.WriteFile(options.SettingsPath, []byte(settings), 0o644))
+	s := New(options)
+	require.True(t, s.Boot().OK)
+	defer s.Stop()
+	busy := func() []string {
+		var names []string
+		for _, state := range s.subscriptionStates() {
+			if state.Busy {
+				names = append(names, state.Name)
+			}
+		}
+		return names
+	}
+	states := s.subscriptionStates()
+	require.Len(t, states, 5)
+	for _, state := range states {
+		require.Equal(t, *states[0].Next, *state.Next, "the apply that added them plans them for the same time")
+	}
+	tick := states[0].Next.Add(time.Second)
+	// what each round started is not taken: the next one finds the same times, in a map again
+	for round := range 20 {
+		s.downloadDue(tick, "")
+		require.Equal(t, []string{"prov1", "prov2"}, busy(), "round %d", round)
+		<-s.downloads
+		<-s.downloads
+		s.subscriptions.access.Lock()
+		for _, state := range s.subscriptions.states {
+			state.Busy = false
+		}
+		s.subscriptions.access.Unlock()
+	}
+	// a place that comes free goes to the next by name at the next tick
+	s.downloadDue(tick, "")
+	s.takeList(<-s.downloads)
+	s.downloadDue(tick, "")
+	require.Contains(t, busy(), "prov3")
+	require.NotContains(t, busy(), "prov4")
+	require.NotContains(t, busy(), "prov5")
+	<-s.downloads
+	<-s.downloads
+}
+
 // The page sees a list without taking it, and the servers a group of its form would choose.
 func TestSubscriptionPreviews(t *testing.T) {
 	directory := t.TempDir()

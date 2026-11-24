@@ -800,21 +800,14 @@ func loadList(suffix string, content string) step {
 	}}
 }
 
-// due makes every subscription due, the first by its name the longest, and starts the downloads
-// that have a place, as the ticker of Run does. Not all due at the same time: downloadDue takes
-// those of the same time in the order of a map.
+// due makes every subscription due at the same time, as those an apply adds are, and starts the
+// downloads that have a place, as the ticker of Run does: downloadDue takes them by name.
 func due() step {
 	return step{"every subscription is due: the downloads start", func(r *run) {
 		r.s.subscriptions.access.Lock()
-		names := make([]string, 0, len(r.s.subscriptions.states))
-		for name := range r.s.subscriptions.states {
-			names = append(names, name)
-		}
-		slices.Sort(names)
-		now := time.Now()
-		for index, name := range names {
-			past := now.Add(-time.Duration(len(names)-index) * time.Second)
-			r.s.subscriptions.states[name].Next = &past
+		past := time.Now().Add(-time.Second)
+		for _, state := range r.s.subscriptions.states {
+			state.Next = &past
 		}
 		r.s.subscriptions.access.Unlock()
 		r.s.downloadDue(time.Now(), "")

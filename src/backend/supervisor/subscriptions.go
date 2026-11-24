@@ -521,7 +521,8 @@ func (s *Supervisor) downloadDue(now time.Time, force string) {
 		}
 		names = append(names, name)
 	}
-	// the asked ones first, then the longest due
+	// the asked ones first, then the longest due, then by name: the subscriptions an apply adds
+	// are all due at the same time, and the names come in the order of a map
 	slices.SortFunc(names, func(left string, right string) int {
 		switch {
 		case t.forced[left] != t.forced[right] && t.forced[left]:
@@ -530,8 +531,16 @@ func (s *Supervisor) downloadDue(now time.Time, force string) {
 			return 1
 		}
 		leftNext, rightNext := t.states[left].Next, t.states[right].Next
-		if leftNext != nil && rightNext != nil {
-			return leftNext.Compare(*rightNext)
+		switch {
+		case leftNext != nil && rightNext != nil:
+			if order := leftNext.Compare(*rightNext); order != 0 {
+				return order
+			}
+		case leftNext != nil:
+			// nothing planned is never due: after what is, for one order whatever the names
+			return -1
+		case rightNext != nil:
+			return 1
 		}
 		return strings.Compare(left, right)
 	})
