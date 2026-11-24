@@ -736,7 +736,7 @@ func formatLine(old *subscription.Saved, fresh *subscription.Saved) []string {
 
 // changesLine tells how a list differs from the one before, for the log: "renamed 2, changed
 // 1 (tls.reality.short_id), removed 0, added 3".
-func changesLine(changes *api.ListChanges) string {
+func changesLine(changes *subscription.ListChanges) string {
 	line := "renamed " + strconv.Itoa(changes.Renamed) + ", changed " + strconv.Itoa(changes.Changed)
 	if len(changes.Fields) > 0 {
 		line += " (" + strings.Join(changes.Fields, ", ") + ")"

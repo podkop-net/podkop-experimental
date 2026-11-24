@@ -4,8 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/podkop-net/podkop-experimental/src/backend/api"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,16 +22,16 @@ func server(name string, link string) Server {
 func TestCompare(t *testing.T) {
 	old := []Server{server("DE 113d", "de|443|a"), server("NL", "nl|443|a"), server("SE", "se|443|a"), server("FI", "fi|443|a")}
 	fresh := []Server{server("DE 112d", "de|443|a"), server("NL", "nl|8443|b"), server("SE", "se|443|a"), server("PL", "pl|443|a")}
-	require.Equal(t, api.ListChanges{Renamed: 1, Changed: 1, Removed: 1, Added: 1, Fields: []string{"server_port", "tls.server_name"}},
+	require.Equal(t, ListChanges{Renamed: 1, Changed: 1, Removed: 1, Added: 1, Fields: []string{"server_port", "tls.server_name"}},
 		Compare(old, fresh, testDecode))
 
-	require.Equal(t, api.ListChanges{}, Compare(old, old, testDecode))
+	require.Equal(t, ListChanges{}, Compare(old, old, testDecode))
 	// the same server twice under two names, one of them renamed
 	twice := []Server{server("A", "a|1|x"), server("B", "a|1|x")}
-	require.Equal(t, api.ListChanges{Renamed: 1}, Compare(twice, []Server{server("A", "a|1|x"), server("C", "a|1|x")}, testDecode))
+	require.Equal(t, ListChanges{Renamed: 1}, Compare(twice, []Server{server("A", "a|1|x"), server("C", "a|1|x")}, testDecode))
 	// a link that cannot be decoded is told apart by its text
 	broken := []Server{{Name: "X", Link: "bad://1#X", Reason: "cannot be decoded"}}
-	require.Equal(t, api.ListChanges{Changed: 1, Fields: []string{"link"}},
+	require.Equal(t, ListChanges{Changed: 1, Fields: []string{"link"}},
 		Compare(broken, []Server{{Name: "X", Link: "bad://2#X", Reason: "cannot be decoded"}}, func(string) ([]byte, []string, error) { return nil, nil, errDecodeForTest }))
 }
 

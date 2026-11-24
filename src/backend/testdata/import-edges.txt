@@ -12,6 +12,7 @@
 
 api -> btstats              # noted: the types of the socket hold the report of the statistics (api.go)
 api -> logbuf
+api -> subscription         # the types of the socket hold those of the subscriptions (api.go): what a provider told, how a list changed
 btstats -> dataplane
 btstats -> model            # noted: how firewall and api reach model (with firewall -> btstats and api -> btstats)
 clock -> dataplane
@@ -88,7 +89,6 @@ render -> engine
 render -> model
 render -> plan
 render -> uci
-subscription -> api         # known: the download and the reading of the lists take the types of the socket (subscription/changes.go, info.go)
 subscription -> dataplane
 subscription -> serverid
 supervisor -> api

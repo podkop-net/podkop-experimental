@@ -6,6 +6,7 @@ import (
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
+	"github.com/podkop-net/podkop-experimental/src/backend/subscription"
 
 	"github.com/stretchr/testify/require"
 )
@@ -19,9 +20,9 @@ func TestSubscriptionLines(t *testing.T) {
 	ended := now.Add(-24 * time.Hour)
 	lines := subscriptionLines([]api.SubscriptionState{
 		{Name: "prov1", Servers: 12, Usable: 11, Checked: &checked, Changed: &changed, Route: "direct",
-			Provider: &api.ProviderInfo{Title: "My VPN", Traffic: true, Download: 13421772800, Total: 107374182400, Expire: &expire}},
+			Provider: &subscription.ProviderInfo{Title: "My VPN", Traffic: true, Download: 13421772800, Total: 107374182400, Expire: &expire}},
 		{Name: "prov2", Servers: 3, Usable: 3, Changed: &changed, Error: "no answer in time",
-			Provider: &api.ProviderInfo{Traffic: true, Upload: 1 << 20, Expire: &ended}},
+			Provider: &subscription.ProviderInfo{Traffic: true, Upload: 1 << 20, Expire: &ended}},
 		{Name: "prov3", Error: "the provider sent a web page, not a list of servers"},
 		{Name: "prov4"},
 	}, model.Names{Sources: map[string]string{"prov1": "Lab", "prov2": "prov2"}}, now)

@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"slices"
 	"sort"
-
-	"github.com/podkop-net/podkop-experimental/src/backend/api"
 )
 
 // SameList tells whether two lists have the same servers under the same names, in whatever
@@ -39,14 +37,26 @@ func identity(server *Server) string {
 	return server.ID + "\x00" + server.Reason
 }
 
+// ListChanges are how a list of a subscription differs from the one before: servers the
+// provider renamed, servers of a name that are other servers now, with the options that
+// changed ("tls.server_name"), servers taken out and servers put in. The socket tells them
+// (api.SubscriptionState).
+type ListChanges struct {
+	Renamed int      `json:"renamed"`
+	Changed int      `json:"changed"`
+	Removed int      `json:"removed"`
+	Added   int      `json:"added"`
+	Fields  []string `json:"fields,omitempty"`
+}
+
 // mostFields is how many changed options Compare names.
 const mostFields = 12
 
 // Compare tells how a list differs from the one before: the servers the provider renamed, those
 // of a name that are other servers now (and which of their options changed), those taken out
 // and those put in. decode gives the outbounds the options are read from.
-func Compare(old []Server, fresh []Server, decode Decoder) api.ListChanges {
-	var changes api.ListChanges
+func Compare(old []Server, fresh []Server, decode Decoder) ListChanges {
+	var changes ListChanges
 	// the same server under the same name, then under another one
 	oldNames := make(map[string][]string)
 	for index := range old {

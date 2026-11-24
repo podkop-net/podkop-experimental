@@ -8,8 +8,6 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
-
-	"github.com/podkop-net/podkop-experimental/src/backend/api"
 )
 
 // The most of a text of a provider the page shows: a title is a name, a notice a few lines.
@@ -19,11 +17,35 @@ const (
 	maxPage     = 300
 )
 
+// ProviderInfo is what a provider tells of a subscription in the headers of its list
+// (subscription-userinfo, profile-title and the like), checked: the page shows it as text (the
+// socket tells it: api.SubscriptionState, api.SubscriptionPreview).
+type ProviderInfo struct {
+	Title string `json:"title,omitempty"`
+	// Upload and Download are the bytes used so far; Total is the limit, 0 when there is none.
+	Upload   int64 `json:"upload,omitempty"`
+	Download int64 `json:"download,omitempty"`
+	Total    int64 `json:"total,omitempty"`
+	// Traffic tells that the provider told the traffic at all (all of it may be 0).
+	Traffic bool `json:"traffic,omitempty"`
+	// Expire is when the subscription ends; none when it does not, or is not told.
+	Expire *time.Time `json:"expire,omitempty"`
+	// Refill is when the traffic is counted from 0 again (subscription-refill-date).
+	Refill *time.Time `json:"refill,omitempty"`
+	// UpdateHours is how often the provider asks the list to be downloaded again.
+	UpdateHours int `json:"update_hours,omitempty"`
+	// SupportURL and WebPageURL are pages of the provider (HTTP or HTTPS only).
+	SupportURL string `json:"support_url,omitempty"`
+	WebPageURL string `json:"web_page_url,omitempty"`
+	// Announce is a notice of the provider to its users.
+	Announce string `json:"announce,omitempty"`
+}
+
 // ReadInfo reads what a provider tells of a subscription (the headers kept with its list,
 // Answer.Info): its title, the traffic, when it ends, how often to download it, its pages
 // and its notice. What cannot be read is left out; none when nothing can.
-func ReadInfo(info map[string]string) *api.ProviderInfo {
-	var read api.ProviderInfo
+func ReadInfo(info map[string]string) *ProviderInfo {
+	var read ProviderInfo
 	if value := info["subscription-userinfo"]; value != "" {
 		readUserInfo(value, &read)
 	}
@@ -35,7 +57,7 @@ func ReadInfo(info map[string]string) *api.ProviderInfo {
 		read.UpdateHours = hours
 	}
 	read.Refill = unixTime(info["subscription-refill-date"])
-	if read == (api.ProviderInfo{}) {
+	if read == (ProviderInfo{}) {
 		return nil
 	}
 	return &read
@@ -44,7 +66,7 @@ func ReadInfo(info map[string]string) *api.ProviderInfo {
 // readUserInfo reads "upload=0; download=123; total=456; expire=1767225600": bytes used and
 // the limit (0 is none), the end as Unix time (0 is none). Panels write the numbers as
 // integers; some as decimals, some the time in milliseconds.
-func readUserInfo(value string, read *api.ProviderInfo) {
+func readUserInfo(value string, read *ProviderInfo) {
 	for _, field := range strings.FieldsFunc(value, func(r rune) bool { return r == ';' || r == ',' }) {
 		key, number, found := strings.Cut(strings.TrimSpace(field), "=")
 		if !found {

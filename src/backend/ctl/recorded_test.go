@@ -23,6 +23,7 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/logbuf"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/plan"
+	"github.com/podkop-net/podkop-experimental/src/backend/subscription"
 	"github.com/podkop-net/podkop-experimental/src/backend/uci"
 
 	"github.com/stretchr/testify/require"
@@ -207,8 +208,8 @@ func TestRecordedAnswers(t *testing.T) {
 		subscriptions: []api.SubscriptionState{
 			{Name: "prov1", Servers: 12, Usable: 10, Changed: at(9, 0), Checked: at(11, 0), Route: "direct", Attempted: at(11, 0), Took: 840,
 				Attempts: []api.Attempt{{Route: "direct", Phase: "done", Took: 840, FirstByte: 310, Bytes: 5120}}, Next: at(17, 0),
-				Provider: &api.ProviderInfo{Title: "Provider One", Upload: 1 << 30, Download: 3 << 30, Total: 100 << 30, Traffic: true, Expire: at(23, 59), UpdateHours: 6},
-				Changes:  &api.ListChanges{Renamed: 1, Changed: 2, Added: 1, Fields: []string{"address"}}, Agent: "Happ/1.0", Preset: "custom", Headers: []string{"Authorization", "X-Device"},
+				Provider: &subscription.ProviderInfo{Title: "Provider One", Upload: 1 << 30, Download: 3 << 30, Total: 100 << 30, Traffic: true, Expire: at(23, 59), UpdateHours: 6},
+				Changes:  &subscription.ListChanges{Renamed: 1, Changed: 2, Added: 1, Fields: []string{"address"}}, Agent: "Happ/1.0", Preset: "custom", Headers: []string{"Authorization", "X-Device"},
 				Format: "base64", Configs: 12, Now: at(12, 5)},
 			{Name: "prov2", Error: "the provider answers 403 Forbidden", ErrorCode: "status", ErrorArgs: []string{"403"}, Attempted: at(11, 30), Took: 220,
 				Attempts: []api.Attempt{{Route: "direct", Phase: "failed", Took: 220, Error: "403 Forbidden", Code: "status", Args: []string{"403"}}}, Next: at(12, 30), Busy: true, Now: at(12, 5)},
@@ -217,7 +218,7 @@ func TestRecordedAnswers(t *testing.T) {
 			Servers: []api.PreviewServer{
 				{Name: "NL 1", Scheme: "vless", Address: "nl1.example:443", Link: "vless://b831381d-6324-4d53-ad4f-8cda48b30811@nl1.example:443?type=tcp#NL%201"},
 				{Name: "XX", Scheme: "vmess", Link: "vmess://x", Reason: "the link cannot be read", Notes: []string{"kcp"}},
-			}, Provider: &api.ProviderInfo{Title: "Provider One"}, Agent: "Happ/1.0", Preset: "custom", Format: "base64", Configs: 2},
+			}, Provider: &subscription.ProviderInfo{Title: "Provider One"}, Agent: "Happ/1.0", Preset: "custom", Format: "base64", Configs: 2},
 		group: api.GroupPreview{Chosen: []string{"NL 1", "NL 2"}, Total: 12, Missing: []string{"prov3"}},
 	}
 	running := Environment{

@@ -104,7 +104,7 @@ func fieldsOf(fields []string) string {
 
 // providerLine tells what the provider told of a subscription, as `"My VPN", traffic 12.5 GiB
 // of 100 GiB, until 2026-12-31 (64 days)`.
-func providerLine(info *api.ProviderInfo, now time.Time) string {
+func providerLine(info *subscription.ProviderInfo, now time.Time) string {
 	if info == nil {
 		return ""
 	}

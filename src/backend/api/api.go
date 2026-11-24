@@ -19,6 +19,7 @@ import (
 
 	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/logbuf"
+	"github.com/podkop-net/podkop-experimental/src/backend/subscription"
 	E "github.com/sagernet/sing/common/exceptions"
 )
 
@@ -143,9 +144,9 @@ type SubscriptionState struct {
 	Next *time.Time `json:"next,omitempty"`
 	Busy bool       `json:"busy,omitempty"`
 	// Provider is what the provider told of the subscription with the last list.
-	Provider *ProviderInfo `json:"provider,omitempty"`
+	Provider *subscription.ProviderInfo `json:"provider,omitempty"`
 	// Changes are how the list taken differs from the one before it (Changed).
-	Changes *ListChanges `json:"changes,omitempty"`
+	Changes *subscription.ListChanges `json:"changes,omitempty"`
 	// Agent is the User-Agent of the settings the list is asked with ("": podkop's own), Preset
 	// the app it is the User-Agent of ("happ", "incy", "sing-box"; "" for podkop's own and for
 	// one typed in the settings), Headers the names of their extra headers (never the values),
@@ -184,17 +185,6 @@ type RequestProblem struct {
 	Text string   `json:"text"`
 }
 
-// ListChanges are how a list of a subscription differs from the one before: servers the
-// provider renamed, servers of a name that are other servers now, with the options that
-// changed ("tls.server_name"), servers taken out and servers put in.
-type ListChanges struct {
-	Renamed int      `json:"renamed"`
-	Changed int      `json:"changed"`
-	Removed int      `json:"removed"`
-	Added   int      `json:"added"`
-	Fields  []string `json:"fields,omitempty"`
-}
-
 // Attempt is a try of a download by one way: the way, how far it came (connect, tls, wait,
 // body, done, failed, canceled), how long it took and how much came, and why it failed (the
 // English text, and a code with its arguments for the page).
@@ -221,29 +211,6 @@ type LoadJob struct {
 	Preview *SubscriptionPreview `json:"preview,omitempty"`
 }
 
-// ProviderInfo is what a provider tells of a subscription in the headers of its list
-// (subscription-userinfo, profile-title and the like), checked: the page shows it as text.
-type ProviderInfo struct {
-	Title string `json:"title,omitempty"`
-	// Upload and Download are the bytes used so far; Total is the limit, 0 when there is none.
-	Upload   int64 `json:"upload,omitempty"`
-	Download int64 `json:"download,omitempty"`
-	Total    int64 `json:"total,omitempty"`
-	// Traffic tells that the provider told the traffic at all (all of it may be 0).
-	Traffic bool `json:"traffic,omitempty"`
-	// Expire is when the subscription ends; none when it does not, or is not told.
-	Expire *time.Time `json:"expire,omitempty"`
-	// Refill is when the traffic is counted from 0 again (subscription-refill-date).
-	Refill *time.Time `json:"refill,omitempty"`
-	// UpdateHours is how often the provider asks the list to be downloaded again.
-	UpdateHours int `json:"update_hours,omitempty"`
-	// SupportURL and WebPageURL are pages of the provider (HTTP or HTTPS only).
-	SupportURL string `json:"support_url,omitempty"`
-	WebPageURL string `json:"web_page_url,omitempty"`
-	// Announce is a notice of the provider to its users.
-	Announce string `json:"announce,omitempty"`
-}
-
 // SubscriptionPreview is a list downloaded to be shown, not taken.
 type SubscriptionPreview struct {
 	// Route is the way it came; Error why no list came, ErrorCode and ErrorArgs the same for
@@ -256,7 +223,7 @@ type SubscriptionPreview struct {
 	Attempts  []Attempt       `json:"attempts,omitempty"`
 	Servers   []PreviewServer `json:"servers"`
 	// Provider is what the provider told of the subscription with the list.
-	Provider *ProviderInfo `json:"provider,omitempty"`
+	Provider *subscription.ProviderInfo `json:"provider,omitempty"`
 	// Agent is the User-Agent the list was asked with ("": podkop's own), Preset the app it is
 	// the User-Agent of ("" for podkop's own and for another one).
 	Agent  string `json:"agent,omitempty"`

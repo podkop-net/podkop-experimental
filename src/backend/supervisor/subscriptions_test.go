@@ -167,7 +167,7 @@ func TestSubscriptionLists(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, written, file.ModTime())
 	require.Contains(t, string(s.current.result.Config), `"prov1: NL 1 (29 days)"`)
-	require.Equal(t, &api.ListChanges{Renamed: 2}, s.subscriptionStates()[0].Changes)
+	require.Equal(t, &subscription.ListChanges{Renamed: 2}, s.subscriptionStates()[0].Changes)
 
 	// the same servers, the names swapped: what the group chooses changes
 	source.serve("vless://u1@nl1.example:443?security=tls&sni=nl1.example#DE%201\nvless://u2@de1.example:443?security=tls&sni=de1.example#NL%201\n")
@@ -187,7 +187,7 @@ func TestSubscriptionLists(t *testing.T) {
 	require.Equal(t, 1, fake.carried, "the choices of the dashboard go with the servers renamed")
 	require.Empty(t, fake.selected)
 	require.Contains(t, string(s.current.result.Config), `"prov1: NL 2"`)
-	require.Equal(t, &api.ListChanges{Renamed: 1, Removed: 1, Added: 1}, s.subscriptionStates()[0].Changes)
+	require.Equal(t, &subscription.ListChanges{Renamed: 1, Removed: 1, Added: 1}, s.subscriptionStates()[0].Changes)
 	s.Stop()
 
 	// the next start has the list before any download
