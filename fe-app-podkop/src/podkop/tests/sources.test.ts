@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  choosesProtocols,
   detectPasted,
   filterWords,
   isMultiServer,
+  knownProtocol,
   nameHas,
+  PROTOCOLS,
+  protocolLabel,
+  protocolName,
+  protocolNames,
   rowTakes,
   ruleExit,
   ruleRowProblems,
@@ -11,10 +17,14 @@ import {
   sourceAutoLabel,
   sourceFilled,
   sourceLabel,
+  sourceServerNames,
+  sourceServerProtocols,
   stagedChange,
+  takesProtocol,
   unwrapSubscription,
   validateRoutingMark,
 } from '../sources';
+import { PROXY_LINK_SCHEMES } from '../../validators/validateProxyUrl';
 
 const SUB_URL = 'https://sub.labvpn.example/api/sub/Q2xhdWRlUHJvdG8';
 const VLESS =
@@ -141,6 +151,110 @@ describe('nameHas and rowTakes', () => {
     expect(filterWords('USA, AI-1 ,, 🇳🇱')).toEqual(['USA', 'AI-1', '🇳🇱']);
     expect(filterWords(['NL', ' DE '])).toEqual(['NL', 'DE']);
     expect(filterWords(undefined)).toEqual([]);
+  });
+});
+
+describe('the protocols of the rows', () => {
+  it('names a protocol by the scheme of its links too, in any case', () => {
+    expect(protocolName(' VLESS ')).toBe('vless');
+    expect(protocolName('ss')).toBe('shadowsocks');
+    expect(protocolName('hy2')).toBe('hysteria2');
+    expect(protocolName('SOCKS5H')).toBe('socks');
+    expect(protocolName('https')).toBe('http');
+    expect(protocolName('naive+quic')).toBe('naive');
+    expect(protocolName('vles')).toBe('vles');
+    expect(protocolName('constructor')).toBe('constructor');
+  });
+
+  it('shows a protocol as the dashboard does', () => {
+    expect(protocolLabel('hysteria2')).toBe('Hysteria2');
+    expect(protocolLabel('vles')).toBe('vles');
+    expect(protocolLabel('constructor')).toBe('constructor');
+    expect(knownProtocol('tuic')).toBe(true);
+    expect(knownProtocol('constructor')).toBe(false);
+  });
+
+  // the backend's list (model.Protocols) and the schemes it reads, each a protocol of the page
+  it('reads the protocols of every link the page takes', () => {
+    expect(Object.keys(PROTOCOLS)).toEqual([
+      'vless',
+      'vmess',
+      'trojan',
+      'shadowsocks',
+      'hysteria2',
+      'hysteria',
+      'tuic',
+      'anytls',
+      'naive',
+      'socks',
+      'http',
+    ]);
+    for (const scheme of PROXY_LINK_SCHEMES) {
+      expect(knownProtocol(protocolName(scheme)), scheme).toBe(true);
+    }
+  });
+
+  it('reads the names of a row: a list, or names by commas or spaces', () => {
+    expect(protocolNames(undefined)).toEqual([]);
+    expect(protocolNames('')).toEqual([]);
+    expect(protocolNames(' , ')).toEqual([]);
+    expect(protocolNames(['Hysteria2', 'vles', 'VLESS', 'hy2'])).toEqual([
+      'vless',
+      'hysteria2',
+      'vles',
+    ]);
+    expect(protocolNames('trojan, ss vless')).toEqual([
+      'vless',
+      'trojan',
+      'shadowsocks',
+    ]);
+  });
+
+  it('takes every protocol without names, else those named', () => {
+    expect(takesProtocol('vless', [])).toBe(true);
+    expect(takesProtocol('hy2', ['hysteria2'])).toBe(true);
+    expect(takesProtocol('vless', ['hysteria2'])).toBe(false);
+    expect(takesProtocol('', ['vless'])).toBe(false);
+  });
+
+  it('knows the protocols of links and of an outbound JSON', () => {
+    const links = {
+      '.name': 'a',
+      type: 'links',
+      link: [VLESS, HY2, TROJAN, 'SS://x@203.0.113.9:8388#S'],
+    };
+    expect(sourceServerProtocols(links)).toEqual([
+      'vless',
+      'hysteria2',
+      'trojan',
+      'shadowsocks',
+    ]);
+    expect(sourceServerNames(links)).toHaveLength(4);
+    expect(
+      sourceServerProtocols({
+        '.name': 'a',
+        type: 'json',
+        outbound_json: '\uFEFF{"type": "ssh", "server": "203.0.113.9"}',
+      }),
+    ).toEqual(['ssh']);
+    expect(
+      sourceServerProtocols({ '.name': 'a', type: 'json', outbound_json: '{' }),
+    ).toEqual(['']);
+    expect(
+      sourceServerProtocols({ '.name': 'a', type: 'subscription', url: 'x' }),
+    ).toEqual([]);
+    expect(sourceServerProtocols({ '.name': 'a', type: 'interface' })).toEqual(
+      [],
+    );
+  });
+
+  it('is asked of every source but an interface', () => {
+    for (const type of ['subscription', 'links', 'json']) {
+      expect(choosesProtocols({ '.name': 'a', type }), type).toBe(true);
+    }
+    expect(choosesProtocols({ '.name': 'a', type: 'interface' })).toBe(false);
+    expect(choosesProtocols({ '.name': 'a' })).toBe(false);
+    expect(choosesProtocols(null)).toBe(false);
   });
 });
 

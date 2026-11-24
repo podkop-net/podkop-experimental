@@ -8,8 +8,8 @@
 // The tab Rules: which sites go through which servers. A rule ("config section") is a row of
 // the list, edited in a window with the tabs Main, Servers, Fallback and Extra. Its servers
 // and fallbacks are rows of their own ("config member", anonymous, in the order of the file),
-// each naming a source of the tab Servers (or direct, or block), the words its servers are
-// chosen by, and the source its connections go through.
+// each naming a source of the tab Servers (or direct, or block), the words and the protocols its
+// servers are chosen by, and the source its connections go through.
 
 // the lists Russia inside holds already: podkop does not let them be chosen with it
 const IN_RUSSIA_INSIDE = Object.keys(main.DOMAIN_LIST_OPTIONS).filter(
@@ -60,7 +60,7 @@ function rowsOf(rule, role) {
     );
 }
 
-// A row as a line of the list: its source, its words, the source it goes through
+// A row as a line of the list: its source, its words and protocols, the source it goes through
 function rowText(row) {
   if (row.source === main.ROW_DIRECT) {
     return _("Directly");
@@ -76,15 +76,23 @@ function rowText(row) {
     text = main.sourceLabel(item);
     if (!main.sourceFilled(item)) {
       text += " (" + _("not filled") + ")";
-    } else if (main.isMultiServer(item)) {
+    } else {
       const words = [];
-      const include = main.filterWords(row.include);
-      const exclude = main.filterWords(row.exclude);
-      if (include.length) {
-        words.push(include.join(", "));
+      if (main.isMultiServer(item)) {
+        const include = main.filterWords(row.include);
+        const exclude = main.filterWords(row.exclude);
+        if (include.length) {
+          words.push(include.join(", "));
+        }
+        if (exclude.length) {
+          words.push(_("without %s").format(exclude.join(", ")));
+        }
       }
-      if (exclude.length) {
-        words.push(_("without %s").format(exclude.join(", ")));
+      const protocols = main.protocolNames(row.protocols);
+      if (main.choosesProtocols(item) && protocols.length) {
+        words.push(
+          _("only %s").format(protocols.map(main.protocolLabel).join(", ")),
+        );
       }
       if (words.length) {
         text += ": " + words.join(", ");
@@ -368,8 +376,8 @@ function rowValue(table, section_id, option) {
   return value != null ? value : uci.get("podkop", section_id, option);
 }
 
-// What the servers of a row are: how many of the servers of its source its words take. A
-// subscription is asked of the router (its list is there); links are counted here.
+// What the servers of a row are: how many of the servers of its source its words and protocols
+// take. A subscription is asked of the router (its list is there); links are counted here.
 function refreshMatched(table, section_id) {
   const node = table.pdkMatched && table.pdkMatched[section_id];
   if (!node) {
@@ -395,22 +403,35 @@ function refreshMatched(table, section_id) {
   if (!main.sourceFilled(item)) {
     return show(_("not filled"));
   }
-  if (!main.isMultiServer(item)) {
-    return show("1");
-  }
   const include = main.filterWords(rowValue(table, section_id, "include"));
   const exclude = main.filterWords(rowValue(table, section_id, "exclude"));
+  const protocols = main.protocolNames(
+    rowValue(table, section_id, "protocols"),
+  );
   const counted = (chosen, total) =>
     show(
       chosen.length
         ? _("%d of %d").format(chosen.length, total)
-        : _("0 of %d, check the words").format(total),
+        : protocols.length
+          ? _("0 of %d, check the words and the protocols").format(total)
+          : _("0 of %d, check the words").format(total),
       chosen.join(", "),
     );
+  const kinds = main.sourceServerProtocols(item);
+  if (!main.isMultiServer(item)) {
+    // an interface has no protocol
+    return kinds.every((kind) => main.takesProtocol(kind, protocols))
+      ? show("1")
+      : counted([], 1);
+  }
   if (main.sourceKind(item) === "links") {
     const names = main.sourceServerNames(item);
     return counted(
-      names.filter((server) => main.rowTakes(server, include, exclude)),
+      names.filter(
+        (server, index) =>
+          main.rowTakes(server, include, exclude) &&
+          main.takesProtocol(kinds[index], protocols),
+      ),
       names.length,
     );
   }
@@ -422,6 +443,7 @@ function refreshMatched(table, section_id) {
       subscriptions: [name],
       include,
       exclude,
+      protocols,
       addresses: { [name]: String(item.url || "").trim() },
       // the preset, the User-Agent and the headers as staged: the router reads them as it reads
       // the settings, and takes the list in use when they are those it runs with
@@ -570,6 +592,51 @@ function rowsTable(section, tab, option, role, description, placeholder) {
   };
   words("include", _("Name contains"), _("all"));
   words("exclude", _("Name does not contain"), "");
+
+  column = table.option(form.MultiValue, "protocols", _("Protocols"));
+  column.placeholder = _("all");
+  column.display_size = 2;
+  column.load = function (section_id) {
+    return main.protocolNames(uci.get("podkop", section_id, "protocols"));
+  };
+  column.renderWidget = function (section_id, option_index, cfgvalue) {
+    this.keylist = [];
+    this.vallist = [];
+    Object.keys(main.PROTOCOLS).forEach((name) => {
+      this.value(name, main.protocolLabel(name));
+    });
+    // a name written by hand stays shown: no server is of one that is no protocol, but an outbound
+    // JSON may be of any type of sing-box
+    const item = sourceOf(uci.get("podkop", section_id, "source"));
+    const own = item ? main.sourceServerProtocols(item) : [];
+    main.protocolNames(cfgvalue).forEach((name) => {
+      if (!main.knownProtocol(name)) {
+        this.value(
+          name,
+          own.includes(name) ? name : _("%s (unknown protocol)").format(name),
+        );
+      }
+    });
+    const node = form.MultiValue.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue,
+    );
+    // LuCI asks 210 px for a dropdown, which the source of the row would lack; the longest name
+    // takes 103
+    node.style.minWidth = "110px";
+    return node;
+  };
+  // the servers of an interface have no protocol
+  column.checkDepends = function (section_id) {
+    return main.choosesProtocols(
+      sourceOf(rowValue(this.section, section_id, "source")),
+    );
+  };
+  column.onchange = function (ev, section_id) {
+    refreshMatched(this.section, section_id);
+  };
 
   column = table.option(form.ListValue, "via", _("Through"));
   column.renderWidget = function (section_id, option_index, cfgvalue) {

@@ -100,6 +100,80 @@ function linkScheme(link: string): string {
     : '';
 }
 
+// The protocols of the servers a link makes, as a row chooses them (the type of the outbound) and
+// as the dashboard shows them, in the order of the field. The backend's list (model.Protocols).
+export const PROTOCOLS: Record<string, string> = {
+  vless: 'VLESS',
+  vmess: 'VMess',
+  trojan: 'Trojan',
+  shadowsocks: 'Shadowsocks',
+  hysteria2: 'Hysteria2',
+  hysteria: 'Hysteria',
+  tuic: 'TUIC',
+  anytls: 'AnyTLS',
+  naive: 'Naive',
+  socks: 'SOCKS',
+  http: 'HTTP',
+};
+
+// the schemes of links that are not the name of their protocol (model.protocolSchemes)
+const PROTOCOL_SCHEMES = new Map([
+  ['ss', 'shadowsocks'],
+  ['hy2', 'hysteria2'],
+  ['https', 'http'],
+  ['naive+https', 'naive'],
+  ['naive+quic', 'naive'],
+  ['socks4', 'socks'],
+  ['socks4a', 'socks'],
+  ['socks5', 'socks'],
+  ['socks5h', 'socks'],
+]);
+
+// knownProtocol tells whether a name is one of PROTOCOLS
+export function knownProtocol(name: string): boolean {
+  return Object.keys(PROTOCOLS).includes(name);
+}
+
+// protocolName is a protocol by its name in PROTOCOLS, the scheme of a link taken too; another
+// text stays, in small letters (model.ProtocolName)
+export function protocolName(text: string): string {
+  const name = String(text).trim().toLowerCase();
+  return PROTOCOL_SCHEMES.get(name) ?? name;
+}
+
+// protocolNames are the protocols of a row, each once, in the order of PROTOCOLS, those that are
+// none last: the names of the list go by commas or spaces too (model.ProtocolNames)
+export function protocolNames(value: unknown): string[] {
+  const order = Object.keys(PROTOCOLS);
+  const place = (name: string) =>
+    knownProtocol(name) ? order.indexOf(name) : order.length;
+  return [
+    ...new Set(
+      asList(value)
+        .flatMap((item) => item.split(/[\s,]+/))
+        .filter(Boolean)
+        .map(protocolName),
+    ),
+  ].sort((a, b) => place(a) - place(b));
+}
+
+// protocolLabel is a protocol as the dashboard shows it; one the page does not know as it is
+export function protocolLabel(name: string): string {
+  return knownProtocol(name) ? PROTOCOLS[name] : name;
+}
+
+// takesProtocol tells whether a row with these protocols takes a server of the protocol
+export function takesProtocol(protocol: string, protocols: string[]): boolean {
+  return !protocols.length || protocols.includes(protocolName(protocol));
+}
+
+// choosesProtocols tells whether a row of the source chooses its servers by their protocols: an
+// interface has none
+export function choosesProtocols(source?: Podkop.ConfigSource | null): boolean {
+  const kind = sourceKind(source);
+  return kind !== '' && kind !== 'interface';
+}
+
 function decoded(text: string): string {
   try {
     return decodeURIComponent(text);
@@ -185,6 +259,20 @@ export function sourceLabel(source: Podkop.ConfigSource): string {
 // The names of the servers of a source of links, as the backend filters them
 export function sourceServerNames(source: Podkop.ConfigSource): string[] {
   return sourceLinks(source).map(linkName);
+}
+
+// The protocols of the servers the page knows of a source, in their order: those of its links, the
+// type of its outbound JSON; none of a subscription, whose list is on the router
+export function sourceServerProtocols(source: Podkop.ConfigSource): string[] {
+  switch (sourceKind(source)) {
+    case 'links':
+      return sourceLinks(source).map((link) => protocolName(linkScheme(link)));
+    case 'json': {
+      const type = parseOutbound(String(source.outbound_json ?? ''))?.type;
+      return [typeof type === 'string' ? protocolName(type) : ''];
+    }
+  }
+  return [];
 }
 
 // nameHas tells whether a word of the name starts with the word: "AI" finds "USA AI-1" and

@@ -138,3 +138,211 @@ describe('the choices of Only for devices', () => {
     ]);
   });
 });
+
+// The rows of a rule: the field Protocols of the tabs Servers and Fallback, the line of a row in the
+// list, and Matched
+const VLESS = 'vless://u@203.0.113.7:443#NL%201';
+const HY2 = 'hy2://p@203.0.113.8:443#NL%202';
+const TROJAN = 'trojan://p@203.0.113.9:443#DE%201';
+
+type Row = Record<string, unknown>;
+
+function rowsOfRule(row: Row, source: Row, main: Row = {}) {
+  const view = loadView(
+    'rules.js',
+    {
+      rule1: { '.type': 'section' },
+      src1: { '.type': 'source', label: 'Lab', ...source },
+      row1: {
+        '.type': 'member',
+        section: 'rule1',
+        role: 'server',
+        source: 'src1',
+        ...row,
+      },
+    },
+    main,
+  );
+  view.exports.createRulesContent(
+    view.section,
+    ['urltest.fallbacks'],
+    null,
+    [],
+  );
+  const table = (option: string) => {
+    const found = view.section.lookup(option).subsection;
+    if (!found) throw new Error(`${option} has no table`);
+    return found;
+  };
+  return {
+    ...view,
+    servers: table('_servers'),
+    fallbacks: table('_fallbacks'),
+  };
+}
+
+const links = (...list: string[]) => ({ type: 'links', link: list });
+
+// the text of Matched, and its title, for the row as it is
+function matched(view: ReturnType<typeof rowsOfRule>): FakeNode {
+  return view.servers.lookup('_matched').call('cfgvalue', 'row1') as FakeNode;
+}
+
+// the line of the rule in the list
+function line(view: ReturnType<typeof rowsOfRule>): string {
+  return (view.section.lookup('_rows').call('textvalue', 'rule1') as FakeNode)
+    .textContent;
+}
+
+describe('the protocols of a row', () => {
+  it('is a field of the servers and of the fallbacks, all by default', () => {
+    const view = rowsOfRule({}, links(VLESS, HY2));
+    for (const table of [view.servers, view.fallbacks]) {
+      const field = table.lookup('protocols');
+      expect(field).toBeInstanceOf(view.form.MultiValue);
+      expect(field.placeholder).toBe('all');
+      expect(field.load('row1')).toEqual([]);
+    }
+  });
+
+  it('offers the protocols by the names of the dashboard', () => {
+    const view = rowsOfRule({ protocols: 'hy2, vles' }, links(VLESS, HY2));
+    const field = view.servers.lookup('protocols');
+    const widget = { style: { minWidth: '' } };
+    const shown = vi.fn(() => widget);
+    (view.form.MultiValue.prototype as Row).renderWidget = shown;
+    const stored = field.load('row1');
+    expect(stored).toEqual(['hysteria2', 'vles']);
+    expect(field.call('renderWidget', 'row1', 0, stored)).toBe(widget);
+    expect(shown).toHaveBeenCalledWith('row1', 0, stored);
+    // the source of the row keeps its place
+    expect(widget.style.minWidth).toBe('110px');
+    expect((field.keylist as string[]).slice(0, 5)).toEqual([
+      'vless',
+      'vmess',
+      'trojan',
+      'shadowsocks',
+      'hysteria2',
+    ]);
+    expect((field.vallist as string[]).slice(0, 5)).toEqual([
+      'VLESS',
+      'VMess',
+      'Trojan',
+      'Shadowsocks',
+      'Hysteria2',
+    ]);
+    expect((field.keylist as string[]).at(-1)).toBe('vles');
+    expect((field.vallist as string[]).at(-1)).toBe('vles (unknown protocol)');
+  });
+
+  it('knows the type of an outbound JSON', () => {
+    const view = rowsOfRule(
+      { protocols: ['ssh'] },
+      { type: 'json', outbound_json: '{"type":"ssh"}' },
+    );
+    const field = view.servers.lookup('protocols');
+    (view.form.MultiValue.prototype as Row).renderWidget = () => ({
+      style: {},
+    });
+    field.call('renderWidget', 'row1', 0, field.load('row1'));
+    expect((field.vallist as string[]).at(-1)).toBe('ssh');
+  });
+
+  it('is asked of a source with servers, not of an interface', () => {
+    const asked = (source: Row) =>
+      rowsOfRule({}, source)
+        .servers.lookup('protocols')
+        .call('checkDepends', 'row1');
+    expect(asked(links(VLESS))).toBe(true);
+    expect(asked({ type: 'subscription', url: 'https://a.example/s' })).toBe(
+      true,
+    );
+    expect(asked({ type: 'json', outbound_json: '{"type":"ssh"}' })).toBe(true);
+    expect(asked({ type: 'interface', interface: 'awg0' })).toBe(false);
+    expect(asked({})).toBe(false);
+  });
+
+  it('counts the servers of links the words and the protocols take', () => {
+    const count = (row: Row, ...list: string[]) =>
+      matched(rowsOfRule(row, links(...list))).textContent;
+    expect(count({}, VLESS, HY2, TROJAN)).toBe('3 of 3');
+    expect(count({ protocols: ['vless'] }, VLESS, HY2, TROJAN)).toBe('1 of 3');
+    expect(
+      count(
+        { include: ['NL'], protocols: ['hy2', 'trojan'] },
+        VLESS,
+        HY2,
+        TROJAN,
+      ),
+    ).toBe('1 of 3');
+    expect(count({ include: ['JP'] }, VLESS, HY2)).toBe(
+      '0 of 2, check the words',
+    );
+    expect(count({ protocols: ['tuic'] }, VLESS, HY2)).toBe(
+      '0 of 2, check the words and the protocols',
+    );
+    // one server: the words do not choose, the protocols do
+    expect(count({ include: ['JP'] }, VLESS)).toBe('1');
+    expect(count({ protocols: ['vless'] }, VLESS)).toBe('1');
+    expect(count({ protocols: ['tuic'] }, VLESS)).toBe(
+      '0 of 1, check the words and the protocols',
+    );
+  });
+
+  it('counts the server of an outbound JSON by its type, an interface always', () => {
+    const json = { type: 'json', outbound_json: '{"type":"socks"}' };
+    const count = (row: Row, source: Row) =>
+      matched(rowsOfRule(row, source)).textContent;
+    expect(count({ protocols: 'SOCKS5' }, json)).toBe('1');
+    expect(count({ protocols: 'vless' }, json)).toBe(
+      '0 of 1, check the words and the protocols',
+    );
+    expect(count({ protocols: 'vless' }, { type: 'interface' })).toBe('1');
+  });
+
+  it('asks the router for a subscription with the protocols', async () => {
+    vi.useFakeTimers();
+    const groupCheck = vi.fn(() =>
+      Promise.resolve({
+        success: true,
+        data: { chosen: ['NL 1'], total: 4 },
+      }),
+    );
+    const view = rowsOfRule(
+      { include: ['NL'], protocols: ['Hysteria2', 'vless'] },
+      { type: 'subscription', url: 'https://a.example/s' },
+      { PodkopShellMethods: { groupCheck }, listRequest: () => ({}) },
+    );
+    const node = matched(view);
+    await vi.runAllTimersAsync();
+    vi.useRealTimers();
+    expect(groupCheck).toHaveBeenCalledOnce();
+    expect(groupCheck.mock.calls[0]).toMatchObject([
+      {
+        subscriptions: ['src1'],
+        include: ['NL'],
+        exclude: [],
+        protocols: ['vless', 'hysteria2'],
+      },
+    ]);
+    expect(node.textContent).toBe('1 of 4');
+    expect(node.title).toBe('NL 1');
+  });
+
+  it('is told in the line of the rule', () => {
+    expect(
+      line(
+        rowsOfRule(
+          { include: ['NL'], exclude: ['2'], protocols: ['hy2', 'VLESS'] },
+          links(VLESS, HY2),
+        ),
+      ),
+    ).toContain('Lab: NL, without 2, only VLESS, Hysteria2');
+    expect(line(rowsOfRule({ protocols: ['vless'] }, links(VLESS)))).toContain(
+      'Lab: only VLESS',
+    );
+    expect(
+      line(rowsOfRule({ protocols: ['vless'] }, { type: 'interface' })),
+    ).not.toContain('only');
+  });
+});

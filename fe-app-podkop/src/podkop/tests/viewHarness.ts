@@ -34,6 +34,7 @@ export class FakeNode {
   attrs: Record<string, unknown>;
   children: (FakeNode | string)[] = [];
   parentNode: FakeNode | null = null;
+  title?: string;
   scrollIntoView?: Fn;
   click: Fn = () => undefined;
 
@@ -96,6 +97,10 @@ export class FakeNode {
     return this.children
       .map((child) => (child instanceof FakeNode ? child.textContent : child))
       .join('');
+  }
+
+  set textContent(text: string) {
+    this.replaceChildren(text);
   }
 
   matches(compound: string): boolean {

@@ -406,6 +406,7 @@ export namespace Podkop {
     source?: string;
     include?: string | string[];
     exclude?: string | string[];
+    protocols?: string | string[];
     via?: string;
   }
 
@@ -565,6 +566,7 @@ export namespace Podkop {
     subscriptions: string[];
     include: string[];
     exclude: string[];
+    protocols?: string[];
     // the addresses by the name of the source: one not saved yet has its address there only
     addresses?: Record<string, string>;
     // the User-Agent and the headers by the name of the source, as the page has them; one not
