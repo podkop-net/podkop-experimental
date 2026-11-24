@@ -1,0 +1,19 @@
+$ podkop list_status
+# the lists of what runs
+exit 0
+--- stdout
+[
+  {
+    "tag": "main-youtube-community-ruleset",
+    "kind": "remote",
+    "url": "https://github.com/itdoginfo/allow-domains/releases/latest/download/youtube.srs",
+    "format": "binary",
+    "last_updated": "2026-11-23T11:00:00+03:00"
+  },
+  {
+    "tag": "main-user-domains-ruleset",
+    "kind": "local",
+    "format": "source",
+    "path": "/tmp/podkop/rulesets/main-user-domains-ruleset.json"
+  }
+]

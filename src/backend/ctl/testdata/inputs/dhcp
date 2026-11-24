@@ -1,0 +1,4 @@
+config dnsmasq
+	list server '127.0.0.42'
+	option noresolv '1'
+	option cachesize '0'

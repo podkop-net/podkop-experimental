@@ -1,0 +1,8 @@
+$ podkop check_fakeip_client 0a1b2c3d4e5f
+# the device asked the name, its connection did not come
+exit 0
+--- stdout
+{
+  "dns": true,
+  "connection": false
+}

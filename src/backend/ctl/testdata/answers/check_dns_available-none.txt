@@ -1,0 +1,15 @@
+$ podkop check_dns_available
+# the answer to fixed findings (AnswerDNS): nothing answers, no server in the settings
+exit 0
+--- stdout
+{
+  "dns_type": "",
+  "dns_server": "",
+  "dns_status": 0,
+  "dns_mode": "",
+  "dns_servers": [],
+  "dns_on_router": 0,
+  "bootstrap_dns_server": "",
+  "bootstrap_dns_status": 0,
+  "dhcp_config_status": 0
+}

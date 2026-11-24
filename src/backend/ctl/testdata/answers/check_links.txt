@@ -1,0 +1,5 @@
+$ podkop check_links socks5://192.0.2.1:1080 vless://b831381d-6324-4d53-ad4f-8cda48b30811@192.0.2.1:443?type=kcp vmess://b831381d-6324-4d53-ad4f-8cda48b30811@192.0.2.1:443
+# the links of the form before a save, as the engine of the build takes them
+exit 0
+--- stdout
+[{"ok":true},{"ok":false,"error":"the mKCP transport is not supported"},{"ok":false,"error":"vmess is not included in this build"}]

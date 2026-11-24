@@ -1,0 +1,6 @@
+$ podkop check_fakeip_client UPPER
+# a label that is no label
+exit 1
+--- stdout
+--- stderr
+check_fakeip_client <label> [ms]: the label is 8 to 40 lower-case letters and digits

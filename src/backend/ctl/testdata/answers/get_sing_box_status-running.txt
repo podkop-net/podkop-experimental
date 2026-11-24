@@ -1,0 +1,5 @@
+$ podkop get_sing_box_status
+# the backend runs; dnsmasq asks the backend alone
+exit 0
+--- stdout
+{"running":1,"enabled":0,"status":"running but disabled","dns_configured":1}

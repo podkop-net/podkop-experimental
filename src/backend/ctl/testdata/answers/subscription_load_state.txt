@@ -1,0 +1,5 @@
+$ podkop subscription_load_state job1
+# the job has ended with its preview
+exit 0
+--- stdout
+{"id":"job1","state":"done","elapsed_ms":0,"attempts":[{"route":"direct","phase":"done","ms":800}],"preview":{"route":"direct","took_ms":800,"attempts":[{"route":"direct","phase":"done","ms":800}],"servers":[{"name":"NL 1","scheme":"vless","address":"nl1.example:443","link":"vless://b831381d-6324-4d53-ad4f-8cda48b30811@nl1.example:443?type=tcp#NL%201"},{"name":"XX","scheme":"vmess","link":"vmess://x","reason":"the link cannot be read","notes":["kcp"]}],"provider":{"title":"Provider One"},"agent":"Happ/1.0","preset":"custom","format":"base64","configs":2}}

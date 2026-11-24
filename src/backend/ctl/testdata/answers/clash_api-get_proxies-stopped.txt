@@ -1,0 +1,4 @@
+$ podkop clash_api get_proxies
+# no backend answers: no Clash API
+exit 1
+--- stdout

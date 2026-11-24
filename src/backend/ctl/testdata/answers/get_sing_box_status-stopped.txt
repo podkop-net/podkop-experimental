@@ -1,0 +1,5 @@
+$ podkop get_sing_box_status
+# no backend answers
+exit 0
+--- stdout
+{"running":0,"enabled":0,"status":"stopped & disabled","dns_configured":1}

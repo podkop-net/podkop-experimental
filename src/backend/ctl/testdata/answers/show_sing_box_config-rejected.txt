@@ -1,0 +1,20 @@
+$ podkop show_sing_box_config --rejected
+# the configuration sing-box refused last, masked
+exit 0
+--- stdout
+{
+  "outbounds": [
+    {
+      "type": "socks",
+      "tag": "refused-out",
+      "server": "MASKED",
+      "server_port": "MASKED",
+      "username": "MASKED",
+      "password": "MASKED"
+    },
+    {
+      "type": "direct",
+      "tag": "direct-out"
+    }
+  ]
+}

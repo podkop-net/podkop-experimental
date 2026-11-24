@@ -1,0 +1,4 @@
+$ podkop check_fakeip
+# no backend answers
+exit 1
+--- stdout

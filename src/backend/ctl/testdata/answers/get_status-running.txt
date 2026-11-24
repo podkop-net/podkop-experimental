@@ -1,0 +1,5 @@
+$ podkop get_status
+# the backend runs, sing-box runs since a time; the last change of the settings applied
+exit 0
+--- stdout
+{"enabled":1,"status":"enabled","backend":true,"running":true,"since":"2026-11-23T09:03:04.123Z","last":{"ok":true,"message":"applied in 40 ms, sing-box runs the new configuration"},"last_at":"2026-11-23T09:03:04.163Z"}

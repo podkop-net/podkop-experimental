@@ -1,0 +1,82 @@
+$ podkop clash_api get_proxies
+# the outbounds of the Clash API with podkop_tags of the backend
+exit 0
+--- stdout
+{
+  "podkop_tags": {
+    "rules": {
+      "main": {
+        "name": "Main",
+        "selector": "main-out",
+        "test": "main-urltest-out"
+      }
+    },
+    "outbounds": {
+      "main-out": {
+        "rule": "main"
+      },
+      "main-urltest-out": {
+        "rule": "main"
+      },
+      "own-1-out": {
+        "source": "own",
+        "server": "NL 1"
+      },
+      "own-2-out": {
+        "source": "own",
+        "server": "DE 2"
+      }
+    }
+  },
+  "proxies": {
+    "main-out": {
+      "type": "Selector",
+      "name": "main-out",
+      "now": "main-urltest-out",
+      "all": [
+        "main-urltest-out",
+        "own-1-out",
+        "own-2-out"
+      ],
+      "history": []
+    },
+    "main-urltest-out": {
+      "type": "URLTest",
+      "name": "main-urltest-out",
+      "now": "own-1-out",
+      "all": [
+        "own-1-out",
+        "own-2-out"
+      ],
+      "history": [
+        {
+          "time": "2026-11-23T12:00:00+03:00",
+          "delay": 120
+        }
+      ]
+    },
+    "own-1-out": {
+      "type": "VLESS",
+      "name": "own-1-out",
+      "udp": true,
+      "history": [
+        {
+          "time": "2026-11-23T12:00:00+03:00",
+          "delay": 120
+        }
+      ]
+    },
+    "own-2-out": {
+      "type": "Shadowsocks",
+      "name": "own-2-out",
+      "udp": true,
+      "history": []
+    },
+    "direct-out": {
+      "type": "Direct",
+      "name": "direct-out",
+      "udp": true,
+      "history": []
+    }
+  }
+}

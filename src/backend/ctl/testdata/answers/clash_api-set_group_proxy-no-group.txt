@@ -1,0 +1,9 @@
+$ podkop clash_api set_group_proxy other-out own-1-out
+# a group the API does not know
+exit 1
+--- stdout
+{
+  "success": false,
+  "error": "group_not_found",
+  "message": "other-out does not exist"
+}

@@ -1,0 +1,13 @@
+$ podkop get_system_info
+# the answer to fixed findings (answerSystem): the command reads the router's own files (/etc/os-release, /tmp/sysinfo/model, the page)
+exit 0
+--- stdout
+{
+  "podkop_version": "0.8.22-test",
+  "podkop_latest_version": "unknown",
+  "luci_app_version": "0.8.22-test",
+  "sing_box_version": "1.14.4-test",
+  "engine": "podkop-engine r28 (test)",
+  "openwrt_version": "OpenWrt 24.10.4 r28959-29397011cc",
+  "device_model": "Routerich AX3000"
+}

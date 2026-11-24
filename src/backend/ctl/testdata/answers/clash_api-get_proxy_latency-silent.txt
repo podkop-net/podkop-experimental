@@ -1,0 +1,11 @@
+$ podkop clash_api get_proxy_latency own-2-out 5000
+# a server that does not answer
+exit 0
+--- stdout
+{
+  "message": "An error occurred in the delay test",
+  "silent": [
+    "https://check.example/generate_204",
+    "https://cp.cloudflare.com/generate_204"
+  ]
+}

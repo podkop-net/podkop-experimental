@@ -1,0 +1,13 @@
+{
+  "dns": {"servers": [{"type": "https", "tag": "dns-server", "server": "dns.example", "path": "/dns-query/s3cret"}], "final": "dns-server"},
+  "inbounds": [{"type": "mixed", "tag": "main-mixed-in", "listen": "192.168.1.1", "listen_port": 2080, "users": [{"username": "user", "password": "pa55"}]}],
+  "outbounds": [
+    {"type": "vless", "tag": "own-1-out", "server": "203.0.113.10", "server_port": 443, "uuid": "b831381d-6324-4d53-ad4f-8cda48b30811",
+     "tls": {"enabled": true, "server_name": "nl1.example", "utls": {"enabled": true, "fingerprint": "chrome"}, "reality": {"enabled": true, "public_key": "k3y", "short_id": "ab"}}},
+    {"type": "shadowsocks", "tag": "own-2-out", "server": "203.0.113.11", "server_port": 8388, "method": "aes-256-gcm", "password": "p4ss"},
+    {"type": "urltest", "tag": "main-urltest-out", "outbounds": ["own-1-out", "own-2-out"], "urls": ["https://check.example/generate_204", "https://cp.cloudflare.com/generate_204"]},
+    {"type": "selector", "tag": "main-out", "outbounds": ["main-urltest-out", "own-1-out", "own-2-out"]},
+    {"type": "direct", "tag": "direct-out"}
+  ],
+  "experimental": {"clash_api": {"external_controller": "127.0.0.1:9090", "secret": "s3cret-key"}}
+}

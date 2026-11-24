@@ -1,0 +1,5 @@
+$ podkop get_status
+# the backend runs and has no result yet
+exit 0
+--- stdout
+{"enabled":1,"status":"enabled","backend":true,"running":true}

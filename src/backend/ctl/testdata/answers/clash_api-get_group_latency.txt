@@ -1,0 +1,7 @@
+$ podkop clash_api get_group_latency main-out 12000
+# a round of the URL test of a rule's selector
+exit 0
+--- stdout
+{
+  "own-1-out": 131
+}

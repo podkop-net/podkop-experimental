@@ -1,0 +1,5 @@
+$ podkop group_check {"subscriptions":["prov1","prov3"],"include":["NL"],"exclude":["XX"]}
+# the servers a group would choose
+exit 0
+--- stdout
+{"chosen":["NL 1","NL 2"],"total":12,"missing":["prov3"]}

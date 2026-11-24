@@ -1,0 +1,5 @@
+$ podkop get_status
+# the backend runs, sing-box does not: the settings were refused at the boot
+exit 0
+--- stdout
+{"enabled":1,"status":"enabled","backend":true,"running":false,"last":{"ok":false,"message":"the settings cannot be used: rule a: mixed proxy port 2080 <taken> by rule b"},"last_at":"2026-11-23T12:05:00.000Z"}

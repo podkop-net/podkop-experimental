@@ -1,0 +1,12 @@
+$ podkop check_sing_box
+# no backend answers
+exit 0
+--- stdout
+{
+  "sing_box_installed": 1,
+  "sing_box_version_ok": 1,
+  "sing_box_service_exist": 1,
+  "sing_box_autostart_disabled": 1,
+  "sing_box_process_running": 0,
+  "sing_box_ports_listening": 0
+}

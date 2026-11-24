@@ -1,0 +1,10 @@
+$ podkop clash_api get_proxy_latency own-1-out 5000
+# a server that answers its delay test (the check URLs of the configuration that runs)
+exit 0
+--- stdout
+{
+  "delay": 118,
+  "urls": [
+    "https://check.example/generate_204"
+  ]
+}

@@ -1,0 +1,92 @@
+$ podkop show_sing_box_config
+# the configuration that runs, masked
+exit 0
+--- stdout
+{
+  "dns": {
+    "servers": [
+      {
+        "type": "https",
+        "tag": "dns-server",
+        "server": "MASKED",
+        "path": "MASKED"
+      }
+    ],
+    "final": "dns-server"
+  },
+  "inbounds": [
+    {
+      "type": "mixed",
+      "tag": "main-mixed-in",
+      "listen": "192.168.1.1",
+      "listen_port": 2080,
+      "users": [
+        {
+          "username": "MASKED",
+          "password": "MASKED"
+        }
+      ]
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "own-1-out",
+      "server": "MASKED",
+      "server_port": "MASKED",
+      "uuid": "MASKED",
+      "tls": {
+        "enabled": true,
+        "server_name": "MASKED",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "MASKED"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "MASKED",
+          "short_id": "MASKED"
+        }
+      }
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "own-2-out",
+      "server": "MASKED",
+      "server_port": "MASKED",
+      "method": "aes-256-gcm",
+      "password": "MASKED"
+    },
+    {
+      "type": "urltest",
+      "tag": "main-urltest-out",
+      "outbounds": [
+        "own-1-out",
+        "own-2-out"
+      ],
+      "urls": [
+        "https://check.example/generate_204",
+        "https://cp.cloudflare.com/generate_204"
+      ]
+    },
+    {
+      "type": "selector",
+      "tag": "main-out",
+      "outbounds": [
+        "main-urltest-out",
+        "own-1-out",
+        "own-2-out"
+      ]
+    },
+    {
+      "type": "direct",
+      "tag": "direct-out"
+    }
+  ],
+  "experimental": {
+    "clash_api": {
+      "external_controller": "127.0.0.1:9090",
+      "secret": "MASKED"
+    }
+  }
+}

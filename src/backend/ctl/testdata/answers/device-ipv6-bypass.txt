@@ -1,0 +1,5 @@
+$ podkop device 2001:db8:1::50
+# IPv6 traffic past podkop in the settings
+exit 0
+--- stdout
+ℹ️ IPv6 traffic goes past podkop (IPv6 traffic: Past podkop): no rule takes the traffic of 2001:db8:1::50

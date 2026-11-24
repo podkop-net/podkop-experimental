@@ -1,0 +1,6 @@
+$ podkop list_status
+# no backend answers
+exit 1
+--- stdout
+--- stderr
+the backend does not run: Get "http://backend/lists": dial unix <tmp>/001/none.sock: connect: no such file or directory

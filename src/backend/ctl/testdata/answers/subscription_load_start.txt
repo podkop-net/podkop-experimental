@@ -1,0 +1,5 @@
+$ podkop subscription_load_start https://sub.example/sub/TOKEN {"user_agent_preset":"custom","user_agent":"Happ/1.0","headers":["X-Device: tv"]}
+# a download of a list of the form started as a job
+exit 0
+--- stdout
+{"id":"job1","state":"running","elapsed_ms":0,"attempts":[{"route":"direct","phase":"wait","ms":300}]}

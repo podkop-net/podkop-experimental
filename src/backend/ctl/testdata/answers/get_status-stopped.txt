@@ -1,0 +1,5 @@
+$ podkop get_status
+# no backend answers, the service does not start at boot
+exit 0
+--- stdout
+{"enabled":0,"status":"disabled","backend":false,"running":false}

@@ -1,0 +1,7 @@
+$ podkop check_logs
+# the log of the backend and of sing-box (the times of the lines made fixed)
+exit 0
+--- stdout
+<time> podkop: [info] podkop 0.8.22-test: the settings applied in 40 ms, sing-box runs the new configuration
+<time> podkop: [warn] rule main: the server own-2-out does not answer its delay test
+<time> sing-box: error: outbound/vless[own-2-out]: dial tcp 203.0.113.11:443: i/o timeout

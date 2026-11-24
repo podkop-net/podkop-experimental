@@ -1,0 +1,8 @@
+$ podkop device 192.168.2.70
+# in Routing Excluded IPs, and in the subnets of TV and lan
+exit 0
+--- stdout
+ℹ️ The rules for 192.168.2.70, in the order they are matched:
+➖ Rule bank does not take it: only for 192.168.1.30
+➖ Rule ads does not take it: only for 192.168.1.20
+↪️ It is among the Routing Excluded IPs (192.168.2.70): the rules below do not take its traffic, it goes directly

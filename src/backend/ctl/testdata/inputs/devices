@@ -1,0 +1,91 @@
+config settings 'settings'
+	option config_version '2'
+	option dns_type 'udp'
+	option dns_server '8.8.8.8'
+	option ipv6_routing 'podkop'
+	list routing_excluded_ips '192.168.2.70'
+	list routing_excluded_ips '2001:db8:1::70'
+
+config source 'own'
+	option type 'links'
+	list link 'socks5://192.0.2.1:1080#Own'
+
+config section 'bank'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'bank.example'
+	list only_devices '192.168.1.30'
+
+config member
+	option section 'bank'
+	option role 'server'
+	option source 'direct'
+
+config section 'ads'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'ads.example'
+	list only_devices '192.168.1.20'
+
+config member
+	option section 'ads'
+	option role 'server'
+	option source 'block'
+
+config section 'tv'
+	option label 'TV'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'video.example'
+	option user_subnet_list_type 'dynamic'
+	list user_subnets '203.0.113.0/24'
+	list user_subnets '2001:db8:99::/48'
+	list only_devices '192.168.1.10'
+	list only_devices '192.168.2.0/24'
+	list only_devices '2001:db8:1::50'
+
+config member
+	option section 'tv'
+	option role 'server'
+	option source 'own'
+
+config section 'pc'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'pc.example'
+	list only_devices '192.168.3.0/24'
+	list only_devices '2001:db8:3::/64'
+	list fully_routed_ips '192.168.3.60'
+	list fully_routed_ips '2001:db8:3::60'
+
+config member
+	option section 'pc'
+	option role 'server'
+	option source 'own'
+
+config section 'lan'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'lan.example'
+	list only_devices '192.168.2.0/24'
+
+config member
+	option section 'lan'
+	option role 'server'
+	option source 'own'
+
+config section 'bad'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'bad.example'
+	list only_devices 'word'
+
+config member
+	option section 'bad'
+	option role 'server'
+	option source 'own'
+
+config section 'off'
+	option enabled '0'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'off.example'
+	list only_devices '192.168.1.10'
+
+config member
+	option section 'off'
+	option role 'server'
+	option source 'own'

@@ -1,0 +1,5 @@
+$ podkop get_sing_box_features
+# the names of the page's features (PageFeatures)
+exit 0
+--- stdout
+["urltest.fallbacks","urltest.download_url","tls.utls-fallback","urltest.modes"]

@@ -1,0 +1,9 @@
+$ podkop check_fakeip
+# the router's name is answered from FakeIP and its connection reaches sing-box
+exit 0
+--- stdout
+{
+  "fakeip": true,
+  "dns": true,
+  "connection": true
+}

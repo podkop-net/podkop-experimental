@@ -1,0 +1,8 @@
+$ podkop device 2001:db8:1::70
+# an IPv6 address in Routing Excluded IPs
+exit 0
+--- stdout
+ℹ️ The rules for 2001:db8:1::70, in the order they are matched:
+➖ Rule bank does not take it: only for 192.168.1.30
+➖ Rule ads does not take it: only for 192.168.1.20
+↪️ It is among the Routing Excluded IPs (2001:db8:1::70): the rules below do not take its traffic, it goes directly

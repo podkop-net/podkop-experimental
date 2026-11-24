@@ -1,0 +1,9 @@
+$ podkop check_fakeip
+# the name is answered from FakeIP, no connection came
+exit 0
+--- stdout
+{
+  "fakeip": false,
+  "dns": true,
+  "connection": false
+}

@@ -1,0 +1,9 @@
+$ podkop clash_api set_group_proxy main-out own-1-out
+# the choice of a selector
+exit 0
+--- stdout
+{
+  "success": true,
+  "group": "main-out",
+  "proxy": "own-1-out"
+}

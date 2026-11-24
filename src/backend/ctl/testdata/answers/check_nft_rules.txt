@@ -1,0 +1,14 @@
+$ podkop check_nft_rules
+# the answer to fixed findings (answerFirewall): the command reads the firewall of the kernel over netlink
+exit 0
+--- stdout
+{
+  "table_exist": 1,
+  "rules_mangle_exist": 1,
+  "rules_mangle_counters": 1,
+  "rules_mangle_output_exist": 1,
+  "rules_mangle_output_counters": 0,
+  "rules_proxy_exist": 1,
+  "rules_proxy_counters": 1,
+  "rules_other_mark_exist": 1
+}

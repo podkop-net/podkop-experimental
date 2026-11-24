@@ -1,0 +1,9 @@
+$ podkop clash_api set_group_proxy main-out other-1-out
+# a server the group does not have
+exit 1
+--- stdout
+{
+  "success": false,
+  "error": "proxy_not_found",
+  "message": "other-1-out not found in group main-out"
+}

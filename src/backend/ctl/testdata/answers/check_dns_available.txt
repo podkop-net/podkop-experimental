@@ -1,0 +1,36 @@
+$ podkop check_dns_available
+# the answer to fixed findings (AnswerDNS): the command asks the DNS servers of the settings over the network
+exit 0
+--- stdout
+{
+  "dns_type": "doh",
+  "dns_server": "dns.example",
+  "dns_status": 1,
+  "dns_mode": "fastest",
+  "dns_servers": [
+    {
+      "type": "doh",
+      "server": "dns.example",
+      "status": 1
+    },
+    {
+      "type": "udp",
+      "server": "192.0.2.53",
+      "status": 0,
+      "refusal": "REFUSED"
+    },
+    {
+      "type": "provider",
+      "server": "",
+      "providers": [
+        "192.0.2.1",
+        "192.0.2.2"
+      ],
+      "status": 1
+    }
+  ],
+  "dns_on_router": 1,
+  "bootstrap_dns_server": "77.88.8.8",
+  "bootstrap_dns_status": 0,
+  "dhcp_config_status": 1
+}
