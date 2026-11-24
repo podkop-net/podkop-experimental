@@ -14,7 +14,7 @@ api -> btstats              # noted: the types of the socket hold the report of 
 api -> logbuf
 api -> subscription         # the types of the socket hold those of the subscriptions (api.go): what a provider told, how a list changed
 btstats -> dataplane
-btstats -> model            # noted: how firewall and api reach model (with firewall -> btstats and api -> btstats)
+btstats -> model            # noted: how api reaches model (with api -> btstats)
 clock -> dataplane
 clock -> uci
 cmd/podkop -> .
@@ -71,7 +71,6 @@ dnsmasq -> dataplane
 dnsmasq -> uci
 engine -> detect
 engine -> engine/bittorrent
-firewall -> btstats         # known: the adapter of nftables returns the types of the statistics (firewall/conntrack_linux.go), and btstats imports model
 firewall -> dataplane
 lists -> engine             # noted: a small helper above the adapter of sing-box (lists/derive.go)
 lists -> firewall           # noted: a small helper above the adapter of nftables (lists/derive.go)

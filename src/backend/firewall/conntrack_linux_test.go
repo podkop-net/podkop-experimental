@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/mdlayher/netlink"
-	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/sagernet/nftables"
 	"golang.org/x/sys/unix"
@@ -56,7 +55,7 @@ func TestParseFlow(t *testing.T) {
 	}
 	flow, ok := parseFlow(append([]byte{unix.AF_INET, 0, 0, 0}, data...))
 	if !ok || flow.ID != 77 || !flow.UDP || !flow.Incoming || !flow.Counted || flow.Mark != ctBitTorrent|ctIntercepted ||
-		flow.Original != (btstats.Count{Packets: 10, Bytes: 1000}) || flow.Reply != (btstats.Count{Packets: 20, Bytes: 30000}) || flow.Key == "" {
+		flow.Original != (dataplane.Count{Packets: 10, Bytes: 1000}) || flow.Reply != (dataplane.Count{Packets: 20, Bytes: 30000}) || flow.Key == "" {
 		t.Errorf("%v %+v", ok, flow)
 	}
 	// without the counters (accounting off): not counted

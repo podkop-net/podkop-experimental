@@ -82,44 +82,14 @@ type Setup struct {
 	Rule string
 }
 
-// Count is packets and bytes.
-type Count struct {
-	Packets uint64 `json:"packets"`
-	Bytes   uint64 `json:"bytes"`
-}
-
-func (c *Count) add(other Count) {
-	c.Packets += other.Packets
-	c.Bytes += other.Bytes
-}
-
-// Flow is a conntrack entry with a mark of the detector, as the kernel counts it: Original is
-// the way of the packet that began the connection, Reply the other.
-type Flow struct {
-	ID uint32
-	// Key tells an entry from another that took the same ID after it (its tuple)
-	Key      string
-	UDP      bool
-	Mark     uint32
-	Incoming bool // its destination was rewritten (a port forward)
-	Counted  bool // the kernel counts it (accounting on)
-	Original Count
-	Reply    Count
-}
-
-// Drops are the counters of the firewall's rules that drop BitTorrent: by the kind of what they
-// dropped, a new connection from outside to a client's socket (the mode block), and the uTP SYNs
-// on a flow of discovery the firewall drops so that the client goes to the peer over TCP. And the
-// counters of what the detector could not take: the packets whose device, socket, peer or uTP
-// socket a set had no room for (Full*), and those it did not look at because their source address
-// is not of the interface they came in on (Foreign).
-type Drops struct {
-	Discovery, UTP, TCP                        Count
-	Incoming                                   Count
-	UTPToTCP                                   Count
-	FullHosts, FullSockets, FullPeers, FullUTP Count
-	Foreign                                    Count
-}
+// Count, Flow and Drops are what the kernel counted, as the firewall reads it (dataplane): a
+// count of packets and bytes, a conntrack entry with a mark of the detector, the counters of the
+// firewall's rules that drop BitTorrent and of what the detector could not take.
+type (
+	Count = dataplane.Count
+	Flow  = dataplane.Flow
+	Drops = dataplane.Drops
+)
 
 // Limits is what the detector could not take, in packets: by the set that had no room for the
 // packet's device, socket, uTP socket or peer (the detector then tells less: it remembers no new
@@ -280,15 +250,15 @@ func (s *Stats) Observe(setup Setup, flows []Flow, drops Drops, err error, now t
 			row.Connections++
 			before = seen{}
 		}
-		original := Count{flow.Original.Packets - before.original.Packets, flow.Original.Bytes - before.original.Bytes}
-		reply := Count{flow.Reply.Packets - before.reply.Packets, flow.Reply.Bytes - before.reply.Bytes}
+		original := Count{Packets: flow.Original.Packets - before.original.Packets, Bytes: flow.Original.Bytes - before.original.Bytes}
+		reply := Count{Packets: flow.Reply.Packets - before.reply.Packets, Bytes: flow.Reply.Bytes - before.reply.Bytes}
 		// a connection a device began sent its original way; one from outside received it
 		if flow.Incoming {
-			row.Received.add(original)
-			row.Sent.add(reply)
+			row.Received.Add(original)
+			row.Sent.Add(reply)
 		} else {
-			row.Sent.add(original)
-			row.Received.add(reply)
+			row.Sent.Add(original)
+			row.Received.Add(reply)
 		}
 		s.flows[key] = seen{flow.Original, flow.Reply}
 	}
@@ -299,8 +269,8 @@ func (s *Stats) Observe(setup Setup, flows []Flow, drops Drops, err error, now t
 	}
 	s.counted = counted
 	// the rules' counters start at 0 with every table made anew: what they had goes into dropped
-	if drops.less(s.drops) {
-		s.dropped.addAll(s.drops)
+	if dropsLess(drops, s.drops) {
+		addDrops(&s.dropped, s.drops)
 	}
 	s.drops = drops
 }
@@ -315,8 +285,8 @@ func (s *Stats) SetModule(counters map[string]int64) {
 // Total is what the rows of a report add up to: what the devices received and sent in all.
 func Total(rows []Row) (received, sent Count) {
 	for _, row := range rows {
-		received.add(row.Received)
-		sent.add(row.Sent)
+		received.Add(row.Received)
+		sent.Add(row.Sent)
 	}
 	return received, sent
 }
@@ -342,8 +312,8 @@ func (s *Stats) Report(now time.Time) Report {
 		return a.Way < b.Way
 	})
 	total := s.dropped
-	total.addAll(s.drops)
-	total.subtract(s.dropsBase)
+	addDrops(&total, s.drops)
+	subtractDrops(&total, s.dropsBase)
 	if !s.reset.IsZero() {
 		report.ResetAt = int64(now.Sub(s.reset) / time.Second)
 	}
@@ -378,7 +348,7 @@ func (s *Stats) ResetCounts(module map[string]int64, now time.Time) {
 	}
 	s.rows = make(map[rowKey]*Row)
 	s.dropsBase = s.dropped
-	s.dropsBase.addAll(s.drops)
+	addDrops(&s.dropsBase, s.drops)
 	s.moduleBase = module
 	s.reset = now
 }
@@ -402,13 +372,14 @@ func (s *Stats) ModuleSince(module map[string]int64) map[string]int64 {
 	return since
 }
 
-// counts are the counters of d, each in its place.
-func (d *Drops) counts() []*Count {
+// dropCounts are the counters of d, each in its place.
+func dropCounts(d *Drops) []*Count {
 	return []*Count{&d.Discovery, &d.UTP, &d.TCP, &d.Incoming, &d.UTPToTCP, &d.FullHosts, &d.FullSockets, &d.FullPeers, &d.FullUTP, &d.Foreign}
 }
 
-func (d Drops) less(other Drops) bool {
-	mine, theirs := d.counts(), other.counts()
+// dropsLess tells whether a counter of d counted fewer packets than other's.
+func dropsLess(d Drops, other Drops) bool {
+	mine, theirs := dropCounts(&d), dropCounts(&other)
 	for index := range mine {
 		if mine[index].Packets < theirs[index].Packets {
 			return true
@@ -417,8 +388,9 @@ func (d Drops) less(other Drops) bool {
 	return false
 }
 
-func (d *Drops) subtract(other Drops) {
-	mine, theirs := d.counts(), other.counts()
+// subtractDrops takes other's counters from d's, each that counted no less.
+func subtractDrops(d *Drops, other Drops) {
+	mine, theirs := dropCounts(d), dropCounts(&other)
 	for index := range mine {
 		if mine[index].Packets >= theirs[index].Packets && mine[index].Bytes >= theirs[index].Bytes {
 			mine[index].Packets -= theirs[index].Packets
@@ -427,10 +399,11 @@ func (d *Drops) subtract(other Drops) {
 	}
 }
 
-func (d *Drops) addAll(other Drops) {
-	mine, theirs := d.counts(), other.counts()
+// addDrops adds other's counters to d's.
+func addDrops(d *Drops, other Drops) {
+	mine, theirs := dropCounts(d), dropCounts(&other)
 	for index := range mine {
-		mine[index].add(*theirs[index])
+		mine[index].Add(*theirs[index])
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"net/netip"
 
 	"github.com/mdlayher/netlink"
-	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/sagernet/nftables"
 	"github.com/sagernet/nftables/expr"
@@ -122,9 +121,9 @@ func ForgetBitTorrentFlows(which Forget) error {
 
 // BitTorrentFlows reads the conntrack entries of IPv4 that carry a mark of the detector (told as
 // BitTorrent, inspected, told late), each once, with what the kernel counted of them
-// (btstats.Flow). A dump that the mark and its mask filter in the kernel: the entries of the other
+// (dataplane.Flow). A dump that the mark and its mask filter in the kernel: the entries of the other
 // traffic are not sent.
-func BitTorrentFlows() ([]btstats.Flow, error) {
+func BitTorrentFlows() ([]dataplane.Flow, error) {
 	conn, err := netlink.Dial(unix.NETLINK_NETFILTER, nil)
 	if err != nil {
 		return nil, E.Cause(err, "open netlink of netfilter")
@@ -135,7 +134,7 @@ func BitTorrentFlows() ([]btstats.Flow, error) {
 		tuple string
 	}
 	seen := make(map[key]bool)
-	var flows []btstats.Flow
+	var flows []dataplane.Flow
 	for _, mark := range []uint32{ctBitTorrent, ctInspect, ctLate} {
 		encoder := netlink.NewAttributeEncoder()
 		encoder.ByteOrder = binary.BigEndian
@@ -165,8 +164,8 @@ func BitTorrentFlows() ([]btstats.Flow, error) {
 }
 
 // parseFlow reads an entry of a dump of ctnetlink: the nfgenmsg header, then the attributes.
-func parseFlow(data []byte) (btstats.Flow, bool) {
-	var flow btstats.Flow
+func parseFlow(data []byte) (dataplane.Flow, bool) {
+	var flow dataplane.Flow
 	if len(data) < 4 {
 		return flow, false
 	}
@@ -176,7 +175,7 @@ func parseFlow(data []byte) (btstats.Flow, bool) {
 	}
 	decoder.ByteOrder = binary.BigEndian
 	var status uint32
-	counts := func(count *btstats.Count) func(*netlink.AttributeDecoder) error {
+	counts := func(count *dataplane.Count) func(*netlink.AttributeDecoder) error {
 		return func(nested *netlink.AttributeDecoder) error {
 			for nested.Next() {
 				switch nested.Type() {
@@ -237,15 +236,15 @@ func parseFlow(data []byte) (btstats.Flow, bool) {
 // chain that could not be read is an error, and the counters are none (a read that failed must
 // not pass for counters at 0: the statistics take those for a table made anew, and count what the
 // rules had once more at the next read).
-func BitTorrentDrops() (btstats.Drops, error) {
-	var drops btstats.Drops
+func BitTorrentDrops() (dataplane.Drops, error) {
+	var drops dataplane.Drops
 	conn, err := newConn()
 	if err != nil {
 		return drops, err
 	}
 	table := &nftables.Table{Name: tableName, Family: nftables.TableFamilyINet}
 	var failed error
-	dropped := func(chain string) []btstats.Count {
+	dropped := func(chain string) []dataplane.Count {
 		counts, err := dropCounts(conn, table, chain)
 		if err != nil && failed == nil {
 			failed = E.Cause(err, "read the rules of ", chain)
@@ -272,13 +271,13 @@ func BitTorrentDrops() (btstats.Drops, error) {
 	}
 	// what the detector could not take: the packets a full set took nothing of, and those whose
 	// source address is not of the interface they came in on
-	last := func(chain string) btstats.Count {
+	last := func(chain string) dataplane.Count {
 		counts, err := ruleCounts(conn, table, chain, func(rule *nftables.Rule) bool { return len(rule.Exprs) == 1 })
 		if err != nil && failed == nil {
 			failed = E.Cause(err, "read the rules of ", chain)
 		}
 		if len(counts) == 0 {
-			return btstats.Count{}
+			return dataplane.Count{}
 		}
 		return counts[len(counts)-1]
 	}
@@ -299,14 +298,14 @@ func BitTorrentDrops() (btstats.Drops, error) {
 		drops.Foreign = foreign[0]
 	}
 	if failed != nil {
-		return btstats.Drops{}, failed
+		return dataplane.Drops{}, failed
 	}
 	return drops, nil
 }
 
 // ruleCounts are the counters of the rules of a chain that which chooses, in their order; none
 // when the chain (or the table) is not there.
-func ruleCounts(conn *nftables.Conn, table *nftables.Table, chain string, which func(*nftables.Rule) bool) ([]btstats.Count, error) {
+func ruleCounts(conn *nftables.Conn, table *nftables.Table, chain string, which func(*nftables.Rule) bool) ([]dataplane.Count, error) {
 	rules, err := conn.GetRules(table, &nftables.Chain{Name: chain, Table: table})
 	if err != nil {
 		if errors.Is(err, unix.ENOENT) {
@@ -314,14 +313,14 @@ func ruleCounts(conn *nftables.Conn, table *nftables.Table, chain string, which 
 		}
 		return nil, err
 	}
-	var counts []btstats.Count
+	var counts []dataplane.Count
 	for _, rule := range rules {
 		if !which(rule) {
 			continue
 		}
 		for _, expression := range rule.Exprs {
 			if counter, ok := expression.(*expr.Counter); ok {
-				counts = append(counts, btstats.Count{Packets: counter.Packets, Bytes: counter.Bytes})
+				counts = append(counts, dataplane.Count{Packets: counter.Packets, Bytes: counter.Bytes})
 				break
 			}
 		}
@@ -331,7 +330,7 @@ func ruleCounts(conn *nftables.Conn, table *nftables.Table, chain string, which 
 
 // dropCounts are the counters of the rules of a chain that count and drop, in their order; none
 // when the chain (or the table) is not there.
-func dropCounts(conn *nftables.Conn, table *nftables.Table, chain string) ([]btstats.Count, error) {
+func dropCounts(conn *nftables.Conn, table *nftables.Table, chain string) ([]dataplane.Count, error) {
 	rules, err := conn.GetRules(table, &nftables.Chain{Name: chain, Table: table})
 	if err != nil {
 		if errors.Is(err, unix.ENOENT) {
@@ -339,14 +338,14 @@ func dropCounts(conn *nftables.Conn, table *nftables.Table, chain string) ([]bts
 		}
 		return nil, err
 	}
-	var counts []btstats.Count
+	var counts []dataplane.Count
 	for _, rule := range rules {
-		var count *btstats.Count
+		var count *dataplane.Count
 		drop := false
 		for _, expression := range rule.Exprs {
 			switch e := expression.(type) {
 			case *expr.Counter:
-				count = &btstats.Count{Packets: e.Packets, Bytes: e.Bytes}
+				count = &dataplane.Count{Packets: e.Packets, Bytes: e.Bytes}
 			case *expr.Verdict:
 				drop = e.Kind == expr.VerdictDrop
 			}

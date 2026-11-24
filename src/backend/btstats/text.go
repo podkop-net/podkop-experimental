@@ -201,7 +201,7 @@ func QuietDiscovery(report Report) string {
 	for _, row := range report.Rows {
 		if row.Kind == KindDiscovery {
 			flows += row.Connections
-			received.add(row.Received)
+			received.Add(row.Received)
 		}
 	}
 	if flows < quietMin || received.Bytes > 0 {

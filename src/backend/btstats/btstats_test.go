@@ -258,21 +258,21 @@ func TestResetCounts(t *testing.T) {
 	var s Stats
 	setup := Setup{Mode: "block"}
 	start := time.Unix(1000, 0)
-	open := Flow{ID: 1, Key: "a", Mark: bt | taken, Counted: true, Original: Count{10, 1000}, Reply: Count{20, 2000}}
+	open := Flow{ID: 1, Key: "a", Mark: bt | taken, Counted: true, Original: Count{Packets: 10, Bytes: 1000}, Reply: Count{Packets: 20, Bytes: 2000}}
 	// (a read with nothing first: the one with the connection is not the baseline, and its row
 	// holds the connection and its bytes before the reset)
 	s.Observe(setup, nil, Drops{}, nil, start)
-	s.Observe(setup, []Flow{open}, Drops{TCP: Count{5, 300}}, nil, start)
+	s.Observe(setup, []Flow{open}, Drops{TCP: Count{Packets: 5, Bytes: 300}}, nil, start)
 	require.Equal(t, uint64(1), s.Report(start).Rows[0].Connections)
 	s.ResetCounts(map[string]int64{"watched": 7, "confirmed": 2}, start.Add(10*time.Second))
-	open.Original, open.Reply = Count{11, 1100}, Count{25, 2500}
-	s.Observe(setup, []Flow{open}, Drops{TCP: Count{6, 360}}, nil, start.Add(15*time.Second))
+	open.Original, open.Reply = Count{Packets: 11, Bytes: 1100}, Count{Packets: 25, Bytes: 2500}
+	s.Observe(setup, []Flow{open}, Drops{TCP: Count{Packets: 6, Bytes: 360}}, nil, start.Add(15*time.Second))
 	report := s.Report(start.Add(20 * time.Second))
 	require.Len(t, report.Rows, 1)
 	require.Equal(t, uint64(0), report.Rows[0].Connections, "an open connection is not counted again")
-	require.Equal(t, Count{1, 100}, report.Rows[0].Sent)
-	require.Equal(t, Count{5, 500}, report.Rows[0].Received)
-	require.Equal(t, []Blocked{{KindTCP, Count{1, 60}}}, report.Blocked)
+	require.Equal(t, Count{Packets: 1, Bytes: 100}, report.Rows[0].Sent)
+	require.Equal(t, Count{Packets: 5, Bytes: 500}, report.Rows[0].Received)
+	require.Equal(t, []Blocked{{KindTCP, Count{Packets: 1, Bytes: 60}}}, report.Blocked)
 	require.Equal(t, int64(10), report.Since)
 	require.Equal(t, int64(10), report.ResetAt)
 	require.Equal(t, map[string]int64{"watched": 3, "confirmed": 0}, s.ModuleSince(map[string]int64{"watched": 10, "confirmed": 2}))
@@ -285,7 +285,7 @@ func TestResetCounts(t *testing.T) {
 // with an answer, too few flows or bytes not counted, it does not.
 func TestQuietDiscovery(t *testing.T) {
 	row := func(connections uint64, received uint64) Report {
-		return Report{Mode: "bypass", Counted: true, Rows: []Row{{Kind: KindDiscovery, Way: WayRelay, Connections: connections, Received: Count{Bytes: received}, Sent: Count{220, 9920}}}}
+		return Report{Mode: "bypass", Counted: true, Rows: []Row{{Kind: KindDiscovery, Way: WayRelay, Connections: connections, Received: Count{Bytes: received}, Sent: Count{Packets: 220, Bytes: 9920}}}}
 	}
 	require.Contains(t, QuietDiscovery(row(220, 0)), "no answer in 220 flows")
 	require.Empty(t, QuietDiscovery(row(220, 112)))
