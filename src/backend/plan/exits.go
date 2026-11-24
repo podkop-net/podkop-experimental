@@ -286,9 +286,17 @@ func (b *builder) rowServers(section *model.Section, row model.Member) ([]string
 		}
 	}
 	filtered := source.Type == "subscription" || len(servers) > 1
+	// an interface has no server and no protocol: the row of one takes it whatever its protocols
+	ofProtocols := source.Type != "interface" && len(row.Protocols) > 0
+	if ofProtocols {
+		b.checkProtocols(rule, source, row, servers)
+	}
 	var tags []string
 	for _, server := range servers {
 		if filtered && !row.Takes(server.name) {
+			continue
+		}
+		if ofProtocols && !row.TakesProtocol(server.protocol()) {
 			continue
 		}
 		if via == "" {
@@ -309,6 +317,26 @@ func (b *builder) rowServers(section *model.Section, row model.Member) ([]string
 		tags = append(tags, tag)
 	}
 	return tags, nil
+}
+
+// protocol is the protocol of the server a row chooses it by: the type of its outbound.
+func (s *sourceServer) protocol() string {
+	kind, _ := s.outbound.get("type")
+	name, _ := kind.(string)
+	return name
+}
+
+// checkProtocols warns of the protocols of a row that are none: no link makes a server of it, and
+// no server of the source is of it (an outbound JSON may be of any type of sing-box). The row takes
+// no server by it; its other protocols work.
+func (b *builder) checkProtocols(rule string, source *model.Source, row model.Member, servers []sourceServer) {
+	for _, protocol := range row.Protocols {
+		if slices.Contains(model.Protocols, protocol) || slices.ContainsFunc(servers, func(server sourceServer) bool { return server.protocol() == protocol }) {
+			continue
+		}
+		b.warnOnce("rule ", rule, ": ", strconv.Quote(protocol), " among the protocols of the row of the source ", b.names.SourceText(source.Name),
+			" is not known (", strings.Join(model.Protocols, ", "), "): no server is of it")
+	}
 }
 
 // addServer puts the outbound of a server in once and returns its tag: "<tag of the server>",

@@ -302,7 +302,7 @@ func decodeTestLink(link string) ([]byte, []string, error) {
 	if err != nil || parsed.Hostname() == "bad.example" {
 		return nil, nil, errors.New("not a link")
 	}
-	kind := map[string]string{"socks5": "socks", "ss": "shadowsocks"}[parsed.Scheme]
+	kind := map[string]string{"socks5": "socks", "ss": "shadowsocks", "hy2": "hysteria2", "trojan": "trojan"}[parsed.Scheme]
 	if kind == "" {
 		kind = "vless"
 	}
@@ -342,7 +342,7 @@ func row(role string, source string, more ...string) string {
 	for _, option := range more {
 		name, value, _ := strings.Cut(option, " ")
 		switch name {
-		case "include", "exclude":
+		case "include", "exclude", "protocols":
 			text += "\tlist " + name + " '" + value + "'\n"
 		default:
 			text += "\toption " + name + " '" + value + "'\n"
