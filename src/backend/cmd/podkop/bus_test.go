@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
@@ -166,10 +167,37 @@ func TestBusMethodsInACL(t *testing.T) {
 		granted := slices.Contains(group.Read.Ubus[object.Name], name) || slices.Contains(group.Write.Ubus[object.Name], name)
 		require.True(t, granted, "the method %s is not in the ACL of the page", name)
 	}
+	// and the ACL grants no method the object does not have (a method renamed or gone): the
+	// page's calls of the granted methods are held by ctl's TestCommandLists
+	for _, granted := range [][]string{group.Read.Ubus[object.Name], group.Write.Ubus[object.Name]} {
+		for _, name := range granted {
+			require.Contains(t, object.Methods, name, "the ACL of the page grants the method %s, which the object %s does not have", name, object.Name)
+		}
+	}
+	require.Empty(t, slices.DeleteFunc(slices.Clone(group.Read.Ubus[object.Name]), func(name string) bool {
+		return !slices.Contains(group.Write.Ubus[object.Name], name)
+	}), "a method granted both under read and under write")
 	// the probe sends real connections: it is an action, reading what it found is not
 	require.Contains(t, group.Read.Ubus[object.Name], "detect")
 	require.Contains(t, group.Write.Ubus[object.Name], "force_detect")
 	require.NotContains(t, group.Read.Ubus[object.Name], "force_detect")
+}
+
+// A command of the page and of the CLI (ctl.Commands) has no name of a command of the program
+// itself (daemon, release, ctl, migrate, ...): "podkop <name>" would run the program's own.
+func TestCommandsOfTheProgramApart(t *testing.T) {
+	own := make(map[string]bool)
+	for _, command := range mainCommand.Commands() {
+		own[command.Name()] = true
+	}
+	require.True(t, own["daemon"] && own["ctl"], "the commands of the program were not read: %v", own)
+	for _, command := range ctl.Commands {
+		for _, name := range strings.Split(command[0], "|") {
+			name = strings.TrimSpace(name)
+			require.False(t, own[name], "podkop %s is a command of the program and of the CLI both", name)
+			require.False(t, ownCommand(name), name)
+		}
+	}
 }
 
 // check_links with the engine of this build: a link it takes, one whose transport it does not
