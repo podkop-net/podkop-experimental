@@ -3,5 +3,5 @@ $ podkop device 2001:db8:5::5
 exit 0
 --- stdout
 ℹ️ The rules for 2001:db8:5::5, in the order they are matched:
-✅ Rule Main (main) takes its connections to the lists of the rule, as those of every device: through its servers
+✅ Rule Main (main) takes its connections to the lists of the rule that reach sing-box, those to the IPv6 subnets of the lists (the names of the lists get FakeIP IPv4 addresses only), as those of every device: through its servers
 ➡️ What no rule takes goes directly

@@ -115,6 +115,14 @@ func deviceReport(config *model.Config, facts plan.Facts, text string) ([]string
 		return "through its servers"
 	}
 	lines := []string{"ℹ️ The rules for " + address.String() + ", in the order they are matched:"}
+	// The names of the lists get a FakeIP address of IPv4 and an empty answer to AAAA (the
+	// dnsAddresses of plan), so a device connects to them from its IPv4 address: from its IPv6
+	// address only what the firewall sends to sing-box comes there, the connections to the IPv6
+	// subnets of the lists.
+	connections := "its connections to the lists of the rule"
+	if address.Is6() {
+		connections += " that reach sing-box, those to the IPv6 subnets of the lists (the names of the lists get FakeIP IPv4 addresses only)"
+	}
 	for index := range routes.Routes {
 		route := &routes.Routes[index]
 		switch route.Kind {
@@ -140,9 +148,9 @@ func deviceReport(config *model.Config, facts plan.Facts, text string) ([]string
 			case devices.Limited && len(devices.Devices) == 0:
 				lines = append(lines, "❌ Rule "+rule+` takes no device: no item of "only for devices" is an address or a subnet`)
 			case !devices.Limited:
-				lines = append(lines, "✅ Rule "+rule+" takes its connections to the lists of the rule, as those of every device: "+exit(route))
+				lines = append(lines, "✅ Rule "+rule+" takes "+connections+", as those of every device: "+exit(route))
 			case devices.Takes(address):
-				lines = append(lines, "✅ Rule "+rule+" takes its connections to the lists of the rule, as one of its devices: "+exit(route))
+				lines = append(lines, "✅ Rule "+rule+" takes "+connections+", as one of its devices: "+exit(route))
 			default:
 				lines = append(lines, "➖ Rule "+rule+" does not take it: only for "+strings.Join(model.Texts(devices.Devices), ", "))
 			}

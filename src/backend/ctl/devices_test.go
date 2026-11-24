@@ -162,7 +162,10 @@ func TestDeviceReport(t *testing.T) {
 		"➡️ What no rule takes goes directly",
 	}, "\n"), report("192.168.78.10"))
 	require.Contains(t, report("192.168.78.20"), "➖ Rule TV (tv) does not take it: only for 192.168.78.10, 192.168.79.0/24, 2001:db8:1::50")
-	require.Contains(t, report("2001:db8:1::50"), "✅ Rule TV (tv) takes its connections")
+	// an IPv6 device of a rule: the names of the lists get IPv4 addresses, so only its connections
+	// to the IPv6 subnets of the lists reach the rule
+	require.Contains(t, report("2001:db8:1::50"), "✅ Rule TV (tv) takes its connections to the lists of the rule that reach sing-box, "+
+		"those to the IPv6 subnets of the lists (the names of the lists get FakeIP IPv4 addresses only), as one of its devices: through its servers")
 	// the leading rule comes before the devices excluded, which end the list
 	require.Equal(t, strings.Join([]string{
 		"ℹ️ The rules for 192.168.78.70, in the order they are matched:",

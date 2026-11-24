@@ -5,7 +5,7 @@ exit 0
 ℹ️ The rules for 2001:db8:1::50, in the order they are matched:
 ➖ Rule bank does not take it: only for 192.168.1.30
 ➖ Rule ads does not take it: only for 192.168.1.20
-✅ Rule TV (tv) takes its connections to the lists of the rule, as one of its devices: through its servers
+✅ Rule TV (tv) takes its connections to the lists of the rule that reach sing-box, those to the IPv6 subnets of the lists (the names of the lists get FakeIP IPv4 addresses only), as one of its devices: through its servers
 ➖ Rule pc does not take it: only for 192.168.3.0/24, 2001:db8:3::/64
 ➖ Rule lan does not take it: only for 192.168.2.0/24
 ❌ Rule bad takes no device: no item of "only for devices" is an address or a subnet
