@@ -362,7 +362,8 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 			io.WriteString(errorOutput, "the address of the device is missing: podkop device <address>\n")
 			return 1
 		}
-		lines, ok := deviceReport(config, arguments[1])
+		// the router taken to have IPv6 (::1): the report reads the settings alone
+		lines, ok := deviceReport(config, plan.Facts{IPv6: true}, arguments[1])
 		io.WriteString(output, strings.Join(lines, "\n")+"\n")
 		if !ok {
 			return 1

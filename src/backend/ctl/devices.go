@@ -4,6 +4,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/engine"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/plan"
 )
@@ -81,21 +82,27 @@ func deviceRuleLines(config *model.Config, client netip.Addr) []string {
 }
 
 // deviceReport tells which rules take the traffic of a device of the address, in the order sing-box
-// matches them (plan.Build): the leading rules of direct and block, the devices excluded from
-// routing, the devices routed whole, the rules of lists. It is the check of a device that cannot
-// open the page (a TV): "podkop device 192.168.1.50" on the router. false: the text is no address.
-func deviceReport(config *model.Config, text string) ([]string, bool) {
+// matches them: the route rules of the configuration the settings make (plan.BuildDeviceRoutes),
+// built of the facts as the backend builds it (the leading rules of direct and block, the devices
+// excluded from routing, the devices routed whole, the rules of lists). It is the check of a device
+// that cannot open the page (a TV): "podkop device 192.168.1.50" on the router. false: the text is
+// no address, or the settings make no configuration.
+func deviceReport(config *model.Config, facts plan.Facts, text string) ([]string, bool) {
 	address, err := netip.ParseAddr(strings.TrimSpace(text))
 	if err != nil || address.Zone() != "" {
 		return []string{"❌ " + text + " is not an IPv4 or an IPv6 address"}, false
 	}
 	address = address.Unmap()
-	if address.Is6() && config.Settings.IPv6Routing != model.IPv6Podkop {
+	routes, err := plan.BuildDeviceRoutes(config, facts, plan.Options{DecodeLink: engine.DecodeLink})
+	if err != nil {
+		return []string{"❌ The settings make no configuration, podkop does not apply them: " + err.Error()}, false
+	}
+	if address.Is6() && !routes.IPv6 {
 		return []string{"ℹ️ IPv6 traffic goes past podkop (IPv6 traffic: Past podkop): no rule takes the traffic of " + address.String()}, true
 	}
 	names := config.Names()
-	exit := func(section *model.Section) string {
-		switch config.Exit(section) {
+	exit := func(route *plan.DeviceRoute) string {
+		switch route.Exit {
 		case model.ExitBlock:
 			return "blocked"
 		case model.ExitDirect:
@@ -104,54 +111,48 @@ func deviceReport(config *model.Config, text string) ([]string, bool) {
 		return "through its servers"
 	}
 	lines := []string{"ℹ️ The rules for " + address.String() + ", in the order they are matched:"}
-	lists := func(section *model.Section) {
-		if !section.Enabled || config.Exit(section) == model.ExitNone || !section.HasEnabledLists() {
-			return
-		}
-		devices := section.Devices()
-		rule := names.RuleText(section.Name)
-		switch {
-		case devices.Limited && len(devices.Devices) == 0:
-			lines = append(lines, "❌ Rule "+rule+` takes no device: no item of "only for devices" is an address or a subnet`)
-		case !devices.Limited:
-			lines = append(lines, "✅ Rule "+rule+" takes its connections to the lists of the rule, as those of every device: "+exit(section))
-		case devices.Takes(address):
-			lines = append(lines, "✅ Rule "+rule+" takes its connections to the lists of the rule, as one of its devices: "+exit(section))
-		default:
-			lines = append(lines, "➖ Rule "+rule+" does not take it: only for "+strings.Join(model.Texts(devices.Devices), ", "))
-		}
-	}
-	lead := plan.LeadingRules(config)
-	for index := range lead {
-		lists(&config.Sections[index])
-	}
-	excluded, _ := model.ParseRouted(config.Settings.RoutingExcludedIPs)
-	for _, device := range excluded {
-		if device.Prefix.Contains(address) {
-			return append(lines, "↪️ It is among the Routing Excluded IPs ("+device.Text+"): the rules below do not take its traffic, it goes directly"), true
-		}
-	}
-	// The route rule of the devices routed whole holds both families (plan.Build); the firewall
-	// sends all the traffic of such a device to sing-box by its IPv4 address only, and of an IPv6
-	// address only what goes to the IPv6 subnets of the lists, as of every device.
-	for index := range config.Sections {
-		section := &config.Sections[index]
-		if !section.Enabled || config.Exit(section) == model.ExitNone {
-			continue
-		}
-		for _, device := range section.Devices().Routed {
-			if !device.Prefix.Contains(address) {
-				continue
+	for index := range routes.Routes {
+		route := &routes.Routes[index]
+		switch route.Kind {
+		case plan.RouteExcluded:
+			if device, found := deviceOf(route.Devices, address); found {
+				return append(lines, "↪️ It is among the Routing Excluded IPs ("+device.Text+"): the rules below do not take its traffic, it goes directly"), true
 			}
-			what := "all its traffic"
-			if address.Is6() {
-				what = "its connections that reach sing-box, those to the IPv6 subnets of the lists, not all its traffic"
+		case plan.RouteFullyRouted:
+			// The route rule holds both families; the firewall sends all the traffic of such a device
+			// to sing-box by its IPv4 address only, and of an IPv6 address only what goes to the IPv6
+			// subnets of the lists, as of every device (plan.Build gives it IPv4 sources alone).
+			if device, found := deviceOf(route.Devices, address); found {
+				what := "all its traffic"
+				if address.Is6() {
+					what = "its connections that reach sing-box, those to the IPv6 subnets of the lists, not all its traffic"
+				}
+				return append(lines, "✅ Rule "+names.RuleText(route.Section)+" takes "+what+" (Fully Routed IPs, "+device.Text+"): "+exit(route)), true
 			}
-			return append(lines, "✅ Rule "+names.RuleText(section.Name)+" takes "+what+" (Fully Routed IPs, "+device.Text+"): "+exit(section)), true
+		case plan.RouteLists:
+			devices := model.RuleDevices{Limited: route.Limited, Devices: route.Devices}
+			rule := names.RuleText(route.Section)
+			switch {
+			case devices.Limited && len(devices.Devices) == 0:
+				lines = append(lines, "❌ Rule "+rule+` takes no device: no item of "only for devices" is an address or a subnet`)
+			case !devices.Limited:
+				lines = append(lines, "✅ Rule "+rule+" takes its connections to the lists of the rule, as those of every device: "+exit(route))
+			case devices.Takes(address):
+				lines = append(lines, "✅ Rule "+rule+" takes its connections to the lists of the rule, as one of its devices: "+exit(route))
+			default:
+				lines = append(lines, "➖ Rule "+rule+" does not take it: only for "+strings.Join(model.Texts(devices.Devices), ", "))
+			}
 		}
-	}
-	for index := lead; index < len(config.Sections); index++ {
-		lists(&config.Sections[index])
 	}
 	return append(lines, "➡️ What no rule takes goes directly"), true
+}
+
+// deviceOf is the first of the devices the address is one of, or within.
+func deviceOf(devices []model.Device, address netip.Addr) (model.Device, bool) {
+	for _, device := range devices {
+		if device.Prefix.Contains(address) {
+			return device, true
+		}
+	}
+	return model.Device{}, false
 }

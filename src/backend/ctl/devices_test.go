@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
+	"github.com/podkop-net/podkop-experimental/src/backend/plan"
+	"github.com/podkop-net/podkop-experimental/src/backend/uci"
 
 	"github.com/stretchr/testify/require"
 )
@@ -26,6 +28,88 @@ func devicesConfig() *model.Config {
 		Settings: model.Settings{RoutingExcludedIPs: []string{"192.168.78.70"}, IPv6Routing: model.IPv6Podkop},
 	}
 }
+
+// devicesSettings are the settings of devicesConfig as a file (bank with a domain, and a link the
+// engine takes): the report of a device builds them (plan.BuildDeviceRoutes), which needs the
+// defaults model.Load gives.
+const devicesSettings = `config settings 'settings'
+	option config_version '2'
+	option dns_type 'udp'
+	option dns_server '8.8.8.8'
+	option ipv6_routing 'podkop'
+	list routing_excluded_ips '192.168.78.70'
+
+config source 'own'
+	option type 'links'
+	option label 'Own'
+	list link 'socks5://192.0.2.1:1080'
+
+config section 'bank'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'bank.example'
+	list only_devices '192.168.78.30'
+
+config member
+	option section 'bank'
+	option role 'server'
+	option source 'direct'
+
+config section 'tv'
+	option label 'TV'
+	list community_lists 'youtube'
+	option user_domain_list_type 'disabled'
+	option user_subnet_list_type 'disabled'
+	list only_devices '192.168.78.10'
+	list only_devices '192.168.79.0/24'
+	list only_devices '2001:db8:1::50'
+
+config member
+	option section 'tv'
+	option role 'server'
+	option source 'own'
+
+config section 'bad'
+	list community_lists 'porn'
+	option user_domain_list_type 'disabled'
+	option user_subnet_list_type 'disabled'
+	list only_devices 'word'
+
+config member
+	option section 'bad'
+	option role 'server'
+	option source 'block'
+
+config section 'pc'
+	option user_domain_list_type 'disabled'
+	option user_subnet_list_type 'disabled'
+	list fully_routed_ips '192.168.78.60'
+	list fully_routed_ips '2001:db8:1::60'
+
+config member
+	option section 'pc'
+	option role 'server'
+	option source 'own'
+
+config section 'noyt'
+	list community_lists 'youtube'
+	option user_domain_list_type 'disabled'
+	option user_subnet_list_type 'disabled'
+
+config member
+	option section 'noyt'
+	option role 'server'
+	option source 'block'
+
+config section 'off'
+	option enabled '0'
+	list community_lists 'discord'
+	list only_devices '192.168.78.10'
+
+config member
+	option section 'off'
+	option role 'server'
+	option source 'own'
+`
 
 // The status of podkop names the devices of each rule only for some devices, the IPv6 ones counted,
 // and warns of a rule that takes no device; a rule that is off or not limited is not there.
@@ -59,10 +143,14 @@ func TestDeviceRuleLines(t *testing.T) {
 // rules, the devices excluded, the devices routed whole, the rules of lists.
 func TestDeviceReport(t *testing.T) {
 	t.Parallel()
-	config := devicesConfig()
+	parsed, err := uci.Parse([]byte(devicesSettings))
+	require.NoError(t, err)
+	config, err := model.Load(parsed)
+	require.NoError(t, err)
+	routerIPv6 := plan.Facts{IPv6: true}
 	report := func(address string) string {
-		lines, ok := deviceReport(config, address)
-		require.True(t, ok, address)
+		lines, ok := deviceReport(config, routerIPv6, address)
+		require.True(t, ok, "%s: %v", address, lines)
 		return strings.Join(lines, "\n")
 	}
 	require.Equal(t, strings.Join([]string{
@@ -97,6 +185,6 @@ func TestDeviceReport(t *testing.T) {
 	// IPv6 past podkop
 	config.Settings.IPv6Routing = model.IPv6Bypass
 	require.Contains(t, report("2001:db8:1::50"), "IPv6 traffic goes past podkop")
-	_, ok := deviceReport(config, "word")
+	_, ok := deviceReport(config, routerIPv6, "word")
 	require.False(t, ok)
 }
