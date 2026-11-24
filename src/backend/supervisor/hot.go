@@ -233,17 +233,7 @@ func (s *Supervisor) swap(current *running, next *candidate, started time.Time) 
 		}
 		return Result{}, false
 	}
-	previousFirewall := current.firewall
-	err = s.writeFiles(next.result, current.result)
-	if err != nil {
-		s.log("error", err)
-	}
-	s.storeConfig(next)
-	s.current = &running{settings: next.settings, result: next.result, instance: current.instance}
-	err = s.surround(previousFirewall)
-	if err != nil {
-		s.log("error", err)
-	}
+	s.nowRunning(current, next, current.instance)
 	took := time.Since(started).Milliseconds()
 	s.log("info", "the settings are applied in ", took, " ms: the servers of the groups are replaced (", next.hot.added, " new outbounds, ",
 		next.hot.changed, " rebuilt, ", next.hot.removed, " taken out; ", swapped.Kept, " replaced ones kept while connections may use them), sing-box keeps running")

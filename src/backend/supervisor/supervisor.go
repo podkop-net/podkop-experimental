@@ -368,6 +368,9 @@ type Supervisor struct {
 	// stuck tells that an instance of sing-box did not close: nothing more can run in
 	// this process (see close)
 	stuck bool
+	// excluded is the configuration whose sources the engine was told last to keep off the
+	// downloads (excludeDownloads), nil before the first
+	excluded *plan.Result
 	// clashSecret is the key of the Clash API the settings had last, or the one this
 	// process made when they had none (see clashKey)
 	clashSecret string
@@ -2149,21 +2152,8 @@ func (s *Supervisor) apply(force bool) Result {
 		s.log("error", "the settings cannot be used: ", err, "; the configuration that runs is started again for the socket it lost")
 		next = &candidate{settings: current.settings, result: current.result}
 	}
-	previousFirewall := current.firewall
 	if !force && bytes.Equal(next.result.Config, current.result.Config) {
-		err = s.writeFiles(next.result, current.result)
-		if err != nil {
-			s.log("error", err)
-		}
-		// the path of the export may be what changed
-		s.storeConfig(next)
-		s.current = &running{settings: next.settings, result: next.result, instance: current.instance}
-		// so may the sources kept off the downloads: they are not in the configuration
-		s.excludeDownloads(next.settings, next.result)
-		err = s.surround(previousFirewall)
-		if err != nil {
-			s.log("error", err)
-		}
+		s.nowRunning(current, next, current.instance)
 		s.log("info", "the settings are applied in ", time.Since(started).Milliseconds(), " ms, sing-box keeps running")
 		return s.done(true, false, "applied in ", time.Since(started).Milliseconds(), " ms, sing-box keeps running")
 	}
@@ -2191,11 +2181,7 @@ func (s *Supervisor) apply(force bool) Result {
 	closed := time.Since(closing)
 	instance, err := s.start(next, current.result)
 	if err == nil {
-		s.current = &running{settings: next.settings, result: next.result, instance: instance}
-		err = s.surround(previousFirewall)
-		if err != nil {
-			s.log("error", err)
-		}
+		s.nowRunning(current, next, instance)
 		s.log("info", "the settings are applied in ", time.Since(started).Milliseconds(), " ms, sing-box runs the new configuration (it did not answer for ",
 			time.Since(closing).Milliseconds(), " ms, of which the previous one took ", closed.Milliseconds(), " ms to close)")
 		return s.done(true, true, "applied in ", time.Since(started).Milliseconds(), " ms, sing-box runs the new configuration")
@@ -2216,12 +2202,38 @@ func (s *Supervisor) apply(force bool) Result {
 	}
 	// what the dashboard chose, carried for the new configuration, as it was
 	instance.Select(carried)
-	s.current = &running{settings: current.settings, result: current.result, instance: instance}
-	err = s.surround(previousFirewall)
+	s.nowRunning(current, &candidate{settings: current.settings, result: current.result}, instance)
+	return s.done(false, true, "the new configuration does not come up, the previous one runs again: ", failure)
+}
+
+// nowRunning makes next the configuration that runs, on instance, in place of current, and brings
+// what is around sing-box to it: the tail of each way an apply has to change what runs (the same
+// configuration, a swap, a new sing-box, the previous one started again). What fails of it is
+// logged: the configuration runs all the same.
+//
+// With the instance that ran (the same configuration, a swap) the rule-set files that differ and
+// the configuration the page shows are written here; a new instance had them at its start. The
+// engine is told the sources of next to keep off the downloads unless it was told them already
+// (excludeDownloads: before a swap, at a start): they are not in the configuration, and the same
+// configuration may have other ones (the review of 2026-11-14, finding 1).
+func (s *Supervisor) nowRunning(current *running, next *candidate, instance Instance) {
+	previousFirewall := current.firewall
+	if instance == current.instance {
+		err := s.writeFiles(next.result, current.result)
+		if err != nil {
+			s.log("error", err)
+		}
+		// the path of the export may be what changed
+		s.storeConfig(next)
+	}
+	s.current = &running{settings: next.settings, result: next.result, instance: instance}
+	if s.excluded != next.result {
+		s.excludeDownloads(next.settings, next.result)
+	}
+	err := s.surround(previousFirewall)
 	if err != nil {
 		s.log("error", err)
 	}
-	return s.done(false, true, "the new configuration does not come up, the previous one runs again: ", failure)
 }
 
 // errNothingToRoute: no rule that is on names a filled source, direct or block.
@@ -2372,4 +2384,5 @@ func (s *Supervisor) excludeDownloads(settings *model.Config, result *plan.Resul
 		return
 	}
 	s.options.Engine.ExcludeDownloads(plan.NoDownloads(settings, result.Tags))
+	s.excluded = result
 }
