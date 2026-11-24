@@ -19,7 +19,6 @@ clock -> dataplane
 clock -> uci
 cmd/podkop -> .
 cmd/podkop -> api
-cmd/podkop -> btstats
 cmd/podkop -> clock
 cmd/podkop -> ctl
 cmd/podkop -> dataplane

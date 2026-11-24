@@ -109,7 +109,7 @@ func (r *recorder) compareInside(env Environment, arguments []string, program Ex
 	for _, argument := range arguments[1:] {
 		params = append(params, argument)
 	}
-	answer, status := BusObject(env, r.direct).Methods["run"].Call(r.t.Context(), map[string]any{"command": arguments[0], "params": params})
+	answer, status := BusObject(env, r.direct, Methods).Methods["run"].Call(r.t.Context(), map[string]any{"command": arguments[0], "params": params})
 	method := find(Methods, arguments[0])
 	if method == nil || !method.InProcess {
 		require.Equal(r.t, ubus.StatusNotSupported, status, "podkop %v inside the backend", arguments)

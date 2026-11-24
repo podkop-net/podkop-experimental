@@ -36,7 +36,7 @@ func TestBusObject(t *testing.T) {
 		AutostartPath: write("S99podkop", "#!/bin/sh\n"),
 	}
 	direct := api.Direct{Backend: &backend{status: api.Status{Running: true}}, Log: logs}
-	object := BusObject(env, direct)
+	object := BusObject(env, direct, Methods)
 	require.Equal(t, "podkop", object.Name)
 	run := object.Methods["run"].Call
 	ctx := context.Background()
@@ -81,7 +81,7 @@ func TestBusObject(t *testing.T) {
 		}
 		return nil
 	}
-	answer, status = BusObject(env, direct).Methods["run"].Call(ctx, map[string]any{"command": "check_links", "params": []any{"vless://a@b:1?type=kcp", "socks5://c:1080"}})
+	answer, status = BusObject(env, direct, Methods).Methods["run"].Call(ctx, map[string]any{"command": "check_links", "params": []any{"vless://a@b:1?type=kcp", "socks5://c:1080"}})
 	require.Equal(t, ubus.StatusOK, status)
 	require.Equal(t, ExecResult{Stdout: `[{"ok":false,"error":"the mKCP transport is not supported"},{"ok":true}]` + "\n"}, answer)
 

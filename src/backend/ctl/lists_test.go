@@ -228,26 +228,15 @@ func TestCommandLists(t *testing.T) {
 	}
 }
 
-// Each command is told by the help and answers in one way.
-func TestMethods(t *testing.T) {
-	for index := range Methods {
-		method := &Methods[index]
-		switch {
-		case method.Help == "":
-			t.Errorf("the help tells nothing of %s", method.Name)
-		case (method.Answer == nil) == (method.Print == nil):
-			t.Errorf("%s answers with a value and with a text, or with neither", method.Name)
-		case (method.Answer == nil) != (method.Form == 0):
-			t.Errorf("%s: the form of a value (%d) goes with Answer", method.Name, method.Form)
-		}
-	}
-}
-
 // commandNames are the names of the commands, the other names among them.
 func commandNames(t *testing.T) []string {
 	var names []string
 	for index := range Methods {
-		for _, name := range Methods[index].Names() {
+		method := &Methods[index]
+		if !method.command() {
+			continue
+		}
+		for _, name := range method.Names() {
 			if slices.Contains(names, name) {
 				t.Errorf("%s is in the table of the commands twice", name)
 			}

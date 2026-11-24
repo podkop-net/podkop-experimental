@@ -5,10 +5,10 @@ package main
 import (
 	"context"
 	"runtime"
+	"slices"
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
-	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/ctl"
 	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/podkop-net/podkop-experimental/src/backend/engine"
@@ -31,7 +31,9 @@ type Stats struct {
 	Memory      uint64 `json:"memory"`
 }
 
-type trafficSource interface {
+// busBackend is the supervisor as the methods of the bus ask it, beside what the commands ask of
+// the backend (api.Backend).
+type busBackend interface {
 	Traffic() (engine.Traffic, bool)
 	// Detect is what the block detector tells of the servers (detect.Report).
 	Detect() detect.Report
@@ -45,102 +47,94 @@ type trafficSource interface {
 	ClearCure(ctx context.Context, tag string) supervisor.CureResult
 	DropStaleCures(ctx context.Context) supervisor.CureResult
 	SuggestMask(ctx context.Context, tag string) supervisor.SuggestResult
-	// BitTorrentStats is what the BitTorrent traffic of the LAN came to (btstats.Report).
-	BitTorrentStats() btstats.Report
-	// ResetBitTorrentStats starts them again from now and answers them.
-	ResetBitTorrentStats() btstats.Report
 }
 
 var processStart = time.Now()
 
-// busObject is the object "podkop" of the backend on ubus: the commands of the page
-// (ctl.BusObject) and the methods stats, detect and force_detect. A method here is denied to the
-// page unless the ACL of its package names it (TestBusMethodsInACL).
-func busObject(env ctl.Environment, direct api.Direct, source trafficSource) ubus.Object {
-	object := ctl.BusObject(env, direct)
-	object.Methods["stats"] = ubus.Method{
-		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
-			traffic, running := source.Traffic()
-			var memory runtime.MemStats
-			runtime.ReadMemStats(&memory)
-			return Stats{
-				Running:     running,
-				At:          time.Since(processStart).Milliseconds(),
-				Up:          traffic.Up,
-				Down:        traffic.Down,
-				Connections: traffic.Connections,
-				Memory:      memory.StackInuse + memory.HeapInuse + memory.HeapIdle - memory.HeapReleased,
-			}, ubus.StatusOK
-		},
-	}
-	// bittorrent: the dashboard's table of BitTorrent, asked with the stats while BitTorrent is on
-	object.Methods["bittorrent"] = ubus.Method{
-		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
-			return source.BitTorrentStats(), ubus.StatusOK
-		},
-	}
-	// bittorrent_reset: the button of the dashboard's table of BitTorrent (an action: the ACL
-	// grants it under write)
-	object.Methods["bittorrent_reset"] = ubus.Method{
-		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
-			return source.ResetBitTorrentStats(), ubus.StatusOK
-		},
-	}
-	object.Methods["detect"] = ubus.Method{
-		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
-			return source.Detect(), ubus.StatusOK
-		},
-	}
-	object.Methods["force_detect"] = ubus.Method{
-		Arguments: map[string]int{"tag": ubus.TypeString, "cancel": ubus.TypeBool},
-		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
-			tag, _ := arguments["tag"].(string)
-			cancel, _ := arguments["cancel"].(bool)
-			if tag == "" && !cancel {
-				return nil, ubus.StatusInvalidArgument
-			}
-			return source.ForceDetect(tag, cancel), ubus.StatusOK
-		},
-	}
-	object.Methods["set_cure"] = ubus.Method{
-		Arguments: map[string]int{"tag": ubus.TypeString, "kind": ubus.TypeString, "sni": ubus.TypeString, "hash": ubus.TypeString, "through": ubus.TypeString},
-		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
-			tag, _ := arguments["tag"].(string)
-			if tag == "" {
-				return nil, ubus.StatusInvalidArgument
-			}
-			kind, _ := arguments["kind"].(string)
-			sni, _ := arguments["sni"].(string)
-			hash, _ := arguments["hash"].(string)
-			through, _ := arguments["through"].(string)
-			return source.SetCure(ctx, tag, kind, sni, hash, through), ubus.StatusOK
-		},
-	}
-	object.Methods["clear_cure"] = ubus.Method{
+// busObject is the object "podkop" of the backend on ubus. The commands it answers ask the backend
+// by direct.
+func busObject(env ctl.Environment, direct api.Direct, backend busBackend) ubus.Object {
+	return ctl.BusObject(env, direct, methods(backend))
+}
+
+// methods are the table of the methods: the commands and the methods of the bus that are theirs
+// (ctl.Methods), and the methods of the bus that ask the supervisor. A method of the bus is denied to
+// the page unless the ACL of its package grants it under its class (TestBusMethodsInACL).
+func methods(backend busBackend) []ctl.Method {
+	return append(slices.Clip(ctl.Methods),
+		ctl.Method{Name: "stats", Class: ctl.Read, Bus: &ctl.BusMethod{
+			Call: func(c *ctl.Call, arguments map[string]any) (any, int) {
+				return stats(backend), ubus.StatusOK
+			},
+		}, Help: "What went through sing-box and the memory of the backend, for the dashboard"},
+		ctl.Method{Name: "detect", Class: ctl.Read, Bus: &ctl.BusMethod{
+			Call: func(c *ctl.Call, arguments map[string]any) (any, int) {
+				return backend.Detect(), ubus.StatusOK
+			},
+		}, Help: "What the block detector tells of the servers"},
+		ctl.Method{Name: "force_detect", Class: ctl.Write, Bus: &ctl.BusMethod{
+			Arguments: map[string]int{"tag": ubus.TypeString, "cancel": ubus.TypeBool},
+			Call: func(c *ctl.Call, arguments map[string]any) (any, int) {
+				tag, _ := arguments["tag"].(string)
+				cancel, _ := arguments["cancel"].(bool)
+				if tag == "" && !cancel {
+					return nil, ubus.StatusInvalidArgument
+				}
+				return backend.ForceDetect(tag, cancel), ubus.StatusOK
+			},
+		}, Help: "A probe of a server by its tag, or the queue of them emptied"},
+		ctl.Method{Name: "set_cure", Class: ctl.Write, Bus: &ctl.BusMethod{
+			Arguments: map[string]int{"tag": ubus.TypeString, "kind": ubus.TypeString, "sni": ubus.TypeString, "hash": ubus.TypeString, "through": ubus.TypeString},
+			Call: func(c *ctl.Call, arguments map[string]any) (any, int) {
+				tag, _ := arguments["tag"].(string)
+				if tag == "" {
+					return nil, ubus.StatusInvalidArgument
+				}
+				kind, _ := arguments["kind"].(string)
+				sni, _ := arguments["sni"].(string)
+				hash, _ := arguments["hash"].(string)
+				through, _ := arguments["through"].(string)
+				return backend.SetCure(c.Context, tag, kind, sni, hash, through), ubus.StatusOK
+			},
+		}, Help: "A treatment of a server stored and applied"},
+		ctl.Method{Name: "clear_cure", Class: ctl.Write, Bus: ofServer(func(ctx context.Context, tag string) any {
+			return backend.ClearCure(ctx, tag)
+		}), Help: "The treatment of a server removed"},
+		ctl.Method{Name: "drop_stale_cures", Class: ctl.Write, Bus: &ctl.BusMethod{
+			Call: func(c *ctl.Call, arguments map[string]any) (any, int) {
+				return backend.DropStaleCures(c.Context), ubus.StatusOK
+			},
+		}, Help: "The treatments of servers no longer in use removed"},
+		ctl.Method{Name: "suggest_mask", Class: ctl.Write, Bus: ofServer(func(ctx context.Context, tag string) any {
+			return backend.SuggestMask(ctx, tag)
+		}), Help: "A whitelisted SNI that lifts the limit of a server, probed for"},
+	)
+}
+
+// ofServer is a method of the bus of a server, by its tag.
+func ofServer(answer func(ctx context.Context, tag string) any) *ctl.BusMethod {
+	return &ctl.BusMethod{
 		Arguments: map[string]int{"tag": ubus.TypeString},
-		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
+		Call: func(c *ctl.Call, arguments map[string]any) (any, int) {
 			tag, _ := arguments["tag"].(string)
 			if tag == "" {
 				return nil, ubus.StatusInvalidArgument
 			}
-			return source.ClearCure(ctx, tag), ubus.StatusOK
+			return answer(c.Context, tag), ubus.StatusOK
 		},
 	}
-	object.Methods["drop_stale_cures"] = ubus.Method{
-		Arguments: map[string]int{},
-		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
-			return source.DropStaleCures(ctx), ubus.StatusOK
-		},
+}
+
+func stats(backend busBackend) Stats {
+	traffic, running := backend.Traffic()
+	var memory runtime.MemStats
+	runtime.ReadMemStats(&memory)
+	return Stats{
+		Running:     running,
+		At:          time.Since(processStart).Milliseconds(),
+		Up:          traffic.Up,
+		Down:        traffic.Down,
+		Connections: traffic.Connections,
+		Memory:      memory.StackInuse + memory.HeapInuse + memory.HeapIdle - memory.HeapReleased,
 	}
-	object.Methods["suggest_mask"] = ubus.Method{
-		Arguments: map[string]int{"tag": ubus.TypeString},
-		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
-			tag, _ := arguments["tag"].(string)
-			if tag == "" {
-				return nil, ubus.StatusInvalidArgument
-			}
-			return source.SuggestMask(ctx, tag), ubus.StatusOK
-		},
-	}
-	return object
 }

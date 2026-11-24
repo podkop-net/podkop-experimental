@@ -64,21 +64,30 @@ func (f fixedTraffic) SuggestMask(context.Context, string) supervisor.SuggestRes
 	return supervisor.SuggestResult{State: supervisor.SuggestNone}
 }
 
-func (f fixedTraffic) BitTorrentStats() btstats.Report {
+// fixedBitTorrent is a backend of fixed statistics of BitTorrent.
+type fixedBitTorrent struct{ api.Backend }
+
+func (f fixedBitTorrent) BitTorrentStats() btstats.Report {
 	return btstats.Report{Mode: "bypass", Counted: true, Rows: []btstats.Row{{Kind: btstats.KindUTP, Way: btstats.WayPast, Open: 2, Connections: 3,
 		Received: btstats.Count{Packets: 10, Bytes: 12000}, Sent: btstats.Count{Packets: 5, Bytes: 600}}}, Blocked: []btstats.Blocked{}}
 }
 
-func (f fixedTraffic) ResetBitTorrentStats() btstats.Report {
-	return btstats.Report{Mode: "bypass", Counted: true, Rows: []btstats.Row{{Kind: btstats.KindUTP, Way: btstats.WayPast, Open: 2, Connections: 3,
-		Received: btstats.Count{Packets: 10, Bytes: 12000}, Sent: btstats.Count{Packets: 5, Bytes: 600}}}, Blocked: []btstats.Blocked{}}
+func (f fixedBitTorrent) ResetBitTorrentStats() btstats.Report {
+	return btstats.Report{Mode: "bypass", Rows: []btstats.Row{}, Blocked: []btstats.Blocked{}, ResetAt: 1}
 }
 
-// The method bittorrent answers the report as the page reads it.
+// The methods bittorrent and bittorrent_reset answer the report as the page reads it.
 func TestBusBitTorrent(t *testing.T) {
-	answer, status := busObject(ctl.Environment{}, api.Direct{}, fixedTraffic{}).Methods["bittorrent"].Call(context.Background(), nil)
+	object := busObject(ctl.Environment{}, api.Direct{Backend: fixedBitTorrent{}}, fixedTraffic{})
+	answer, status := object.Methods["bittorrent_reset"].Call(context.Background(), nil)
 	require.Equal(t, ubus.StatusOK, status)
 	encoded, err := json.Marshal(answer)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"mode":"bypass","lan":false,"since":0,"read":0,"counted":false,"rows":[],"blocked":[],"utp_to_tcp":{"packets":0,"bytes":0},"limits":{},"reset_at":1}`, string(encoded))
+
+	answer, status = object.Methods["bittorrent"].Call(context.Background(), nil)
+	require.Equal(t, ubus.StatusOK, status)
+	encoded, err = json.Marshal(answer)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"mode":"bypass","lan":false,"since":0,"read":0,"counted":true,"rows":[{"kind":"utp","way":"past","open":2,"connections":3,`+
 		`"received":{"packets":10,"bytes":12000},"sent":{"packets":5,"bytes":600}}],"blocked":[],"utp_to_tcp":{"packets":0,"bytes":0},"limits":{}}`, string(encoded))
@@ -183,6 +192,26 @@ func TestBusMethodsInACL(t *testing.T) {
 	require.NotContains(t, group.Read.Ubus[object.Name], "force_detect")
 }
 
+// Each method of the table is there once and tells what it is and what it does; a command answers in
+// one way, with a value in a form or with a text.
+func TestMethods(t *testing.T) {
+	seen := make(map[string]bool)
+	for _, method := range methods(fixedTraffic{}) {
+		for _, name := range method.Names() {
+			require.False(t, seen[name], "%s is in the table twice", name)
+			seen[name] = true
+		}
+		require.NotEmpty(t, method.Help, method.Name)
+		require.Contains(t, []ctl.Class{ctl.Read, ctl.Write}, method.Class, method.Name)
+		command := method.Answer != nil || method.Print != nil
+		require.True(t, command || method.Bus != nil, "%s is no command and no method of the bus", method.Name)
+		require.False(t, method.Answer != nil && method.Print != nil, "%s answers with a value and with a text", method.Name)
+		require.Equal(t, method.Answer != nil, method.Form != 0, "%s: a form goes with a value", method.Name)
+		require.True(t, command || (!method.InProcess && len(method.Also) == 0), "%s is no command", method.Name)
+		require.True(t, method.Bus == nil || method.Bus.Call != nil, "nothing answers %s on the bus", method.Name)
+	}
+}
+
 // A command of the page and of the CLI (ctl.Methods) has no name of a command of the program
 // itself (daemon, release, ctl, migrate, ...): "podkop <name>" would run the program's own.
 func TestCommandsOfTheProgramApart(t *testing.T) {
@@ -192,6 +221,9 @@ func TestCommandsOfTheProgramApart(t *testing.T) {
 	}
 	require.True(t, own["daemon"] && own["ctl"], "the commands of the program were not read: %v", own)
 	for _, method := range ctl.Methods {
+		if method.Answer == nil && method.Print == nil {
+			continue
+		}
 		for _, name := range method.Names() {
 			require.False(t, own[name], "podkop %s is a command of the program and of the CLI both", name)
 			require.False(t, ownCommand(name), name)

@@ -84,23 +84,28 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 	if len(arguments) == 0 {
 		return usage(Methods, errorOutput)
 	}
-	return execute(Methods, &Call{
-		Name: arguments[0], Arguments: arguments[1:], Output: output, Errors: errorOutput,
-		env: env, client: api.Client{Path: env.Socket},
+	return execute(&Call{
+		Name: arguments[0], Arguments: arguments[1:], Context: context.Background(), Output: output, Errors: errorOutput,
+		methods: Methods, env: env, client: api.Client{Path: env.Socket},
 	})
 }
 
-// Call is a call of a command: what it asks, and where its text goes.
+// Call is a call of a method: of a command with its arguments and where its text goes, or of a
+// method of the bus.
 type Call struct {
-	// Name is the name the command is called by, Arguments what follows it.
-	Name      string
+	// Name is the name the method is called by.
+	Name string
+	// Arguments are what follows the name of a command.
 	Arguments []string
-	Output    io.Writer
-	Errors    io.Writer
-	env       Environment
-	client    daemon
-	loading   sync.Once
-	loaded    *model.Config
+	// Context is that of the call on the bus; a command has none to end it.
+	Context context.Context
+	Output  io.Writer
+	Errors  io.Writer
+	methods []Method
+	env     Environment
+	client  daemon
+	loading sync.Once
+	loaded  *model.Config
 }
 
 // daemon is the running backend as the commands ask it: api.Client through its socket, from a
@@ -217,7 +222,7 @@ func (c *Call) getSingBoxStatus() (any, error) {
 }
 
 func (c *Call) getSystemInfo() (any, error) {
-	return answerSystem(diag.SystemInfo(context.Background(), c.env.Version, c.env.SingBoxVersion, false), c.env.Engine), nil
+	return answerSystem(diag.SystemInfo(c.Context, c.env.Version, c.env.SingBoxVersion, false), c.env.Engine), nil
 }
 
 func (c *Call) getSingBoxFeatures() (any, error) {
@@ -332,7 +337,7 @@ func (c *Call) showHWID() int {
 }
 
 func (c *Call) checkDNS() (any, error) {
-	return AnswerDNS(diag.CheckDNS(context.Background(), dnsSettings(&c.config().Settings), readUCI(c.env.Paths.DHCP))), nil
+	return AnswerDNS(diag.CheckDNS(c.Context, dnsSettings(&c.config().Settings), readUCI(c.env.Paths.DHCP))), nil
 }
 
 func (c *Call) checkSingBox() (any, error) {
@@ -345,7 +350,7 @@ func (c *Call) checkFirewall() (any, error) {
 	if label := c.argument(0); probe.ValidLabel(label) {
 		awaitDevice = func(context.Context) { _, _ = c.client.Probe(label, 0) }
 	}
-	return answerFirewall(diag.CheckFirewall(context.Background(), awaitDevice)), nil
+	return answerFirewall(diag.CheckFirewall(c.Context, awaitDevice)), nil
 }
 
 func (c *Call) checkFakeIP() (any, error) {
@@ -423,7 +428,7 @@ func (c *Call) globalCheck() int {
 			device = &deviceCheck{label: c.Arguments[0], port: uint16(port), probe: c.client.Probe, sources: config.Settings.SourceNetworkInterfaces}
 		}
 	}
-	return c.print(globalCheck(context.Background(), c.env.Paths, config, c.env.Version, c.env.SingBoxVersion, c.env.Engine, c.running(), func() (bool, bool) {
+	return c.print(globalCheck(c.Context, c.env.Paths, config, c.env.Version, c.env.SingBoxVersion, c.env.Engine, c.running(), func() (bool, bool) {
 		result, err := c.client.ProbeSelf()
 		return err == nil && result.DNS && result.Connection, err == nil
 	}, func() []string { return outboundLines(&clashCaller{client: c.client}, config, c.links()) },
