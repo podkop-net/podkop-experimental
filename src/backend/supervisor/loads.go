@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/subscription"
+	E "github.com/sagernet/sing/common/exceptions"
 )
 
 // LoadJob is the type of the socket for a download of a list for the page.
@@ -24,85 +26,6 @@ const (
 	loadFailed   = "failed"
 	loadCanceled = "canceled"
 )
-
-// history is how the downloads of an address went: the last of them that brought a list, the
-// way of the last one, and whether its direct way brought the list. The next download plans
-// its ways by it (subscription.Plan): a provider that takes 8 s is waited for, a way that
-// stopped before is not.
-type history struct {
-	samples      []sample
-	route        string
-	directFailed bool
-}
-
-// sample is a download that brought a list, by the try that brought it: the time to the
-// first byte of the answer, the longest pause in the body, the whole time.
-type sample struct {
-	firstByte, pause, total time.Duration
-}
-
-// plan is the plan of the next download of the address: twice the worst of the last downloads
-// that brought a list, within 2-15 s (the whole try 5-30 s); with none, the default plan.
-func (h *history) plan() subscription.Plan {
-	plan := subscription.DefaultPlan
-	if h == nil {
-		return plan
-	}
-	plan.Together = h.directFailed
-	if len(h.samples) == 0 {
-		return plan
-	}
-	var firstByte, pause, total time.Duration
-	for _, item := range h.samples {
-		firstByte, pause, total = max(firstByte, item.firstByte), max(pause, item.pause), max(total, item.total)
-	}
-	plan.Wait = min(max(2*firstByte, 2*time.Second), 15*time.Second)
-	plan.Body = min(max(2*pause, 2*time.Second), 15*time.Second)
-	plan.Total = min(max(2*total, 5*time.Second), 30*time.Second)
-	return plan
-}
-
-// remember takes what a download of an address came to into its history.
-func (s *Supervisor) remember(key string, tries []subscription.Try) {
-	t := &s.subscriptions
-	t.access.Lock()
-	defer t.access.Unlock()
-	if t.histories == nil {
-		t.histories = make(map[string]*history)
-	}
-	record := t.histories[key]
-	if record == nil {
-		record = &history{}
-		t.histories[key] = record
-	}
-	for _, item := range tries {
-		switch {
-		case item.Route == "direct" && !item.Cut && (item.Failure == nil || !item.Failure.Final()):
-			// a try the end of the download's context cut says nothing of the way, nor does an
-			// answer of the provider itself (a web page to the User-Agent of the settings too)
-			record.directFailed = item.Phase != subscription.PhaseDone
-		}
-		if item.Phase == subscription.PhaseDone {
-			record.route = item.Route
-			record.samples = append(record.samples, sample{firstByte: item.FirstByte, pause: item.Pause, total: item.Took})
-			if len(record.samples) > historyKept {
-				record.samples = record.samples[len(record.samples)-historyKept:]
-			}
-		}
-	}
-}
-
-// planOf is the plan of the next download of an address and the way of its last one.
-func (s *Supervisor) planOf(key string) (subscription.Plan, string) {
-	t := &s.subscriptions
-	t.access.Lock()
-	defer t.access.Unlock()
-	record := t.histories[key]
-	if record == nil {
-		return subscription.DefaultPlan, ""
-	}
-	return record.plan(), record.route
-}
 
 // loadJob is a download of a list for the page.
 type loadJob struct {
@@ -238,6 +161,19 @@ func refusedRequest(problem subscription.Problem) SubscriptionPreview {
 	return SubscriptionPreview{Servers: []api.PreviewServer{}, Error: "the User-Agent or a header cannot be sent: " + problem.Where() + ": " + problem.Text, ErrorCode: "request", ErrorArgs: args}
 }
 
+// LoadSubscription downloads a list to be shown: the page asks with the address, the User-Agent
+// and the headers of its form, saved or not. Nothing is taken. It is for callers outside the
+// goroutine of Run.
+func (s *Supervisor) LoadSubscription(ctx context.Context, address string, request api.ListRequest) SubscriptionPreview {
+	custom, problems := subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers, s.options.SingBoxVersion)
+	if len(problems) > 0 {
+		return refusedRequest(problems[0])
+	}
+	ctx, cancel := context.WithTimeout(ctx, loadBudget)
+	defer cancel()
+	return s.loadPreview(ctx, address, custom, nil)
+}
+
 // loadPreview downloads a list to be shown: nothing is taken; the list is kept a while for
 // Check of a group and for a subscription added with its address and request.
 func (s *Supervisor) loadPreview(ctx context.Context, address string, custom subscription.Custom, report func([]subscription.Try)) SubscriptionPreview {
@@ -262,6 +198,95 @@ func (s *Supervisor) loadPreview(ctx context.Context, address string, custom sub
 			Made: list.Format != ""})
 	}
 	return preview
+}
+
+// CheckGroup tells which servers a group would choose. A subscription's list is the one
+// taken when the form has the address and the request the settings that run have, else the one
+// Load got for the address and the request of the form a while ago, else one downloaded for
+// them; none of these is taken. It is for callers outside the goroutine of Run.
+func (s *Supervisor) CheckGroup(ctx context.Context, check GroupCheck) GroupPreview {
+	ctx, cancel := context.WithTimeout(ctx, previewBudget)
+	defer cancel()
+	row := model.Member{Include: check.Include, Exclude: check.Exclude}
+	preview := GroupPreview{Chosen: []string{}}
+	var seen []string
+	for _, name := range check.Subscriptions {
+		if slices.Contains(seen, name) {
+			continue
+		}
+		seen = append(seen, name)
+		var request *api.ListRequest
+		if asked, found := check.Requests[name]; found {
+			request = &asked
+		}
+		list, err := s.groupList(ctx, name, strings.TrimSpace(check.Addresses[name]), request)
+		if err != nil {
+			preview.Missing = append(preview.Missing, name+": "+model.OneLine(err.Error()))
+			continue
+		}
+		for _, server := range list.Servers {
+			if !server.Usable() {
+				continue
+			}
+			preview.Total++
+			if row.Takes(server.Name) {
+				preview.Chosen = append(preview.Chosen, server.Name)
+			}
+		}
+	}
+	return preview
+}
+
+// groupList is the list of a subscription for CheckGroup, by the address of the form (none:
+// that of the settings) and its request (none: that of the settings). The request of the form
+// is read as the settings are (subscription.ParseRequest): a line they leave out is left out here
+// too, so the same raw lines are the same request, and the list taken is used.
+func (s *Supervisor) groupList(ctx context.Context, name string, address string, request *api.ListRequest) (*subscription.Saved, error) {
+	t := &s.subscriptions
+	t.access.Lock()
+	saved, list, running := t.addresses[name], t.lists[name], t.customs[name]
+	custom := running
+	if request != nil {
+		custom, _ = subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers, s.options.SingBoxVersion)
+	}
+	if address == "" {
+		address = saved
+	}
+	if list != nil && address == saved && custom.Key() == running.Key() {
+		t.access.Unlock()
+		return list, nil
+	}
+	kept := t.previews[subscription.AddressKey(address)]
+	t.access.Unlock()
+	if address == "" {
+		return nil, E.New("the address is not set")
+	}
+	if kept != nil && kept.request == custom.Key() && time.Since(kept.list.Changed) < previewKept {
+		return kept.list, nil
+	}
+	list, _, _, err := s.fetch(ctx, address, custom, previewProxies, nil)
+	if err != nil {
+		return nil, err
+	}
+	s.keepPreview(list, custom.Key())
+	return list, nil
+}
+
+// keepPreview keeps a list downloaded for the page for a while, the newest of its address only,
+// with the key of the request it was asked with, and forgets those older.
+func (s *Supervisor) keepPreview(list *subscription.Saved, request string) {
+	t := &s.subscriptions
+	t.access.Lock()
+	defer t.access.Unlock()
+	if t.previews == nil {
+		t.previews = make(map[string]*preview)
+	}
+	for key, kept := range t.previews {
+		if time.Since(kept.list.Changed) >= previewKept {
+			delete(t.previews, key)
+		}
+	}
+	t.previews[list.Address] = &preview{list: list, request: request}
 }
 
 // attempts are the tries of a download as the page is told them.
