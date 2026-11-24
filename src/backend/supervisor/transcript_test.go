@@ -53,8 +53,9 @@ import (
 // a subscription waiting and as the last of a round (lab/v0822/kern/mutants.sh deleted each of
 // those calls in turn while each branch had its own: all were caught but the applyTaken of the
 // branch of a changed request, which can apply nothing there). The tails and the branches now
-// share nowRunning and the end of takeList; lab/v0822/sup/sup.sh NAME mutants deletes each of
-// their calls in turn.
+// share nowRunning and the end of takeList; lab/v0823/sup/sup.sh NAME mutants deletes each of
+// their calls in turn, and those that tell the parts (subscriptionRuntime, bitTorrentRuntime) what
+// the supervisor does.
 //
 //	go test -count=1 -run TestTranscripts -update ./supervisor/   (with the tags of the package's tests)
 //
