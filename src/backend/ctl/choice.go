@@ -45,18 +45,24 @@ type choiceWindow struct {
 // a probe are its segments, of Ethernet with TCP timestamps.
 const choiceSegment = 1448
 
-// choiceLines tells what the server choice of the rules that choose avoiding loss or balance has
-// counted, for a report: the loss of their servers over the windows the engine keeps (1, 6 and
-// 24 hours, with the probes), the least RTT, a server whose probe could not count (no connection of
-// its own to the server, or QUIC and a loss URL without ranges), the servers of
-// a balance with the devices each carries, and the traffic of the probes over the last day. Nothing
-// when no rule chooses so.
+// byLoss tells whether a choice counts the loss of the servers.
+func byLoss(choice string) bool {
+	return choice == model.ChoiceLoss || choice == model.ChoiceBalance
+}
+
+// choiceLines tells what the server choice of the rules that choose avoiding loss or balance, or
+// choose so among their fallbacks, has counted, for a report: the loss of their servers over the
+// windows the engine keeps (1, 6 and 24 hours, with the probes), the least RTT, a server whose probe
+// could not count (no connection of its own to the server, or QUIC and a loss URL without ranges),
+// the servers of a balance with the devices each carries, and the traffic of the probes over the
+// last day. Nothing when no rule chooses so. The fallbacks are told by their servers while they are
+// in use only: until then no loss of them is probed.
 func choiceLines(caller *clashCaller, config *model.Config) []string {
 	names := config.Names()
 	var choosing []*model.Section
 	for index := range config.Sections {
 		section := &config.Sections[index]
-		if section.Enabled && (section.Choice == model.ChoiceLoss || section.Choice == model.ChoiceBalance) && config.HasOutbound(section) {
+		if section.Enabled && (byLoss(section.Choice) || byLoss(section.FallbackChoice) && len(section.Fallbacks) > 0) && config.HasOutbound(section) {
 			choosing = append(choosing, section)
 		}
 	}
@@ -74,6 +80,13 @@ func choiceLines(caller *clashCaller, config *model.Config) []string {
 	var lines []string
 	// a server two rules take is probed once: its traffic counts once
 	probed := make(map[string]choiceProxy)
+	count := func(servers []string) {
+		for _, tag := range servers {
+			if server := listed.Proxies[tag]; server.Loss != nil {
+				probed[tag] = server
+			}
+		}
+	}
 	for _, section := range choosing {
 		name := names.Rule(section.Name)
 		outbounds := plan.RuleTags{Name: name, Test: ruleTest(plan.RuleTags{Selector: plan.RuleOutbound(config, section.Name)})}
@@ -98,35 +111,32 @@ func choiceLines(caller *clashCaller, config *model.Config) []string {
 			lines = append(lines, "ℹ️ "+outbounds.Name+": one server, nothing to choose from")
 			continue
 		}
-		want := "avoiding loss"
-		if section.Choice == model.ChoiceBalance {
-			want = "balance"
-		}
-		switch {
-		case group.Mode == "":
-			lines = append(lines, "⚠️ "+outbounds.Name+": "+want+" is set but not applied yet: Save & Apply")
-		case group.Mode != section.Choice:
-			lines = append(lines, "⚠️ "+outbounds.Name+": "+want+" is set, the engine chooses by "+group.Mode)
-		case section.Choice == model.ChoiceBalance:
-			members := make([]string, 0, len(group.Balance))
-			for _, member := range group.Balance {
-				members = append(members, fmt.Sprintf("%s (%d devices)", member.Name, member.Devices))
+		if byLoss(section.Choice) {
+			lines = append(lines, choiceLine(outbounds.Name, section.Choice, group))
+			servers := group.All[:max(len(group.All)-len(group.Fallbacks), 0)]
+			for _, tag := range servers {
+				lines = append(lines, "\t"+serverChoiceLine(tag, listed.Proxies[tag]))
 			}
-			if len(members) == 0 {
-				lines = append(lines, "⚠️ "+outbounds.Name+": balance, but no server is in it now: the connections go by the fastest, "+group.Now)
-			} else {
-				lines = append(lines, "🎯 "+outbounds.Name+": balance over "+strings.Join(members, ", "))
-			}
-		default:
-			lines = append(lines, "🎯 "+outbounds.Name+": avoiding loss, now "+group.Now)
+			count(servers)
 		}
-		for _, tag := range group.All[:max(len(group.All)-len(group.Fallbacks), 0)] {
-			server := listed.Proxies[tag]
-			lines = append(lines, "\t"+serverChoiceLine(tag, server))
-			if server.Loss != nil {
-				probed[tag] = server
+		if !byLoss(section.FallbackChoice) || len(section.Fallbacks) == 0 {
+			continue
+		}
+		pool, found := listed.Proxies[outbounds.Pool]
+		if outbounds.Pool == "" || !found {
+			lines = append(lines, "ℹ️ "+outbounds.Name+", its fallbacks: one server or none, or not applied yet: nothing to choose from")
+			continue
+		}
+		inUse := selector.Now == outbounds.Test && group.Now == outbounds.Pool
+		if pool.Mode == section.FallbackChoice && !inUse {
+			lines = append(lines, fmt.Sprintf("ℹ️ %s, its fallbacks: %s among %d servers, not in use now: their loss is not probed", outbounds.Name, choiceText(section.FallbackChoice), len(pool.All)))
+		} else {
+			lines = append(lines, choiceLine(outbounds.Name+", its fallbacks", section.FallbackChoice, pool))
+			for _, tag := range pool.All {
+				lines = append(lines, "\t"+serverChoiceLine(tag, listed.Proxies[tag]))
 			}
 		}
+		count(pool.All)
 	}
 	probes, segments := 0, 0
 	for _, server := range probed {
@@ -150,6 +160,34 @@ func lossWindow(server choiceProxy, hours int) *choiceWindow {
 		}
 	}
 	return nil
+}
+
+// choiceText names a choice that counts the loss.
+func choiceText(choice string) string {
+	if choice == model.ChoiceBalance {
+		return "balance"
+	}
+	return "avoiding loss"
+}
+
+// choiceLine tells how a URL test that is to choose by the choice runs, and what it has chosen.
+func choiceLine(name string, choice string, group choiceProxy) string {
+	want := choiceText(choice)
+	switch {
+	case group.Mode == "":
+		return "⚠️ " + name + ": " + want + " is set but not applied yet: Save & Apply"
+	case group.Mode != choice:
+		return "⚠️ " + name + ": " + want + " is set, the engine chooses by " + group.Mode
+	case choice != model.ChoiceBalance:
+		return "🎯 " + name + ": avoiding loss, now " + group.Now
+	case len(group.Balance) == 0:
+		return "⚠️ " + name + ": balance, but no server is in it now: the connections go by the fastest, " + group.Now
+	}
+	members := make([]string, 0, len(group.Balance))
+	for _, member := range group.Balance {
+		members = append(members, fmt.Sprintf("%s (%d devices)", member.Name, member.Devices))
+	}
+	return "🎯 " + name + ": balance over " + strings.Join(members, ", ")
 }
 
 // serverChoiceLine is a server of a rule that chooses avoiding loss or balance: its delay, its
