@@ -201,7 +201,7 @@ func (t *subscriptionRuntime) loadPreview(ctx context.Context, address string, c
 func (t *subscriptionRuntime) checkGroup(ctx context.Context, check GroupCheck) GroupPreview {
 	ctx, cancel := context.WithTimeout(ctx, previewBudget)
 	defer cancel()
-	row := model.Member{Include: check.Include, Exclude: check.Exclude}
+	row := model.Member{Include: check.Include, Exclude: check.Exclude, Protocols: model.ProtocolNames(check.Protocols)}
 	preview := GroupPreview{Chosen: []string{}}
 	var seen []string
 	for _, name := range check.Subscriptions {
@@ -223,7 +223,7 @@ func (t *subscriptionRuntime) checkGroup(ctx context.Context, check GroupCheck) 
 				continue
 			}
 			preview.Total++
-			if row.Takes(server.Name) {
+			if row.Takes(server.Name) && row.TakesProtocol(model.LinkProtocol(server.Link)) {
 				preview.Chosen = append(preview.Chosen, server.Name)
 			}
 		}

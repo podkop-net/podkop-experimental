@@ -103,6 +103,9 @@ func rowsText(names model.Names, rows []model.Member) string {
 		if len(row.Exclude) > 0 {
 			name += " without " + strings.Join(row.Exclude, "/")
 		}
+		if len(row.Protocols) > 0 {
+			name += " only " + strings.Join(row.Protocols, "/")
+		}
 		if row.Via != "" {
 			name += " via " + names.Source(row.Via)
 		}

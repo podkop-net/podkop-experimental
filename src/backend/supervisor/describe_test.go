@@ -30,6 +30,19 @@ func TestDescribeOnlyDevices(t *testing.T) {
 	require.NotContains(t, line, "2001:db8")
 }
 
+// A row is told with what it chooses its servers by: the words of their names, their protocols.
+func TestDescribeRows(t *testing.T) {
+	t.Parallel()
+	config := &model.Config{
+		Sources: []model.Source{{Name: "own", Label: "Own", Type: "links", Links: []string{"vless://x", "hy2://x"}}},
+		Sections: []model.Section{{Name: "tv", Label: "TV", Enabled: true,
+			Servers:   []model.Member{{Source: "own", Include: []string{"FI", "SE"}, Exclude: []string{"old"}, Protocols: []string{"vless", "hysteria2"}}},
+			Fallbacks: []model.Member{{Source: "own", Protocols: []string{"trojan"}}, {Source: "own"}}}},
+	}
+	line := describeConfig(&candidate{settings: config, result: &plan.Result{}})
+	require.Contains(t, line, "configuration: rules TV (Own with FI/SE without old only vless/hysteria2; fallbacks Own only trojan, Own);")
+}
+
 // The line names the interfaces of the LAN as the settings do; settings that name none, the one
 // the plan takes then (br-lan: the transcripts have it of plan.Build).
 func TestDescribeLAN(t *testing.T) {

@@ -123,7 +123,7 @@ var Methods = []Method{
 	{Name: "subscription_load_cancel", Class: Write, InProcess: true, Form: Compact, Answer: (*Call).cancelLoad,
 		Help: "<id>: stop a download started by subscription_load_start"},
 	{Name: "group_check", Class: Read, InProcess: true, Form: Compact, Answer: (*Call).checkGroup,
-		Help: "<JSON {subscriptions, include, exclude, addresses, requests}>: the servers a group would choose, as JSON: {chosen, total, missing}; addresses and requests ({user_agent_preset, user_agent, headers}) are those of the form by the name of the subscription, those of the settings that run when not given"},
+		Help: "<JSON {subscriptions, include, exclude, protocols, addresses, requests}>: the servers a group would choose, as JSON: {chosen, total, missing}; addresses and requests ({user_agent_preset, user_agent, headers}) are those of the form by the name of the subscription, those of the settings that run when not given"},
 	{Name: "subscription_status", Class: Read, InProcess: true, Form: Compact, Answer: (*Call).subscriptionStatus,
 		Help: "Each subscription of the settings, as JSON: its servers, when its list was taken and checked, the way it came, the last error, the next download"},
 	{Name: "subscription_update", Class: Write, Print: (*Call).updateSubscriptions,

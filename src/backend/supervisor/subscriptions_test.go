@@ -555,6 +555,16 @@ func TestSubscriptionPreviews(t *testing.T) {
 	require.Equal(t, []string{"gone: the address is not set"}, check.Missing)
 	require.Len(t, fake.built, 1)
 
+	// the protocols of the row, by the names of the settings or of the links
+	check = s.CheckGroup(context.Background(), GroupCheck{Subscriptions: []string{"prov1"}, Protocols: []string{"VLESS"}})
+	require.Equal(t, []string{"NL 1", "DE 1"}, check.Chosen)
+	check = s.CheckGroup(context.Background(), GroupCheck{Subscriptions: []string{"prov1"}, Include: []string{"nl"}, Protocols: []string{"hy2", "vless"}})
+	require.Equal(t, []string{"NL 1"}, check.Chosen)
+	check = s.CheckGroup(context.Background(), GroupCheck{Subscriptions: []string{"prov1"}, Protocols: []string{"hysteria2"}})
+	require.Empty(t, check.Chosen)
+	require.Equal(t, 2, check.Total)
+	require.Len(t, fake.built, 1)
+
 	// a subscription not saved yet: the address of the form; the list Load got is used again
 	asked := len(source.asked)
 	check = s.CheckGroup(context.Background(), GroupCheck{Subscriptions: []string{"fresh"}, Include: []string{"nl"}, Addresses: map[string]string{"fresh": "https://other.example/sub/X"}})
