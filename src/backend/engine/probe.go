@@ -20,6 +20,7 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/sagernet/sing-box/adapter"
 	boxdialer "github.com/sagernet/sing-box/common/dialer"
+	"github.com/sagernet/sing-box/common/tls"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -324,9 +325,7 @@ func ProbeErrorClass(err error) detect.ErrorClass {
 	}
 	var unknownAuthority x509.UnknownAuthorityError
 	var hostname x509.HostnameError
-	// the words of common/tls.realityVerificationFailed; the type is not exported, and a test holds
-	// the text (TestProbeErrorClass)
-	if errors.As(err, &unknownAuthority) || errors.As(err, &hostname) || strings.Contains(text, "reality verification failed") {
+	if errors.As(err, &unknownAuthority) || errors.As(err, &hostname) || errors.Is(err, tls.ErrRealityVerification) {
 		return detect.ClassVerify
 	}
 	var timeout net.Error

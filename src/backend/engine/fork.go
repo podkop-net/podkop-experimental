@@ -13,6 +13,7 @@ import (
 	"github.com/sagernet/sing-box/common/ruletext"
 	"github.com/sagernet/sing-box/common/sharelink"
 	"github.com/sagernet/sing-box/common/srs"
+	"github.com/sagernet/sing-box/common/tls"
 	"github.com/sagernet/sing-box/common/trafficcontrol"
 	"github.com/sagernet/sing-box/common/urltest"
 	C "github.com/sagernet/sing-box/constant"
@@ -21,6 +22,7 @@ import (
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing-box/route"
 	R "github.com/sagernet/sing-box/route/rule"
+	M "github.com/sagernet/sing/common/metadata"
 
 	"go4.org/netipx"
 )
@@ -120,6 +122,11 @@ var (
 	// does not tell (0411)
 	_ log.PlatformWriterLevel  = sinkWriter{}
 	_ log.PlatformWriterColors = sinkWriter{}
+	// a server that is not the REALITY server it should be (0401), the key of what the cache file
+	// keeps of a server (0421), how the rule sets of a box start (0402)
+	_ error                                    = tls.ErrRealityVerification
+	_ func(string, string, M.Socksaddr) string = adapter.DetectOutcomeKey
+	_                                          = R.RemoteStart{Empty: true}
 	// a copy of an outbound for a probe is built with the fallback off: the fork reads its options
 	// from the context, as *option.UTLSFallbackOptions (0414)
 	_ = &option.UTLSFallbackOptions{Enabled: false}

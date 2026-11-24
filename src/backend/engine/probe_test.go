@@ -27,6 +27,7 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/sagernet/quic-go"
 	"github.com/sagernet/sing-box/adapter"
+	boxTLS "github.com/sagernet/sing-box/common/tls"
 	"github.com/sagernet/sing-box/option"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/service"
@@ -257,9 +258,12 @@ func TestProbeErrorClass(t *testing.T) {
 		{&net.OpError{Op: "dial", Err: &net.DNSError{Err: "no such host", Name: "x.example"}}, detect.ClassDNS},
 		// dns.Router.Lookup, over a connection that failed
 		{E.Cause(&net.OpError{Op: "dial", Err: os.ErrDeadlineExceeded}, "lookup x.example"), detect.ClassDNS},
-		// common/tls: realityVerificationFailed and verificationFailed
-		{E.New("reality verification failed"), detect.ClassVerify},
-		{E.Cause(os.ErrDeadlineExceeded, "reality verification failed, possibly because of the uTLS fingerprint edge: a note"), detect.ClassVerify},
+		// by its type, through what wraps it (XHTTP hides the types of its transport but this one);
+		// a text alone tells nothing
+		{boxTLS.ErrRealityVerification, detect.ClassVerify},
+		{E.Cause(boxTLS.ErrRealityVerification, "open stream"), detect.ClassVerify},
+		{E.Errors(os.ErrDeadlineExceeded, boxTLS.ErrRealityVerification), detect.ClassVerify},
+		{E.Cause(os.ErrDeadlineExceeded, "reality verification failed"), detect.ClassNoHello},
 		{E.Cause(x509.UnknownAuthorityError{}, "tls: failed to verify certificate"), detect.ClassVerify},
 		{x509.HostnameError{Certificate: &x509.Certificate{}, Host: "a.example"}, detect.ClassVerify},
 		{E.Cause(x509.CertificateInvalidError{Reason: x509.Expired}, "tls: failed to verify certificate"), detect.ClassClock},

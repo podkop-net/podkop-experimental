@@ -31,8 +31,6 @@ import (
 // are read as text without their comments. The page and the dashboard (YACD) talk to the Clash
 // API from the browser by design and are not read.
 var otherDoors = map[string][]string{
-	// the daemon: a rule set with nothing cached starts empty, unless the service says otherwise
-	"src/backend/cmd/podkop/daemon.go": {"switch SING_BOX_RULE_SET_START_EMPTY"},
 	// the commands of the page and of the CLI: the outbounds and groups of the configuration that
 	// runs, their latency tests, the choice of a selector, the update of the dashboard
 	"src/backend/ctl/choice.go":    {"clash-api /proxies"},

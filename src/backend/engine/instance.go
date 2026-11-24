@@ -122,7 +122,7 @@ func sinkLevel(options *option.LogOptions) log.Level {
 // the urltest history of the process (history).
 func BuildLogged(configuration []byte, sink LogSink, services Services, hooks ...ConnectionHook) (*Instance, error) {
 	collected := &notes{tell: true}
-	ctx, cancel := context.WithCancel(withHistory(service.ExtendContext(boxContext(service.ContextWith[deprecated.Manager](context.Background(), collected), services))))
+	ctx, cancel := context.WithCancel(withRemoteStart(withHistory(service.ExtendContext(boxContext(service.ContextWith[deprecated.Manager](context.Background(), collected), services)))))
 	type built struct {
 		box *box.Box
 		err error
@@ -456,8 +456,8 @@ func (i *Instance) DetectFlows() (map[string]detect.FlowSample, error) {
 
 // DetectOutcome returns what the engine recorded of the handshakes with a server, from the cache
 // file; false when the configuration has no cache file or no record for the key. The caller
-// decides whether a record is still fresh. The key is the fallback's: the configured fingerprint,
-// the TLS server name and the server (host:port), as ServersOf reads them.
+// decides whether a record is still fresh. The key is of the configured fingerprint, the TLS server
+// name and the server (host:port), as ServersOf reads them.
 func (i *Instance) DetectOutcome(fingerprint string, serverName string, destination string) (detect.Outcome, bool) {
 	if !i.enter() {
 		return detect.Outcome{}, false
@@ -467,7 +467,7 @@ func (i *Instance) DetectOutcome(fingerprint string, serverName string, destinat
 	if cache == nil {
 		return detect.Outcome{}, false
 	}
-	flags, fp, at, loaded := cache.LoadDetectOutcome(fingerprint + " " + serverName + " " + destination)
+	flags, fp, at, loaded := cache.LoadDetectOutcome(adapter.DetectOutcomeKey(fingerprint, serverName, M.ParseSocksaddr(destination)))
 	if !loaded {
 		return detect.Outcome{}, false
 	}

@@ -211,17 +211,7 @@ func processSettings() {
 	if os.MkdirAll(workDir, 0o755) == nil {
 		_ = os.Chdir(workDir)
 	}
-	// a rule set with nothing cached starts empty and is downloaded after the start: an
-	// apply that adds a list does not leave the LAN without DNS while it downloads. The
-	// environment tells sing-box, unless the service says otherwise.
-	if _, set := os.LookupEnv(startEmptyVariable); !set {
-		_ = os.Setenv(startEmptyVariable, "1")
-	}
 }
-
-// startEmptyVariable is the switch of sing-box (route/rule) for rule sets that start
-// empty instead of downloading during the start.
-const startEmptyVariable = "SING_BOX_RULE_SET_START_EMPTY"
 
 // dohServer is the DNS server of the settings when it is DoH (host[:port][/path]): the time
 // of its HTTPS answers sets a clock no NTP server could (clock.Keeper.DoH).
