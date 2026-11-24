@@ -7,6 +7,49 @@ What changed in each release of podkop-exp, newest first. The engine is the sing
 notes, with the measurements and the limits, are on the
 [releases page](https://github.com/podkop-net/podkop-experimental/releases).
 
+## 0.8.23 — not released yet
+
+Engine r29. In the server choices that count loss (avoiding loss, balance) the loss checks run only
+while the servers are in use; an idle fallback downloads nothing for them (r28: 2 to 3 MB an hour for
+each rule at the defaults). A group that comes into use starts with checks of 1 MB, so loss decides
+in seconds after a switch instead of hours. A balance not in use keeps one choice and stops
+rechecking its servers each round. An HTTP proxy connection kept alive across a restart no longer
+answers one "502 Bad Gateway".
+
+- **The choice among the fallbacks (new):** Rules → a rule → Fallback → Fallback choice. **In order**
+  (the default, as before) uses a row only while nothing before it answers. **Fastest**, **Fastest,
+  avoiding loss** and **Balance between the best** choose among the servers of all the rows
+  together; Directly or Block then comes last, wherever its row is. While the servers of the rule
+  answer, the loss of the fallbacks is not checked. The dashboard shows the fallbacks as one tier
+  named by the choice; the global check tells what loss and balance have counted.
+- **Protocols of the rows (new):** a row of Servers or Fallback takes only the servers of the chosen
+  protocols (VLESS, VMess, Trojan, Shadowsocks, Hysteria2, Hysteria, TUIC, AnyTLS, Naive, SOCKS,
+  HTTP), with the words of its names as before. Links and JSON count as their protocol; an
+  interface has none and is always taken. The list in the window counts what is chosen. A name that
+  is no protocol warns in the log and takes nothing.
+- **The Servers list shows the traffic of a subscription without a limit** ("1.2 GB, no limit").
+  Subscriptions with a limit were already shown.
+- **A bar when the page and the backend are of different versions (new):** after an update the
+  browser may keep the old page. The bar says which is older and reloads the page past the cache
+  (Ctrl+F5 does not do it in Chrome). It is not shown when the versions are the same or not known.
+- **Settings are written safely:** the backend replaces `/etc/config/podkop` as a whole, under the
+  lock of `uci`. With no room left on the flash, the 0.7 → podkop-exp upgrade could leave an empty
+  settings file (`uci commit` does that on a full flash); now the file stays as it was, and the
+  conversion runs when there is room. The copy of the old settings is made whole or not at all; when
+  it cannot be made, nothing else is changed. `option x` without a value no longer makes the backend
+  refuse the file.
+- `podkop migrate` does what the upgrade script did with the settings, in the same order and under
+  the same conditions. Checked on 940 settings files against 0.8.22 on OpenWrt 23.05, 24.10 and 25.12:
+  910 the same on each, the same 30 differ in corners (files LuCI cannot read, an owner or a
+  symlink kept as it was, changes not yet committed).
+- Fixed: `podkop subscription_update` before the settings could be read ended the backend; "update
+  all" without a subscription could stop it for good when the caller was gone; the user of a torrent
+  client on the router that went away was not noticed until a network event.
+- For developers: the commands of the backend are one table the help, the dispatch, the methods on
+  ubus and the page's `run` are made from; `run` asks the backend without its socket. The
+  supervisor has its subscriptions, its BitTorrent and its block detector as parts of their own. The
+  recordings of 0.8.22 hold byte for byte but for the intended changes.
+
 ## 0.8.22 — 2026-11-24
 
 Engine r28, as 0.8.21.
