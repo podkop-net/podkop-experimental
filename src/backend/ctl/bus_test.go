@@ -25,9 +25,9 @@ func TestBusObject(t *testing.T) {
 	}
 	logs := logbuf.New(1 << 16)
 	logs.Write("backend", "info", "running")
+	// no socket: what the commands ask of the backend they ask itself
 	env := Environment{
 		Version: "0.8.0-test", SingBoxVersion: "1.14.3-test",
-		Socket: serve(t, &backend{status: api.Status{Running: true}}, logs),
 		Paths: diag.Paths{
 			Settings: write("podkop", "config settings 'settings'\n\toption dns_type 'udp'\n\nconfig section 'main'\n\toption proxy_string 'socks5://u:p@203.0.113.15:1080'\n"),
 			DHCP:     write("dhcp", "config dnsmasq\n\tlist server '127.0.0.42'\n\toption noresolv '1'\n"),
@@ -35,7 +35,8 @@ func TestBusObject(t *testing.T) {
 		},
 		AutostartPath: write("S99podkop", "#!/bin/sh\n"),
 	}
-	object := BusObject(env)
+	direct := api.Direct{Backend: &backend{status: api.Status{Running: true}}, Log: logs}
+	object := BusObject(env, direct)
 	require.Equal(t, "podkop", object.Name)
 	run := object.Methods["run"].Call
 	ctx := context.Background()
@@ -52,6 +53,13 @@ func TestBusObject(t *testing.T) {
 	answer, status = run(ctx, map[string]any{"command": "check_fakeip_client"})
 	require.Equal(t, ubus.StatusOK, status)
 	require.NotZero(t, answer.(ExecResult).Code)
+
+	// a call that has ended is answered as without a backend
+	ended, end := context.WithCancel(ctx)
+	end()
+	answer, status = run(ended, map[string]any{"command": "get_status"})
+	require.Equal(t, ubus.StatusOK, status)
+	require.Contains(t, answer.(ExecResult).Stdout, `"backend":false`)
 
 	// what the backend does not answer itself: the page runs the program
 	for _, command := range []string{"start", "stop", "restart", "reload", "list_update", "restore_routing", "global_check", "subscription_update", "", "sh"} {
@@ -73,7 +81,7 @@ func TestBusObject(t *testing.T) {
 		}
 		return nil
 	}
-	answer, status = BusObject(env).Methods["run"].Call(ctx, map[string]any{"command": "check_links", "params": []any{"vless://a@b:1?type=kcp", "socks5://c:1080"}})
+	answer, status = BusObject(env, direct).Methods["run"].Call(ctx, map[string]any{"command": "check_links", "params": []any{"vless://a@b:1?type=kcp", "socks5://c:1080"}})
 	require.Equal(t, ubus.StatusOK, status)
 	require.Equal(t, ExecResult{Stdout: `[{"ok":false,"error":"the mKCP transport is not supported"},{"ok":true}]` + "\n"}, answer)
 

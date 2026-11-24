@@ -25,18 +25,21 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/plan"
 	"github.com/podkop-net/podkop-experimental/src/backend/subscription"
+	"github.com/podkop-net/podkop-experimental/src/backend/ubus"
 	"github.com/podkop-net/podkop-experimental/src/backend/uci"
 
 	"github.com/stretchr/testify/require"
 )
 
 // The answers of the commands recorded, those the page reads and those of "podkop device" above
-// all: each command runs as the page's run runs it (Run, in the process), against a backend of
-// fixed answers on a socket (the fake of ctl_test.go), a fake Clash API, and fixed settings
-// (testdata/inputs). Each file of testdata/answers holds the command line, what the case is, the
-// exit status, the standard output as it is and the error output; a file no case writes fails as
-// well. A change of an answer is a change of what the page gets: a refactor keeps the files as they
-// are, a change of an answer writes them anew in the commit that says why:
+// all: each command runs as the program runs it (Run), against a backend of fixed answers on a
+// socket (the fake of ctl_test.go), a fake Clash API, and fixed settings (testdata/inputs); and, when
+// the running backend answers it itself, as the page's run runs it, inside that backend with no
+// socket, where it answers the same (compareInside). Each file of testdata/answers holds the
+// command line, what the case is, the exit status, the standard output as it is and the error
+// output; a file no case writes fails as well. A change of an answer is a change of what the page
+// gets: a refactor keeps the files as they are, a change of an answer writes them anew in the commit
+// that says why:
 //
 //	go test ./ctl -run TestRecordedAnswers -update
 //
@@ -64,6 +67,11 @@ type recorder struct {
 	written map[string]bool
 	// temporary is the directory of the test's temporary files, "<tmp>" in the answers
 	temporary string
+	// direct is the backend that answers on socket: the commands it answers itself are run inside
+	// it as well, and answer the same
+	direct   api.Direct
+	socket   string
+	answered int
 }
 
 // record runs a command line and keeps what it answered under the name.
@@ -77,12 +85,39 @@ func (r *recorder) recordWith(name string, about string, normalize func(string) 
 	var output, errorOutput bytes.Buffer
 	code := Run(env, arguments, &output, &errorOutput)
 	stdout, stderr := output.String(), errorOutput.String()
+	if env.Socket == r.socket {
+		r.compareInside(env, arguments, ExecResult{Code: code, Stdout: stdout, Stderr: stderr})
+	}
 	if normalize != nil {
 		stdout, stderr = normalize(stdout), normalize(stderr)
 	}
 	stdout, stderr = strings.ReplaceAll(stdout, r.temporary, "<tmp>"), strings.ReplaceAll(stderr, r.temporary, "<tmp>")
 	r.keep(name, "$ podkop "+strings.Join(arguments, " "), about, code, stdout, stderr)
 	return stdout
+}
+
+// compareInside runs a command inside the backend, when the backend answers it itself, and fails
+// when that answers otherwise than the program, which asks the backend through its socket. Inside
+// the backend there is no socket to ask.
+func (r *recorder) compareInside(env Environment, arguments []string, program ExecResult) {
+	r.t.Helper()
+	if len(arguments) == 0 {
+		return
+	}
+	env.Socket = filepath.Join(r.temporary, "no.sock")
+	params := []any{}
+	for _, argument := range arguments[1:] {
+		params = append(params, argument)
+	}
+	answer, status := BusObject(env, r.direct).Methods["run"].Call(r.t.Context(), map[string]any{"command": arguments[0], "params": params})
+	method := find(Methods, arguments[0])
+	if method == nil || !method.InProcess {
+		require.Equal(r.t, ubus.StatusNotSupported, status, "podkop %v inside the backend", arguments)
+		return
+	}
+	require.Equal(r.t, ubus.StatusOK, status, "podkop %v inside the backend", arguments)
+	require.Equal(r.t, program, answer, "podkop %v inside the backend", arguments)
+	r.answered++
 }
 
 // keep compares an answer with its file, or writes the file.
@@ -273,6 +308,7 @@ func TestRecordedAnswers(t *testing.T) {
 			return nil
 		},
 	}
+	r.direct, r.socket = api.Direct{Backend: fake, Log: logs}, running.Socket
 	stopped := running
 	stopped.Socket, stopped.AutostartPath = filepath.Join(directory, "none.sock"), filepath.Join(directory, "none")
 	stopped.ConfigDir = filepath.Join(directory, "none")
@@ -361,6 +397,7 @@ func TestRecordedAnswers(t *testing.T) {
 	recordDevices(t, r)
 	recordActions(t, r, fake, running, stopped, &upgradeFails)
 	r.finish()
+	require.Greater(t, r.answered, 40, "the commands run inside the backend too")
 }
 
 // recordActions records what the page does not read: the help and the calls that end in it, the

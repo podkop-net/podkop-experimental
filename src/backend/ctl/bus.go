@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/api"
 	"github.com/podkop-net/podkop-experimental/src/backend/ubus"
 )
 
@@ -19,8 +20,8 @@ type ExecResult struct {
 // BusObject is the object "podkop" the running backend publishes on ubus. Its method "run"
 // takes the command and its arguments as file.exec takes those of a program ("command",
 // "params") and answers ExecResult; a command that is not answered here is StatusNotSupported,
-// and the page runs the program instead.
-func BusObject(env Environment) ubus.Object {
+// and the page runs the program instead. The commands ask the backend itself (direct).
+func BusObject(env Environment, direct api.Direct) ubus.Object {
 	return ubus.Object{
 		Name: "podkop",
 		Methods: map[string]ubus.Method{
@@ -31,7 +32,7 @@ func BusObject(env Environment) ubus.Object {
 					if method := find(Methods, command); method == nil || !method.InProcess {
 						return nil, ubus.StatusNotSupported
 					}
-					line := []string{command}
+					var line []string
 					if params, found := arguments["params"]; found {
 						list, isList := params.([]any)
 						if !isList {
@@ -45,7 +46,9 @@ func BusObject(env Environment) ubus.Object {
 							line = append(line, text)
 						}
 					}
-					return runSafely(env, line), ubus.StatusOK
+					client := direct
+					client.Context = ctx
+					return runSafely(&Call{Name: command, Arguments: line, env: env, client: client}), ubus.StatusOK
 				},
 			},
 		},
@@ -54,13 +57,14 @@ func BusObject(env Environment) ubus.Object {
 
 // runSafely runs a command inside the backend: a panic of the command ends the command, not
 // the backend.
-func runSafely(env Environment, line []string) (result ExecResult) {
+func runSafely(c *Call) (result ExecResult) {
 	var output, errorOutput bytes.Buffer
+	c.Output, c.Errors = &output, &errorOutput
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			result = ExecResult{Code: 1, Stderr: fmt.Sprint("the command failed: ", recovered)}
 		}
 	}()
-	code := Run(env, line, &output, &errorOutput)
+	code := execute(Methods, c)
 	return ExecResult{Code: code, Stdout: output.String(), Stderr: errorOutput.String()}
 }

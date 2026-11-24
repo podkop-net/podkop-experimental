@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/api"
 	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/ctl"
 	"github.com/podkop-net/podkop-experimental/src/backend/detect"
@@ -55,8 +56,8 @@ var processStart = time.Now()
 // busObject is the object "podkop" of the backend on ubus: the commands of the page
 // (ctl.BusObject) and the methods stats, detect and force_detect. A method here is denied to the
 // page unless the ACL of its package names it (TestBusMethodsInACL).
-func busObject(env ctl.Environment, source trafficSource) ubus.Object {
-	object := ctl.BusObject(env)
+func busObject(env ctl.Environment, direct api.Direct, source trafficSource) ubus.Object {
+	object := ctl.BusObject(env, direct)
 	object.Methods["stats"] = ubus.Method{
 		Call: func(ctx context.Context, arguments map[string]any) (any, int) {
 			traffic, running := source.Traffic()

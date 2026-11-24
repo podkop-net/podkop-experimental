@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+	"unicode/utf8"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/logbuf"
@@ -339,21 +340,14 @@ func Serve(ctx context.Context, path string, backend Backend, logs *logbuf.Buffe
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /status", func(writer http.ResponseWriter, request *http.Request) {
-		status := backend.Status()
-		status.Protocol = ProtocolVersion
-		answer(writer, status)
+		answer(writer, statusOf(backend))
 	})
 	mux.HandleFunc("GET /facts", func(writer http.ResponseWriter, request *http.Request) {
 		answer(writer, backend.Facts())
 	})
 	mux.HandleFunc("GET /logs", func(writer http.ResponseWriter, request *http.Request) {
 		since, _ := strconv.ParseUint(request.URL.Query().Get("since"), 10, 64)
-		lines, next := logs.Since(since)
-		page := LogPage{Run: logs.Run(), Next: next, Lines: make([]string, len(lines))}
-		for index, line := range lines {
-			page.Lines[index] = line.Text()
-		}
-		answer(writer, page)
+		answer(writer, logPage(logs, since))
 	})
 	mux.HandleFunc("POST /apply", func(writer http.ResponseWriter, request *http.Request) {
 		answer(writer, backend.Request(request.Context()))
@@ -387,15 +381,12 @@ func Serve(ctx context.Context, path string, backend Backend, logs *logbuf.Buffe
 		answer(writer, backend.Subscriptions(request.Context()))
 	})
 	mux.HandleFunc("POST /subscriptions/update", func(writer http.ResponseWriter, request *http.Request) {
-		ctx := request.Context()
+		name := request.URL.Query().Get("name")
 		if request.URL.Query().Get("wait") == "0" {
-			// the download is started and the states told at once: the page asks for them
-			// again until the download has ended
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, startWait)
-			defer cancel()
+			answer(writer, startUpdate(request.Context(), backend, name))
+			return
 		}
-		answer(writer, backend.UpdateSubscriptions(ctx, request.URL.Query().Get("name")))
+		answer(writer, backend.UpdateSubscriptions(request.Context(), name))
 	})
 	mux.HandleFunc("POST /subscriptions/load", func(writer http.ResponseWriter, request *http.Request) {
 		var asked loadAsked
@@ -416,7 +407,7 @@ func Serve(ctx context.Context, path string, backend Backend, logs *logbuf.Buffe
 	mux.HandleFunc("GET /subscriptions/load/state", func(writer http.ResponseWriter, request *http.Request) {
 		job, known := backend.LoadState(request.Context(), request.URL.Query().Get("id"))
 		if !known {
-			http.Error(writer, "no such download", http.StatusNotFound)
+			http.Error(writer, errNoJob.Error(), http.StatusNotFound)
 			return
 		}
 		answer(writer, job)
@@ -424,7 +415,7 @@ func Serve(ctx context.Context, path string, backend Backend, logs *logbuf.Buffe
 	mux.HandleFunc("POST /subscriptions/load/cancel", func(writer http.ResponseWriter, request *http.Request) {
 		job, known := backend.CancelLoad(request.Context(), request.URL.Query().Get("id"))
 		if !known {
-			http.Error(writer, "no such download", http.StatusNotFound)
+			http.Error(writer, errNoJob.Error(), http.StatusNotFound)
 			return
 		}
 		answer(writer, job)
@@ -450,12 +441,62 @@ func Serve(ctx context.Context, path string, backend Backend, logs *logbuf.Buffe
 	return err
 }
 
+// statusOf is the state of the backend, with the version of this protocol.
+func statusOf(backend Backend) *Status {
+	status := backend.Status()
+	status.Protocol = ProtocolVersion
+	return &status
+}
+
+// logPage is the part of the log after the line of a number. A byte that is no UTF-8 (what a client
+// sent, in a line of sing-box) is U+FFFD, as JSON makes it: the readers count the size of the lines.
+func logPage(logs *logbuf.Buffer, since uint64) *LogPage {
+	lines, next := logs.Since(since)
+	page := &LogPage{Run: logs.Run(), Next: next, Lines: make([]string, len(lines))}
+	for index, line := range lines {
+		text := line.Text()
+		if !utf8.ValidString(text) {
+			text = string([]rune(text))
+		}
+		page.Lines[index] = text
+	}
+	return page
+}
+
+// startUpdate starts the download of a subscription and tells the states at once: the page asks
+// for them again until the download has ended.
+func startUpdate(ctx context.Context, backend Backend, name string) []SubscriptionState {
+	ctx, cancel := context.WithTimeout(ctx, startWait)
+	defer cancel()
+	return backend.UpdateSubscriptions(ctx, name)
+}
+
+// errNoJob tells that the backend knows no job of an id.
+var errNoJob = E.New("no such download")
+
 // loadAsked is the body of a download of a list for the page: the address and the request. A
 // backend before the request had one reads the address alone.
 type loadAsked struct {
 	Address string `json:"address"`
 	ListRequest
 }
+
+// How long Client and Direct wait for the answers of the backend.
+const (
+	factsWait       = 3 * time.Second
+	stateWait       = 5 * time.Second
+	listsWait       = 10 * time.Second
+	probeSelfWait   = 15 * time.Second
+	applyWait       = 90 * time.Second
+	updateListsWait = 6 * time.Minute
+	updateWait      = 3 * time.Minute
+	// probeSlack is how much longer than the backend waits for a connection its answer is waited
+	// for. LuCI gives up a call after 20 s: global_check waits for this beside its other checks.
+	probeSlack = 8 * time.Second
+	// startWait is how long a start of a download (StartSubscriptionUpdate) waits for the backend
+	// to take the request: the download itself goes on without the caller.
+	startWait = 2 * time.Second
+)
 
 // Client asks a running backend through its socket.
 type Client struct {
@@ -503,7 +544,7 @@ func (c Client) send(method string, path string, timeout time.Duration, body any
 // Status returns the state of the backend; an error when none runs.
 func (c Client) Status() (*Status, error) {
 	status := new(Status)
-	err := c.call(http.MethodGet, "/status", 3*time.Second, status)
+	err := c.call(http.MethodGet, "/status", factsWait, status)
 	if err != nil {
 		return nil, err
 	}
@@ -514,7 +555,7 @@ func (c Client) Status() (*Status, error) {
 // runs.
 func (c Client) Facts() (*Facts, error) {
 	facts := new(Facts)
-	err := c.call(http.MethodGet, "/facts", 3*time.Second, facts)
+	err := c.call(http.MethodGet, "/facts", factsWait, facts)
 	if err != nil {
 		return nil, err
 	}
@@ -524,7 +565,7 @@ func (c Client) Facts() (*Facts, error) {
 // Logs returns the lines of the log after the given number, and the number to ask with next.
 func (c Client) Logs(since uint64) (*LogPage, error) {
 	page := new(LogPage)
-	err := c.call(http.MethodGet, "/logs?since="+strconv.FormatUint(since, 10), 5*time.Second, page)
+	err := c.call(http.MethodGet, "/logs?since="+strconv.FormatUint(since, 10), stateWait, page)
 	if err != nil {
 		return nil, err
 	}
@@ -534,7 +575,7 @@ func (c Client) Logs(since uint64) (*LogPage, error) {
 // Apply makes the backend apply the settings and returns what that came to.
 func (c Client) Apply() (*Result, error) {
 	result := new(Result)
-	err := c.call(http.MethodPost, "/apply", 90*time.Second, result)
+	err := c.call(http.MethodPost, "/apply", applyWait, result)
 	if err != nil {
 		return nil, err
 	}
@@ -544,7 +585,7 @@ func (c Client) Apply() (*Result, error) {
 // UpdateLists makes the backend download every list now and returns what that came to.
 func (c Client) UpdateLists() (*ListsUpdate, error) {
 	result := new(ListsUpdate)
-	err := c.call(http.MethodPost, "/lists/update", 6*time.Minute, result)
+	err := c.call(http.MethodPost, "/lists/update", updateListsWait, result)
 	if err != nil {
 		return nil, err
 	}
@@ -555,14 +596,14 @@ func (c Client) UpdateLists() (*ListsUpdate, error) {
 // did.
 func (c Client) RestoreRouting() (string, error) {
 	var result string
-	err := c.call(http.MethodPost, "/routing/restore", 10*time.Second, &result)
+	err := c.call(http.MethodPost, "/routing/restore", listsWait, &result)
 	return result, err
 }
 
 // Lists returns what the backend knows of each list of what runs.
 func (c Client) Lists() ([]ListState, error) {
 	var states []ListState
-	err := c.call(http.MethodGet, "/lists", 10*time.Second, &states)
+	err := c.call(http.MethodGet, "/lists", listsWait, &states)
 	if err != nil {
 		return nil, err
 	}
@@ -574,8 +615,7 @@ func (c Client) Lists() ([]ListState, error) {
 func (c Client) Probe(label string, wait time.Duration) (*ProbeResult, error) {
 	result := new(ProbeResult)
 	path := "/probe?label=" + url.QueryEscape(label) + "&wait=" + strconv.FormatInt(wait.Milliseconds(), 10)
-	// LuCI gives up a call after 20 s: global_check waits for this beside its other checks
-	err := c.call(http.MethodGet, path, wait+8*time.Second, result)
+	err := c.call(http.MethodGet, path, wait+probeSlack, result)
 	if err != nil {
 		return nil, err
 	}
@@ -585,7 +625,7 @@ func (c Client) Probe(label string, wait time.Duration) (*ProbeResult, error) {
 // ProbeSelf makes the backend check the router itself with a check name.
 func (c Client) ProbeSelf() (*ProbeResult, error) {
 	result := new(ProbeResult)
-	err := c.call(http.MethodGet, "/probe/self", 15*time.Second, result)
+	err := c.call(http.MethodGet, "/probe/self", probeSelfWait, result)
 	if err != nil {
 		return nil, err
 	}
@@ -595,21 +635,21 @@ func (c Client) ProbeSelf() (*ProbeResult, error) {
 // BitTorrentStats returns what the BitTorrent traffic of the LAN came to.
 func (c Client) BitTorrentStats() (btstats.Report, error) {
 	var report btstats.Report
-	err := c.call(http.MethodGet, "/bittorrent/stats", 5*time.Second, &report)
+	err := c.call(http.MethodGet, "/bittorrent/stats", stateWait, &report)
 	return report, err
 }
 
 // ResetBitTorrentStats starts the statistics of BitTorrent again and returns them.
 func (c Client) ResetBitTorrentStats() (btstats.Report, error) {
 	var report btstats.Report
-	err := c.call(http.MethodPost, "/bittorrent/stats/reset", 5*time.Second, &report)
+	err := c.call(http.MethodPost, "/bittorrent/stats/reset", stateWait, &report)
 	return report, err
 }
 
 // BitTorrent returns what the BitTorrent module has counted (nil when it does not run).
 func (c Client) BitTorrent() (map[string]int64, error) {
 	var counters map[string]int64
-	err := c.call(http.MethodGet, "/bittorrent", 5*time.Second, &counters)
+	err := c.call(http.MethodGet, "/bittorrent", stateWait, &counters)
 	if err != nil {
 		return nil, err
 	}
@@ -619,20 +659,16 @@ func (c Client) BitTorrent() (map[string]int64, error) {
 // Subscriptions returns what the backend knows of each subscription.
 func (c Client) Subscriptions() ([]SubscriptionState, error) {
 	var states []SubscriptionState
-	err := c.call(http.MethodGet, "/subscriptions", 5*time.Second, &states)
+	err := c.call(http.MethodGet, "/subscriptions", stateWait, &states)
 	return states, err
 }
-
-// startWait is how long a start of a download (StartSubscriptionUpdate) waits for the backend
-// to take the request: the download itself goes on without the caller.
-const startWait = 2 * time.Second
 
 // StartSubscriptionUpdate makes the backend start a download of the list of a subscription now
 // (of all of them with no name) and returns the states at once; Subscriptions tells how it
 // goes, the attempted time of the subscription is new once it has ended.
 func (c Client) StartSubscriptionUpdate(name string) ([]SubscriptionState, error) {
 	var states []SubscriptionState
-	err := c.call(http.MethodPost, "/subscriptions/update?wait=0&name="+url.QueryEscape(name), startWait+5*time.Second, &states)
+	err := c.call(http.MethodPost, "/subscriptions/update?wait=0&name="+url.QueryEscape(name), startWait+stateWait, &states)
 	return states, err
 }
 
@@ -640,7 +676,7 @@ func (c Client) StartSubscriptionUpdate(name string) ([]SubscriptionState, error
 // them with no name) and returns what it knows of them then.
 func (c Client) UpdateSubscriptions(name string) ([]SubscriptionState, error) {
 	var states []SubscriptionState
-	err := c.call(http.MethodPost, "/subscriptions/update?name="+url.QueryEscape(name), 3*time.Minute, &states)
+	err := c.call(http.MethodPost, "/subscriptions/update?name="+url.QueryEscape(name), updateWait, &states)
 	return states, err
 }
 
@@ -659,7 +695,7 @@ func (c Client) LoadSubscription(address string, request ListRequest, timeout ti
 // request, to be shown.
 func (c Client) StartLoad(address string, request ListRequest) (*LoadJob, error) {
 	job := new(LoadJob)
-	err := c.send(http.MethodPost, "/subscriptions/load/start", 5*time.Second, loadAsked{Address: address, ListRequest: request}, job)
+	err := c.send(http.MethodPost, "/subscriptions/load/start", stateWait, loadAsked{Address: address, ListRequest: request}, job)
 	if err != nil {
 		return nil, err
 	}
@@ -669,7 +705,7 @@ func (c Client) StartLoad(address string, request ListRequest) (*LoadJob, error)
 // LoadState asks the backend how a download of a list for the page goes.
 func (c Client) LoadState(id string) (*LoadJob, error) {
 	job := new(LoadJob)
-	err := c.call(http.MethodGet, "/subscriptions/load/state?id="+url.QueryEscape(id), 5*time.Second, job)
+	err := c.call(http.MethodGet, "/subscriptions/load/state?id="+url.QueryEscape(id), stateWait, job)
 	if err != nil {
 		return nil, err
 	}
@@ -679,7 +715,7 @@ func (c Client) LoadState(id string) (*LoadJob, error) {
 // CancelLoad makes the backend stop a download of a list for the page.
 func (c Client) CancelLoad(id string) (*LoadJob, error) {
 	job := new(LoadJob)
-	err := c.call(http.MethodPost, "/subscriptions/load/cancel?id="+url.QueryEscape(id), 5*time.Second, job)
+	err := c.call(http.MethodPost, "/subscriptions/load/cancel?id="+url.QueryEscape(id), stateWait, job)
 	if err != nil {
 		return nil, err
 	}

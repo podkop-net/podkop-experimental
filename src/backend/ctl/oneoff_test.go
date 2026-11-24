@@ -55,7 +55,7 @@ func shortWaits(t *testing.T, budget time.Duration) {
 // latencyOf runs get_proxy_latency against the fake and reads what it printed.
 func latencyOf(t *testing.T, fake *fakeClash, tag string) (oneOff, int) {
 	t.Helper()
-	output, status := run(Environment{Socket: fake.caller(t).client.Path}, "clash_api", "get_proxy_latency", tag, "5000")
+	output, status := run(Environment{Socket: fake.caller(t).client.(api.Client).Path}, "clash_api", "get_proxy_latency", tag, "5000")
 	var answer oneOff
 	if status == 0 {
 		require.NoError(t, json.Unmarshal([]byte(output), &answer), output)
@@ -166,7 +166,7 @@ func TestGroupLatency(t *testing.T) {
 	}
 	groups := map[string]string{"main-urltest-out": `{"a": 100, "c": 90, "main-fallback-1-out": 90}`}
 	latency := func(fake *fakeClash, tag string) (map[string]int, []string, int) {
-		output, status := run(Environment{Socket: fake.caller(t).client.Path}, "clash_api", "get_group_latency", tag, "12000")
+		output, status := run(Environment{Socket: fake.caller(t).client.(api.Client).Path}, "clash_api", "get_group_latency", tag, "12000")
 		delays := map[string]int{}
 		if status == 0 {
 			require.NoError(t, json.Unmarshal([]byte(output), &delays), output)

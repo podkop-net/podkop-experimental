@@ -10,6 +10,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/api"
 	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/ctl"
 	"github.com/podkop-net/podkop-experimental/src/backend/detect"
@@ -75,7 +76,7 @@ func (f fixedTraffic) ResetBitTorrentStats() btstats.Report {
 
 // The method bittorrent answers the report as the page reads it.
 func TestBusBitTorrent(t *testing.T) {
-	answer, status := busObject(ctl.Environment{}, fixedTraffic{}).Methods["bittorrent"].Call(context.Background(), nil)
+	answer, status := busObject(ctl.Environment{}, api.Direct{}, fixedTraffic{}).Methods["bittorrent"].Call(context.Background(), nil)
 	require.Equal(t, ubus.StatusOK, status)
 	encoded, err := json.Marshal(answer)
 	require.NoError(t, err)
@@ -84,7 +85,7 @@ func TestBusBitTorrent(t *testing.T) {
 }
 
 func TestBusStats(t *testing.T) {
-	object := busObject(ctl.Environment{}, fixedTraffic{engine.Traffic{Up: 10, Down: 20, Connections: 3}, true})
+	object := busObject(ctl.Environment{}, api.Direct{}, fixedTraffic{engine.Traffic{Up: 10, Down: 20, Connections: 3}, true})
 	require.Contains(t, object.Methods, "run")
 	answer, status := object.Methods["stats"].Call(context.Background(), nil)
 	require.Equal(t, ubus.StatusOK, status)
@@ -97,13 +98,13 @@ func TestBusStats(t *testing.T) {
 	later, _ := object.Methods["stats"].Call(context.Background(), nil)
 	require.GreaterOrEqual(t, later.(Stats).At, stats.At)
 
-	answer, _ = busObject(ctl.Environment{}, fixedTraffic{}).Methods["stats"].Call(context.Background(), nil)
+	answer, _ = busObject(ctl.Environment{}, api.Direct{}, fixedTraffic{}).Methods["stats"].Call(context.Background(), nil)
 	require.False(t, answer.(Stats).Running)
 }
 
 // What the page reads, in the form a call answers it: an object with these names.
 func TestBusDetect(t *testing.T) {
-	object := busObject(ctl.Environment{}, fixedTraffic{})
+	object := busObject(ctl.Environment{}, api.Direct{}, fixedTraffic{})
 	answer, status := object.Methods["detect"].Call(context.Background(), nil)
 	require.Equal(t, ubus.StatusOK, status)
 	table, status := ubus.AsTable(answer)
@@ -122,7 +123,7 @@ func TestBusDetect(t *testing.T) {
 }
 
 func TestBusForceDetect(t *testing.T) {
-	object := busObject(ctl.Environment{}, fixedTraffic{})
+	object := busObject(ctl.Environment{}, api.Direct{}, fixedTraffic{})
 	method := object.Methods["force_detect"]
 	require.Equal(t, map[string]int{"tag": ubus.TypeString, "cancel": ubus.TypeBool}, method.Arguments)
 
@@ -160,7 +161,7 @@ func TestBusMethodsInACL(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(content, &acl))
 	group := acl["luci-app-podkop"]
-	object := busObject(ctl.Environment{}, fixedTraffic{})
+	object := busObject(ctl.Environment{}, api.Direct{}, fixedTraffic{})
 	require.NotEmpty(t, object.Methods)
 	for name := range object.Methods {
 		granted := slices.Contains(group.Read.Ubus[object.Name], name) || slices.Contains(group.Write.Ubus[object.Name], name)

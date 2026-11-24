@@ -98,9 +98,33 @@ type Call struct {
 	Output    io.Writer
 	Errors    io.Writer
 	env       Environment
-	client    api.Client
+	client    daemon
 	loading   sync.Once
 	loaded    *model.Config
+}
+
+// daemon is the running backend as the commands ask it: api.Client through its socket, from a
+// program of their own, and api.Direct inside the backend itself.
+type daemon interface {
+	Status() (*api.Status, error)
+	Facts() (*api.Facts, error)
+	Logs(since uint64) (*api.LogPage, error)
+	Apply() (*api.Result, error)
+	UpdateLists() (*api.ListsUpdate, error)
+	RestoreRouting() (string, error)
+	Lists() ([]api.ListState, error)
+	Probe(label string, wait time.Duration) (*api.ProbeResult, error)
+	ProbeSelf() (*api.ProbeResult, error)
+	BitTorrent() (map[string]int64, error)
+	BitTorrentStats() (btstats.Report, error)
+	ResetBitTorrentStats() (btstats.Report, error)
+	Subscriptions() ([]api.SubscriptionState, error)
+	StartSubscriptionUpdate(name string) ([]api.SubscriptionState, error)
+	UpdateSubscriptions(name string) ([]api.SubscriptionState, error)
+	StartLoad(address string, request api.ListRequest) (*api.LoadJob, error)
+	LoadState(id string) (*api.LoadJob, error)
+	CancelLoad(id string) (*api.LoadJob, error)
+	CheckGroup(check api.GroupCheck, wait time.Duration) (*api.GroupPreview, error)
 }
 
 // errUsage ends a command whose arguments are not those of its help: the help is printed.
@@ -658,7 +682,7 @@ func maskSystemLog(lines []string) []string {
 
 // logs prints the log of this run of the backend. When no backend answers, what the
 // system log has of it is printed instead.
-func logs(client api.Client, output io.Writer) int {
+func logs(client daemon, output io.Writer) int {
 	page, err := client.Logs(0)
 	if err != nil {
 		lines := systemLog()
@@ -680,7 +704,7 @@ func logs(client api.Client, output io.Writer) int {
 // where to go on from. The notices of the user interface ask with it, and so raise each
 // line once, however long the log and however often the page is opened. With no backend
 // the run is "system" and the lines are those of the system log.
-func logsSince(client api.Client, cursor string) *api.LogPage {
+func logsSince(client daemon, cursor string) *api.LogPage {
 	run, number, _ := strings.Cut(cursor, ":")
 	since, _ := strconv.ParseUint(number, 10, 64)
 	page, err := client.Logs(since)
@@ -743,7 +767,7 @@ func showConfig(env Environment, rejected bool, output io.Writer, errorOutput io
 // printed as the shell backend prints them. Where the API listens and its key are what
 // the backend that runs tells (api.Facts): with no backend there is no API. The delays are
 // tested with the check URLs links gives (oneOffURLs), read only by the commands that test.
-func clashAPI(client api.Client, links func() []string, arguments []string, output io.Writer) int {
+func clashAPI(client daemon, links func() []string, arguments []string, output io.Writer) int {
 	say := func(text string) {
 		content, err := plan.Pretty([]byte(text))
 		if err == nil {

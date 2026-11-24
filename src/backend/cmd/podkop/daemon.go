@@ -135,7 +135,7 @@ var commandDaemon = &cobra.Command{
 			}
 		}()
 		// the commands of the page answered here, with no program started for a call
-		go ubus.Serve(ctx, ubus.Socket(), busObject(ctlEnvironment(), backend), func(message string) {
+		go ubus.Serve(ctx, ubus.Socket(), busObject(ctlEnvironment(), api.Direct{Backend: backend, Log: logs}, backend), func(message string) {
 			say("warn", message)
 		})
 		if err := backend.Run(ctx, reload); err != nil {

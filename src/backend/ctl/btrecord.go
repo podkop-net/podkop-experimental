@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/podkop-net/podkop-experimental/src/backend/api"
 	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/diag"
 )
@@ -34,7 +33,7 @@ var recordEvery, recordMinute = 10 * time.Second, time.Minute
 var recordDir = "/tmp"
 
 // bitTorrentRecord runs the command; arguments are those after its name.
-func bitTorrentRecord(env Environment, client api.Client, arguments []string, output io.Writer, errorOutput io.Writer) int {
+func bitTorrentRecord(env Environment, client daemon, arguments []string, output io.Writer, errorOutput io.Writer) int {
 	minutes, reset := 10, false
 	for _, argument := range arguments {
 		switch {

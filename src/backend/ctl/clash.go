@@ -17,7 +17,7 @@ import (
 // backend that runs tells (api.Facts), asked once, at the first call: with no backend there
 // is no API, and every call answers nothing (status 0).
 type clashCaller struct {
-	client api.Client
+	client daemon
 	once   sync.Once
 	facts  api.Facts
 }

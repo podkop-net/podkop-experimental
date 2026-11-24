@@ -165,7 +165,7 @@ func listRequest(arguments []string) (api.ListRequest, bool) {
 
 // loadAndWait downloads a list to be shown as a job of the backend, and waits for it: the
 // command line has no limit of LuCI.
-func loadAndWait(client api.Client, address string, request api.ListRequest) *api.SubscriptionPreview {
+func loadAndWait(client daemon, address string, request api.ListRequest) *api.SubscriptionPreview {
 	job, err := client.StartLoad(address, request)
 	if err != nil {
 		return notRunning()
