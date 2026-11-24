@@ -55,6 +55,31 @@ func TestParseOptionAfterList(t *testing.T) {
 	require.Equal(t, []string{"v", "w"}, section.List("z"))
 }
 
+// An option set to nothing, or without a value, is no option to libuci (uci show of OpenWrt 24.10
+// and 25.12): it takes nothing from one with a value before it, and is no item of a list after it.
+// Alone it is there, empty.
+func TestParseEmptyOption(t *testing.T) {
+	t.Parallel()
+	parsed, err := Parse([]byte("config s 'a'\n\toption x '1'\n\toption x ''\n\tlist y '1'\n\toption y ''\n\toption z ''\n\tlist z '1'\n\tlist z '2'\n\toption w\n\toption v ''\n\toption v '3'\n\tlist u\n\toption t '4'\n\toption t\n"))
+	require.NoError(t, err)
+	section := parsed.Section("a")
+	require.Equal(t, "1", section.Get("x"))
+	require.Equal(t, []string{"1"}, section.List("y"))
+	require.Equal(t, []string{"1", "2"}, section.List("z"))
+	require.True(t, section.IsList("z"))
+	require.True(t, section.Has("w"))
+	require.Equal(t, "", section.Get("w"))
+	require.Equal(t, []string{"3"}, section.List("v"))
+	require.Equal(t, []string{""}, section.List("u"))
+	require.True(t, section.IsList("u"))
+	require.Equal(t, "4", section.Get("t"))
+	require.Equal(t, []string{"x", "y", "z", "w", "v", "u", "t"}, section.Options())
+	// the place in the section is that of the one read
+	parsed, err = Parse([]byte("config s 'a'\n\toption x ''\n\toption y '1'\n\toption x '2'\n\toption y ''\n"))
+	require.NoError(t, err)
+	require.Equal(t, []string{"y", "x"}, parsed.Section("a").Options())
+}
+
 func TestParseSameSectionTwice(t *testing.T) {
 	t.Parallel()
 	parsed, err := Parse([]byte("config s 'a'\n\toption x '1'\nconfig s 'b'\nconfig s 'a'\n\toption y '2'\n"))
@@ -68,7 +93,9 @@ func TestParseErrors(t *testing.T) {
 	t.Parallel()
 	for _, text := range []string{
 		"option x 'y'\n",
-		"config s 'a'\n\toption x\n",
+		"config s 'a'\n\toption x 'y' 'z'\n",
+		"config s 'a'\n\toption\n",
+		"config s 'a'\n\tlist\n",
 		"config s 'a'\n\toption x 'open\n",
 		"config s 'a'\n\toption x \"open\n",
 		"config s 'a'\n\tsomething x 'y'\n",

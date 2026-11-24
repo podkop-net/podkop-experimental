@@ -32,6 +32,10 @@ type option struct {
 	values []string
 }
 
+// empty tells an option set to nothing, which libuci does not read: it is as one not set. Here it
+// is kept, so that Has tells it from one that is not in the file.
+func (o *option) empty() bool { return !o.list && o.values[0] == "" }
+
 // Section returns the section of that name, or nil.
 func (p *Package) Section(name string) *Section {
 	for _, section := range p.Sections {
@@ -163,18 +167,29 @@ func Parse(content []byte) (*Package, error) {
 			if current == nil {
 				return nil, E.New("line ", line, ": ", words[0], " outside of a section")
 			}
-			if len(words) != 3 {
+			if len(words) != 2 && len(words) != 3 {
 				return nil, E.New("line ", line, ": ", words[0], " takes a name and a value")
 			}
+			// no value is an empty one
+			value := strings.Join(words[2:], "")
 			found := current.options[words[1]]
+			if found != nil && words[0] == "option" && value == "" {
+				// libuci does not read an option set to nothing: what is there stays
+				continue
+			}
+			if found != nil && found.empty() {
+				// nor did it read that one
+				current.Delete(words[1])
+				found = nil
+			}
 			if found == nil {
 				current.order = append(current.order, words[1])
 			}
 			if words[0] == "option" || found == nil {
-				current.options[words[1]] = &option{list: words[0] == "list", values: []string{words[2]}}
+				current.options[words[1]] = &option{list: words[0] == "list", values: []string{value}}
 			} else {
 				found.list = true
-				found.values = append(found.values, words[2])
+				found.values = append(found.values, value)
 			}
 		default:
 			return nil, E.New("line ", line, ": unknown command ", words[0])
