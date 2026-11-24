@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	E "github.com/sagernet/sing/common/exceptions"
 )
 
@@ -21,7 +22,7 @@ import (
 // request of the DoH path is answered by any DoH server, with an error or not; the status
 // does not matter. The Date has whole seconds: half a second is added.
 func HTTPSTime(ctx context.Context, address string, host string, path string, roots *x509.CertPool) (time.Time, error) {
-	dialer := net.Dialer{Control: markedControl}
+	dialer := net.Dialer{Control: dataplane.MarkedControl}
 	raw, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
 		return time.Time{}, err

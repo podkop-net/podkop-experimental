@@ -320,7 +320,7 @@ func lookupAt(ctx context.Context, server string, name string) ([]netip.Addr, er
 	resolver := net.DefaultResolver
 	if server != "" {
 		resolver = &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, network string, _ string) (net.Conn, error) {
-			dialer := net.Dialer{Control: markedControl}
+			dialer := net.Dialer{Control: dataplane.MarkedControl}
 			return dialer.DialContext(ctx, network, net.JoinHostPort(server, "53"))
 		}}
 	}
