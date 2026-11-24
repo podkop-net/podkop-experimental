@@ -4,6 +4,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/uci"
 
@@ -31,7 +32,7 @@ func TestDataplane(t *testing.T) {
 	// the defaults: the bridge of the LAN, NTP through, the DNS of the LAN taken, the API
 	// on this host only, whatever the address of the LAN
 	result := buildText(t, head+proxy, Facts{LANAddress: "192.168.1.1"})
-	require.Equal(t, Dataplane{Interfaces: []string{"br-lan"}, TakeDNS: true, ClashAPI: "127.0.0.1:9090"}, result.Dataplane)
+	require.Equal(t, dataplane.Intent{Interfaces: []string{"br-lan"}, TakeDNS: true, ClashAPI: "127.0.0.1:9090"}, result.Dataplane)
 	require.Contains(t, string(result.Config), `"external_controller": "127.0.0.1:9090"`)
 
 	// what the settings say; devices routed whole are IPv4 prefixes, a word is left out
@@ -39,7 +40,7 @@ func TestDataplane(t *testing.T) {
 		"\toption enable_yacd '1'\n\tlist yacd_interfaces 'br-guest'\n\tlist yacd_interfaces 'wan'\n\toption yacd_secret_key 'k'\n"+
 		proxy+"\tlist fully_routed_ips '192.168.1.23'\n\tlist fully_routed_ips '192.168.2.0/24'\n\tlist fully_routed_ips '2001:db8::1'\n\tlist fully_routed_ips 'word'\n",
 		Facts{LANAddress: "192.168.1.1"})
-	require.Equal(t, Dataplane{
+	require.Equal(t, dataplane.Intent{
 		Interfaces: []string{"br-guest", "eth2"}, ExcludeNTP: true,
 		Sources: []netip.Prefix{netip.MustParsePrefix("192.168.1.23/32"), netip.MustParsePrefix("192.168.2.0/24")},
 		// with YACD the API listens on every address, kept by the firewall to the devices

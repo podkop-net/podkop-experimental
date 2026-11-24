@@ -167,7 +167,7 @@ func bitTorrentTable(t *testing.T, plan *Plan) {
 		devices := []string{""}
 		if !detector.LAN {
 			devices = nil
-			for _, device := range detector.Sources {
+			for _, device := range plan.Sources {
 				devices = append(devices, "ip daddr "+device.String()+" ")
 			}
 		}
@@ -293,7 +293,7 @@ func TestBitTorrentTable(t *testing.T) {
 	needNft(t)
 	for name, detector := range map[string]BitTorrent{
 		"bypass":           {Mode: BitTorrentBypass},
-		"block":            {Mode: BitTorrentBlock, Sources: prefixes("192.168.1.60/32", "192.168.1.64/30")},
+		"block":            {Mode: BitTorrentBlock},
 		"block, the LAN":   {Mode: BitTorrentBlock, LAN: true},
 		"section":          {Mode: BitTorrentSection},
 		"section, the LAN": {Mode: BitTorrentSection, LAN: true},
@@ -308,7 +308,12 @@ func TestBitTorrentTable(t *testing.T) {
 		"section, the LAN, hidden, a router user": {Mode: BitTorrentSection, LAN: true, Fan: dataplane.DefaultFan, RouterUsers: []uint32{4321}},
 		"bypass, hidden clients asked":            {Mode: BitTorrentBypass, Fan: dataplane.DefaultFan},
 	} {
-		plan := &Plan{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: detector}
+		// the devices routed whole: in block, a drop of what comes from outside to each
+		devices := prefixes("192.168.1.60/32")
+		if name == "block" {
+			devices = prefixes("192.168.1.60/32", "192.168.1.64/30")
+		}
+		plan := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, Sources: devices, BitTorrent: detector}}
 		_ = Remove()
 		bitTorrentTable(t, plan)
 		want := dump(t)
@@ -346,7 +351,7 @@ func TestKnowBitTorrentHost(t *testing.T) {
 	if err := KnowBitTorrentHost(device); err == nil {
 		t.Error("no table: no error")
 	}
-	if err := Apply(&Plan{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBlock, LAN: true, Fan: dataplane.DefaultFan}}); err != nil {
+	if err := Apply(&Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBlock, LAN: true, Fan: dataplane.DefaultFan}}}); err != nil {
 		t.Fatal(err)
 	}
 	left := func(set string) time.Duration {
@@ -394,11 +399,11 @@ func TestKnowBitTorrentHost(t *testing.T) {
 
 // A change of the mode is one of the rules: the table is made anew.
 func TestBitTorrentModeIsStructure(t *testing.T) {
-	off := &Plan{Interfaces: []string{"br-lan"}}
-	bypass := &Plan{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBypass}}
-	block := &Plan{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBlock}}
-	lan := &Plan{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBlock, LAN: true}}
-	sectionLAN := &Plan{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentSection, LAN: true}}
+	off := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}}}
+	bypass := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBypass}}}
+	block := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBlock}}}
+	lan := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBlock, LAN: true}}}
+	sectionLAN := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentSection, LAN: true}}}
 	structures := map[string]bool{}
 	for _, plan := range []*Plan{off, bypass, block, lan, sectionLAN} {
 		structures[plan.structure()] = true
@@ -456,7 +461,7 @@ func TestBitTorrentKept(t *testing.T) {
 	_ = Remove()
 	t.Cleanup(func() { _ = Remove() })
 	plan := func(mode string) *Plan {
-		return &Plan{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: BitTorrent{Mode: mode}}
+		return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: BitTorrent{Mode: mode}}}
 	}
 	bypass, block := plan(BitTorrentBypass), plan(BitTorrentBlock)
 	if err := Apply(bypass); err != nil {
@@ -490,7 +495,7 @@ func TestBitTorrentSaved(t *testing.T) {
 	bitTorrentSaved = filepath.Join(t.TempDir(), "sets.json")
 	t.Cleanup(func() { _ = Remove(); bitTorrentSaved = saved })
 	_ = Remove()
-	plan := &Plan{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: BitTorrent{Mode: BitTorrentBypass}}
+	plan := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: BitTorrent{Mode: BitTorrentBypass}}}
 	if err := Apply(plan); err != nil {
 		t.Fatal(err)
 	}
@@ -530,7 +535,7 @@ func TestReadBufferNeeded(t *testing.T) {
 	asked := netlinkReadBuffer
 	t.Cleanup(func() { netlinkReadBuffer = asked; _ = Remove() })
 	for _, mode := range []string{"", BitTorrentBypass, BitTorrentBlock, BitTorrentSection} {
-		plan := &Plan{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: BitTorrent{Mode: mode, LAN: mode != BitTorrentBypass}}
+		plan := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: BitTorrent{Mode: mode, LAN: mode != BitTorrentBypass}}}
 		low, high := 2<<10, asked
 		for high-low > 2<<10 {
 			middle := (low + high) / 2
@@ -608,7 +613,7 @@ func TestBitTorrentKeptMany(t *testing.T) {
 	_ = Remove()
 	t.Cleanup(func() { _ = Remove() })
 	plan := func(mode string) *Plan {
-		return &Plan{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: BitTorrent{Mode: mode}}
+		return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32"), BitTorrent: BitTorrent{Mode: mode}}}
 	}
 	bypass, block := plan(BitTorrentBypass), plan(BitTorrentBlock)
 	if err := Apply(bypass); err != nil {

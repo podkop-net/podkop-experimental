@@ -35,7 +35,8 @@ var updateGoldens = flag.Bool("update", false, "rewrite the goldens of testdata/
 const goldenDir = "testdata/kernel"
 
 // goldenPlan is a plan of a golden: what the supervisor hands to Apply and Update for some
-// settings (supervisor.firewallPlan maps plan.Dataplane and the sets of the lists into it).
+// settings (supervisor.firewallPlan: the intent of the plan, plan.Result.Dataplane, with the sets
+// of the lists).
 type goldenPlan struct {
 	name string
 	plan func() *Plan
@@ -72,79 +73,80 @@ func goldenPlans() []goldenPlan {
 	devices := prefixes("192.168.1.60/32", "192.168.1.64/30", "10.7.0.0/24")
 	return []goldenPlan{
 		// a rule whose lists are not loaded yet: FakeIP only
-		{"lan-only", func() *Plan { return &Plan{Interfaces: []string{"br-lan"}} }},
+		{"lan-only", func() *Plan { return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}}} }},
 		// plain proxying by lists, NTP of the LAN left alone
 		{"lists", func() *Plan {
-			return &Plan{Interfaces: []string{"br-lan"}, ExcludeNTP: true, Subnets: RangesOf(prefixes(slices.Concat(telegram, addresses)...))}
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, ExcludeNTP: true}, Subnets: RangesOf(prefixes(slices.Concat(telegram, addresses)...))}
 		}},
 		// the same rules, a list grown and an address gone
 		{"lists-changed", func() *Plan {
-			return &Plan{Interfaces: []string{"br-lan"}, ExcludeNTP: true, Subnets: RangesOf(prefixes(slices.Concat(telegram[1:], []string{"91.108.20.0/22", "8.8.8.8/32", "9.9.9.9/32"})...))}
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, ExcludeNTP: true}, Subnets: RangesOf(prefixes(slices.Concat(telegram[1:], []string{"91.108.20.0/22", "8.8.8.8/32", "9.9.9.9/32"})...))}
 		}},
 		// lists with ports of their own (UDP and TCP), from two interfaces
 		{"groups", func() *Plan {
-			return &Plan{Interfaces: []string{"br-lan", "wlan0.20"}, Subnets: RangesOf(prefixes(telegram...)), Groups: []Group{voice(false), web()}}
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan", "wlan0.20"}}, Subnets: RangesOf(prefixes(telegram...)), Groups: []Group{voice(false), web()}}
 		}},
 		// devices routed whole (fully_routed_ips; a rule only for some devices gives its devices
 		// routed whole the same way), with lists
 		{"devices", func() *Plan {
-			return &Plan{Interfaces: []string{"br-lan"}, Sources: devices, Subnets: RangesOf(prefixes(telegram...))}
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, Sources: devices}, Subnets: RangesOf(prefixes(telegram...))}
 		}},
 		// IPv6 through podkop: the sets and the rules of IPv6, of the groups too
 		{"ipv6-podkop", func() *Plan {
-			return &Plan{Interfaces: []string{"br-lan"}, IPv6: true, Subnets: RangesOf(prefixes(telegram...)), Subnets6: Merge6(ranges6(telegram6...)),
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, IPv6: true}, Subnets: RangesOf(prefixes(telegram...)), Subnets6: Merge6(ranges6(telegram6...)),
 				Groups: []Group{voice(true)}}
 		}},
 		{"ipv6-podkop-changed", func() *Plan {
 			group := voice(false)
 			group.Ranges6 = Merge6(ranges6(discord6[1:]...))
-			return &Plan{Interfaces: []string{"br-lan"}, IPv6: true, Subnets: RangesOf(prefixes(telegram...)), Subnets6: Merge6(ranges6(slices.Concat(telegram6[:2], []string{"2001:db8:1::/48", "2a03:2880::/32"})...)),
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, IPv6: true}, Subnets: RangesOf(prefixes(telegram...)), Subnets6: Merge6(ranges6(slices.Concat(telegram6[:2], []string{"2001:db8:1::/48", "2a03:2880::/32"})...)),
 				Groups: []Group{group}}
 		}},
 		// IPv6 past podkop (bypass, or a router without IPv6): the same lists, nothing of IPv6
 		{"ipv6-bypass", func() *Plan {
-			return &Plan{Interfaces: []string{"br-lan"}, Subnets: RangesOf(prefixes(telegram...)), Groups: []Group{voice(false)}}
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}}, Subnets: RangesOf(prefixes(telegram...)), Groups: []Group{voice(false)}}
 		}},
 		// BitTorrent past podkop, a client on the router itself (by its user), devices routed whole
 		{"bittorrent-bypass", func() *Plan {
-			return &Plan{Interfaces: []string{"br-lan"}, Sources: devices[:1], Subnets: RangesOf(prefixes(telegram...)),
-				BitTorrent: BitTorrent{Mode: BitTorrentBypass, Sources: devices[:1], RouterUsers: []uint32{4321}}}
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, Sources: devices[:1],
+				BitTorrent: BitTorrent{Mode: BitTorrentBypass, RouterUsers: []uint32{4321}}}, Subnets: RangesOf(prefixes(telegram...))}
 		}},
 		// BitTorrent dropped for what podkop takes: the devices routed whole are its own
 		{"bittorrent-block", func() *Plan {
-			return &Plan{Interfaces: []string{"br-lan"}, Sources: devices, Subnets: RangesOf(prefixes(telegram...)),
-				BitTorrent: BitTorrent{Mode: BitTorrentBlock, Sources: devices}}
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, Sources: devices,
+				BitTorrent: BitTorrent{Mode: BitTorrentBlock}}, Subnets: RangesOf(prefixes(telegram...))}
 		}},
 		// BitTorrent dropped for every device of the LAN, hidden clients told by their fan-out, two
 		// users of the router
 		{"bittorrent-block-lan", func() *Plan {
-			return &Plan{Interfaces: []string{"br-lan"}, Subnets: RangesOf(prefixes(telegram...)),
-				BitTorrent: BitTorrent{Mode: BitTorrentBlock, LAN: true, Fan: dataplane.DefaultFan, RouterUsers: []uint32{4321, 4322}}}
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"},
+				BitTorrent: BitTorrent{Mode: BitTorrentBlock, LAN: true, Fan: dataplane.DefaultFan, RouterUsers: []uint32{4321, 4322}}}, Subnets: RangesOf(prefixes(telegram...))}
 		}},
 		// BitTorrent through the servers of a rule, for what podkop takes
 		{"bittorrent-section", func() *Plan {
-			return &Plan{Interfaces: []string{"br-lan"}, Sources: devices[:1], Subnets: RangesOf(prefixes(telegram...)),
-				BitTorrent: BitTorrent{Mode: BitTorrentSection, Sources: devices[:1]}}
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, Sources: devices[:1],
+				BitTorrent: BitTorrent{Mode: BitTorrentSection}}, Subnets: RangesOf(prefixes(telegram...))}
 		}},
 		// and for every device of the LAN, hidden clients told by their fan-out
 		{"bittorrent-section-lan", func() *Plan {
-			return &Plan{Interfaces: []string{"br-lan"}, Subnets: RangesOf(prefixes(telegram...)),
-				BitTorrent: BitTorrent{Mode: BitTorrentSection, LAN: true, Fan: dataplane.DefaultFan}}
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"},
+				BitTorrent: BitTorrent{Mode: BitTorrentSection, LAN: true, Fan: dataplane.DefaultFan}}, Subnets: RangesOf(prefixes(telegram...))}
 		}},
 		// YACD on: the Clash API kept to its devices and the router itself
 		{"clash-api", func() *Plan {
-			return &Plan{Interfaces: []string{"br-lan"}, Subnets: RangesOf(prefixes(telegram...)), ClashAPIInterfaces: []string{"br-lan", "eth1"}}
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, ClashAPIInterfaces: []string{"br-lan", "eth1"}}, Subnets: RangesOf(prefixes(telegram...))}
 		}},
 		// interface sources with routing marks of their own: what the router sends with them goes by
 		{"routing-marks", func() *Plan {
-			return &Plan{Interfaces: []string{"br-lan"}, Subnets: RangesOf(prefixes(telegram...)), OwnMarks: []uint32{0x10000, 0x80000000}}
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, OwnMarks: []uint32{0x10000, 0x80000000}}, Subnets: RangesOf(prefixes(telegram...))}
 		}},
 		// everything at once
 		{"everything", func() *Plan {
-			return &Plan{Interfaces: []string{"br-lan", "eth1"}, ExcludeNTP: true, Sources: devices, IPv6: true,
+			return &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan", "eth1"}, ExcludeNTP: true, Sources: devices, IPv6: true,
+				ClashAPIInterfaces: []string{"br-lan"}, OwnMarks: []uint32{0x10000},
+				BitTorrent: BitTorrent{Mode: BitTorrentSection, LAN: true, Fan: dataplane.DefaultFan, RouterUsers: []uint32{4321}}},
 				Subnets: RangesOf(prefixes(slices.Concat(telegram, addresses)...)), Subnets6: Merge6(ranges6(telegram6...)),
-				Groups: []Group{voice(true), web()}, ClashAPIInterfaces: []string{"br-lan"}, OwnMarks: []uint32{0x10000},
-				BitTorrent: BitTorrent{Mode: BitTorrentSection, LAN: true, Sources: devices, Fan: dataplane.DefaultFan, RouterUsers: []uint32{4321}}}
+				Groups: []Group{voice(true), web()}}
 		}},
 	}
 }

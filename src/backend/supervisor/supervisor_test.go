@@ -485,7 +485,7 @@ func TestCacheDirectoryIsMade(t *testing.T) {
 // The facts of a state are those of its plan; nothing runs, nothing is told.
 func TestFactsOf(t *testing.T) {
 	require.Equal(t, api.Facts{}, factsOf(nil))
-	require.Equal(t, api.Facts{ClashAPI: "192.168.1.1:9090", ClashSecret: "k"}, factsOf(&running{result: &plan.Result{Dataplane: plan.Dataplane{ClashAPI: "192.168.1.1:9090", ClashSecret: "k"}}}))
+	require.Equal(t, api.Facts{ClashAPI: "192.168.1.1:9090", ClashSecret: "k"}, factsOf(&running{result: &plan.Result{Dataplane: dataplane.Intent{ClashAPI: "192.168.1.1:9090", ClashSecret: "k"}}}))
 	tags := plan.Tags{Rules: map[string]plan.RuleTags{"main": {Name: "Main", Selector: "Main-out"}}}
 	require.JSONEq(t, `{"rules":{"main":{"name":"Main","selector":"Main-out"}},"outbounds":null}`,
 		string(factsOf(&running{result: &plan.Result{Tags: tags}}).Tags))

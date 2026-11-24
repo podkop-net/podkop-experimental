@@ -254,11 +254,12 @@ func (b *builder) addBitTorrentRoutes() {
 	b.addRouteRule("", newObject("action", "route", "inbound", lan, "outbound", tagDirectOutbound))
 }
 
-// bitTorrentDataplane is what the firewall is told of BitTorrent: the mode (none when off), and
-// whether it acts on the whole LAN.
-func (b *builder) bitTorrentDataplane() (string, bool, dataplane.Fan) {
+// bitTorrentDataplane is what the firewall is told of BitTorrent: the mode (none when off),
+// whether it acts on the whole LAN, and the allowance of the suspicion by fan-out; the users of
+// the router come after (bitTorrentRouterUsers).
+func (b *builder) bitTorrentDataplane() dataplane.BitTorrent {
 	if b.bitTorrentMode == model.BitTorrentOff {
-		return "", false, dataplane.Fan{}
+		return dataplane.BitTorrent{}
 	}
-	return b.bitTorrentMode, b.bitTorrentLAN(), b.bitTorrentFan()
+	return dataplane.BitTorrent{Mode: b.bitTorrentMode, LAN: b.bitTorrentLAN(), Fan: b.bitTorrentFan()}
 }

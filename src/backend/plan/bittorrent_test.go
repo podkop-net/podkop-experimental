@@ -87,7 +87,7 @@ var (
 func TestBitTorrentOff(t *testing.T) {
 	for _, options := range []string{"", "\toption bittorrent 'off'\n"} {
 		result, config := bitTorrentBuild(t, options, "")
-		require.Empty(t, result.Dataplane.BitTorrent)
+		require.Empty(t, result.Dataplane.BitTorrent.Mode)
 		for _, tag := range []string{tagBitTorrentInbound, tagBitTorrentLANInbound, tagBitTorrentCheckInbound} {
 			require.Nil(t, hasInbound(config, tag))
 		}
@@ -128,8 +128,8 @@ func TestBitTorrentModes(t *testing.T) {
 	}
 
 	result, config := bitTorrentBuild(t, "\toption bittorrent 'bypass'\n", "")
-	require.Equal(t, "bypass", result.Dataplane.BitTorrent)
-	require.False(t, result.Dataplane.BitTorrentLAN)
+	require.Equal(t, "bypass", result.Dataplane.BitTorrent.Mode)
+	require.False(t, result.Dataplane.BitTorrent.LAN)
 	inbounds(config, true)
 	module(result, bitTorrentLearnReset)
 	require.GreaterOrEqual(t, ruleIndex(config, map[string]any{"inbound": tagBitTorrentInbound, "outbound": tagDirectOutbound}), 0)
@@ -138,24 +138,24 @@ func TestBitTorrentModes(t *testing.T) {
 	require.Less(t, sniffed, firstWith(config, "source_ip_cidr"))
 
 	result, config = bitTorrentBuild(t, "\toption bittorrent 'block'\n", "")
-	require.Equal(t, "block", result.Dataplane.BitTorrent)
-	require.False(t, result.Dataplane.BitTorrentLAN)
+	require.Equal(t, "block", result.Dataplane.BitTorrent.Mode)
+	require.False(t, result.Dataplane.BitTorrent.LAN)
 	inbounds(config, false)
 	module(result, bitTorrentReject)
 	require.GreaterOrEqual(t, ruleIndex(config, map[string]any{"action": "reject", "inbound": allInbounds, "protocol": "bittorrent"}), 0)
 
 	result, _ = bitTorrentBuild(t, "\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n", "")
-	require.True(t, result.Dataplane.BitTorrentLAN)
+	require.True(t, result.Dataplane.BitTorrent.LAN)
 	// each scope is of its mode only
 	result, _ = bitTorrentBuild(t, "\toption bittorrent 'bypass'\n\toption bittorrent_block_scope 'lan'\n\toption bittorrent_section_scope 'lan'\n", "")
-	require.False(t, result.Dataplane.BitTorrentLAN)
+	require.False(t, result.Dataplane.BitTorrent.LAN)
 	result, _ = bitTorrentBuild(t, "\toption bittorrent 'block'\n\toption bittorrent_section_scope 'lan'\n", "")
-	require.False(t, result.Dataplane.BitTorrentLAN)
+	require.False(t, result.Dataplane.BitTorrent.LAN)
 
 	const torrents = "\nconfig section 'torrents'\n\toption connection_type 'proxy'\n\toption proxy_config_type 'url'\n\toption proxy_string 'socks5://203.0.113.16:1080'\n"
 	result, config = bitTorrentBuild(t, "\toption bittorrent 'section'\n\toption bittorrent_section 'torrents'\n", torrents)
-	require.Equal(t, "section", result.Dataplane.BitTorrent)
-	require.False(t, result.Dataplane.BitTorrentLAN)
+	require.Equal(t, "section", result.Dataplane.BitTorrent.Mode)
+	require.False(t, result.Dataplane.BitTorrent.LAN)
 	inbounds(config, true)
 	module(result, bitTorrentLearnReset)
 	require.EqualValues(t, dataplane.BitTorrentTProxyPort, hasInbound(config, tagBitTorrentInbound)["listen_port"])
@@ -167,7 +167,7 @@ func TestBitTorrentModes(t *testing.T) {
 	require.Empty(t, result.Warnings)
 
 	result, config = bitTorrentBuild(t, "\toption bittorrent 'section'\n\toption bittorrent_section 'torrents'\n\toption bittorrent_section_scope 'lan'\n", torrents)
-	require.True(t, result.Dataplane.BitTorrentLAN)
+	require.True(t, result.Dataplane.BitTorrent.LAN)
 
 	// the measurements' setting: learn a confirmed connection and leave it open ((ii) alone), or
 	// close it as well (the default); block rejects it whatever
@@ -192,7 +192,7 @@ func TestBitTorrentWrongSettings(t *testing.T) {
 		"no mode":      {"\toption bittorrent 'sometimes'\n", ""},
 	} {
 		result, config := bitTorrentBuild(t, settings[0], settings[1])
-		require.Empty(t, result.Dataplane.BitTorrent, name)
+		require.Empty(t, result.Dataplane.BitTorrent.Mode, name)
 		require.Nil(t, hasInbound(config, tagBitTorrentInbound), name)
 		require.Nil(t, hasInbound(config, tagBitTorrentCheckInbound), name)
 		require.Equal(t, -1, ruleIndex(config, map[string]any{"protocol": "bittorrent"}), name)
@@ -223,7 +223,7 @@ func TestBitTorrentSuspicion(t *testing.T) {
 		"an allowance alone":          {"\toption bittorrent 'block'\n\toption bittorrent_block_scope 'lan'\n\toption bittorrent_lan_allowance '8 1/second 60 600'\n", dataplane.Fan{}},
 	} {
 		result, config := bitTorrentBuild(t, c.settings, rule)
-		require.Equal(t, c.fan, result.Dataplane.BitTorrentFan, name)
+		require.Equal(t, c.fan, result.Dataplane.BitTorrent.Fan, name)
 		inbound := hasInbound(config, tagBitTorrentSuspectInbound)
 		early := ""
 		for _, service := range services(t, result) {
@@ -254,12 +254,12 @@ func TestBitTorrentRouterUsers(t *testing.T) {
 	const users = "\tlist bittorrent_router_users 'transmission'\n\tlist bittorrent_router_users 'aria2'\n\tlist bittorrent_router_users 'nobody-there'\n\tlist bittorrent_router_users 'root'\n\tlist bittorrent_router_users 'aria2'\n"
 	facts := Facts{UserIDs: map[string]uint32{"transmission": 224, "aria2": 111, "root": 0}}
 	result := buildText(t, head+"\toption bittorrent 'block'\n"+users+main, facts)
-	require.Equal(t, []uint32{111, 224}, result.Dataplane.BitTorrentRouterUsers)
+	require.Equal(t, []uint32{111, 224}, result.Dataplane.BitTorrent.RouterUsers)
 	warnings := strings.Join(result.Warnings, "\n")
 	require.Contains(t, warnings, `the router has no user "nobody-there"`)
 	require.Contains(t, warnings, `the user "root" (bittorrent_router_users) is root`)
 	off := buildText(t, head+users+main, facts)
-	require.Empty(t, off.Dataplane.BitTorrentRouterUsers)
+	require.Empty(t, off.Dataplane.BitTorrent.RouterUsers)
 }
 
 // The inbound of BitTorrent listens where nothing else of the backend does: the transparent proxy,

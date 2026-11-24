@@ -98,24 +98,10 @@ import (
 // entry that the sets tell (a TCP packet whose SYN was not seen, to a peer the device knows, is
 // taken as a plaintext handshake is).
 
-// BitTorrent is what the firewall does with the traffic of BitTorrent clients it tells.
-type BitTorrent struct {
-	// Mode is "" (off), BitTorrentBypass, BitTorrentBlock or BitTorrentSection.
-	Mode string
-	// LAN is the scope of the whole LAN, for block and section: every device of the interfaces,
-	// not only what the backend takes.
-	LAN bool
-	// Sources are the devices the backend routes whole: in block (not LAN), a new connection from
-	// outside to a client's socket on one of them is dropped.
-	Sources []netip.Prefix
-	// Fan is the allowance of the suspicion by the fan-out of a device's connection openings
-	// (dataplane.Fan), for the block and the section of the whole LAN; off when it is nothing.
-	Fan dataplane.Fan
-	// RouterUsers are the users (their numbers) of the programs of the router itself whose
-	// traffic the mode takes as BitTorrent's ("bittorrent_router_users"): a client on the router
-	// sends from the output hook, which the detector does not look at (bt_router).
-	RouterUsers []uint32
-}
+// BitTorrent is what the firewall does with the traffic of BitTorrent clients it tells: the mode
+// of the intent (Plan.BitTorrent). Its Mode is "" (off), BitTorrentBypass, BitTorrentBlock or
+// BitTorrentSection; the devices the backend routes whole are the plan's Sources.
+type BitTorrent = dataplane.BitTorrent
 
 const (
 	BitTorrentBypass  = "bypass"
@@ -1168,7 +1154,7 @@ func addBitTorrent(conn *nftables.Conn, table *nftables.Table, plan *Plan, add f
 	if mode == BitTorrentBlock {
 		devices := []netip.Prefix{{}}
 		if !detector.LAN {
-			devices = detector.Sources
+			devices = plan.Sources
 		}
 		for _, device := range devices {
 			for _, transport := range []byte{unix.IPPROTO_TCP, unix.IPPROTO_UDP} {

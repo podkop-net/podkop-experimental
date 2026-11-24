@@ -156,7 +156,7 @@ type Result struct {
 	// to name the one it cannot use.
 	Links []Link
 	// Dataplane is what the router needs around the configuration.
-	Dataplane Dataplane
+	Dataplane dataplane.Intent
 	// Facts are those the configuration was built of: a later look tells by them whether
 	// the router has changed under it (the address of the LAN, the device a name stands for).
 	Facts Facts
@@ -307,52 +307,6 @@ type TagOf struct {
 	StableHash string `json:"-"`
 }
 
-// Dataplane is what the router needs around a configuration, made of the settings: the
-// rules of the firewall (its sets come from what the rule sets hold), whether the resolver
-// of the LAN asks the DNS inbound, where the Clash API is reached. The values that do not
-// depend on the settings are those of dataplane.
-type Dataplane struct {
-	// Interfaces are the interfaces the firewall takes traffic from: those the settings
-	// name, br-lan when they name none.
-	Interfaces []string
-	// ExcludeNTP leaves UDP port 123 alone.
-	ExcludeNTP bool
-	// Sources are the devices of the LAN routed whole (fully_routed_ips), IPv4.
-	Sources []netip.Prefix
-	// TakeDNS tells that the resolver of the LAN is pointed at the DNS inbound; off with
-	// dont_touch_dhcp, and then a resolver the backend took is given back.
-	TakeDNS bool
-	// ClashAPI is where the Clash API of the configuration is reached from the router
-	// (host:port: an API open on every address is asked on this host), and ClashSecret
-	// its key; the commands of the user interface ask it.
-	ClashAPI    string
-	ClashSecret string
-	// ClashAPIInterfaces are the devices the firewall lets reach the Clash API, which
-	// listens on every address with YACD on (firewall.Plan.ClashAPIInterfaces): those of
-	// yacd_interfaces, or Interfaces. None with YACD off.
-	ClashAPIInterfaces []string
-	// BitTorrent is the mode of the BitTorrent detector of the firewall (model.BitTorrent*),
-	// none when off; BitTorrentLAN makes the block or the section act on every device of
-	// Interfaces.
-	BitTorrent    string
-	BitTorrentLAN bool
-	// BitTorrentFan is the allowance of the suspicion by the fan-out of a device's connection
-	// openings (dataplane.Fan), nothing when it is off
-	BitTorrentFan dataplane.Fan
-	// BitTorrentRouterUsers are the users (their numbers) of the router's own programs whose
-	// traffic the mode takes as BitTorrent's (firewall.BitTorrent.RouterUsers)
-	BitTorrentRouterUsers []uint32
-	// OwnMarks are the routing marks of the interface sources (routing_mark): sing-box gives an
-	// outbound with one that mark in place of dataplane.OutboundMark (route.default_mark), so
-	// the firewall lets what the router sends with it go by as it does what has OutboundMark
-	// (firewall.Plan.OwnMarks).
-	OwnMarks []uint32
-	// IPv6 tells that the IPv6 traffic to the subnets of the lists goes to their rules: the
-	// settings ask for it (model.IPv6Podkop) and the router has IPv6 (Facts.IPv6). The
-	// firewall and the routing then have their IPv6 rules, and sing-box the inbound of IPv6.
-	IPv6 bool
-}
-
 // defaultInterface is the interface the firewall takes traffic from when the settings
 // name none: the bridge of the LAN of OpenWrt.
 const defaultInterface = "br-lan"
@@ -402,11 +356,11 @@ func (b *builder) devices(names []string) []string {
 	return result
 }
 
-func (b *builder) dataplane() Dataplane {
+func (b *builder) dataplane() dataplane.Intent {
 	settings := &b.config.Settings
-	result := Dataplane{Interfaces: b.devices(settings.SourceNetworkInterfaces), ExcludeNTP: settings.ExcludeNTP, TakeDNS: !settings.DontTouchDHCP, ClashAPI: b.clashAPI, ClashSecret: b.clashSecret}
-	result.BitTorrent, result.BitTorrentLAN, result.BitTorrentFan = b.bitTorrentDataplane()
-	result.BitTorrentRouterUsers = b.bitTorrentRouterUsers()
+	result := dataplane.Intent{Interfaces: b.devices(settings.SourceNetworkInterfaces), ExcludeNTP: settings.ExcludeNTP, TakeDNS: !settings.DontTouchDHCP, ClashAPI: b.clashAPI, ClashSecret: b.clashSecret}
+	result.BitTorrent = b.bitTorrentDataplane()
+	result.BitTorrent.RouterUsers = b.bitTorrentRouterUsers()
 	result.IPv6 = b.ipv6
 	for index := range b.config.Sources {
 		source := &b.config.Sources[index]

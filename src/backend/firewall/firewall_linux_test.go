@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/sagernet/nftables"
 	"github.com/stretchr/testify/require"
 
@@ -206,20 +207,20 @@ func TestTableAsTheShellBackendMakesIt(t *testing.T) {
 	discord6 := discord
 	discord6.Ranges6 = Merge6(ranges6("2606:4700::/32", "2a06:98c0::/29"))
 	for name, plan := range map[string]*Plan{
-		"one interface":    {Interfaces: []string{"br-lan"}},
+		"one interface":    {Intent: dataplane.Intent{Interfaces: []string{"br-lan"}}},
 		"nothing":          {},
-		"interfaces, NTP":  {Interfaces: []string{"br-lan", "eth1", "wlan0.20"}, ExcludeNTP: true},
-		"subnets":          {Interfaces: []string{"br-lan"}, Subnets: RangesOf(prefixes("203.0.112.0/24", "198.51.99.7/32", "8.8.8.0/24", "8.8.9.0/24", "8.8.8.128/25", "9.0.0.0/8"))},
-		"devices":          {Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32", "192.168.1.64/30", "192.168.1.70/32")},
-		"devices, NTP":     {Interfaces: []string{"br-lan"}, ExcludeNTP: true, Sources: prefixes("192.168.1.60/32")},
-		"a group of ports": {Interfaces: []string{"br-lan"}, Groups: []Group{discord}},
-		"everything at once": {Interfaces: []string{"br-lan", "eth1"}, ExcludeNTP: true, Sources: prefixes("192.168.1.60/32", "10.7.0.0/24"),
+		"interfaces, NTP":  {Intent: dataplane.Intent{Interfaces: []string{"br-lan", "eth1", "wlan0.20"}, ExcludeNTP: true}},
+		"subnets":          {Intent: dataplane.Intent{Interfaces: []string{"br-lan"}}, Subnets: RangesOf(prefixes("203.0.112.0/24", "198.51.99.7/32", "8.8.8.0/24", "8.8.9.0/24", "8.8.8.128/25", "9.0.0.0/8"))},
+		"devices":          {Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, Sources: prefixes("192.168.1.60/32", "192.168.1.64/30", "192.168.1.70/32")}},
+		"devices, NTP":     {Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, ExcludeNTP: true, Sources: prefixes("192.168.1.60/32")}},
+		"a group of ports": {Intent: dataplane.Intent{Interfaces: []string{"br-lan"}}, Groups: []Group{discord}},
+		"everything at once": {Intent: dataplane.Intent{Interfaces: []string{"br-lan", "eth1"}, ExcludeNTP: true, Sources: prefixes("192.168.1.60/32", "10.7.0.0/24")},
 			Subnets: RangesOf(prefixes("149.154.160.0/20", "91.108.4.0/22", "91.108.8.0/22", "91.108.12.0/22")), Groups: []Group{discord}},
-		"IPv6, no subnets": {Interfaces: []string{"br-lan"}, IPv6: true},
-		"routing marks":    {Interfaces: []string{"br-lan"}, OwnMarks: []uint32{0x10000, 0x80000000}},
-		"IPv6": {Interfaces: []string{"br-lan"}, IPv6: true, Subnets: RangesOf(prefixes("149.154.160.0/20")),
+		"IPv6, no subnets": {Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, IPv6: true}},
+		"routing marks":    {Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, OwnMarks: []uint32{0x10000, 0x80000000}}},
+		"IPv6": {Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, IPv6: true}, Subnets: RangesOf(prefixes("149.154.160.0/20")),
 			Subnets6: Merge6(ranges6("2001:67c:4e8::/48", "2001:b28:f23d::/48", "2001:b28:f23f::/48", "2a0a:f280::/32"))},
-		"IPv6, everything at once": {Interfaces: []string{"br-lan", "eth1"}, ExcludeNTP: true, Sources: prefixes("192.168.1.60/32"), IPv6: true,
+		"IPv6, everything at once": {Intent: dataplane.Intent{Interfaces: []string{"br-lan", "eth1"}, ExcludeNTP: true, Sources: prefixes("192.168.1.60/32"), IPv6: true},
 			Subnets: RangesOf(prefixes("149.154.160.0/20")), Subnets6: Merge6(ranges6("2001:67c:4e8::/48", "2a0a:f280::/32")),
 			Groups: []Group{discord6}},
 	} {
@@ -256,7 +257,7 @@ func TestTableAsTheShellBackendMakesIt(t *testing.T) {
 // the same chain made with that program; a plan without devices has none.
 func TestClashAPIGuard(t *testing.T) {
 	needNft(t)
-	plan := &Plan{Interfaces: []string{"br-lan"}, ClashAPIInterfaces: []string{"br-lan", "eth1"}}
+	plan := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, ClashAPIInterfaces: []string{"br-lan", "eth1"}}}
 	_ = Remove()
 	shellBackendTable(t, plan)
 	table := "inet " + tableName
@@ -274,7 +275,7 @@ func TestClashAPIGuard(t *testing.T) {
 
 	// the devices of YACD are rules: a change of them replaces the table, and without them
 	// there is no chain
-	require.NoError(t, Update(plan, &Plan{Interfaces: []string{"br-lan"}}))
+	require.NoError(t, Update(plan, &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}}}))
 	require.NotContains(t, dump(t), "clash_api")
 	require.NoError(t, Remove())
 }
@@ -284,14 +285,14 @@ func TestClashAPIGuard(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	needNft(t)
 	_ = Remove()
-	first := &Plan{Interfaces: []string{"br-lan"}, Subnets: RangesOf(prefixes("8.8.8.0/24")),
+	first := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}}, Subnets: RangesOf(prefixes("8.8.8.0/24")),
 		Groups: []Group{{Set: "voice", Protocol: 17, Ports: []PortRange{{50000, 65535}}, Ranges: RangesOf(prefixes("66.22.192.0/18"))}}}
 	if err := Update(nil, first); err != nil {
 		t.Fatal(err)
 	}
 	rules := func() string { return nft(t, "-a", "list", "chain", "inet", tableName, "mangle") }
 	before := rules()
-	second := &Plan{Interfaces: []string{"br-lan"}, Subnets: RangesOf(prefixes("8.8.8.0/24", "1.1.1.0/24")),
+	second := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}}, Subnets: RangesOf(prefixes("8.8.8.0/24", "1.1.1.0/24")),
 		Groups: []Group{{Set: "voice", Protocol: 17, Ports: []PortRange{{50000, 65535}}, Ranges: RangesOf(prefixes("66.22.192.0/18", "5.5.0.0/16"))}}}
 	if err := Update(first, second); err != nil {
 		t.Fatal(err)
@@ -311,7 +312,7 @@ func TestUpdate(t *testing.T) {
 	if rules() != before {
 		t.Error("the rules changed with nothing to change")
 	}
-	third := &Plan{Interfaces: []string{"br-lan"}, ExcludeNTP: true, Subnets: second.Subnets, Groups: second.Groups}
+	third := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, ExcludeNTP: true}, Subnets: second.Subnets, Groups: second.Groups}
 	if err := Update(second, third); err != nil {
 		t.Fatal(err)
 	}
@@ -320,7 +321,7 @@ func TestUpdate(t *testing.T) {
 	}
 	// IPv6: turning it on replaces the table; a change of its sets refills them, the rules
 	// staying
-	fourth := &Plan{Interfaces: []string{"br-lan"}, IPv6: true, Subnets: second.Subnets, Subnets6: Merge6(ranges6("2001:67c:4e8::/48")),
+	fourth := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, IPv6: true}, Subnets: second.Subnets, Subnets6: Merge6(ranges6("2001:67c:4e8::/48")),
 		Groups: []Group{{Set: "voice", Protocol: 17, Ports: []PortRange{{50000, 65535}}, Ranges: second.Groups[0].Ranges, Ranges6: Merge6(ranges6("2606:4700::/32"))}}}
 	if err := Update(third, fourth); err != nil {
 		t.Fatal(err)
@@ -329,7 +330,7 @@ func TestUpdate(t *testing.T) {
 	if !strings.Contains(before, "ip6 daddr @podkop_subnets_v6") || !strings.Contains(before, "ip6 daddr @voice_v6") {
 		t.Fatalf("no rules of IPv6:\n%s", before)
 	}
-	fifth := &Plan{Interfaces: []string{"br-lan"}, IPv6: true, Subnets: second.Subnets, Subnets6: Merge6(ranges6("2001:67c:4e8::/48", "2001:b28:f23d::/48")),
+	fifth := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, IPv6: true}, Subnets: second.Subnets, Subnets6: Merge6(ranges6("2001:67c:4e8::/48", "2001:b28:f23d::/48")),
 		Groups: []Group{{Set: "voice", Protocol: 17, Ports: []PortRange{{50000, 65535}}, Ranges: second.Groups[0].Ranges, Ranges6: Merge6(ranges6("2a06:98c0::/29"))}}}
 	if err := Update(fourth, fifth); err != nil {
 		t.Fatal(err)
@@ -443,7 +444,7 @@ func TestFillTheSubnetSet(t *testing.T) {
 				texts[index] = prefix.Addr().String()
 			}
 		}
-		if err := Apply(&Plan{Interfaces: []string{"br-lan"}}); err != nil {
+		if err := Apply(&Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}}}); err != nil {
 			t.Fatal(err)
 		}
 
@@ -636,7 +637,7 @@ func TestUpdateByDifference(t *testing.T) {
 	_ = Remove()
 	defer Remove()
 	base := subnets(3000)
-	first := &Plan{Interfaces: []string{"br-lan"}, Subnets: RangesOf(append(prefixes("1.1.1.0/24", "2.2.2.0/24"), base...))}
+	first := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}}, Subnets: RangesOf(append(prefixes("1.1.1.0/24", "2.2.2.0/24"), base...))}
 	if err := Update(nil, first); err != nil {
 		t.Fatal(err)
 	}
@@ -644,7 +645,7 @@ func TestUpdateByDifference(t *testing.T) {
 	// 1.1.1.0/24 grows into its neighbour: the start of the range stays, its end moves;
 	// 2.2.2.0/24 goes and 2.2.3.0/24 comes, which begins where the one that went ended;
 	// a part of the rest goes, and new ones come
-	second := &Plan{Interfaces: []string{"br-lan"}, Subnets: RangesOf(append(prefixes("1.1.1.0/24", "1.1.2.0/24", "2.2.3.0/24"), append(base[500:], subnets(3500)[3000:]...)...))}
+	second := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}}, Subnets: RangesOf(append(prefixes("1.1.1.0/24", "1.1.2.0/24", "2.2.3.0/24"), append(base[500:], subnets(3500)[3000:]...)...))}
 	if err := Update(first, second); err != nil {
 		t.Fatal(err)
 	}
@@ -669,14 +670,14 @@ func TestBigSetInLots(t *testing.T) {
 		// /24 networks with a gap between each two: they do not merge
 		big = append(big, netip.PrefixFrom(netip.AddrFrom4([4]byte{11 + byte(index/32768), byte(index / 128), byte(index%128) * 2, 0}), 24))
 	}
-	plan := &Plan{Interfaces: []string{"br-lan"}, Subnets: RangesOf(big)}
+	plan := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}}, Subnets: RangesOf(big)}
 	if err := Apply(plan); err != nil {
 		t.Fatal(err)
 	}
 	require.Len(t, rangesOfSet(t, SetSubnets), fillLot*2+500)
 	require.Equal(t, wantRanges(t, RangesOf(big)), rangesOfSet(t, SetSubnets))
 	// one item more is one element more, not a set filled anew
-	next := &Plan{Interfaces: []string{"br-lan"}, Subnets: RangesOf(append(prefixes("200.0.0.0/24"), big...))}
+	next := &Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}}, Subnets: RangesOf(append(prefixes("200.0.0.0/24"), big...))}
 	if err := Update(plan, next); err != nil {
 		t.Fatal(err)
 	}

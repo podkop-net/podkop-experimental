@@ -39,7 +39,7 @@ func init() {
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			started := time.Now()
-			err := firewall.Apply(&firewall.Plan{Interfaces: commandNftFlagInterfaces, ExcludeNTP: commandNftFlagExcludeNTP})
+			err := firewall.Apply(&firewall.Plan{Intent: dataplane.Intent{Interfaces: commandNftFlagInterfaces, ExcludeNTP: commandNftFlagExcludeNTP}})
 			nftDone(err, "table "+dataplane.FirewallTable+" applied", started)
 		},
 	}
@@ -73,7 +73,7 @@ func init() {
 				next, err = nftRead(commandNftFlagFile)
 			}
 			if err == nil {
-				err = firewall.Update(&firewall.Plan{Interfaces: commandNftFlagInterfaces, Subnets: previous}, &firewall.Plan{Interfaces: commandNftFlagInterfaces, Subnets: next})
+				err = firewall.Update(&firewall.Plan{Intent: dataplane.Intent{Interfaces: commandNftFlagInterfaces}, Subnets: previous}, &firewall.Plan{Intent: dataplane.Intent{Interfaces: commandNftFlagInterfaces}, Subnets: next})
 			}
 			nftDone(err, strconv.Itoa(len(previous))+" prefixes before, "+strconv.Itoa(len(next))+" after", started)
 		},

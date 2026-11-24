@@ -254,7 +254,7 @@ func planText(next *firewall.Plan) []string {
 		for _, user := range detector.RouterUsers {
 			users = append(users, strconv.Itoa(int(user)))
 		}
-		lines = append(lines, fmt.Sprintf("bittorrent %q lan %v devices %v fan %v router users %v", detector.Mode, detector.LAN, prefixes(detector.Sources), fmt.Sprintf("%+v", detector.Fan), users))
+		lines = append(lines, fmt.Sprintf("bittorrent %q lan %v devices %v fan %v router users %v", detector.Mode, detector.LAN, prefixes(next.Sources), fmt.Sprintf("%+v", detector.Fan), users))
 	}
 	for _, mark := range next.OwnMarks {
 		lines = append(lines, fmt.Sprintf("own mark 0x%08x", mark))

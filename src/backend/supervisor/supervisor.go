@@ -1735,7 +1735,7 @@ func (s *Supervisor) surround(previousFirewall *firewall.Plan) error {
 // client installed after the setting was made creates its user and fires no event). Only with
 // BitTorrent on: off, the plan uses none.
 func (s *Supervisor) routerUsersChanged(current *running) bool {
-	if current == nil || current.settings == nil || current.result.Dataplane.BitTorrent == "" {
+	if current == nil || current.settings == nil || current.result.Dataplane.BitTorrent.Mode == "" {
 		return false
 	}
 	names := current.settings.Settings.BitTorrentRouterUsers
@@ -1764,13 +1764,13 @@ func userIDs(names []string) map[string]uint32 {
 	return found
 }
 
-// firewallPlan makes the firewall table of a state: the rules from the settings, the
-// sets from what the rule sets hold now.
+// firewallPlan makes the firewall table of a state: the rules from the settings (the intent of
+// the plan, with IPv6 off once it failed: running.ipv6), the sets from what the rule sets hold
+// now.
 func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
 	wanted := &current.result.Dataplane
-	result := &firewall.Plan{Interfaces: wanted.Interfaces, ExcludeNTP: wanted.ExcludeNTP, Sources: wanted.Sources, ClashAPIInterfaces: wanted.ClashAPIInterfaces, IPv6: current.ipv6(), OwnMarks: wanted.OwnMarks,
-		BitTorrent: firewall.BitTorrent{Mode: wanted.BitTorrent, LAN: wanted.BitTorrentLAN, Sources: wanted.Sources, Fan: wanted.BitTorrentFan,
-			RouterUsers: wanted.BitTorrentRouterUsers}}
+	result := &firewall.Plan{Intent: *wanted}
+	result.IPv6 = current.ipv6()
 	s.bitTorrentRule = ""
 	var noRule *string
 	if current.settings != nil && current.settings.Settings.BitTorrent == model.BitTorrentSection {
@@ -1779,7 +1779,7 @@ func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
 		if section := current.settings.Section(name); section != nil && section.Label != "" {
 			label = section.Label
 		}
-		if wanted.BitTorrent == model.BitTorrentSection {
+		if wanted.BitTorrent.Mode == model.BitTorrentSection {
 			s.bitTorrentRule = label
 		} else {
 			noRule = &label

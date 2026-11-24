@@ -143,34 +143,18 @@ func readBuffer(conn *netlink.Conn) {
 	_ = conn.SetReadBuffer(netlinkReadBuffer)
 }
 
-// Plan is the whole table: what its rules depend on and what its sets hold.
+// Plan is the whole table: what its rules depend on, the intent of the settings, and what its
+// sets hold. Of the intent the table takes the interfaces, NTP, the devices routed whole, the
+// devices of the Clash API, the detector of BitTorrent (bittorrent_linux.go), the routing marks
+// and IPv6; the DNS of the LAN and the address and the key of the Clash API are not its.
 type Plan struct {
-	// Interfaces are the interfaces traffic is taken from.
-	Interfaces []string
-	// ExcludeNTP leaves UDP port 123 alone.
-	ExcludeNTP bool
-	// Sources are devices of the LAN whose traffic goes to the proxy whatever its
-	// destination is, the local networks excepted.
-	Sources []netip.Prefix
+	dataplane.Intent
 	// Subnets are the destinations that go to the proxy by address.
 	Subnets []Range
 	// Groups are destinations that go to the proxy only for some ports.
 	Groups []Group
-	// ClashAPIInterfaces are the devices that reach the Clash API, which listens on every
-	// address while YACD is on: a chain of the input lets their connections to its port in,
-	// and those of the router itself (lo), and drops the others. None: no such chain, the
-	// API listens on this host only.
-	ClashAPIInterfaces []string
-	// BitTorrent is what becomes of the traffic of BitTorrent clients (bittorrent_linux.go).
-	BitTorrent BitTorrent
-	// OwnMarks are the routing marks sing-box gives the outbounds of interface sources in place of
-	// dataplane.OutboundMark: what the router sends with one of them goes by, as what has
-	// OutboundMark does (a mark under its own mask: pbr and mwan3 add their bits).
-	OwnMarks []uint32
-	// IPv6 sends the IPv6 traffic to Subnets6 (and to the IPv6 ranges of the groups) to the
-	// proxy, from the LAN and from the router itself, as IPv4 to Subnets. Without it the table
-	// has nothing of IPv6, and IPv6 goes past the proxy.
-	IPv6     bool
+	// Subnets6 are the IPv6 destinations that go to the proxy (and the IPv6 ranges of the
+	// groups), from the LAN and from the router itself, as IPv4 to Subnets, while IPv6 is on.
 	Subnets6 []netipx.IPRange
 
 	// the ranges of Subnets, merged once

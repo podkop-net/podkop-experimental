@@ -21,7 +21,7 @@ package plan_test
 // of the router the settings name: local lists), refused (the message of the shell backend); the
 // rest is what was built of them: settings.uci and migrate.txt (the converted settings and the notes
 // of the conversion), config.json, rulesets/<file> (the rule-set files of the plan, which are in
-// plan.DefaultRuleSetDir), intent.json (the dataplane: plan.Dataplane), tags.json (the tags of the
+// plan.DefaultRuleSetDir), intent.json (the dataplane: dataplane.Intent), tags.json (the tags of the
 // outbounds, what sing-box may swap, the rule sets, the links), warnings.txt, or error.txt when the
 // settings are refused.
 //
@@ -293,9 +293,9 @@ func build(c *goldenCase) (outputs map[string][]byte, err error) {
 	return outputs, nil
 }
 
-// goldenIntent is plan.Dataplane field by field: what the router needs around the configuration
-// (the firewall, the DNS of the LAN, the Clash API). A refactoring that moves the fields keeps the
-// file.
+// goldenIntent is plan.Result.Dataplane (dataplane.Intent) field by field: what the router needs
+// around the configuration (the firewall, the DNS of the LAN, the Clash API). A refactoring that
+// moves the fields keeps the file.
 type goldenIntent struct {
 	Interfaces            []string  `json:"interfaces"`
 	ExcludeNTP            bool      `json:"exclude_ntp"`
@@ -321,12 +321,12 @@ type goldenFan struct {
 	Suspect string `json:"suspect"`
 }
 
-func intentOf(intent plan.Dataplane) goldenIntent {
+func intentOf(intent dataplane.Intent) goldenIntent {
 	sources := []string{}
 	for _, prefix := range intent.Sources {
 		sources = append(sources, prefix.String())
 	}
-	fan := intent.BitTorrentFan
+	fan := intent.BitTorrent.Fan
 	return goldenIntent{
 		Interfaces:            orEmpty(intent.Interfaces),
 		ExcludeNTP:            intent.ExcludeNTP,
@@ -335,10 +335,10 @@ func intentOf(intent plan.Dataplane) goldenIntent {
 		ClashAPI:              intent.ClashAPI,
 		ClashSecret:           intent.ClashSecret,
 		ClashAPIInterfaces:    orEmpty(intent.ClashAPIInterfaces),
-		BitTorrent:            intent.BitTorrent,
-		BitTorrentLAN:         intent.BitTorrentLAN,
+		BitTorrent:            intent.BitTorrent.Mode,
+		BitTorrentLAN:         intent.BitTorrent.LAN,
 		BitTorrentFan:         goldenFan{Burst: fan.Burst, Rate: fan.Rate, Unit: fan.Unit, Pair: fan.Pair.String(), Suspect: fan.Suspect.String()},
-		BitTorrentRouterUsers: orEmpty(intent.BitTorrentRouterUsers),
+		BitTorrentRouterUsers: orEmpty(intent.BitTorrent.RouterUsers),
 		OwnMarks:              orEmpty(intent.OwnMarks),
 		IPv6:                  intent.IPv6,
 	}
@@ -437,7 +437,7 @@ func TestGoldenMapsTheResult(t *testing.T) {
 		value  any
 		fields int
 	}{
-		{plan.Result{}, 11}, {plan.Dataplane{}, 13}, {dataplane.Fan{}, 5}, {plan.Tags{}, 2}, {plan.RuleTags{}, 3}, {plan.TagOf{}, 6},
+		{plan.Result{}, 11}, {dataplane.Intent{}, 10}, {dataplane.BitTorrent{}, 4}, {dataplane.Fan{}, 5}, {plan.Tags{}, 2}, {plan.RuleTags{}, 3}, {plan.TagOf{}, 6},
 		{plan.RuleSet{}, 4}, {plan.Link{}, 4},
 	} {
 		if fields := reflect.TypeOf(known.value).NumField(); fields != known.fields {

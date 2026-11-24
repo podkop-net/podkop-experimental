@@ -3,6 +3,7 @@ package firewall
 import (
 	"encoding/binary"
 	"net"
+	"net/netip"
 	"os"
 	"os/exec"
 	"strconv"
@@ -165,17 +166,19 @@ func TestBitTorrentDropRules(t *testing.T) {
 	_ = Remove()
 	t.Cleanup(func() { _ = Remove() })
 	for name, c := range map[string]struct {
+		// devices routed whole: bt_incoming's two drops a device in block
+		devices                          []netip.Prefix
 		detector                         BitTorrent
 		block, incoming, decided, router int
 	}{
-		"bypass":         {BitTorrent{Mode: BitTorrentBypass}, 0, 0, 2, 0},
-		"block":          {BitTorrent{Mode: BitTorrentBlock, Sources: prefixes("192.168.1.60/32")}, 3, 2, 0, 0},
-		"block, the LAN": {BitTorrent{Mode: BitTorrentBlock, LAN: true}, 3, 2, 0, 0},
+		"bypass":         {nil, BitTorrent{Mode: BitTorrentBypass}, 0, 0, 2, 0},
+		"block":          {prefixes("192.168.1.60/32"), BitTorrent{Mode: BitTorrentBlock}, 3, 2, 0, 0},
+		"block, the LAN": {nil, BitTorrent{Mode: BitTorrentBlock, LAN: true}, 3, 2, 0, 0},
 		// bt_router's two drops, which BitTorrentDrops adds to the block's; none outside block
-		"block, a user of the router":   {BitTorrent{Mode: BitTorrentBlock, RouterUsers: []uint32{4321}}, 3, 0, 0, 2},
-		"section, a user of the router": {BitTorrent{Mode: BitTorrentSection, RouterUsers: []uint32{4321}}, 0, 0, 2, 0},
+		"block, a user of the router":   {nil, BitTorrent{Mode: BitTorrentBlock, RouterUsers: []uint32{4321}}, 3, 0, 0, 2},
+		"section, a user of the router": {nil, BitTorrent{Mode: BitTorrentSection, RouterUsers: []uint32{4321}}, 0, 0, 2, 0},
 	} {
-		if err := Apply(&Plan{Interfaces: []string{"br-lan"}, BitTorrent: c.detector}); err != nil {
+		if err := Apply(&Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, Sources: c.devices, BitTorrent: c.detector}}); err != nil {
 			t.Fatal(name, err)
 		}
 		conn, err := newConn()
@@ -211,7 +214,7 @@ func TestBitTorrentPollCost(t *testing.T) {
 	}
 	_ = Remove()
 	t.Cleanup(func() { _ = Remove() })
-	if err := Apply(&Plan{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBypass}}); err != nil {
+	if err := Apply(&Plan{Intent: dataplane.Intent{Interfaces: []string{"br-lan"}, BitTorrent: BitTorrent{Mode: BitTorrentBypass}}}); err != nil {
 		t.Fatal(err)
 	}
 	nft(t, "add table inet pdk_cttest")
