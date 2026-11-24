@@ -9,12 +9,17 @@ package plan_test
 // hot swap compares configurations byte for byte (supervisor/hot.go): a refactoring of the planner,
 // of the intent of the dataplane or of the supervisor passes these cases unchanged.
 //
-// The cases are in testdata/golden/<case>/: settings of the format of this version, made for the
-// corpus, named by what they cover; a case named refused-* is settings the planner refuses.
+// The cases:
+//   - testdata/golden/<case>/: settings of the format of this version, made for the corpus, named by
+//     what they cover; a case named refused-* is settings the planner refuses;
+//   - testdata/golden-shell07.tar.gz: the settings of podkop 0.7 its shell backend was run with
+//     (render/testdata/cases.tar.gz: their inputs, and "refused" where the shell backend refused
+//     them), converted and built as a router that upgraded from 0.7 builds them.
 //
 // The files of a case: podkop.uci (the settings), facts.json (goldenFacts), servers.json (the
 // servers of the subscriptions by their source, in the order of the list), files/<path> (the files
-// of the router the settings name: local lists); the rest is what was built of them: settings.uci and migrate.txt (the converted settings and the notes
+// of the router the settings name: local lists), refused (the message of the shell backend); the
+// rest is what was built of them: settings.uci and migrate.txt (the converted settings and the notes
 // of the conversion), config.json, rulesets/<file> (the rule-set files of the plan, which are in
 // plan.DefaultRuleSetDir), intent.json (the dataplane: plan.Dataplane), tags.json (the tags of the
 // outbounds, what sing-box may swap, the rule sets, the links), warnings.txt, or error.txt when the
@@ -24,14 +29,18 @@ package plan_test
 //
 // records what is built now; the commit of an update says why each difference is wanted. With the
 // tags of the engine's protocols (golden_engine_test.go), sing-box builds the configuration of every
-// case as the supervisor has it built before a start.
+// curated case as the supervisor has it built before a start (GOLDEN_CHECK_ALL=1: of the cases of
+// the shell backend too).
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -41,6 +50,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/podkop-net/podkop-experimental/src/backend/engine"
@@ -56,8 +66,13 @@ var update = flag.Bool("update", false, "TestGolden: record what is built now as
 
 const (
 	curatedDir = "testdata/golden"
-	// below the number of cases there are: a run that finds a handful has lost its test data
+	// shellArchive holds the cases of the shell backend; shellOrigin is the archive of their
+	// inputs (render.TestCases), read while shellArchive is not there yet
+	shellArchive = "testdata/golden-shell07.tar.gz"
+	shellOrigin  = "../render/testdata/cases.tar.gz"
+	// below the numbers of cases there are: a run that finds a handful has lost its test data
 	fewestCurated = 30
+	fewestShell   = 590
 )
 
 // The files of a case: its inputs, and what is built of them.
@@ -66,6 +81,7 @@ const (
 	inFacts      = "facts.json"
 	inServers    = "servers.json"
 	inFiles      = "files/"
+	inRefused    = "refused"
 	outConverted = "settings.uci"
 	outMigrate   = "migrate.txt"
 	outConfig    = "config.json"
@@ -77,13 +93,27 @@ const (
 )
 
 func isInput(name string) bool {
-	return name == inSettings || name == inFacts || name == inServers || strings.HasPrefix(name, inFiles)
+	return name == inSettings || name == inFacts || name == inServers || name == inRefused || strings.HasPrefix(name, inFiles)
 }
 
 // goldenExcluded are the cases left out of the corpus, by name, with the reason: a build that is
 // not a function of its input, or a fault of the code under test, found when the corpus was
 // recorded. None so far.
 var goldenExcluded = map[string]string{}
+
+// shellRefusedNow are the cases of the shell backend whose settings the shell backend of podkop 0.7
+// took and the planner refuses, with the reason.
+var shellRefusedNow = map[string]string{
+	"ed-mixed-same-port": "two mixed proxies on one port (plan/ledger.go, item 12): sing-box would fail on the second socket at every start",
+}
+
+// openWrtNTPServers are the NTP servers of the default settings of OpenWrt (system.ntp.server):
+// the facts of the cases of the shell backend, which were run without them.
+var openWrtNTPServers = []string{"0.openwrt.pool.ntp.org", "1.openwrt.pool.ntp.org", "2.openwrt.pool.ntp.org", "3.openwrt.pool.ntp.org"}
+
+// goldenClashSecret is the key of the Clash API of the cases of the shell backend: the supervisor
+// writes one into settings without one (clashKey: 16 random bytes in hex).
+const goldenClashSecret = "00112233445566778899aabbccddeeff"
 
 // daemonDownloadURL is the download test URL the daemon gives the supervisor (cmd/podkop/daemon.go,
 // downloadURL): the URL tests of the rules that leave the download check at its default have it.
@@ -419,19 +449,33 @@ func TestGoldenMapsTheResult(t *testing.T) {
 // goldenSummary counts what the cases gave.
 type goldenSummary struct {
 	cases, refused, excluded, checked, unchecked int
+	// refusedNow are the cases of the shell backend it took and the planner refuses, takenNow those
+	// it refused and the planner takes, checkRefused those of takenNow whose configuration sing-box
+	// refuses (GOLDEN_CHECK_ALL)
+	refusedNow, takenNow, checkRefused []string
 }
 
 func TestGolden(t *testing.T) {
 	curated := curatedCases(t)
-	if len(curated) < fewestCurated {
-		t.Fatalf("%d curated cases found, at least %d expected", len(curated), fewestCurated)
+	shell := shellCases(t)
+	if len(curated) < fewestCurated || len(shell) < fewestShell {
+		t.Fatalf("%d curated cases and %d of the shell backend found, at least %d and %d expected", len(curated), len(shell), fewestCurated, fewestShell)
 	}
 	var summary goldenSummary
 	for _, c := range curated {
-		t.Run("curated/"+c.name, func(t *testing.T) { runGolden(t, c, &summary) })
+		t.Run("curated/"+c.name, func(t *testing.T) { runGolden(t, c, true, &summary) })
 	}
-	t.Logf("golden summary: %d cases, %d refused, %d excluded; checked by sing-box %d, not by this build %d",
-		summary.cases, summary.refused, summary.excluded, summary.checked, summary.unchecked)
+	for _, c := range shell {
+		t.Run("shell07/"+c.name, func(t *testing.T) { runGolden(t, c, false, &summary) })
+	}
+	t.Logf("golden summary: %d cases (%d curated, %d of the shell backend), %d refused, %d excluded; checked by sing-box %d, not by this build %d",
+		summary.cases, len(curated), len(shell), summary.refused, summary.excluded, summary.checked, summary.unchecked)
+	t.Logf("golden summary: refused now, taken by the shell backend (%d): %s", len(summary.refusedNow), strings.Join(summary.refusedNow, " "))
+	t.Logf("golden summary: taken now, refused by the shell backend (%d): %s", len(summary.takenNow), strings.Join(summary.takenNow, " "))
+	t.Logf("golden summary: of those, refused by the check of sing-box (%d): %s", len(summary.checkRefused), strings.Join(summary.checkRefused, " "))
+	if *update {
+		writeShellArchive(t, shell)
+	}
 }
 
 // goldenEngineCheck has sing-box build the configuration of a case (golden_engine_test.go): it
@@ -439,7 +483,7 @@ func TestGolden(t *testing.T) {
 // engine's protocols.
 var goldenEngineCheck func(t *testing.T, c *goldenCase) (checked bool, refusal error)
 
-func runGolden(t *testing.T, c *goldenCase, summary *goldenSummary) {
+func runGolden(t *testing.T, c *goldenCase, curated bool, summary *goldenSummary) {
 	if reason, excluded := goldenExcluded[c.name]; excluded {
 		summary.excluded++
 		t.Skip("excluded: " + reason)
@@ -460,21 +504,42 @@ func runGolden(t *testing.T, c *goldenCase, summary *goldenSummary) {
 	if refused {
 		summary.refused++
 	}
-	if refused != strings.HasPrefix(c.name, "refused-") {
+	if curated && refused != strings.HasPrefix(c.name, "refused-") {
 		t.Errorf("refused %v: a curated case is refused when its name begins with refused-, and only then (%s)", refused, bytes.TrimSpace(built[outError]))
 	}
+	if !curated {
+		_, shellRefused := c.files[inRefused]
+		_, named := shellRefusedNow[c.name]
+		switch {
+		case refused && !shellRefused:
+			summary.refusedNow = append(summary.refusedNow, c.name)
+			if !named {
+				t.Errorf("refused, the shell backend of podkop 0.7 took these settings: name the reason in shellRefusedNow (%s)", bytes.TrimSpace(built[outError]))
+			}
+		case !refused && shellRefused:
+			summary.takenNow = append(summary.takenNow, c.name)
+		}
+		if named && !refused {
+			t.Error("named in shellRefusedNow, and taken")
+		}
+	}
 	if *update {
-		record(t, c, built)
+		record(t, c, built, curated)
 	} else if diff := differences(c.outputs(), built); diff != "" {
 		t.Errorf("%s: what is built differs from what was recorded (go test ./plan/ -run TestGolden -args -update records it; its commit says why)\n%s", c.name, diff)
 	}
-	if !refused && goldenEngineCheck != nil {
+	if !refused && goldenEngineCheck != nil && (curated || os.Getenv("GOLDEN_CHECK_ALL") != "") {
 		checked, refusal := goldenEngineCheck(t, c)
+		_, shellRefused := c.files[inRefused]
 		switch {
 		case !checked:
 			summary.unchecked++
 		case refusal == nil:
 			summary.checked++
+		case !curated && shellRefused:
+			// refused before a start by the check of the supervisor, as the shell backend refused them
+			summary.checked++
+			summary.checkRefused = append(summary.checkRefused, c.name)
 		default:
 			summary.checked++
 			t.Errorf("sing-box does not take the configuration: %v", refusal)
@@ -482,9 +547,19 @@ func runGolden(t *testing.T, c *goldenCase, summary *goldenSummary) {
 	}
 }
 
-// record puts what was built in the place of the outputs of the case, in its directory.
-func record(t *testing.T, c *goldenCase, built map[string][]byte) {
+// record puts what was built in the place of the outputs of the case: in its directory for a
+// curated case, in the case for the archive of the shell backend (writeShellArchive).
+func record(t *testing.T, c *goldenCase, built map[string][]byte, curated bool) {
 	old := c.outputs()
+	for name := range old {
+		delete(c.files, name)
+	}
+	for name, content := range built {
+		c.files[name] = content
+	}
+	if !curated {
+		return
+	}
 	root := filepath.Join(curatedDir, c.name)
 	for name := range old {
 		if _, kept := built[name]; !kept {
@@ -540,6 +615,164 @@ func curatedCases(t *testing.T) []*goldenCase {
 		cases = append(cases, c)
 	}
 	return cases
+}
+
+// shellCases are the cases of the archive of the shell backend, by name; while there is none, the
+// inputs of render's archive, for an update to record (shellFacts).
+func shellCases(t *testing.T) []*goldenCase {
+	entries, err := readArchive(shellArchive)
+	origin := false
+	if errors.Is(err, fs.ErrNotExist) && *update {
+		entries, err = readArchive(shellOrigin)
+		origin = true
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	byName := make(map[string]*goldenCase)
+	for name, content := range entries {
+		caseName, inside, found := strings.Cut(name, "/")
+		if !found || caseName == "" || inside == "" {
+			continue
+		}
+		if origin {
+			switch {
+			case inside == "want/refused":
+				inside = inRefused
+			case inside == inFacts:
+				content, err = shellFacts(content)
+				if err != nil {
+					t.Fatalf("%s: %v", name, err)
+				}
+			case inside == inSettings || strings.HasPrefix(inside, inFiles):
+			default:
+				// what the shell backend wrote
+				continue
+			}
+		}
+		c := byName[caseName]
+		if c == nil {
+			c = &goldenCase{name: caseName, files: make(map[string][]byte)}
+			byName[caseName] = c
+		}
+		c.files[inside] = content
+	}
+	var cases []*goldenCase
+	for _, c := range byName {
+		cases = append(cases, c)
+	}
+	sort.Slice(cases, func(i, j int) bool { return cases[i].name < cases[j].name })
+	return cases
+}
+
+// shellFacts are the facts of a case of the shell backend: the address of the LAN it was run with,
+// the NTP servers of OpenWrt's default settings, a key of the Clash API.
+func shellFacts(content []byte) ([]byte, error) {
+	var old struct {
+		LANAddress string `json:"lan_address"`
+	}
+	if err := json.Unmarshal(content, &old); err != nil {
+		return nil, err
+	}
+	return encode(goldenFacts{LANAddress: old.LANAddress, NTPServerNames: openWrtNTPServers, ClashSecret: goldenClashSecret}), nil
+}
+
+// writeShellArchive stores the cases of the shell backend; an archive of the same files stays as
+// it is.
+func writeShellArchive(t *testing.T, cases []*goldenCase) {
+	entries := make(map[string][]byte)
+	for _, c := range cases {
+		for name, content := range c.files {
+			entries[c.name+"/"+name] = content
+		}
+	}
+	if existing, err := readArchive(shellArchive); err == nil && sameEntries(existing, entries) {
+		return
+	}
+	content, err := packArchive(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(shellArchive, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func sameEntries(left map[string][]byte, right map[string][]byte) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for name, content := range left {
+		other, found := right[name]
+		if !found || !bytes.Equal(content, other) {
+			return false
+		}
+	}
+	return true
+}
+
+// packArchive makes a tar.gz of the files in the order of their names, with nothing that changes
+// from one update to the next.
+func packArchive(entries map[string][]byte) ([]byte, error) {
+	names := make([]string, 0, len(entries))
+	for name := range entries {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var packed bytes.Buffer
+	compressed, err := gzip.NewWriterLevel(&packed, gzip.BestCompression)
+	if err != nil {
+		return nil, err
+	}
+	archive := tar.NewWriter(compressed)
+	for _, name := range names {
+		header := &tar.Header{Typeflag: tar.TypeReg, Name: name, Mode: 0o644, Size: int64(len(entries[name])), ModTime: time.Unix(0, 0)}
+		if err := archive.WriteHeader(header); err != nil {
+			return nil, err
+		}
+		if _, err := archive.Write(entries[name]); err != nil {
+			return nil, err
+		}
+	}
+	if err := archive.Close(); err != nil {
+		return nil, err
+	}
+	if err := compressed.Close(); err != nil {
+		return nil, err
+	}
+	return packed.Bytes(), nil
+}
+
+// readArchive returns the regular files of a tar.gz by their names.
+func readArchive(name string) (map[string][]byte, error) {
+	file, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	unpacked, err := gzip.NewReader(file)
+	if err != nil {
+		return nil, err
+	}
+	archive := tar.NewReader(unpacked)
+	entries := make(map[string][]byte)
+	for {
+		header, err := archive.Next()
+		if err == io.EOF {
+			return entries, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		if header.Typeflag != tar.TypeReg {
+			continue
+		}
+		content, err := io.ReadAll(archive)
+		if err != nil {
+			return nil, err
+		}
+		entries[header.Name] = content
+	}
 }
 
 // differences tells how two sets of outputs differ: a file in one of them only, and the first
