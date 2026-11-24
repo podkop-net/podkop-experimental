@@ -85,13 +85,13 @@ func init() {
 }
 
 func checkDNS(output io.Writer, errorOutput io.Writer) int {
-	parsed, err := readUCI(commandCheckDNSFlagUCI)
+	parsed, err := uci.ReadFile(commandCheckDNSFlagUCI)
 	if err != nil {
 		io.WriteString(errorOutput, "error: "+sharelink.OneLine(err.Error())+"\n")
 		return 2
 	}
 	// a file of dnsmasq that cannot be read is a dnsmasq that is not set up
-	dhcp, _ := readUCI(commandCheckDNSFlagDHCP)
+	dhcp, _ := uci.ReadFile(commandCheckDNSFlagDHCP)
 	// as written, without the defaults of the generator: the check reports the settings
 	settings := parsed.Section("settings")
 	var upstreams []model.DNSUpstream
@@ -146,14 +146,6 @@ var commandDnsmasq = &cobra.Command{
 
 func init() {
 	mainCommand.AddCommand(commandDnsmasq)
-}
-
-func readUCI(path string) (*uci.Package, error) {
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return uci.Parse(content)
 }
 
 func renderSettings(output io.Writer, errorOutput io.Writer) int {

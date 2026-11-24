@@ -5,6 +5,7 @@ package uci
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	E "github.com/sagernet/sing/common/exceptions"
@@ -104,6 +105,15 @@ func IsOne(text string) bool {
 		}
 	}
 	return text[len(text)-1] == '1'
+}
+
+// ReadFile reads a configuration file and parses it (Parse).
+func ReadFile(path string) (*Package, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return Parse(content)
 }
 
 // Parse reads the text of a configuration file. A section without a name gets the name

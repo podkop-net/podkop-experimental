@@ -528,12 +528,8 @@ func executable(path string) bool {
 
 // readUCI reads a settings file; a file that cannot be read is one without sections.
 func readUCI(path string) *uci.Package {
-	content, err := os.ReadFile(path)
-	if err == nil {
-		parsed, err := uci.Parse(content)
-		if err == nil {
-			return parsed
-		}
+	if parsed, err := uci.ReadFile(path); err == nil {
+		return parsed
 	}
 	return new(uci.Package)
 }
