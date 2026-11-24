@@ -1,0 +1,274 @@
+config settings 'settings'
+	option config_version '2'
+	option dns_type 'udp'
+	option dns_server '77.88.8.8'
+	option bootstrap_dns_server '77.88.8.8'
+	option dns_rewrite_ttl '60'
+	list source_network_interfaces 'br-lan'
+	option update_interval '1d'
+	option cache_path '/usr/share/podkop/cache.db'
+	option log_level 'warn'
+
+config source 'pair'
+	option type 'links'
+	list link 'vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.61:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#A'
+	list link 'vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.62:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#B'
+
+config source 'reserve'
+	option type 'links'
+	list link 'vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.63:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#R1'
+	list link 'vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.64:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#R2'
+
+config source 'last'
+	option type 'links'
+	list link 'vless://1d8af00a-326d-47d5-ad31-4bcc2767a48d@ws.example.org:443?security=tls&type=ws&host=cdn.example.org&path=%2Fws&sni=ws.example.org&fp=firefox#DE%20WS'
+
+config source 'warp'
+	option type 'interface'
+	option interface 'awg0'
+
+config section 'order'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'order.example'
+	option fallback_choice 'order'
+
+config member
+	option section 'order'
+	option role 'server'
+	option source 'pair'
+
+config member
+	option section 'order'
+	option role 'fallback'
+	option source 'block'
+
+config member
+	option section 'order'
+	option role 'fallback'
+	option source 'reserve'
+
+config member
+	option section 'order'
+	option role 'fallback'
+	option source 'direct'
+
+config member
+	option section 'order'
+	option role 'fallback'
+	option source 'last'
+
+config member
+	option section 'order'
+	option role 'fallback'
+	option source 'warp'
+
+config section 'fastest'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'fastest.example'
+	option fallback_choice 'fastest'
+
+config member
+	option section 'fastest'
+	option role 'server'
+	option source 'pair'
+
+config member
+	option section 'fastest'
+	option role 'fallback'
+	option source 'block'
+
+config member
+	option section 'fastest'
+	option role 'fallback'
+	option source 'reserve'
+
+config member
+	option section 'fastest'
+	option role 'fallback'
+	option source 'direct'
+
+config member
+	option section 'fastest'
+	option role 'fallback'
+	option source 'last'
+
+config member
+	option section 'fastest'
+	option role 'fallback'
+	option source 'warp'
+
+config section 'loss'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'loss.example'
+	option fallback_choice 'loss'
+	option loss_check_interval '60'
+	option loss_threshold '2'
+
+config member
+	option section 'loss'
+	option role 'server'
+	option source 'pair'
+
+config member
+	option section 'loss'
+	option role 'fallback'
+	option source 'block'
+
+config member
+	option section 'loss'
+	option role 'fallback'
+	option source 'reserve'
+
+config member
+	option section 'loss'
+	option role 'fallback'
+	option source 'direct'
+
+config member
+	option section 'loss'
+	option role 'fallback'
+	option source 'last'
+
+config member
+	option section 'loss'
+	option role 'fallback'
+	option source 'warp'
+
+config section 'balance'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'balance.example'
+	option server_choice 'loss'
+	option fallback_choice 'balance'
+	option loss_check_interval '10'
+	option loss_threshold '2.5'
+
+config member
+	option section 'balance'
+	option role 'server'
+	option source 'pair'
+
+config member
+	option section 'balance'
+	option role 'fallback'
+	option source 'block'
+
+config member
+	option section 'balance'
+	option role 'fallback'
+	option source 'reserve'
+
+config member
+	option section 'balance'
+	option role 'fallback'
+	option source 'direct'
+
+config member
+	option section 'balance'
+	option role 'fallback'
+	option source 'last'
+
+config member
+	option section 'balance'
+	option role 'fallback'
+	option source 'warp'
+
+config section 'twice'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'twice.example'
+	option fallback_choice 'fastest'
+
+config member
+	option section 'twice'
+	option role 'server'
+	option source 'pair'
+
+config member
+	option section 'twice'
+	option role 'fallback'
+	option source 'pair'
+
+config member
+	option section 'twice'
+	option role 'fallback'
+	option source 'reserve'
+
+config member
+	option section 'twice'
+	option role 'fallback'
+	option source 'reserve'
+	list include 'R1'
+
+config section 'one'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'one.example'
+	option fallback_choice 'loss'
+
+config member
+	option section 'one'
+	option role 'server'
+	option source 'pair'
+
+config member
+	option section 'one'
+	option role 'fallback'
+	option source 'direct'
+
+config member
+	option section 'one'
+	option role 'fallback'
+	option source 'last'
+
+config section 'none'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'none.example'
+	option fallback_choice 'balance'
+
+config member
+	option section 'none'
+	option role 'server'
+	option source 'last'
+
+config member
+	option section 'none'
+	option role 'fallback'
+	option source 'block'
+
+config member
+	option section 'none'
+	option role 'fallback'
+	option source 'direct'
+
+config section 'only'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'only.example'
+	option fallback_choice 'balance'
+
+config member
+	option section 'only'
+	option role 'fallback'
+	option source 'reserve'
+
+config member
+	option section 'only'
+	option role 'fallback'
+	option source 'last'
+
+config section 'unknown'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'unknown.example'
+	option fallback_choice 'random'
+
+config member
+	option section 'unknown'
+	option role 'server'
+	option source 'pair'
+
+config member
+	option section 'unknown'
+	option role 'fallback'
+	option source 'reserve'
+
+config member
+	option section 'unknown'
+	option role 'fallback'
+	option source 'last'

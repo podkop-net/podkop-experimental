@@ -1,0 +1,183 @@
+{
+  "routes": true,
+  "rules": {
+    "later": {
+      "name": "later",
+      "selector": "later-out",
+      "test": "later-urltest-out",
+      "pool": "later-fallback-out"
+    },
+    "main": {
+      "name": "main",
+      "selector": "main-out",
+      "test": "main-urltest-out",
+      "pool": "main-fallback-out"
+    }
+  },
+  "outbounds": {
+    "DE WS": {
+      "source": "own",
+      "stable_hash": "80d4db020c8aaec6e6199868"
+    },
+    "Subscription: FI 1": {
+      "source": "sub",
+      "server": "FI 1",
+      "stable_hash": "5eb83ac5ef247cef6db0b225"
+    },
+    "Subscription: FI Hy2": {
+      "source": "sub",
+      "server": "FI Hy2",
+      "stable_hash": "67b563dccfff1ad997ad9e7e"
+    },
+    "Subscription: FI VMess": {
+      "source": "sub",
+      "server": "FI VMess",
+      "stable_hash": "cf9e178da8adf2061e6b53aa"
+    },
+    "Subscription: RU SOCKS": {
+      "source": "sub",
+      "server": "RU SOCKS",
+      "stable_hash": "1cecf9ed31fdebb9f48d8f31"
+    },
+    "Subscription: SE 1": {
+      "source": "sub",
+      "server": "SE 1",
+      "stable_hash": "133574d2395374432f5ffe56"
+    },
+    "Subscription: SE Hysteria": {
+      "source": "sub",
+      "server": "SE Hysteria",
+      "stable_hash": "072766aa1900f35adb5020e0"
+    },
+    "Subscription: US SOCKS": {
+      "source": "sub",
+      "server": "US SOCKS",
+      "stable_hash": "2090b66084f3f84b53384a23"
+    },
+    "later-fallback-out": {
+      "rule": "later"
+    },
+    "later-out": {
+      "rule": "later"
+    },
+    "later-urltest-out": {
+      "rule": "later"
+    },
+    "main-fallback-out": {
+      "rule": "main"
+    },
+    "main-out": {
+      "rule": "main"
+    },
+    "main-urltest-out": {
+      "rule": "main"
+    }
+  },
+  "swappable": [
+    "DE WS",
+    "Subscription: FI 1",
+    "Subscription: FI Hy2",
+    "Subscription: FI VMess",
+    "Subscription: RU SOCKS",
+    "Subscription: SE 1",
+    "Subscription: SE Hysteria",
+    "Subscription: US SOCKS",
+    "later-fallback-out",
+    "later-out",
+    "later-urltest-out",
+    "main-fallback-out",
+    "main-out",
+    "main-urltest-out"
+  ],
+  "legacy": {
+    "own": "DE WS",
+    "sub: FI 1": "Subscription: FI 1",
+    "sub: FI Hy2": "Subscription: FI Hy2",
+    "sub: FI VMess": "Subscription: FI VMess",
+    "sub: RU SOCKS": "Subscription: RU SOCKS",
+    "sub: SE 1": "Subscription: SE 1",
+    "sub: SE Hysteria": "Subscription: SE Hysteria",
+    "sub: US SOCKS": "Subscription: US SOCKS"
+  },
+  "adopted_selectors": {
+    "later-out": "later-out",
+    "main-out": "main-out"
+  },
+  "adopted_members": {
+    "own": "DE WS",
+    "sub: FI 1": "Subscription: FI 1",
+    "sub: FI Hy2": "Subscription: FI Hy2",
+    "sub: FI VMess": "Subscription: FI VMess",
+    "sub: RU SOCKS": "Subscription: RU SOCKS",
+    "sub: SE 1": "Subscription: SE 1",
+    "sub: SE Hysteria": "Subscription: SE Hysteria",
+    "sub: US SOCKS": "Subscription: US SOCKS"
+  },
+  "no_downloads": [],
+  "rule_sets": [
+    {
+      "tag": "main-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+      "format": "source"
+    },
+    {
+      "tag": "later-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/later-user-domains-ruleset.json",
+      "format": "source"
+    }
+  ],
+  "links": [
+    {
+      "section": "main",
+      "name": "DE WS",
+      "tag": "DE WS",
+      "text": "vless://1d8af00a-326d-47d5-ad31-4bcc2767a48d@ws.example.org:443?security=tls&type=ws&host=cdn.example.org&path=%2Fws&sni=ws.example.org&fp=firefox#DE%20WS"
+    },
+    {
+      "section": "main",
+      "name": "Subscription: FI 1",
+      "tag": "Subscription: FI 1",
+      "text": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.51:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#FI%201"
+    },
+    {
+      "section": "main",
+      "name": "Subscription: FI Hy2",
+      "tag": "Subscription: FI Hy2",
+      "text": "hy2://golden-hy2@hy.example.org:443/?sni=hy.example.org&obfs=salamander&obfs-password=golden-obfs#FI%20Hy2"
+    },
+    {
+      "section": "main",
+      "name": "Subscription: FI VMess",
+      "tag": "Subscription: FI VMess",
+      "text": "vmess://eyJ2IjoiMiIsInBzIjoiVk0gV1MiLCJhZGQiOiJ2bS5leGFtcGxlLm9yZyIsInBvcnQiOiI0NDMiLCJpZCI6ImE0YWVkODk2LTAxNDYtNDc3Ny1hNmJhLTU0MzRiODhmN2FiYSIsImFpZCI6IjAiLCJzY3kiOiJhdXRvIiwibmV0Ijoid3MiLCJ0eXBlIjoibm9uZSIsImhvc3QiOiJjZG4uZXhhbXBsZS5vcmciLCJwYXRoIjoiL3ZtIiwidGxzIjoidGxzIiwic25pIjoidm0uZXhhbXBsZS5vcmciLCJmcCI6ImNocm9tZSJ9"
+    },
+    {
+      "section": "main",
+      "name": "Subscription: RU SOCKS",
+      "tag": "Subscription: RU SOCKS",
+      "text": "socks5://golden:golden-pass@203.0.113.30:1080#RU%20SOCKS"
+    },
+    {
+      "section": "main",
+      "name": "Subscription: US SOCKS",
+      "tag": "Subscription: US SOCKS",
+      "text": "socks5://golden:golden-pass@203.0.113.31:1080#US%20SOCKS"
+    },
+    {
+      "section": "later",
+      "name": "Subscription: SE 1",
+      "tag": "Subscription: SE 1",
+      "text": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpnb2xkZW4tcGFzcw@198.51.100.20:8388#SE%201"
+    },
+    {
+      "section": "later",
+      "name": "Subscription: SE Hysteria",
+      "tag": "Subscription: SE Hysteria",
+      "text": "hysteria2://golden-hy2@se.example.org:443/?sni=se.example.org#SE%20Hysteria"
+    }
+  ],
+  "file_order": [
+    "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+    "/var/run/podkop/rulesets/later-user-domains-ruleset.json"
+  ]
+}
