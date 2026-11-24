@@ -358,7 +358,10 @@ of it (give them the router's DNS server in the DHCP settings of the LAN).
 Run the install command of the [README](../README.md#install) again. It shows the release it
 installs and the version installed now, and says so when there is nothing to do. Then clear the
 browser's cache before opening the page (or open it in a private window): the browser may keep
-the page of the release before.
+the page of the release before. A page of 0.8.23 or newer says so in a bar above the tabs ("This
+page (version …) is older than the backend (version …)"): press **Reload without the cache** there.
+When the bar says that the page is newer, podkop was not started again after the upgrade (restart it
+on the Diagnostics tab), or the browser keeps the page from before a downgrade.
 
 - `--release 0.8.19` at the end of the command installs that release, an older one too (0.8.8 or
   newer). Your settings stay in the format of podkop-exp; an older release ignores the options
