@@ -22,7 +22,9 @@ package plan_test
 //
 //	go test ./plan/ -run TestGolden -args -update
 //
-// records what is built now; the commit of an update says why each difference is wanted.
+// records what is built now; the commit of an update says why each difference is wanted. With the
+// tags of the engine's protocols (golden_engine_test.go), sing-box builds the configuration of every
+// case as the supervisor has it built before a start.
 
 import (
 	"bytes"
@@ -416,7 +418,7 @@ func TestGoldenMapsTheResult(t *testing.T) {
 
 // goldenSummary counts what the cases gave.
 type goldenSummary struct {
-	cases, refused, excluded int
+	cases, refused, excluded, checked, unchecked int
 }
 
 func TestGolden(t *testing.T) {
@@ -428,8 +430,14 @@ func TestGolden(t *testing.T) {
 	for _, c := range curated {
 		t.Run("curated/"+c.name, func(t *testing.T) { runGolden(t, c, &summary) })
 	}
-	t.Logf("golden summary: %d cases, %d refused, %d excluded", summary.cases, summary.refused, summary.excluded)
+	t.Logf("golden summary: %d cases, %d refused, %d excluded; checked by sing-box %d, not by this build %d",
+		summary.cases, summary.refused, summary.excluded, summary.checked, summary.unchecked)
 }
+
+// goldenEngineCheck has sing-box build the configuration of a case (golden_engine_test.go): it
+// tells whether it did, and why sing-box refuses the configuration; nil without the tags of the
+// engine's protocols.
+var goldenEngineCheck func(t *testing.T, c *goldenCase) (checked bool, refusal error)
 
 func runGolden(t *testing.T, c *goldenCase, summary *goldenSummary) {
 	if reason, excluded := goldenExcluded[c.name]; excluded {
@@ -459,6 +467,18 @@ func runGolden(t *testing.T, c *goldenCase, summary *goldenSummary) {
 		record(t, c, built)
 	} else if diff := differences(c.outputs(), built); diff != "" {
 		t.Errorf("%s: what is built differs from what was recorded (go test ./plan/ -run TestGolden -args -update records it; its commit says why)\n%s", c.name, diff)
+	}
+	if !refused && goldenEngineCheck != nil {
+		checked, refusal := goldenEngineCheck(t, c)
+		switch {
+		case !checked:
+			summary.unchecked++
+		case refusal == nil:
+			summary.checked++
+		default:
+			summary.checked++
+			t.Errorf("sing-box does not take the configuration: %v", refusal)
+		}
 	}
 }
 
