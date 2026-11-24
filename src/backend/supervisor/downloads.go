@@ -58,8 +58,7 @@ func (h *history) plan() subscription.Plan {
 }
 
 // remember takes what a download of an address came to into its history.
-func (s *Supervisor) remember(key string, tries []subscription.Try) {
-	t := &s.subscriptions
+func (t *subscriptionRuntime) remember(key string, tries []subscription.Try) {
 	t.access.Lock()
 	defer t.access.Unlock()
 	if t.histories == nil {
@@ -88,8 +87,7 @@ func (s *Supervisor) remember(key string, tries []subscription.Try) {
 }
 
 // planOf is the plan of the next download of an address and the way of its last one.
-func (s *Supervisor) planOf(key string) (subscription.Plan, string) {
-	t := &s.subscriptions
+func (t *subscriptionRuntime) planOf(key string) (subscription.Plan, string) {
 	t.access.Lock()
 	defer t.access.Unlock()
 	record := t.histories[key]
@@ -104,22 +102,22 @@ func (s *Supervisor) planOf(key string) (subscription.Plan, string) {
 // as the history of the address plans them, and what the download came to goes into it: the
 // history is of the way to the address, whatever it was asked with. It tells the instance it went
 // through and the tries.
-func (s *Supervisor) fetch(ctx context.Context, address string, custom subscription.Custom, proxies int, report func([]subscription.Try)) (*subscription.Saved, Instance, []subscription.Try, error) {
-	header := s.options.Device.Headers(s.options.Version, custom)
-	download := s.options.Download
+func (t *subscriptionRuntime) fetch(ctx context.Context, address string, custom subscription.Custom, proxies int, report func([]subscription.Try)) (*subscription.Saved, Instance, []subscription.Try, error) {
+	header := t.options.Device.Headers(t.options.Version, custom)
+	download := t.options.Download
 	if download == nil {
 		download = subscription.Download
 	}
 	key := subscription.AddressKey(address)
-	way, first := s.planOf(key)
+	way, first := t.planOf(key)
 	host := hostOf(address)
-	routes, through, together := s.routes(proxies, first, host)
+	routes, through, together := t.host.routes(proxies, first, host)
 	way.Together = way.Together || together
 	// a web page to the User-Agent of another app over TLS is the provider's answer to it: two
 	// ways at most get it, and none is held at fault for it
 	way.PageIsAnswer = custom.UserAgent != "" && secureAddress(address)
 	answer, tries, err := download(ctx, address, header, routes, way, report)
-	s.remember(key, tries)
+	t.remember(key, tries)
 	recordTries(through, host, routes, tries)
 	if err != nil {
 		return nil, through, tries, subscription.ForAgent(err, custom, address)
@@ -129,7 +127,6 @@ func (s *Supervisor) fetch(ctx context.Context, address string, custom subscript
 		return nil, through, tries, subscription.ForAgent(err, custom, address)
 	}
 	servers := read.Servers
-	t := &s.subscriptions
 	known := func() map[string]string {
 		t.access.Lock()
 		defer t.access.Unlock()
@@ -139,7 +136,7 @@ func (s *Supervisor) fetch(ctx context.Context, address string, custom subscript
 		}
 		return known
 	}()
-	verdicts := s.options.Engine.CheckServers(servers, known)
+	verdicts := t.options.Engine.CheckServers(servers, known)
 	func() {
 		t.access.Lock()
 		defer t.access.Unlock()
@@ -159,8 +156,7 @@ func (s *Supervisor) fetch(ctx context.Context, address string, custom subscript
 // goroutine of its own; what they come to comes back to the goroutine of Run (takeList),
 // which starts those that waited for a place. A subscription asked to be downloaded now
 // waits for its place too.
-func (s *Supervisor) downloadDue(now time.Time, force string) {
-	t := &s.subscriptions
+func (t *subscriptionRuntime) downloadDue(now time.Time, force string) {
 	t.access.Lock()
 	defer t.access.Unlock()
 	if t.forced == nil {
@@ -219,13 +215,13 @@ func (s *Supervisor) downloadDue(now time.Time, force string) {
 		// failure, with its backoff, not as one of an old request
 		request := custom.Key()
 		go func() {
-			defer s.survive("the download of subscription "+name, func() {
-				s.downloads <- downloaded{name: name, address: address, request: request, err: &subscription.Failure{Code: "fault", Text: "the download stopped on a fault of podkop: see the log"}}
+			defer t.host.survive("the download of subscription "+name, func() {
+				t.downloads <- downloaded{name: name, address: address, request: request, err: &subscription.Failure{Code: "fault", Text: "the download stopped on a fault of podkop: see the log"}}
 			})
 			ctx, cancel := context.WithTimeout(context.Background(), downloadBudget)
 			defer cancel()
-			list, through, tries, err := s.fetch(ctx, address, custom, downloadProxies, nil)
-			s.downloads <- downloaded{name: name, address: address, request: request, list: list, tries: tries, err: err, through: through, planned: planned}
+			list, through, tries, err := t.fetch(ctx, address, custom, downloadProxies, nil)
+			t.downloads <- downloaded{name: name, address: address, request: request, list: list, tries: tries, err: err, through: through, planned: planned}
 		}()
 	}
 }
@@ -237,17 +233,17 @@ func (s *Supervisor) downloadDue(now time.Time, force string) {
 // Whatever the download came to, the downloads that waited for a place start, the lists of a
 // round that ended are applied, and the callers that waited for it are answered, unless the list
 // is downloaded again at once (takeResult).
-func (s *Supervisor) takeList(result downloaded) {
-	tell, answer := s.takeResult(result)
+func (t *subscriptionRuntime) takeList(result downloaded) {
+	tell, answer := t.takeResult(result)
 	// the log and the file of the list after the lock: the previews of other goroutines wait
 	// on it
 	if tell != nil {
 		tell()
 	}
-	s.downloadDue(time.Now(), "")
-	s.applyTaken()
+	t.downloadDue(time.Now(), "")
+	t.applyTaken()
 	if answer {
-		s.answerWaiting(result.name)
+		t.answerWaiting(result.name)
 	}
 }
 
@@ -255,8 +251,7 @@ func (s *Supervisor) takeList(result downloaded) {
 // and written of it after the lock, none when nothing is; answer tells that the callers waiting
 // for the subscription are answered, and those waiting for all if none is busy then
 // (answerWaiting).
-func (s *Supervisor) takeResult(result downloaded) (tell func(), answer bool) {
-	t := &s.subscriptions
+func (t *subscriptionRuntime) takeResult(result downloaded) (tell func(), answer bool) {
 	t.access.Lock()
 	defer t.access.Unlock()
 	state := t.states[result.name]
@@ -285,7 +280,7 @@ func (s *Supervisor) takeResult(result downloaded) (tell func(), answer bool) {
 	next := now.Add(t.interval(result.name))
 	state.Attempted, state.Attempts = &now, attempts(result.tries)
 	if result.err != nil {
-		replaced := result.through != nil && result.through != s.liveInstance()
+		replaced := result.through != nil && result.through != t.host.liveInstance()
 		if result.planned != nil && result.planned.After(now) && t.lists[result.name] != nil && !replaced {
 			// asked for by hand and failed, with a list in use: the download that was planned
 			// stays when it was, and the failure does not count towards the backoff
@@ -320,9 +315,9 @@ func (s *Supervisor) takeResult(result downloaded) (tell func(), answer bool) {
 				if failures > 1 {
 					again = strconv.Itoa(failures) + " times in a row"
 				}
-				s.log("info", "subscription ", result.name, ": not downloaded ", again, " (", code, "), the next try at ", next.Format(time.TimeOnly))
+				t.log("info", "subscription ", result.name, ": not downloaded ", again, " (", code, "), the next try at ", next.Format(time.TimeOnly))
 			} else {
-				s.log("warn", "subscription ", result.name, ": ", text)
+				t.log("warn", "subscription ", result.name, ": ", text)
 			}
 		}, true
 	}
@@ -355,11 +350,11 @@ func (s *Supervisor) takeResult(result downloaded) (tell func(), answer bool) {
 		}
 		return func() {
 			for _, line := range formatLine {
-				s.log("info", "subscription ", result.name, ": ", line)
+				t.log("info", "subscription ", result.name, ": ", line)
 			}
-			s.log("info", "subscription ", result.name, ": the list has not changed (", way, ")")
+			t.log("info", "subscription ", result.name, ": the list has not changed (", way, ")")
 			if reformatted {
-				s.saveList(result.name, result.list)
+				t.saveList(result.name, result.list)
 			}
 		}, true
 	}
@@ -375,24 +370,24 @@ func (s *Supervisor) takeResult(result downloaded) (tell func(), answer bool) {
 	changes, count, canUse := state.Changes, state.Servers, state.Usable
 	return func() {
 		for _, line := range formatLine {
-			s.log("info", "subscription ", result.name, ": ", line)
+			t.log("info", "subscription ", result.name, ": ", line)
 		}
 		if changes != nil {
-			s.log("info", "subscription ", result.name, ": ", changesLine(changes), "; ", count, " servers, ", canUse, " can be used (", way, ")")
+			t.log("info", "subscription ", result.name, ": ", changesLine(changes), "; ", count, " servers, ", canUse, " can be used (", way, ")")
 		} else {
-			s.log("info", "subscription ", result.name, ": ", count, " servers, ", canUse, " can be used (", way, ")")
+			t.log("info", "subscription ", result.name, ": ", count, " servers, ", canUse, " can be used (", way, ")")
 		}
-		s.saveList(result.name, result.list)
+		t.saveList(result.name, result.list)
 	}, true
 }
 
 // saveList keeps the list taken of a subscription on flash, when there is a directory for them.
-func (s *Supervisor) saveList(name string, list *subscription.Saved) {
-	if s.options.SubscriptionDir == "" {
+func (t *subscriptionRuntime) saveList(name string, list *subscription.Saved) {
+	if t.options.SubscriptionDir == "" {
 		return
 	}
-	if err := s.store().Save(name, list); err != nil {
-		s.log("warn", "subscription ", name, ": ", err)
+	if err := t.store().Save(name, list); err != nil {
+		t.log("warn", "subscription ", name, ": ", err)
 	}
 }
 
@@ -459,8 +454,7 @@ func plural(count int, one string, many string) string {
 }
 
 // applyTaken applies the settings again with the lists taken, once no download is under way.
-func (s *Supervisor) applyTaken() {
-	t := &s.subscriptions
+func (t *subscriptionRuntime) applyTaken() {
 	t.access.Lock()
 	busy := false
 	for _, state := range t.states {
@@ -471,16 +465,15 @@ func (s *Supervisor) applyTaken() {
 		t.changed = false
 	}
 	t.access.Unlock()
-	if due && s.current != nil {
-		s.apply(false)
+	if due && t.host.Running() {
+		t.host.apply(false)
 	}
 }
 
 // answerWaiting answers the callers of UpdateSubscriptions waiting for a subscription, and
 // those waiting for all once none is busy.
-func (s *Supervisor) answerWaiting(name string) {
-	states := s.subscriptionStates()
-	t := &s.subscriptions
+func (t *subscriptionRuntime) answerWaiting(name string) {
+	states := t.subscriptionStates()
 	t.access.Lock()
 	defer t.access.Unlock()
 	var replies []chan []SubscriptionState
@@ -498,9 +491,9 @@ func (s *Supervisor) answerWaiting(name string) {
 	}
 }
 
-// UpdateSubscriptions downloads the list of a subscription now (of all of them with no name)
+// updateSubscriptions downloads the list of a subscription now (of all of them with no name)
 // and waits for what it came to. It is for callers outside the goroutine of Run.
-func (s *Supervisor) UpdateSubscriptions(ctx context.Context, name string) []SubscriptionState {
+func (t *subscriptionRuntime) updateSubscriptions(ctx context.Context, name string) []SubscriptionState {
 	// the caller waits 3 minutes; two rounds of downloads of a provider that never answers
 	// take longer: the states are told before, those under way still busy
 	ctx, cancel := context.WithTimeout(ctx, updateWait)
@@ -515,7 +508,7 @@ func (s *Supervisor) UpdateSubscriptions(ctx context.Context, name string) []Sub
 		timer := time.NewTimer(updateWait)
 		defer timer.Stop()
 		select {
-		case s.subscriptionRequests <- subscriptionRequest{name: name, reply: reply}:
+		case t.requests <- subscriptionRequest{name: name, reply: reply}:
 			close(taken)
 		case <-timer.C:
 		}
@@ -523,23 +516,22 @@ func (s *Supervisor) UpdateSubscriptions(ctx context.Context, name string) []Sub
 	select {
 	case <-taken:
 	case <-ctx.Done():
-		return s.subscriptionStates()
+		return t.subscriptionStates()
 	}
 	select {
 	case states := <-reply:
 		return states
 	case <-ctx.Done():
-		return s.subscriptionStates()
+		return t.subscriptionStates()
 	}
 }
 
-// askDownload is UpdateSubscriptions in the goroutine of Run.
-func (s *Supervisor) askDownload(request subscriptionRequest) {
+// askDownload is updateSubscriptions in the goroutine of Run.
+func (t *subscriptionRuntime) askDownload(request subscriptionRequest) {
 	key := request.name
 	if key == "" {
 		key = "*"
 	}
-	t := &s.subscriptions
 	t.access.Lock()
 	known := key == "*" || t.states[key] != nil
 	if known {
@@ -548,8 +540,8 @@ func (s *Supervisor) askDownload(request subscriptionRequest) {
 	empty := len(t.states) == 0
 	t.access.Unlock()
 	if !known || empty {
-		request.reply <- s.subscriptionStates()
+		request.reply <- t.subscriptionStates()
 		return
 	}
-	s.downloadDue(time.Now(), key)
+	t.downloadDue(time.Now(), key)
 }

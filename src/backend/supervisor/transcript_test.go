@@ -646,7 +646,7 @@ func runScenario(t *testing.T, scenario scenario) string {
 		// the downloads still held end, and what they came to is taken by nobody
 		close(providers.quit)
 		go func() {
-			for range r.s.downloads {
+			for range r.s.subscriptions.downloads {
 			}
 		}()
 	})
@@ -841,7 +841,7 @@ func provide(address string, body string, fail bool) step {
 			r.fatal("no download of %s is under way", address)
 		}
 		select {
-		case result := <-r.s.downloads:
+		case result := <-r.s.subscriptions.downloads:
 			r.s.takeList(result)
 		case <-time.After(10 * time.Second):
 			r.fatal("the download of %s did not come back", address)

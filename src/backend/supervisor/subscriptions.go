@@ -54,9 +54,34 @@ const (
 	updateWait = 170 * time.Second
 )
 
-// subscriptions is what the supervisor knows of the subscriptions of the settings. The
-// goroutine of Run changes it; the previews of other goroutines read it under access.
-type subscriptions struct {
+// subscriptionRuntime is the subscriptions of the settings while the backend runs: the lists taken
+// and what is known of each, the downloads in the background (downloads.go), the callers that wait
+// for them, the lists the page asks for (loads.go). It is a part of the supervisor, which has one
+// and hands on to it what Run does and what is asked from outside (the methods of Supervisor at
+// the end of this file).
+//
+// Who comes here:
+//   - the goroutine of Run, as for all of the supervisor: syncSubscriptions and servers when settings
+//     are read (prepare), downloadDue at every subscriptionTick, takeList of what comes on downloads,
+//     askDownload of what comes on requests. Only it changes what the configuration is made of, and
+//     only it has the settings applied again (applyTaken).
+//   - a goroutine of each download in the background (downloadDue, mostDownloads at most), which
+//     hands what it came to over on downloads, and of each list downloaded for the page (startLoad,
+//     mostLoads at most).
+//   - the callers from outside, the page's: what they ask is answered in their goroutines;
+//     updateSubscriptions hands its request over to Run on requests.
+type subscriptionRuntime struct {
+	options *Options
+	host    subscriptionHost
+	// downloads bring what a download in the background came to, requests the downloads asked
+	// for from another goroutine, both to the goroutine of Run
+	downloads chan downloaded
+	requests  chan subscriptionRequest
+
+	// access guards all that follows. Only the goroutine of Run changes it, except for verdicts,
+	// previews, histories and jobs, which the downloads and the callers change too. Nothing is
+	// downloaded or applied with access held. The lock of the status is taken within it (liveInstance,
+	// in takeResult), never the other way round.
 	access sync.Mutex
 	// addresses are those of the subscriptions of the settings read last, by name
 	addresses map[string]string
@@ -72,7 +97,7 @@ type subscriptions struct {
 	// customs are what the settings add to the requests of each subscription (the User-Agent
 	// and the extra headers), by name
 	customs map[string]subscription.Custom
-	// waiting are the callers of UpdateSubscriptions, by name ("" for all)
+	// waiting are the callers of UpdateSubscriptions, by name ("*" for all)
 	waiting map[string][]chan []SubscriptionState
 	// previews are the lists downloaded for the page (LoadSubscription, CheckGroup), by the
 	// key of their address, for a while: Check of a group takes the list Load just got. An
@@ -90,6 +115,28 @@ type subscriptions struct {
 	forced map[string]bool
 	// failures are how many downloads of each subscription failed in a row
 	failures map[string]int
+}
+
+// subscriptionHost is what the subscriptions use of the supervisor.
+type subscriptionHost interface {
+	log(level string, message ...any)
+	// survive is deferred by the goroutines of the downloads
+	survive(what string, answer func())
+	// routes are the ways to a provider, liveInstance the sing-box that runs; from any goroutine
+	routes(proxies int, first string, host string) ([]subscription.Route, Instance, bool)
+	liveInstance() Instance
+	// Running and apply are for the goroutine of Run: with a state up the settings are applied again
+	// with the lists taken
+	Running() bool
+	apply(force bool) Result
+}
+
+func newSubscriptionRuntime(options *Options, host subscriptionHost) *subscriptionRuntime {
+	return &subscriptionRuntime{options: options, host: host, downloads: make(chan downloaded), requests: make(chan subscriptionRequest)}
+}
+
+func (t *subscriptionRuntime) log(level string, message ...any) {
+	t.host.log(level, message...)
 }
 
 // preview is a list downloaded for the page, and the key of the request it was asked with
@@ -121,8 +168,8 @@ type subscriptionRequest struct {
 	reply chan []SubscriptionState
 }
 
-func (s *Supervisor) store() subscription.Store {
-	return subscription.Store{Dir: s.options.SubscriptionDir}
+func (t *subscriptionRuntime) store() subscription.Store {
+	return subscription.Store{Dir: t.options.SubscriptionDir}
 }
 
 // syncSubscriptions takes the subscriptions of settings that were read: the list of each is
@@ -131,8 +178,7 @@ func (s *Supervisor) store() subscription.Store {
 // same address keep the list in use (it is of the same account) and download it again soon. tell
 // logs what the settings add to a request and cannot be sent: once an apply, not again for a
 // configuration built again after a swap.
-func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
-	t := &s.subscriptions
+func (t *subscriptionRuntime) syncSubscriptions(settings *model.Config, tell bool) {
 	t.access.Lock()
 	defer t.access.Unlock()
 	if t.lists == nil {
@@ -149,14 +195,14 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
 			continue
 		}
 		names = append(names, item.Name)
-		custom, problems := subscription.ParseRequest(item.UserAgentPreset, item.UserAgent, item.Headers, s.options.SingBoxVersion)
+		custom, problems := subscription.ParseRequest(item.UserAgentPreset, item.UserAgent, item.Headers, t.options.SingBoxVersion)
 		if tell {
 			for _, problem := range problems {
 				line := problem.Describe()
 				if problem.Line == 0 {
-					line += ": podkop/" + s.options.Version + " is sent"
+					line += ": podkop/" + t.options.Version + " is sent"
 				}
-				s.log("warn", "subscription ", item.Name, ": ", line)
+				t.log("warn", "subscription ", item.Name, ": ", line)
 			}
 		}
 		before := t.interval(item.Name)
@@ -170,13 +216,13 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
 				// (takeList), and the list is downloaded again when it ends
 				delete(t.failures, item.Name)
 				if state.Busy {
-					s.log("info", "subscription ", item.Name, ": the User-Agent or the headers changed during a download: its answer is not taken, ",
+					t.log("info", "subscription ", item.Name, ": the User-Agent or the headers changed during a download: its answer is not taken, ",
 						"the list is downloaded again as soon as it ends, the one in use stays until then")
 				} else {
 					next := now.Add(firstDownloadDelay)
 					state.Next = &next
 					// the download waits for the first tick of the scheduler after the delay
-					s.log("info", "subscription ", item.Name, ": the User-Agent or the headers changed: the list is downloaded again in ",
+					t.log("info", "subscription ", item.Name, ": the User-Agent or the headers changed: the list is downloaded again in ",
 						int(firstDownloadDelay/time.Second), " to ", int((firstDownloadDelay+subscriptionTick)/time.Second),
 						" s, the one in use stays until then")
 				}
@@ -194,8 +240,8 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
 		t.states[item.Name] = state
 		var saved *subscription.Saved
 		found := false
-		if s.options.SubscriptionDir != "" {
-			saved, found = s.store().Load(item.Name, item.URL)
+		if t.options.SubscriptionDir != "" {
+			saved, found = t.store().Load(item.Name, item.URL)
 		}
 		if kept := t.previews[subscription.AddressKey(item.URL)]; !found && kept != nil && kept.request == custom.Key() && now.Sub(kept.list.Changed) < previewKept {
 			// the list the page got for the address a while ago (Load, Check of a group), asked
@@ -205,9 +251,9 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
 			saved, found = kept.list, true
 			checked := kept.list.Changed
 			state.Checked = &checked
-			if s.options.SubscriptionDir != "" {
-				if err := s.store().Save(item.Name, kept.list); err != nil {
-					s.log("warn", "subscription ", item.Name, ": ", err)
+			if t.options.SubscriptionDir != "" {
+				if err := t.store().Save(item.Name, kept.list); err != nil {
+					t.log("warn", "subscription ", item.Name, ": ", err)
 				}
 			}
 		}
@@ -234,8 +280,8 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
 			delete(t.customs, name)
 		}
 	}
-	if s.options.SubscriptionDir != "" {
-		s.store().Keep(names)
+	if t.options.SubscriptionDir != "" {
+		t.store().Keep(names)
 	}
 }
 
@@ -249,8 +295,7 @@ func problemsOf(problems []subscription.Problem) []api.RequestProblem {
 }
 
 // servers are what plan.Options.Servers takes: the servers of each list sing-box can use.
-func (s *Supervisor) servers() map[string][]plan.SubscriptionServer {
-	t := &s.subscriptions
+func (t *subscriptionRuntime) servers() map[string][]plan.SubscriptionServer {
 	t.access.Lock()
 	defer t.access.Unlock()
 	result := make(map[string][]plan.SubscriptionServer)
@@ -277,7 +322,7 @@ func usable(servers []subscription.Server) int {
 // interval is how often the list of a subscription is downloaded again: as the settings say,
 // or for auto as the provider asks in its header profile-update-interval (hours), a day when
 // it asks nothing. The caller holds access.
-func (t *subscriptions) interval(name string) time.Duration {
+func (t *subscriptionRuntime) interval(name string) time.Duration {
 	if interval := t.intervals[name]; interval > 0 {
 		return interval
 	}
@@ -291,7 +336,7 @@ func (t *subscriptions) interval(name string) time.Duration {
 // that changed: the time set by the old interval could be a day away. A download under way
 // sets the time when it ends, and a retry after a failure is not put off. The caller holds
 // access.
-func (t *subscriptions) reschedule(name string, before time.Duration) {
+func (t *subscriptionRuntime) reschedule(name string, before time.Duration) {
 	state := t.states[name]
 	interval := t.interval(name)
 	if interval == before || state.Busy || state.Attempted == nil || state.Next == nil {
@@ -325,8 +370,7 @@ func parseInterval(text string) time.Duration {
 
 // subscriptionStates is what the status tells of the subscriptions, in the order of their
 // names.
-func (s *Supervisor) subscriptionStates() []SubscriptionState {
-	t := &s.subscriptions
+func (t *subscriptionRuntime) subscriptionStates() []SubscriptionState {
 	t.access.Lock()
 	defer t.access.Unlock()
 	states := []SubscriptionState{}
@@ -342,8 +386,70 @@ func (s *Supervisor) subscriptionStates() []SubscriptionState {
 	return states
 }
 
+// The subscriptions as the supervisor has them: what Run and prepare do, then what is asked from
+// outside the goroutine of Run (api.Backend).
+
+func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
+	s.subscriptions.syncSubscriptions(settings, tell)
+}
+
+func (s *Supervisor) servers() map[string][]plan.SubscriptionServer {
+	return s.subscriptions.servers()
+}
+
+func (s *Supervisor) downloadDue(now time.Time, force string) {
+	s.subscriptions.downloadDue(now, force)
+}
+
+func (s *Supervisor) takeList(result downloaded) {
+	s.subscriptions.takeList(result)
+}
+
+func (s *Supervisor) askDownload(request subscriptionRequest) {
+	s.subscriptions.askDownload(request)
+}
+
+func (s *Supervisor) subscriptionStates() []SubscriptionState {
+	return s.subscriptions.subscriptionStates()
+}
+
 // Subscriptions tells what is known of each subscription. It is for callers outside the
 // goroutine of Run.
 func (s *Supervisor) Subscriptions(context.Context) []SubscriptionState {
 	return s.subscriptionStates()
+}
+
+// UpdateSubscriptions downloads the list of a subscription now (of all of them with no name)
+// and waits for what it came to. It is for callers outside the goroutine of Run.
+func (s *Supervisor) UpdateSubscriptions(ctx context.Context, name string) []SubscriptionState {
+	return s.subscriptions.updateSubscriptions(ctx, name)
+}
+
+// LoadSubscription downloads a list to be shown, asked with the request of the form of the page;
+// nothing is taken. It is for callers outside the goroutine of Run.
+func (s *Supervisor) LoadSubscription(ctx context.Context, address string, request api.ListRequest) SubscriptionPreview {
+	return s.subscriptions.loadSubscription(ctx, address, request)
+}
+
+// CheckGroup tells which servers a group would choose. It is for callers outside the goroutine of
+// Run.
+func (s *Supervisor) CheckGroup(ctx context.Context, check GroupCheck) GroupPreview {
+	return s.subscriptions.checkGroup(ctx, check)
+}
+
+// StartLoad starts a download of a list for the page, which asks how it goes (LoadState). It is
+// for callers outside the goroutine of Run.
+func (s *Supervisor) StartLoad(ctx context.Context, address string, request api.ListRequest) LoadJob {
+	return s.subscriptions.startLoad(ctx, address, request)
+}
+
+// LoadState tells how a download for the page goes. It is for callers outside the goroutine
+// of Run.
+func (s *Supervisor) LoadState(ctx context.Context, id string) (LoadJob, bool) {
+	return s.subscriptions.loadState(ctx, id)
+}
+
+// CancelLoad stops a download for the page. It is for callers outside the goroutine of Run.
+func (s *Supervisor) CancelLoad(ctx context.Context, id string) (LoadJob, bool) {
+	return s.subscriptions.cancelLoad(ctx, id)
 }

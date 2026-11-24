@@ -51,20 +51,19 @@ func (j *loadJob) view() LoadJob {
 	return view
 }
 
-// StartLoad starts a download of a list from an address, asked with the request of the form, for
+// startLoad starts a download of a list from an address, asked with the request of the form, for
 // the page; the same address and request under way already is that download. A request that
 // cannot be sent as it is fails at once: the form asks for what it shows. The page asks how it
-// goes (LoadState): LuCI waits for a call 20 s, a download has a minute. It is for callers outside
+// goes (loadState): LuCI waits for a call 20 s, a download has a minute. It is for callers outside
 // the goroutine of Run.
-func (s *Supervisor) StartLoad(ctx context.Context, address string, request api.ListRequest) LoadJob {
+func (t *subscriptionRuntime) startLoad(ctx context.Context, address string, request api.ListRequest) LoadJob {
 	address = strings.TrimSpace(address)
-	custom, problems := subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers, s.options.SingBoxVersion)
+	custom, problems := subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers, t.options.SingBoxVersion)
 	if len(problems) > 0 {
 		refused := refusedRequest(problems[0])
 		return LoadJob{State: loadFailed, Attempts: []api.Attempt{}, Preview: &refused}
 	}
 	key := subscription.RequestKey(address, custom)
-	t := &s.subscriptions
 	t.access.Lock()
 	now := time.Now()
 	if t.jobs == nil {
@@ -97,13 +96,13 @@ func (s *Supervisor) StartLoad(ctx context.Context, address string, request api.
 	go func() {
 		defer cancel()
 		var preview SubscriptionPreview
-		defer s.survive("the download of a list for the page", func() {
+		defer t.host.survive("the download of a list for the page", func() {
 			t.access.Lock()
 			defer t.access.Unlock()
 			job.state, job.finished = loadFailed, time.Now()
 			job.preview = &SubscriptionPreview{Servers: []api.PreviewServer{}, Error: "the download stopped on a fault of podkop: see the log", ErrorCode: "fault"}
 		})
-		preview = s.loadPreview(jobContext, address, custom, func(tries []subscription.Try) {
+		preview = t.loadPreview(jobContext, address, custom, func(tries []subscription.Try) {
 			t.access.Lock()
 			job.tries = tries
 			t.access.Unlock()
@@ -123,10 +122,9 @@ func (s *Supervisor) StartLoad(ctx context.Context, address string, request api.
 	return view
 }
 
-// LoadState tells how a download for the page goes. It is for callers outside the goroutine
+// loadState tells how a download for the page goes. It is for callers outside the goroutine
 // of Run.
-func (s *Supervisor) LoadState(ctx context.Context, id string) (LoadJob, bool) {
-	t := &s.subscriptions
+func (t *subscriptionRuntime) loadState(ctx context.Context, id string) (LoadJob, bool) {
 	t.access.Lock()
 	defer t.access.Unlock()
 	job := t.jobs[id]
@@ -136,9 +134,8 @@ func (s *Supervisor) LoadState(ctx context.Context, id string) (LoadJob, bool) {
 	return job.view(), true
 }
 
-// CancelLoad stops a download for the page. It is for callers outside the goroutine of Run.
-func (s *Supervisor) CancelLoad(ctx context.Context, id string) (LoadJob, bool) {
-	t := &s.subscriptions
+// cancelLoad stops a download for the page. It is for callers outside the goroutine of Run.
+func (t *subscriptionRuntime) cancelLoad(ctx context.Context, id string) (LoadJob, bool) {
 	t.access.Lock()
 	defer t.access.Unlock()
 	job := t.jobs[id]
@@ -161,25 +158,25 @@ func refusedRequest(problem subscription.Problem) SubscriptionPreview {
 	return SubscriptionPreview{Servers: []api.PreviewServer{}, Error: "the User-Agent or a header cannot be sent: " + problem.Where() + ": " + problem.Text, ErrorCode: "request", ErrorArgs: args}
 }
 
-// LoadSubscription downloads a list to be shown: the page asks with the address, the User-Agent
+// loadSubscription downloads a list to be shown: the page asks with the address, the User-Agent
 // and the headers of its form, saved or not. Nothing is taken. It is for callers outside the
 // goroutine of Run.
-func (s *Supervisor) LoadSubscription(ctx context.Context, address string, request api.ListRequest) SubscriptionPreview {
-	custom, problems := subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers, s.options.SingBoxVersion)
+func (t *subscriptionRuntime) loadSubscription(ctx context.Context, address string, request api.ListRequest) SubscriptionPreview {
+	custom, problems := subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers, t.options.SingBoxVersion)
 	if len(problems) > 0 {
 		return refusedRequest(problems[0])
 	}
 	ctx, cancel := context.WithTimeout(ctx, loadBudget)
 	defer cancel()
-	return s.loadPreview(ctx, address, custom, nil)
+	return t.loadPreview(ctx, address, custom, nil)
 }
 
 // loadPreview downloads a list to be shown: nothing is taken; the list is kept a while for
 // Check of a group and for a subscription added with its address and request.
-func (s *Supervisor) loadPreview(ctx context.Context, address string, custom subscription.Custom, report func([]subscription.Try)) SubscriptionPreview {
+func (t *subscriptionRuntime) loadPreview(ctx context.Context, address string, custom subscription.Custom, report func([]subscription.Try)) SubscriptionPreview {
 	preview := SubscriptionPreview{Servers: []api.PreviewServer{}, Agent: custom.UserAgent, Preset: custom.Preset}
 	address = strings.TrimSpace(address)
-	list, _, tries, err := s.fetch(ctx, address, custom, downloadProxies, report)
+	list, _, tries, err := t.fetch(ctx, address, custom, downloadProxies, report)
 	preview.Attempts = attempts(tries)
 	if err != nil {
 		preview.Error, preview.ErrorCode, preview.ErrorArgs = failureOf(err)
@@ -188,7 +185,7 @@ func (s *Supervisor) loadPreview(ctx context.Context, address string, custom sub
 		}
 		return preview
 	}
-	s.keepPreview(list, custom.Key())
+	t.keepPreview(list, custom.Key())
 	preview.Route, preview.Took = list.Route, tookOf(tries)
 	preview.Provider = subscription.ReadInfo(list.Info)
 	preview.Format, preview.Configs = list.Format, list.Configs
@@ -200,11 +197,11 @@ func (s *Supervisor) loadPreview(ctx context.Context, address string, custom sub
 	return preview
 }
 
-// CheckGroup tells which servers a group would choose. A subscription's list is the one
+// checkGroup tells which servers a group would choose. A subscription's list is the one
 // taken when the form has the address and the request the settings that run have, else the one
 // Load got for the address and the request of the form a while ago, else one downloaded for
 // them; none of these is taken. It is for callers outside the goroutine of Run.
-func (s *Supervisor) CheckGroup(ctx context.Context, check GroupCheck) GroupPreview {
+func (t *subscriptionRuntime) checkGroup(ctx context.Context, check GroupCheck) GroupPreview {
 	ctx, cancel := context.WithTimeout(ctx, previewBudget)
 	defer cancel()
 	row := model.Member{Include: check.Include, Exclude: check.Exclude}
@@ -219,7 +216,7 @@ func (s *Supervisor) CheckGroup(ctx context.Context, check GroupCheck) GroupPrev
 		if asked, found := check.Requests[name]; found {
 			request = &asked
 		}
-		list, err := s.groupList(ctx, name, strings.TrimSpace(check.Addresses[name]), request)
+		list, err := t.groupList(ctx, name, strings.TrimSpace(check.Addresses[name]), request)
 		if err != nil {
 			preview.Missing = append(preview.Missing, name+": "+model.OneLine(err.Error()))
 			continue
@@ -237,17 +234,16 @@ func (s *Supervisor) CheckGroup(ctx context.Context, check GroupCheck) GroupPrev
 	return preview
 }
 
-// groupList is the list of a subscription for CheckGroup, by the address of the form (none:
+// groupList is the list of a subscription for checkGroup, by the address of the form (none:
 // that of the settings) and its request (none: that of the settings). The request of the form
 // is read as the settings are (subscription.ParseRequest): a line they leave out is left out here
 // too, so the same raw lines are the same request, and the list taken is used.
-func (s *Supervisor) groupList(ctx context.Context, name string, address string, request *api.ListRequest) (*subscription.Saved, error) {
-	t := &s.subscriptions
+func (t *subscriptionRuntime) groupList(ctx context.Context, name string, address string, request *api.ListRequest) (*subscription.Saved, error) {
 	t.access.Lock()
 	saved, list, running := t.addresses[name], t.lists[name], t.customs[name]
 	custom := running
 	if request != nil {
-		custom, _ = subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers, s.options.SingBoxVersion)
+		custom, _ = subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers, t.options.SingBoxVersion)
 	}
 	if address == "" {
 		address = saved
@@ -264,18 +260,17 @@ func (s *Supervisor) groupList(ctx context.Context, name string, address string,
 	if kept != nil && kept.request == custom.Key() && time.Since(kept.list.Changed) < previewKept {
 		return kept.list, nil
 	}
-	list, _, _, err := s.fetch(ctx, address, custom, previewProxies, nil)
+	list, _, _, err := t.fetch(ctx, address, custom, previewProxies, nil)
 	if err != nil {
 		return nil, err
 	}
-	s.keepPreview(list, custom.Key())
+	t.keepPreview(list, custom.Key())
 	return list, nil
 }
 
 // keepPreview keeps a list downloaded for the page for a while, the newest of its address only,
 // with the key of the request it was asked with, and forgets those older.
-func (s *Supervisor) keepPreview(list *subscription.Saved, request string) {
-	t := &s.subscriptions
+func (t *subscriptionRuntime) keepPreview(list *subscription.Saved, request string) {
 	t.access.Lock()
 	defer t.access.Unlock()
 	if t.previews == nil {

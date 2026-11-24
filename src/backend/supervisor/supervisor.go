@@ -416,12 +416,8 @@ type Supervisor struct {
 	suggestAccess sync.Mutex
 	suggest       *suggestScan
 
-	// subscriptions are the lists of the subscriptions and what is known of them;
-	// downloads bring what a download in the background came to, subscriptionRequests
-	// the downloads asked for from another goroutine
-	subscriptions        subscriptions
-	downloads            chan downloaded
-	subscriptionRequests chan subscriptionRequest
+	// subscriptions are the lists of the subscriptions and their downloads, with a lock of their own
+	subscriptions *subscriptionRuntime
 
 	// bitTorrentApplied is the BitTorrent detector of the firewall table this process put in
 	// the kernel last, nil before the first and after the table was removed: what a change of
@@ -499,8 +495,10 @@ func New(options Options) *Supervisor {
 	if options.Engine == nil {
 		options.Engine = realEngine{services: options.EngineServices}
 	}
-	return &Supervisor{options: options, derive: make(chan struct{}, 1), requests: make(chan chan Result), updates: make(chan chan ListsUpdate), probes: make(chan probeRequest), statuses: make(chan chan []ListState), restores: make(chan chan string),
-		downloads: make(chan downloaded), subscriptionRequests: make(chan subscriptionRequest), bitTorrentWake: make(chan struct{}, 1)}
+	s := &Supervisor{options: options, derive: make(chan struct{}, 1), requests: make(chan chan Result), updates: make(chan chan ListsUpdate), probes: make(chan probeRequest), statuses: make(chan chan []ListState), restores: make(chan chan string),
+		bitTorrentWake: make(chan struct{}, 1)}
+	s.subscriptions = newSubscriptionRuntime(&s.options, s)
+	return s
 }
 
 func (s *Supervisor) log(level string, message ...any) {
@@ -1149,9 +1147,9 @@ func (s *Supervisor) Run(ctx context.Context, reload <-chan struct{}) error {
 			}
 		case now := <-subscriptionTicker.C:
 			s.downloadDue(now, "")
-		case result := <-s.downloads:
+		case result := <-s.subscriptions.downloads:
 			s.takeList(result)
-		case request := <-s.subscriptionRequests:
+		case request := <-s.subscriptions.requests:
 			s.askDownload(request)
 		case <-reload:
 			s.Apply()

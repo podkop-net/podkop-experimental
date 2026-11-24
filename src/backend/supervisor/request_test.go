@@ -178,11 +178,11 @@ func TestSubscriptionRequestChangedWhileBusy(t *testing.T) {
 	require.Equal(t, 1, lines.count("[info] subscription prov1: the User-Agent or the headers changed during a download: its answer is not taken, the list is downloaded again as soon as it ends, the one in use stays until then"))
 	require.Zero(t, lines.count("downloaded again in 10 to 25 s"), "not in a time: when the download ends")
 	close(source.block)
-	old := <-s.downloads
+	old := <-s.subscriptions.downloads
 	s.takeList(old)
 	require.Len(t, s.servers()["prov1"], 1, "the answer to the old User-Agent is not taken")
 	require.True(t, s.subscriptionStates()[0].Busy, "downloaded again at once")
-	fresh := <-s.downloads
+	fresh := <-s.subscriptions.downloads
 	require.NotEqual(t, old.request, fresh.request)
 	s.takeList(fresh)
 	require.Len(t, s.servers()["prov1"], 2)

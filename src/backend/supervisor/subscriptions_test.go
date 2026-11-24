@@ -103,7 +103,7 @@ func downloadNow(t *testing.T, s *Supervisor) {
 	s.subscriptions.access.Unlock()
 	s.downloadDue(time.Now(), "")
 	select {
-	case result := <-s.downloads:
+	case result := <-s.subscriptions.downloads:
 		s.takeList(result)
 	case <-time.After(10 * time.Second):
 		t.Fatal("no download came back")
@@ -390,7 +390,7 @@ func TestSubscriptionRoutes(t *testing.T) {
 	require.NotNil(t, state.Now)
 	// the plan of the next download: by the downloads that brought a list (0.7 s to the first
 	// byte, 0.8 s in all: the floors), the direct way beside the server that brought it now
-	plan, first := s.planOf(subscription.AddressKey("https://sub.example/api/sub/TOKEN"))
+	plan, first := s.subscriptions.planOf(subscription.AddressKey("https://sub.example/api/sub/TOKEN"))
 	require.Equal(t, subscription.Plan{Wait: 2 * time.Second, Body: 2 * time.Second, Total: 5 * time.Second, Stall: 3 * time.Second, Together: true}, plan)
 	require.Equal(t, "prov1: NL 2", first)
 
@@ -444,7 +444,7 @@ func TestSubscriptionRetriesAndPlaces(t *testing.T) {
 		}
 	}
 	require.Equal(t, 2, busy, "two at once")
-	first := <-s.downloads
+	first := <-s.subscriptions.downloads
 	s.takeList(first)
 	state := s.subscriptions.states[first.name]
 	require.Equal(t, "unreachable", state.ErrorCode)
@@ -456,10 +456,10 @@ func TestSubscriptionRetriesAndPlaces(t *testing.T) {
 		}
 	}
 	require.Equal(t, 2, busy, "the third took the place that came free")
-	s.takeList(<-s.downloads)
-	s.takeList(<-s.downloads)
+	s.takeList(<-s.subscriptions.downloads)
+	s.takeList(<-s.subscriptions.downloads)
 	s.downloadDue(time.Now(), first.name)
-	s.takeList(<-s.downloads)
+	s.takeList(<-s.subscriptions.downloads)
 	require.WithinDuration(t, time.Now().Add(2*time.Minute), *s.subscriptions.states[first.name].Next, 5*time.Second, "the second failure: 2 minutes")
 	s.Stop()
 }
@@ -504,8 +504,8 @@ func TestSubscriptionsDueTogetherByName(t *testing.T) {
 	for round := range 20 {
 		s.downloadDue(tick, "")
 		require.Equal(t, []string{"prov1", "prov2"}, busy(), "round %d", round)
-		<-s.downloads
-		<-s.downloads
+		<-s.subscriptions.downloads
+		<-s.subscriptions.downloads
 		s.subscriptions.access.Lock()
 		for _, state := range s.subscriptions.states {
 			state.Busy = false
@@ -514,13 +514,13 @@ func TestSubscriptionsDueTogetherByName(t *testing.T) {
 	}
 	// a place that comes free goes to the next by name at the next tick
 	s.downloadDue(tick, "")
-	s.takeList(<-s.downloads)
+	s.takeList(<-s.subscriptions.downloads)
 	s.downloadDue(tick, "")
 	require.Contains(t, busy(), "prov3")
 	require.NotContains(t, busy(), "prov4")
 	require.NotContains(t, busy(), "prov5")
-	<-s.downloads
-	<-s.downloads
+	<-s.subscriptions.downloads
+	<-s.subscriptions.downloads
 }
 
 // The page sees a list without taking it, and the servers a group of its form would choose.
@@ -609,10 +609,10 @@ func TestSubscriptionRoundAppliesOnce(t *testing.T) {
 	require.True(t, s.Boot().OK)
 	require.Len(t, fake.built, 1)
 	s.downloadDue(time.Now(), "*")
-	first := <-s.downloads
+	first := <-s.subscriptions.downloads
 	s.takeList(first)
 	require.Len(t, fake.built, 1, "the other download is under way")
-	second := <-s.downloads
+	second := <-s.subscriptions.downloads
 	s.takeList(second)
 	require.Len(t, fake.built, 1)
 	require.Len(t, fake.swaps, 1, "one change for both lists")
@@ -795,7 +795,7 @@ func TestSubscriptionUpdateByHand(t *testing.T) {
 	source.refuseAll = true
 	source.access.Unlock()
 	s.downloadDue(time.Now(), "prov1")
-	s.takeList(<-s.downloads)
+	s.takeList(<-s.subscriptions.downloads)
 	require.Equal(t, "unreachable", state.ErrorCode)
 	require.Equal(t, planned, *state.Next, "the planned download stays")
 	require.Zero(t, s.subscriptions.failures["prov1"])
@@ -805,7 +805,7 @@ func TestSubscriptionUpdateByHand(t *testing.T) {
 	source.refuseAll = false
 	source.access.Unlock()
 	s.downloadDue(time.Now(), "prov1")
-	s.takeList(<-s.downloads)
+	s.takeList(<-s.subscriptions.downloads)
 	require.Empty(t, state.ErrorCode)
 	require.WithinDuration(t, time.Now().Add(time.Hour), *state.Next, 5*time.Second)
 
@@ -816,7 +816,7 @@ func TestSubscriptionUpdateByHand(t *testing.T) {
 	past := time.Now().Add(-time.Second)
 	state.Next = &past
 	s.downloadDue(time.Now(), "")
-	s.takeList(<-s.downloads)
+	s.takeList(<-s.subscriptions.downloads)
 	require.True(t, state.Next.Before(time.Now().Add(downloadRetry+5*time.Second)))
 	require.Equal(t, 1, s.subscriptions.failures["prov1"])
 	s.Stop()
