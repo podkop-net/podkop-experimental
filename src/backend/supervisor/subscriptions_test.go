@@ -831,6 +831,28 @@ func TestSubscriptionUpdateBeforeSettings(t *testing.T) {
 	require.Empty(t, <-reply)
 }
 
+// A caller of all the subscriptions while there are none is answered at once and waits for nothing
+// more: when it is gone, its answer never read, the end of a later download does not hold up the
+// goroutine of Run on it.
+func TestSubscriptionUpdateOfNoneWaitsForNone(t *testing.T) {
+	const name, address = "prov1", "https://sub.example/api/sub/TOKEN"
+	s := New(Options{})
+	gone := make(chan []SubscriptionState, 1)
+	s.askDownload(subscriptionRequest{reply: gone})
+	s.syncSubscriptions(&model.Config{Sources: []model.Source{{Name: name, Type: "subscription", URL: address}}}, true)
+	taken := make(chan struct{})
+	go func() {
+		defer close(taken)
+		s.takeList(downloaded{name: name, address: address, request: subscription.Custom{}.Key(), err: os.ErrDeadlineExceeded})
+	}()
+	select {
+	case <-taken:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the end of a download waits for a caller answered before")
+	}
+	require.Empty(t, <-gone, "answered once: there were none")
+}
+
 // A label changed on the page renames the outbounds of its source: they are replaced while
 // sing-box runs, and the log tells the configuration by the new name.
 func TestLabelRenamesWhileRunning(t *testing.T) {

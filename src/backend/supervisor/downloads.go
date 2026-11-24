@@ -524,13 +524,15 @@ func (t *subscriptionRuntime) askDownload(request subscriptionRequest) {
 		key = "*"
 	}
 	t.access.Lock()
-	known := key == "*" || t.states[key] != nil
+	// all of none are answered at once, and do not wait as well: the end of a later download would
+	// answer them again, and one that has not read its answer (a caller that was gone) would hold up
+	// the goroutine of Run for good
+	known := t.states[key] != nil || key == "*" && len(t.states) > 0
 	if known {
 		t.waiting[key] = append(t.waiting[key], request.reply)
 	}
-	empty := len(t.states) == 0
 	t.access.Unlock()
-	if !known || empty {
+	if !known {
 		request.reply <- t.subscriptionStates()
 		return
 	}
