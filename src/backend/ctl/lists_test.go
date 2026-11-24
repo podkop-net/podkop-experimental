@@ -37,8 +37,6 @@ var hiddenCommands = map[string]string{}
 // answer itself (inProcess): the call to ubus is refused, and the page starts the program.
 var pagePrograms = map[string]string{
 	"global_check": "rare and long: in a program of its own a mistake in it cannot take the backend down (ctl/bus.go)",
-	// a finding of the 0.8.22 review of the lists, kept as it is
-	"subscription_update_start": "not in inProcess since it came (130e013): the Update now of a subscription starts the program",
 }
 
 // pageUncalled are the methods of methods/shell no part of the page calls.
