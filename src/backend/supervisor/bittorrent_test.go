@@ -62,6 +62,15 @@ func TestRouterUsersByTheClock(t *testing.T) {
 	result.Dataplane.BitTorrent.Mode = ""
 	b.tick(current)
 	require.Equal(t, 1, host.applies, "BitTorrent is off")
+
+	// the only user it was built with is gone: no user is there now
+	settings.Settings.BitTorrentRouterUsers = []string{"no-such-user-of-podkop"}
+	result.Dataplane.BitTorrent.Mode = model.BitTorrentBypass
+	result.Facts.UserIDs = map[string]uint32{"no-such-user-of-podkop": 64999}
+	b.tick(current)
+	require.Equal(t, 2, host.applies, "a user went away")
+	b.tick(current)
+	require.Equal(t, 2, host.applies, "once")
 }
 
 // The traffic of a detector that came or changed is read at once, not at the next tick; not that of

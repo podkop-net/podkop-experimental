@@ -152,7 +152,8 @@ func (b *bitTorrentRuntime) tick(current *running) {
 		return
 	}
 	now := userIDs(current.settings.Settings.BitTorrentRouterUsers)
-	if maps.Equal(now, b.usersTried) {
+	// none tried is not the same as tried with no user there
+	if b.usersTried != nil && maps.Equal(now, b.usersTried) {
 		return
 	}
 	b.usersTried = now
