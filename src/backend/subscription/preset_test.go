@@ -23,7 +23,7 @@ func TestPresetHeaders(t *testing.T) {
 		"incy":     "INCY/3.9.1/linux",
 		"sing-box": "SFA (sing-box " + singBoxVersion("unknown") + "; language en_US)",
 	} {
-		custom, problems := ParseRequest(preset, "", nil)
+		custom, problems := ParseRequest(preset, "", nil, "")
 		require.Empty(t, problems, preset)
 		header := device.Headers("0.8.21", custom)
 		require.Equal(t, want, header.Get("User-Agent"), preset)
@@ -43,7 +43,6 @@ func TestPresetSingBoxVersion(t *testing.T) {
 	// a build without the version (ldflags) takes the version go.mod requires, where the binary
 	// tells its modules (a test binary does not)
 	module := "unknown"
-	require.Empty(t, SingBoxVersion)
 	if info, found := debug.ReadBuildInfo(); found {
 		for _, dependency := range info.Deps {
 			if dependency.Path == "github.com/sagernet/sing-box" {
@@ -62,43 +61,47 @@ func TestPresetSingBoxVersion(t *testing.T) {
 	}
 	require.Regexp(t, `^[0-9]+\.[0-9]+\.[0-9]+$`, required)
 	require.Equal(t, "SFA (sing-box "+required+"; language en_US)", "SFA (sing-box "+singBoxVersion(required+"-pdk-209086dbd08a")+"; language en_US)")
-	require.Equal(t, "SFA (sing-box "+singBoxVersion(SingBoxVersion)+"; language en_US)", singBoxAgent())
-	// the program sets the version of the engine's sing-box
+	require.Equal(t, "SFA (sing-box "+singBoxVersion("")+"; language en_US)", singBoxAgent(""))
+	// the program gives the version of the engine's sing-box, a test build has none of its own
 	require.Equal(t, "unknown", C.Version, "a test build has no version of its own")
-	require.Regexp(t, regexp.MustCompile(`^SFA \(sing-box [^;]+; language en_US\)$`), singBoxAgent())
+	require.Regexp(t, regexp.MustCompile(`^SFA \(sing-box [^;]+; language en_US\)$`), singBoxAgent(C.Version))
 	// Remnawave's default rules give sing-box JSON to this name (any case): ^sfa|sfi|sfm|sft|karing|singbox
-	require.Regexp(t, regexp.MustCompile(`(?i)^(sfa|sfi|sfm|sft|karing|singbox)`), singBoxAgent())
+	require.Regexp(t, regexp.MustCompile(`(?i)^(sfa|sfi|sfm|sft|karing|singbox)`), singBoxAgent(C.Version))
+	// the preset sends the version it is given, a build's without podkop's part
+	sent, problems := ParseRequest(PresetSingBox, "", nil, "1.14.4-pdk-209086dbd08a")
+	require.Empty(t, problems)
+	require.Equal(t, Custom{Preset: PresetSingBox, UserAgent: "SFA (sing-box 1.14.4; language en_US)"}, sent)
 }
 
 // A User-Agent without a preset is custom, as is custom with it; a preset of an app or podkop does
 // not send the option user_agent; custom with none is podkop's own.
 func TestPresetCustom(t *testing.T) {
 	t.Parallel()
-	typed, problems := ParseRequest("", "  INCY/4.0.3/android  ", nil)
+	typed, problems := ParseRequest("", "  INCY/4.0.3/android  ", nil, "")
 	require.Empty(t, problems)
 	require.Equal(t, Custom{UserAgent: "INCY/4.0.3/android"}, typed)
-	custom, problems := ParseRequest("custom", "INCY/4.0.3/android", nil)
+	custom, problems := ParseRequest("custom", "INCY/4.0.3/android", nil, "")
 	require.Empty(t, problems)
 	require.Equal(t, typed, custom)
 	require.Equal(t, typed.Key(), custom.Key())
 	old, _ := ParseCustom("INCY/4.0.3/android", nil)
 	require.Equal(t, typed, old)
 
-	happ, problems := ParseRequest("happ", "INCY/4.0.3/android", nil)
+	happ, problems := ParseRequest("happ", "INCY/4.0.3/android", nil, "")
 	require.Empty(t, problems)
 	require.Equal(t, Custom{Preset: "happ", UserAgent: "Happ/4.8.3/Linux"}, happ, "the User-Agent of another preset is not sent")
 
 	for _, preset := range []string{"", "podkop", "custom", " podkop "} {
-		own, problems := ParseRequest(preset, "", nil)
+		own, problems := ParseRequest(preset, "", nil, "")
 		require.Empty(t, problems, preset)
 		require.True(t, own.Empty(), preset)
 		require.Empty(t, own.Key(), preset)
 	}
-	podkop, _ := ParseRequest("podkop", "INCY", []string{"X-Key: 1"})
-	none, _ := ParseRequest("", "", []string{"X-Key: 1"})
+	podkop, _ := ParseRequest("podkop", "INCY", []string{"X-Key: 1"}, "")
+	none, _ := ParseRequest("", "", []string{"X-Key: 1"}, "")
 	require.Equal(t, none, podkop)
 	require.Equal(t, none.Key(), podkop.Key(), "{} and {podkop} are the same request")
-	own, _ := ParseRequest("podkop", "INCY", nil)
+	own, _ := ParseRequest("podkop", "INCY", nil, "")
 	require.Equal(t, AddressKey("https://a.example/"+token), RequestKey("https://a.example/"+token, own), "podkop's own is keyed by the address alone")
 }
 
@@ -106,7 +109,7 @@ func TestPresetCustom(t *testing.T) {
 // headers are.
 func TestPresetUnknown(t *testing.T) {
 	t.Parallel()
-	custom, problems := ParseRequest("v2rayN", "x", []string{"X-Key: 1"})
+	custom, problems := ParseRequest("v2rayN", "x", []string{"X-Key: 1"}, "")
 	require.Len(t, problems, 1)
 	require.Equal(t, Problem{Line: 0, Code: "preset", Text: "the preset is not one podkop knows"}, problems[0])
 	require.Empty(t, custom.UserAgent)
@@ -121,9 +124,9 @@ func TestPresetUnknown(t *testing.T) {
 // request; another preset is another.
 func TestPresetKeys(t *testing.T) {
 	t.Parallel()
-	happ, _ := ParseRequest("happ", "", nil)
-	typed, _ := ParseRequest("custom", "Happ/4.8.3/Linux", nil)
-	incy, _ := ParseRequest("incy", "", nil)
+	happ, _ := ParseRequest("happ", "", nil, "")
+	typed, _ := ParseRequest("custom", "Happ/4.8.3/Linux", nil, "")
+	incy, _ := ParseRequest("incy", "", nil, "")
 	require.Equal(t, happ.Key(), typed.Key())
 	require.NotEqual(t, happ.Key(), incy.Key())
 	address := "https://a.example/sub/" + token
@@ -149,7 +152,7 @@ func TestPresetAskedAs(t *testing.T) {
 // The answer to a preset that podkop cannot read is told as the answer to its User-Agent.
 func TestPresetForAgent(t *testing.T) {
 	t.Parallel()
-	happ, _ := ParseRequest("happ", "", nil)
+	happ, _ := ParseRequest("happ", "", nil, "")
 	address := "https://a.example/sub/" + token
 	for code, want := range map[string]string{"json": "json-agent", "clash": "clash-agent", "happ-crypt": "happ-crypt-agent", "nolinks": "nolinks-agent"} {
 		failure := ForAgent(fail(code, true, "x"), happ, address).(*Failure)
@@ -157,6 +160,6 @@ func TestPresetForAgent(t *testing.T) {
 		require.Contains(t, failure.Text, `"Happ/4.8.3/Linux"`)
 		require.True(t, failure.Final())
 	}
-	own, _ := ParseRequest("podkop", "", nil)
+	own, _ := ParseRequest("podkop", "", nil, "")
 	require.Equal(t, "happ-crypt", ForAgent(fail("happ-crypt", true, "x"), own, address).(*Failure).Code)
 }

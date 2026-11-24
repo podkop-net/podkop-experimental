@@ -134,7 +134,7 @@ func (j *loadJob) view() LoadJob {
 // the goroutine of Run.
 func (s *Supervisor) StartLoad(ctx context.Context, address string, request api.ListRequest) LoadJob {
 	address = strings.TrimSpace(address)
-	custom, problems := subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers)
+	custom, problems := subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers, s.options.SingBoxVersion)
 	if len(problems) > 0 {
 		refused := refusedRequest(problems[0])
 		return LoadJob{State: loadFailed, Attempts: []api.Attempt{}, Preview: &refused}

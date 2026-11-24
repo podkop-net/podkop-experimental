@@ -298,9 +298,12 @@ type Options struct {
 	// in memory only.
 	SubscriptionDir string
 	// Device is what a provider is told of the router, Version the version of the backend
-	// it is told as the client (subscription.Device.Headers).
-	Device  subscription.Device
-	Version string
+	// it is told as the client (subscription.Device.Headers), SingBoxVersion the version of
+	// the engine's sing-box (constant.Version) the preset sing-box tells as SFA does
+	// (subscription.ParseRequest).
+	Device         subscription.Device
+	Version        string
+	SingBoxVersion string
 	// Download downloads a list in place of subscription.Download (a test).
 	Download func(ctx context.Context, address string, header http.Header, routes []subscription.Route, plan subscription.Plan, report func([]subscription.Try)) (*subscription.Answer, []subscription.Try, error)
 }

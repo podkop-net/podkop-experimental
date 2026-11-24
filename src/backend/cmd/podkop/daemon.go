@@ -118,6 +118,7 @@ var commandDaemon = &cobra.Command{
 			SubscriptionDir: dataplane.DataDir + "/subscriptions",
 			Device:          subscription.ReadDevice("/"),
 			Version:         podkop.Version,
+			SingBoxVersion:  C.Version,
 			Log:             say,
 			EngineLog: func(level string, message string) {
 				logs.Write("sing-box", level, message)
@@ -265,8 +266,6 @@ func takeLock(patience bool) (*os.File, error) {
 }
 
 func init() {
-	// the preset sing-box asks as SFA of the sing-box inside
-	subscription.SingBoxVersion = C.Version
 	commandDaemon.Flags().StringVar(&commandDaemonFlagUCI, "uci", "/etc/config/podkop", "The settings file")
 	mainCommand.AddCommand(commandDaemon, commandRelease)
 }

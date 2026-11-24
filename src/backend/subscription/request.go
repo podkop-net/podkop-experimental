@@ -49,21 +49,19 @@ const (
 	incyAgent = "INCY/3.9.1/linux"
 )
 
-// SingBoxVersion is the version of the sing-box of the engine (constant.Version of the module
-// github.com/sagernet/sing-box, "1.14.4-pdk-209086dbd08a" in a build): the program sets it
-// (cmd/podkop), as only the engine and the program import sing-box.
-var SingBoxVersion = ""
-
 // singBoxAgent is the User-Agent of SFA since 1.13.20 ("Unify user agent", design §1.1:
 // sing-box-for-android HTTPClient.kt, sing-box-for-apple HTTPClient.swift) with the version of the
-// sing-box inside: Remnawave and Pasarguard give sing-box JSON only to a name like SFA's.
-func singBoxAgent() string {
-	return "SFA (sing-box " + singBoxVersion(SingBoxVersion) + "; language en_US)"
+// sing-box inside: Remnawave and Pasarguard give sing-box JSON only to a name like SFA's. singBox
+// is the version of the sing-box of the engine (constant.Version of the module
+// github.com/sagernet/sing-box, "1.14.4-pdk-209086dbd08a" in a build), which the program gives
+// (cmd/podkop), as only the engine and the program import sing-box.
+func singBoxAgent(singBox string) string {
+	return "SFA (sing-box " + singBoxVersion(singBox) + "; language en_US)"
 }
 
 // singBoxVersion is the version of the sing-box inside as SFA writes its own: the version of the
-// engine's sing-box (SingBoxVersion) without podkop's part; a build without it (a test) takes the
-// version of the module go.mod requires, where the binary tells its modules.
+// engine's sing-box without podkop's part; a build without it (a test) takes the version of the
+// module go.mod requires, where the binary tells its modules.
 func singBoxVersion(constant string) string {
 	version, _, _ := strings.Cut(constant, "-pdk-")
 	if version != "" && version[0] >= '0' && version[0] <= '9' {
@@ -82,9 +80,9 @@ func singBoxVersion(constant string) string {
 	return constant
 }
 
-// presetAgent is the User-Agent of a preset; "" for podkop's own, false for a preset podkop does
-// not know.
-func presetAgent(preset string) (string, bool) {
+// presetAgent is the User-Agent of a preset, singBox the version of the engine's sing-box
+// (singBoxAgent); "" for podkop's own, false for a preset podkop does not know.
+func presetAgent(preset string, singBox string) (string, bool) {
 	switch preset {
 	case "", PresetPodkop:
 		return "", true
@@ -93,7 +91,7 @@ func presetAgent(preset string) (string, bool) {
 	case PresetINCY:
 		return incyAgent, true
 	case PresetSingBox:
-		return singBoxAgent(), true
+		return singBoxAgent(singBox), true
 	}
 	return "", false
 }
@@ -251,7 +249,7 @@ func printable(text string) bool {
 // ParseCustom reads a User-Agent typed in the settings and their header lines: ParseRequest of
 // custom.
 func ParseCustom(agent string, lines []string) (Custom, []Problem) {
-	return ParseRequest(PresetCustom, agent, lines)
+	return ParseRequest(PresetCustom, agent, lines, "")
 }
 
 // ParseRequest reads the preset of the User-Agent, the User-Agent and the header lines (Name:
@@ -260,8 +258,9 @@ func ParseCustom(agent string, lines []string) (Custom, []Problem) {
 // user_agent says; custom sends that, and podkop's own when it is empty. What cannot be sent is
 // left out, each with its problem: a preset podkop does not know or an invalid User-Agent leaves
 // podkop's own, an invalid line leaves out that line; the rest is sent. The settings are never
-// refused for it.
-func ParseRequest(preset string, agent string, lines []string) (Custom, []Problem) {
+// refused for it. singBox is the version of the engine's sing-box (constant.Version), which the
+// preset sing-box sends as SFA does.
+func ParseRequest(preset string, agent string, lines []string, singBox string) (Custom, []Problem) {
 	var custom Custom
 	var problems []Problem
 	preset, agent = strings.TrimSpace(preset), strings.TrimSpace(agent)
@@ -270,7 +269,7 @@ func ParseRequest(preset string, agent string, lines []string) (Custom, []Proble
 	}
 	if preset != PresetCustom {
 		agent = ""
-		sent, known := presetAgent(preset)
+		sent, known := presetAgent(preset, singBox)
 		switch {
 		case !known:
 			problems = append(problems, Problem{Code: "preset", Text: "the preset is not one podkop knows"})

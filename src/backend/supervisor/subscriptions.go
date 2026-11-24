@@ -159,7 +159,7 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
 			continue
 		}
 		names = append(names, item.Name)
-		custom, problems := subscription.ParseRequest(item.UserAgentPreset, item.UserAgent, item.Headers)
+		custom, problems := subscription.ParseRequest(item.UserAgentPreset, item.UserAgent, item.Headers, s.options.SingBoxVersion)
 		if tell {
 			for _, problem := range problems {
 				line := problem.Describe()
@@ -907,7 +907,7 @@ func (s *Supervisor) askDownload(request subscriptionRequest) {
 // and the headers of its form, saved or not. Nothing is taken. It is for callers outside the
 // goroutine of Run.
 func (s *Supervisor) LoadSubscription(ctx context.Context, address string, request api.ListRequest) SubscriptionPreview {
-	custom, problems := subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers)
+	custom, problems := subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers, s.options.SingBoxVersion)
 	if len(problems) > 0 {
 		return refusedRequest(problems[0])
 	}
@@ -963,7 +963,7 @@ func (s *Supervisor) groupList(ctx context.Context, name string, address string,
 	saved, list, running := t.addresses[name], t.lists[name], t.customs[name]
 	custom := running
 	if request != nil {
-		custom, _ = subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers)
+		custom, _ = subscription.ParseRequest(request.Preset, request.UserAgent, request.Headers, s.options.SingBoxVersion)
 	}
 	if address == "" {
 		address = saved
