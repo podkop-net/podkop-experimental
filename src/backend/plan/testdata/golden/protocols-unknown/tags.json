@@ -1,0 +1,86 @@
+{
+  "routes": true,
+  "rules": {
+    "absent": {
+      "name": "absent",
+      "selector": "absent-out"
+    },
+    "none": {
+      "name": "none",
+      "selector": "none-out"
+    },
+    "typo": {
+      "name": "typo",
+      "selector": "typo-out",
+      "test": "typo-urltest-out"
+    }
+  },
+  "outbounds": {
+    "Subscription: DE Trojan": {
+      "source": "sub",
+      "server": "DE Trojan",
+      "stable_hash": "4181b73c0d1b6f1197ada9c4"
+    },
+    "absent-out": {
+      "rule": "absent"
+    },
+    "none-out": {
+      "rule": "none"
+    },
+    "typo-out": {
+      "rule": "typo"
+    },
+    "typo-urltest-out": {
+      "rule": "typo"
+    }
+  },
+  "swappable": [
+    "Subscription: DE Trojan",
+    "absent-out",
+    "none-out",
+    "typo-out",
+    "typo-urltest-out"
+  ],
+  "legacy": {
+    "sub: DE Trojan": "Subscription: DE Trojan"
+  },
+  "adopted_selectors": {
+    "absent-out": "absent-out",
+    "none-out": "none-out",
+    "typo-out": "typo-out"
+  },
+  "adopted_members": {
+    "sub: DE Trojan": "Subscription: DE Trojan"
+  },
+  "no_downloads": [],
+  "rule_sets": [
+    {
+      "tag": "typo-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/typo-user-domains-ruleset.json",
+      "format": "source"
+    },
+    {
+      "tag": "none-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/none-user-domains-ruleset.json",
+      "format": "source"
+    },
+    {
+      "tag": "absent-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/absent-user-domains-ruleset.json",
+      "format": "source"
+    }
+  ],
+  "links": [
+    {
+      "section": "typo",
+      "name": "Subscription: DE Trojan",
+      "tag": "Subscription: DE Trojan",
+      "text": "trojan://golden-trojan@tr.example.org:443?sni=tr.example.org&type=ws&path=%2Ftr#DE%20Trojan"
+    }
+  ],
+  "file_order": [
+    "/var/run/podkop/rulesets/typo-user-domains-ruleset.json",
+    "/var/run/podkop/rulesets/none-user-domains-ruleset.json",
+    "/var/run/podkop/rulesets/absent-user-domains-ruleset.json"
+  ]
+}

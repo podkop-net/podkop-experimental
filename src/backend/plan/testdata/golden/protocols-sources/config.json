@@ -1,0 +1,359 @@
+{
+  "log": {
+    "disabled": false,
+    "level": "warn",
+    "timestamp": false
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "udp",
+        "tag": "bootstrap-dns-server",
+        "server": "77.88.8.8",
+        "server_port": 53
+      },
+      {
+        "type": "udp",
+        "tag": "dns-server",
+        "server": "77.88.8.8",
+        "server_port": 53
+      },
+      {
+        "type": "fakeip",
+        "tag": "fakeip-server",
+        "inet4_range": "198.18.0.0/15"
+      }
+    ],
+    "rules": [
+      {
+        "action": "reject",
+        "query_type": "HTTPS"
+      },
+      {
+        "action": "reject",
+        "domain_suffix": "use-application-dns.net"
+      },
+      {
+        "action": "route",
+        "server": "dns-server",
+        "domain": [
+          "0.openwrt.pool.ntp.org",
+          "1.openwrt.pool.ntp.org",
+          "2.openwrt.pool.ntp.org",
+          "3.openwrt.pool.ntp.org"
+        ]
+      },
+      {
+        "action": "route",
+        "server": "fakeip-server",
+        "rewrite_ttl": 60,
+        "rule_set": [
+          "mixed-user-domains-ruleset",
+          "single-user-domains-ruleset",
+          "json-user-domains-ruleset",
+          "others-user-domains-ruleset",
+          "device-user-domains-ruleset"
+        ]
+      },
+      {
+        "action": "route",
+        "server": "fakeip-server",
+        "rewrite_ttl": 60,
+        "domain": [
+          "ready.fakeipchecker.podkop.net"
+        ]
+      },
+      {
+        "action": "route",
+        "server": "fakeip-server",
+        "rewrite_ttl": 60,
+        "domain_suffix": "fakeipchecker.podkop.net"
+      }
+    ],
+    "final": "dns-server",
+    "strategy": "ipv4_only",
+    "ipv6_if_no_ipv4": true
+  },
+  "ntp": {},
+  "certificate": {},
+  "http_clients": [
+    {
+      "tag": "lists",
+      "outbounds": [
+        "direct-out",
+        "mixed-out",
+        "single-out",
+        "json-out",
+        "others-out",
+        "device-out"
+      ]
+    }
+  ],
+  "endpoints": [],
+  "inbounds": [
+    {
+      "type": "tproxy",
+      "tag": "tproxy-in",
+      "listen": "127.0.0.1",
+      "listen_port": 1602,
+      "tcp_fast_open": true,
+      "udp_fragment": true
+    },
+    {
+      "type": "direct",
+      "tag": "dns-in",
+      "listen": "127.0.0.42",
+      "listen_port": 53
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct-out"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    },
+    {
+      "type": "vless",
+      "tag": "My servers: NL 1",
+      "server": "203.0.113.41",
+      "server_port": 443,
+      "uuid": "9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4",
+      "tls": {
+        "enabled": true,
+        "server_name": "www.example.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow",
+          "short_id": "01"
+        }
+      }
+    },
+    {
+      "type": "trojan",
+      "tag": "My servers: NL 3",
+      "server": "tr.example.org",
+      "server_port": 443,
+      "password": "golden-trojan",
+      "tls": {
+        "enabled": true,
+        "server_name": "tr.example.org",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/tr",
+        "headers": {
+          "Host": "tr.example.org"
+        }
+      }
+    },
+    {
+      "type": "urltest",
+      "tag": "mixed-urltest-out",
+      "outbounds": [
+        "My servers: NL 1",
+        "My servers: NL 3"
+      ],
+      "urls": [
+        "https://www.gstatic.com/generate_204",
+        "https://cp.cloudflare.com/generate_204",
+        "https://captive.apple.com/hotspot-detect.html",
+        "https://detectportal.firefox.com/success.txt",
+        "https://www.apple.com/library/test/success.html"
+      ],
+      "interval": "1m",
+      "tolerance": 50,
+      "download_url": "https://speed.cloudflare.com/__down?bytes=65536"
+    },
+    {
+      "type": "selector",
+      "tag": "mixed-out",
+      "outbounds": [
+        "mixed-urltest-out",
+        "My servers: NL 1",
+        "My servers: NL 3"
+      ],
+      "default": "mixed-urltest-out"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "One",
+      "server": "198.51.100.20",
+      "server_port": 8388,
+      "method": "chacha20-ietf-poly1305",
+      "password": "golden-pass"
+    },
+    {
+      "type": "selector",
+      "tag": "single-out",
+      "outbounds": [
+        "One"
+      ],
+      "default": "One"
+    },
+    {
+      "type": "http",
+      "server": "198.51.100.61",
+      "server_port": 8080,
+      "tag": "Proxy JSON"
+    },
+    {
+      "type": "selector",
+      "tag": "json-out",
+      "outbounds": [
+        "Proxy JSON"
+      ],
+      "default": "Proxy JSON"
+    },
+    {
+      "type": "hysteria2",
+      "tag": "My servers: NL 2",
+      "server": "hy.example.org",
+      "server_port": 443,
+      "password": "golden-hy2",
+      "tls": {
+        "enabled": true,
+        "server_name": "hy.example.org"
+      }
+    },
+    {
+      "type": "selector",
+      "tag": "others-out",
+      "outbounds": [
+        "My servers: NL 2"
+      ],
+      "default": "My servers: NL 2"
+    },
+    {
+      "type": "direct",
+      "tag": "Second WAN",
+      "bind_interface": "wan2"
+    },
+    {
+      "type": "selector",
+      "tag": "device-out",
+      "outbounds": [
+        "Second WAN"
+      ],
+      "default": "Second WAN"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "action": "sniff",
+        "inbound": [
+          "tproxy-in",
+          "dns-in"
+        ]
+      },
+      {
+        "action": "hijack-dns",
+        "protocol": "dns"
+      },
+      {
+        "action": "route-options",
+        "domain_suffix": "fakeipchecker.podkop.net",
+        "override_address": "127.0.0.1",
+        "override_port": 1603
+      },
+      {
+        "action": "route",
+        "ip_cidr": "127.0.0.1",
+        "port": 1603,
+        "outbound": "direct-out"
+      },
+      {
+        "action": "route",
+        "inbound": "tproxy-in",
+        "outbound": "mixed-out",
+        "rule_set": "mixed-user-domains-ruleset"
+      },
+      {
+        "action": "route",
+        "inbound": "tproxy-in",
+        "outbound": "single-out",
+        "rule_set": "single-user-domains-ruleset"
+      },
+      {
+        "action": "route",
+        "inbound": "tproxy-in",
+        "outbound": "json-out",
+        "rule_set": "json-user-domains-ruleset"
+      },
+      {
+        "action": "route",
+        "inbound": "tproxy-in",
+        "outbound": "others-out",
+        "rule_set": "others-user-domains-ruleset"
+      },
+      {
+        "action": "route",
+        "inbound": "tproxy-in",
+        "outbound": "device-out",
+        "rule_set": "device-user-domains-ruleset"
+      }
+    ],
+    "rule_set": [
+      {
+        "type": "local",
+        "tag": "mixed-user-domains-ruleset",
+        "format": "source",
+        "path": "/var/run/podkop/rulesets/mixed-user-domains-ruleset.json"
+      },
+      {
+        "type": "local",
+        "tag": "single-user-domains-ruleset",
+        "format": "source",
+        "path": "/var/run/podkop/rulesets/single-user-domains-ruleset.json"
+      },
+      {
+        "type": "local",
+        "tag": "json-user-domains-ruleset",
+        "format": "source",
+        "path": "/var/run/podkop/rulesets/json-user-domains-ruleset.json"
+      },
+      {
+        "type": "local",
+        "tag": "others-user-domains-ruleset",
+        "format": "source",
+        "path": "/var/run/podkop/rulesets/others-user-domains-ruleset.json"
+      },
+      {
+        "type": "local",
+        "tag": "device-user-domains-ruleset",
+        "format": "source",
+        "path": "/var/run/podkop/rulesets/device-user-domains-ruleset.json"
+      }
+    ],
+    "final": "direct-out",
+    "default_mark": 2097152,
+    "default_domain_resolver": "dns-server",
+    "default_http_client": "lists"
+  },
+  "services": [],
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "/usr/share/podkop/cache.db",
+      "store_fakeip": true
+    },
+    "clash_api": {
+      "external_controller": "127.0.0.1:9090",
+      "secret": "a1b2c3d4e5f60718293a4b5c6d7e8f90"
+    },
+    "utls_fallback": {
+      "enabled": true
+    }
+  }
+}

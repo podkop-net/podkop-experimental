@@ -1,0 +1,44 @@
+{
+  "sub": [
+    {
+      "name": "FI 1",
+      "link": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.51:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#FI%201"
+    },
+    {
+      "name": "FI Hy2",
+      "link": "hy2://golden-hy2@hy.example.org:443/?sni=hy.example.org&obfs=salamander&obfs-password=golden-obfs#FI%20Hy2"
+    },
+    {
+      "name": "FI VMess",
+      "link": "vmess://eyJ2IjoiMiIsInBzIjoiVk0gV1MiLCJhZGQiOiJ2bS5leGFtcGxlLm9yZyIsInBvcnQiOiI0NDMiLCJpZCI6ImE0YWVkODk2LTAxNDYtNDc3Ny1hNmJhLTU0MzRiODhmN2FiYSIsImFpZCI6IjAiLCJzY3kiOiJhdXRvIiwibmV0Ijoid3MiLCJ0eXBlIjoibm9uZSIsImhvc3QiOiJjZG4uZXhhbXBsZS5vcmciLCJwYXRoIjoiL3ZtIiwidGxzIjoidGxzIiwic25pIjoidm0uZXhhbXBsZS5vcmciLCJmcCI6ImNocm9tZSJ9"
+    },
+    {
+      "name": "SE 1",
+      "link": "ss://Y2hhY2hhMjAtaWV0Zi1wb2x5MTMwNTpnb2xkZW4tcGFzcw@198.51.100.20:8388#SE%201"
+    },
+    {
+      "name": "SE Hysteria",
+      "link": "hysteria2://golden-hy2@se.example.org:443/?sni=se.example.org#SE%20Hysteria"
+    },
+    {
+      "name": "DE Trojan",
+      "link": "trojan://golden-trojan@tr.example.org:443?sni=tr.example.org&type=ws&path=%2Ftr#DE%20Trojan"
+    },
+    {
+      "name": "DE TUIC",
+      "link": "tuic://52bda3d4-630e-481a-8e23-d3e8ec070abc:golden-tuic@tuic.example.org:443?congestion_control=bbr&alpn=h3&sni=tuic.example.org#DE%20TUIC"
+    },
+    {
+      "name": "RU SOCKS",
+      "link": "socks5://golden:golden-pass@203.0.113.30:1080#RU%20SOCKS"
+    },
+    {
+      "name": "US SOCKS",
+      "link": "socks5://golden:golden-pass@203.0.113.31:1080#US%20SOCKS"
+    },
+    {
+      "name": "DE AnyTLS",
+      "link": "anytls://golden-anytls@any.example.org:443/?sni=any.example.org#DE%20AnyTLS"
+    }
+  ]
+}

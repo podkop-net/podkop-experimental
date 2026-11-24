@@ -1,0 +1,12 @@
+{
+  "sub": [
+    {
+      "name": "FI 1",
+      "link": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.51:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#FI%201"
+    },
+    {
+      "name": "DE Trojan",
+      "link": "trojan://golden-trojan@tr.example.org:443?sni=tr.example.org&type=ws&path=%2Ftr#DE%20Trojan"
+    }
+  ]
+}

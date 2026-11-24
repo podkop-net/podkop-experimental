@@ -1,0 +1,5 @@
+rule typo: "vles" among the protocols of the row of the source Subscription (sub) is not known (vless, vmess, trojan, shadowsocks, hysteria2, hysteria, tuic, anytls, naive, socks, http): no server is of it
+rule none: "reality" among the protocols of the row of the source Subscription (sub) is not known (vless, vmess, trojan, shadowsocks, hysteria2, hysteria, tuic, anytls, naive, socks, http): no server is of it
+rule none: its sources name no server now: its connections are refused
+rule absent: "ssh" among the protocols of the row of the source Subscription (sub) is not known (vless, vmess, trojan, shadowsocks, hysteria2, hysteria, tuic, anytls, naive, socks, http): no server is of it
+rule absent: its sources name no server now: its connections are refused

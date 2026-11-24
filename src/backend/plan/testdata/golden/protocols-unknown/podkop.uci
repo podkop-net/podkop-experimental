@@ -1,0 +1,57 @@
+config settings 'settings'
+	option config_version '2'
+	option dns_type 'udp'
+	option dns_server '77.88.8.8'
+	option bootstrap_dns_server '77.88.8.8'
+	option dns_rewrite_ttl '60'
+	list source_network_interfaces 'br-lan'
+	option update_interval '1d'
+	option cache_path '/usr/share/podkop/cache.db'
+	option log_level 'warn'
+
+config source 'sub'
+	option type 'subscription'
+	option url 'https://sub.example.org/api/sub/TOKEN'
+	option update_interval 'auto'
+
+config section 'typo'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'typo.example'
+
+config member
+	option section 'typo'
+	option role 'server'
+	option source 'sub'
+	list protocols 'vles'
+	list protocols 'trojan'
+
+config member
+	option section 'typo'
+	option role 'fallback'
+	option source 'direct'
+
+config section 'none'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'none.example'
+
+config member
+	option section 'none'
+	option role 'server'
+	option source 'sub'
+	list protocols 'Reality'
+
+config section 'absent'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'absent.example'
+
+config member
+	option section 'absent'
+	option role 'server'
+	option source 'sub'
+	list protocols 'tuic'
+
+config member
+	option section 'absent'
+	option role 'fallback'
+	option source 'sub'
+	list protocols 'ssh'
