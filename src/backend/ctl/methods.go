@@ -35,7 +35,7 @@ type Method struct {
 	Answer func(c *Call) (any, error)
 	Print  func(c *Call) int
 
-	// Bus is the method on ubus.
+	// Bus is the method on ubus; nil: it is none.
 	Bus *BusMethod
 }
 

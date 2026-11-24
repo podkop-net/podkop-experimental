@@ -35,8 +35,8 @@ calls the same commands (`podkop get_status`, `podkop check_logs`, ...).
 | `probe` | The check names: a made-up name answered from FakeIP and the connection to it tell that a device reaches sing-box |
 | `btstats` | What the BitTorrent traffic of the LAN came to, by its kind and its way, from the conntrack entries and the counters of the drops |
 | `clock` | Help for the router's NTP service (sysntpd) while the clock is wrong: NTP, the time of HTTPS answers |
-| `api` | The socket of the running backend: the types of its answers, the server and the client |
-| `ctl` | The commands of the page and of the CLI (`Run`): the checks, the global check, `device`, the calls of the Clash API; those the running backend answers itself on ubus |
+| `api` | The socket of the running backend: the types of its answers, the server and the client; the same questions asked inside the backend, with no socket (`Direct`) |
+| `ctl` | The commands of the page and of the CLI, in one table (`Methods`) the help, `Run`, the commands the running backend answers itself on ubus and its object there are made from: the checks, the global check, `device`, the calls of the Clash API |
 | `ubus` | The protocol of ubusd, so that the running backend publishes an object of its own |
 | `diag` | The checks behind the global check: DNS, the firewall, sing-box, forwards, the trace of packets, the masking of secrets |
 | `sockets` | Who listens where, from `/proc` |
@@ -95,8 +95,9 @@ first (the Dockerfiles run it).
   without its stop again for good. The backend started tells by `/var/run/podkop/state` that
   the one before ended so, and after a few such ends in a row gives the router its own DNS
   back and tries again later (`/var/run/podkop/ends` counts them).
-- The running backend listens on `/var/run/podkop/ctl.sock`; the commands of the page ask
-  it there.
+- The running backend listens on `/var/run/podkop/ctl.sock`; the commands of the program ask
+  it there. Those it answers itself on ubus (`ubus call podkop run`, as the page does) ask it
+  with no socket.
 - The log: `logread -e podkop`, or `podkop check_logs`.
 - `podkop release` gives the router back the DNS of the LAN, the firewall table and the
   routing that a backend which is gone left taken (the init script runs it at the stop).

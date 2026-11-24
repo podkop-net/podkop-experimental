@@ -1,7 +1,8 @@
 // Package api is the protocol of the socket the running backend listens on: the types of
 // its answers, the server and the client. The commands of the user interface (ctl)
-// ask the backend through it; what they need to know of what runs, the backend tells
-// (Facts), and they do not work it out again from the settings.
+// ask the backend through it, or with no socket those the backend answers itself (Direct);
+// what they need to know of what runs, the backend tells (Facts), and they do not work it
+// out again from the settings.
 package api
 
 import (
