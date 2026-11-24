@@ -15,20 +15,40 @@ calls the same commands (`podkop get_status`, `podkop check_logs`, ...).
 
 | Package | What it is |
 |---|---|
-| `cmd/podkop` | The program: `daemon`, `release`, `ctl <command>`; the commands of the page without `ctl` |
-| `supervisor` | The running backend: start, apply of changed settings, stop, the state left for a restart |
-| `model`, `uci` | The settings read from the UCI file, with the defaults and the checks |
-| `plan` | The settings made into a sing-box configuration and rule-set files |
-| `engine` | The only package that imports sing-box: build, check and run a configuration |
-| `dataplane`, `firewall`, `netcfg`, `dnsmasq` | The nftables table (over netlink), the routing rule and route, the DNS of the LAN |
-| `lists` | The lists: downloads, updates, the nftables sets of subnets |
-| `api`, `ctl` | The socket of the running backend and the commands of the page on top of it |
-| `diag`, `probe`, `clock` | The checks of the page, the probe of the data path, the help of the router's NTP service (sysntpd) |
-| `render`, `logbuf` | What a start writes before sing-box runs; the last lines of the log in memory |
-| `compat.go` | What is kept only for podkop 0.7, each item with when it can go |
+| `.` (`podkop`) | The version of the backend and of the engine release, the build (full or slim), the list of what is kept only for podkop 0.7 (`compat.go`), and the tests of the layout (below) |
+| `cmd/podkop` | The program: `daemon`, `release`, `migrate`, `boot-dns`, `ctl <command>` (the commands of the page, also without `ctl`), and the object `podkop` the running backend publishes on ubus; with the tag `lab` also `render`, `check-dns`, `dnsmasq`, `nft`, `parse-list` |
+| `supervisor` | The running backend: start, apply of changed settings, stop, the state left for a restart; the downloads of the subscriptions and of the mask lists, the cures of the block detector |
+| `model` | The settings of the UCI file (format 2: settings, sources, rules and their rows) with the defaults and the reading of the shell backend, the names the tags are made of, the devices of a rule |
+| `uci` | UCI files read as libuci reads them, and written back, without the `uci` program |
+| `migrate` | The settings of podkop 0.7 and of podkop-exp before 0.8.8 converted to the format 2 |
+| `plan` | The settings made into a sing-box configuration and its rule-set files, with what the firewall and the routing need around it |
+| `render` | The configuration and the rule-set files of a start written, with sing-box's check of them (`Check`, the supervisor's `Engine.Check`); the atomic write of a file |
+| `engine` | The way to sing-box: an instance built, checked, run and swapped; links decoded, rule sets read, servers probed through it |
+| `engine/bittorrent` | podkop's BitTorrent module, a service of sing-box: it learns the peers of trackers and of the DHT, checks connections, and writes the nftables sets the firewall owns |
+| `dataplane` | The values the configuration and the router agree on: the addresses and ports of the inbounds, the marks, the FakeIP range, the routing and firewall tables; the mark of the backend's own sockets (`MarkedControl`) |
+| `firewall` | The nftables table of the backend over netlink, without the `nft` program: its rules and sets, the detector of BitTorrent, the conntrack entries it marks, the trace tables of the checks |
+| `netcfg` | The routing: the rules and the route that hand marked packets to the transparent proxy, those of the uplinks, the address of the LAN, the devices interface names stand for |
+| `dnsmasq` | The DNS of the LAN pointed at the backend and back, in dnsmasq's own settings, and the watch that dnsmasq runs with them |
+| `lists` | The destinations the rule sets name, for the firewall's sets of subnets (sing-box downloads the lists itself) |
+| `subscription` | The list of a subscription: downloaded (the ways, the retries, the headers, the device), read (links, base64, Xray and sing-box JSON), checked against the engine of the build, kept |
+| `detect` | The block detector: what stops a proxy server, from what the engine observed or from an active probe; no network or engine of its own |
+| `probe` | The check names: a made-up name answered from FakeIP and the connection to it tell that a device reaches sing-box |
+| `btstats` | What the BitTorrent traffic of the LAN came to, by its kind and its way, from the conntrack entries and the counters of the drops |
+| `clock` | Help for the router's NTP service (sysntpd) while the clock is wrong: NTP, the time of HTTPS answers |
+| `api` | The socket of the running backend: the types of its answers, the server and the client |
+| `ctl` | The commands of the page and of the CLI (`Run`): the checks, the global check, `device`, the calls of the Clash API; those the running backend answers itself on ubus |
+| `ubus` | The protocol of ubusd, so that the running backend publishes an object of its own |
+| `diag` | The checks behind the global check: DNS, the firewall, sing-box, forwards, the trace of packets, the masking of secrets |
+| `sockets` | Who listens where, from `/proc` |
+| `yacd` | The dashboard YACD where sing-box serves it; its upgrade from GitHub kept apart from the package's files |
+| `logbuf` | The last lines of the log in memory, the backend's and sing-box's |
+| `serverid` | The stable identity of a server whatever its tag or detour: the key of a cure, shared by the subscription parser, the planner and the cure store |
 
-`imports_test.go` holds the rule that only `engine` imports sing-box: a new version of
-sing-box is one package to port.
+The tests of the layout, in the root package: `imports_test.go` holds the rule that only
+`engine`, `engine/bittorrent` and `cmd/podkop` import sing-box, so that a new version of sing-box
+is one package to port; `doors_test.go` lists the other ways to it (the Clash API, the switches
+of the engine's environment); `edges_test.go` holds the import edges between the packages to
+`testdata/import-edges.txt`.
 
 ## sing-box: podkop-engine as a module
 
@@ -62,8 +82,8 @@ CGO_ENABLED=0 go build -trimpath -tags $TAGS \
   -o podkop ./cmd/podkop
 ```
 
-The tag `lab` adds commands for test stands (`render`, `check-dns`, `dnsmasq`, `nft`); the
-package is built without it.
+The tag `lab` adds commands for test stands (`render`, `check-dns`, `dnsmasq`, `nft`,
+`parse-list`); the package is built without it.
 
 The package (`podkop/Makefile`) builds the same in the OpenWrt SDK. The Go of the 24.10 SDK
 is too old: `sdk/golang-feed.sh` puts `lang/golang` of a later packages feed into the SDK
