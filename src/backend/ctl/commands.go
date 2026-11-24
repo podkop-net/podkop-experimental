@@ -101,6 +101,7 @@ var Commands = [][2]string{
 	{"show_sing_box_config", "The sing-box configuration that runs, secrets masked; --rejected: the last one refused"},
 	{"show_config", "The settings, secrets masked"},
 	{"show_version", "The version of the backend"},
+	{"show_sing_box_version", "The version of sing-box in the backend"},
 	{"show_system_info", "The version of OpenWrt and the model of the device"},
 	{"check_nft", "The firewall table of the backend as nft prints it"},
 	{"bittorrent_counters", "What the BitTorrent module has counted since sing-box started, as JSON (empty when BitTorrent is off)"},

@@ -31,10 +31,7 @@ import (
 // well, so that the lists stay what is there.
 
 // hiddenCommands are the commands Run handles that the help does not list.
-var hiddenCommands = map[string]string{
-	// a finding of the 0.8.22 review of the lists, kept as it is
-	"show_sing_box_version": "a command of podkop 0.7's shell backend, never in the help of this one (since 9fe7cc7); src/backend/README.md names it",
-}
+var hiddenCommands = map[string]string{}
 
 // pagePrograms are the commands the page runs with /usr/bin/podkop that the backend does not
 // answer itself (inProcess): the call to ubus is refused, and the page starts the program.
