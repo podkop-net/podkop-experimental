@@ -497,6 +497,66 @@ describe('the state of a subscription', () => {
   });
 });
 
+describe('what the provider told of the traffic', () => {
+  const GIB = 1024 ** 3;
+  const USED = { traffic: true, upload: GIB / 2, download: 3 * GIB };
+  const END = '2027-01-15T12:00:00Z';
+
+  // the column State of the list, its lines, and the text of the window's state
+  async function shown(provider?: Record<string, unknown>) {
+    const view = await sourceWindow(
+      {},
+      {},
+      {
+        name: 'src1',
+        servers: 3,
+        usable: 3,
+        changed: '2026-11-21T10:00:00Z',
+        provider,
+      },
+    );
+    const cell = view.section.lookup('_state').call('textvalue', 'src1');
+    const box = view.section.lookup('_status').call('cfgvalue', 'src1');
+    return {
+      list: (cell as FakeNode).elements.map((line) => line.textContent),
+      window: (box as FakeNode).textContent,
+    };
+  }
+
+  it('with a limit: what is used of it', async () => {
+    const { list, window } = await shown({ ...USED, total: 10 * GIB });
+    expect(list).toEqual(['Servers: 3', '3.5 GiB of 10 GiB']);
+    expect(window).toContain('Traffic: 3.5 GiB of 10 GiB');
+  });
+
+  it('without a limit: what is used, and that there is none', async () => {
+    const { list, window } = await shown(USED);
+    expect(list).toEqual(['Servers: 3', '3.5 GiB, no limit']);
+    expect(window).toContain('Traffic: 3.5 GiB, no limit');
+  });
+
+  it('nothing used yet', async () => {
+    const { list, window } = await shown({ traffic: true });
+    expect(list).toEqual(['Servers: 3', '0 B, no limit']);
+    expect(window).toContain('Traffic: 0 B, no limit');
+  });
+
+  it('with the end of the subscription after it', async () => {
+    const { list } = await shown({ ...USED, expire: END });
+    expect(list).toEqual([
+      'Servers: 3',
+      '3.5 GiB, no limit, until Jan 15, 2027',
+    ]);
+  });
+
+  it('no numbers of the traffic: nothing of it', async () => {
+    const { list, window } = await shown({ expire: END, title: 'Example' });
+    expect(list).toEqual(['Servers: 3', 'until Jan 15, 2027']);
+    expect(window).not.toContain('Traffic');
+    expect((await shown(undefined)).list).toEqual(['Servers: 3']);
+  });
+});
+
 describe('Update now with a preset', () => {
   const update = (view: Awaited<ReturnType<typeof sourceWindow>>) =>
     view.section.lookup('_update').call('onclick', null, 'src1');

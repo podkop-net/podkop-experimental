@@ -167,7 +167,8 @@ export class FakeUci {
 
   get(_config: string, section: string, option?: string) {
     const found = this.values[section];
-    return option === undefined ? found : found?.[option];
+    if (option !== undefined) return found?.[option];
+    return found && { '.name': section, ...found };
   }
 
   sections(_config: string, type?: string) {

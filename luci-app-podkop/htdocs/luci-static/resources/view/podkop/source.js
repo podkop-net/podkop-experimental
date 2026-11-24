@@ -1117,12 +1117,12 @@ function stateText(item) {
     const info = state.provider;
     if (info) {
       const facts = [];
-      if (info.traffic && info.total) {
+      if (info.traffic) {
+        const used = bytes((info.upload || 0) + (info.download || 0));
         facts.push(
-          _("%s of %s").format(
-            bytes((info.upload || 0) + (info.download || 0)),
-            bytes(info.total),
-          ),
+          info.total
+            ? _("%s of %s").format(used, bytes(info.total))
+            : _("%s, no limit").format(used),
         );
       }
       if (info.expire) {
