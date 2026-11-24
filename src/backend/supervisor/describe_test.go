@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/plan"
 
@@ -34,11 +35,11 @@ func TestDescribeOnlyDevices(t *testing.T) {
 func TestDescribeLAN(t *testing.T) {
 	t.Parallel()
 	named := &model.Config{Settings: model.Settings{DNSType: "udp", DNSServer: "127.0.0.1:9", SourceNetworkInterfaces: []string{"lan", "guest"}}}
-	result := &plan.Result{Dataplane: plan.Dataplane{Interfaces: []string{"br-lan", "br-guest"}}}
+	result := &plan.Result{Dataplane: dataplane.Intent{Interfaces: []string{"br-lan", "br-guest"}}}
 	line := describeConfig(&candidate{settings: named, result: result})
 	require.True(t, strings.HasSuffix(line, "; DNS udp 127.0.0.1:9; the LAN on lan, guest"), line)
 	unnamed := &model.Config{Settings: model.Settings{DNSType: "udp", DNSServer: "127.0.0.1:9"}}
-	result = &plan.Result{Dataplane: plan.Dataplane{Interfaces: []string{"br-lan"}}}
+	result = &plan.Result{Dataplane: dataplane.Intent{Interfaces: []string{"br-lan"}}}
 	line = describeConfig(&candidate{settings: unnamed, result: result})
 	require.True(t, strings.HasSuffix(line, "; DNS udp 127.0.0.1:9; the LAN on br-lan (the default)"), line)
 }

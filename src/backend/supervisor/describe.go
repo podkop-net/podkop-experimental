@@ -62,7 +62,7 @@ func describeConfig(next *candidate) string {
 	}
 	settings := &next.settings.Settings
 	// the interfaces as the settings name them; when they name none, what the plan takes then
-	// (plan.Dataplane.Interfaces: the bridge of the LAN of OpenWrt)
+	// (the Interfaces of the plan's dataplane.Intent: the bridge of the LAN of OpenWrt)
 	lan := strings.Join(settings.SourceNetworkInterfaces, ", ")
 	if lan == "" {
 		lan = "the default"
