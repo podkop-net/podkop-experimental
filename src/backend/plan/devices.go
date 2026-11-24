@@ -44,6 +44,61 @@ func (b *builder) readDevices() {
 	}
 }
 
+// DeviceRoute is a route rule of the configuration that takes connections by the device they
+// come from, or the route rule of the lists of a rule, which goes by it too (only_devices): what a
+// report of the rules that take the traffic of a device reads ("podkop device").
+type DeviceRoute struct {
+	// Kind is what the route rule is: RouteLists, RouteExcluded or RouteFullyRouted.
+	Kind string
+	// Section is the rule of the settings it is of; none for RouteExcluded.
+	Section string
+	// Exit is where it sends what it takes (model.Config.Exit): ExitDirect for RouteExcluded.
+	Exit string
+	// Limited tells that it takes the connections of Devices alone; the route rule of the lists of a
+	// rule that is not only for some devices takes those of every device. A rule of lists limited
+	// to no device takes nothing: it has no route rule in the configuration, only this place.
+	Limited bool
+	// Devices are its devices (source_ip_cidr), as the settings write them.
+	Devices []model.Device
+}
+
+// The kinds of DeviceRoute.
+const (
+	// RouteLists is the route rule of the lists of a rule: it takes the connections to them.
+	RouteLists = "lists"
+	// RouteExcluded is the route rule of the devices excluded from routing (Routing Excluded IPs):
+	// directly, whatever the rules below.
+	RouteExcluded = "excluded"
+	// RouteFullyRouted is the route rule of the devices a rule routes whole (Fully Routed IPs).
+	RouteFullyRouted = "fully_routed"
+)
+
+// DeviceRoutes are the route rules of the configuration of the settings that take connections by
+// their device or by the lists of a rule (DeviceRoute), in the order sing-box matches them.
+type DeviceRoutes struct {
+	// IPv6 tells that IPv6 goes through podkop, as the settings ask and the router has it
+	// (Facts.IPv6): without it no route rule takes a connection from an IPv6 address, which goes
+	// past podkop.
+	IPv6   bool
+	Routes []DeviceRoute
+}
+
+// BuildDeviceRoutes builds the configuration of the settings as Build does, and gives its
+// DeviceRoutes: the rules the configuration has, not a copy of their order.
+func BuildDeviceRoutes(config *model.Config, facts Facts, options Options) (*DeviceRoutes, error) {
+	_, b, err := build(config, facts, options)
+	if err != nil {
+		return nil, err
+	}
+	routes := &DeviceRoutes{IPv6: b.ipv6}
+	for _, entry := range b.routeRules {
+		if entry.device != nil {
+			routes.Routes = append(routes.Routes, *entry.device)
+		}
+	}
+	return routes, nil
+}
+
 func leftOutOf(items []string) leftOut {
 	var result leftOut
 	for _, item := range items {

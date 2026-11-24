@@ -491,10 +491,20 @@ type builder struct {
 type rule struct {
 	name   string
 	fields *object
+	// device tells, of a route rule that takes connections by their device or the lists of a
+	// rule, what it takes (DeviceRoutes). A rule with no fields is no route rule, only the place
+	// one would have: that of a rule only for devices none of which is named (buildSectionLists).
+	device *DeviceRoute
 }
 
 // Build makes the configuration.
 func Build(config *model.Config, facts Facts, options Options) (*Result, error) {
+	result, _, err := build(config, facts, options)
+	return result, err
+}
+
+// build makes the configuration, and gives the builder that made it as well.
+func build(config *model.Config, facts Facts, options Options) (*Result, *builder, error) {
 	if options.RuleSetDir == "" {
 		options.RuleSetDir = DefaultRuleSetDir
 	}
@@ -502,7 +512,7 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 		options.ReadFile = os.ReadFile
 	}
 	if options.DecodeLink == nil {
-		return nil, E.New("no decoder of proxy links")
+		return nil, nil, E.New("no decoder of proxy links")
 	}
 	b := &builder{config: config, facts: facts, options: options, experimental: new(object), files: make(map[string]*object),
 		subscriptionTags: make(map[string][]string), decoded: make(map[string]*object), sourceCache: make(map[string][]sourceServer), servers: make(map[string]bool), groups: make(map[string]bool),
@@ -516,20 +526,20 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 	b.buildInbounds()
 	err := b.buildOutbounds()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	dns, err := b.buildDNS()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	route, err := b.buildRoute()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	b.buildExperimental()
 	err = b.buildAdditionalInbounds()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// a DNS rule that sends to a server and was given no condition would take every query
@@ -544,7 +554,9 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 	dns.set("rules", listOrEmpty(dnsRules))
 	var routeRules []any
 	for _, entry := range b.routeRules {
-		routeRules = append(routeRules, entry.fields)
+		if entry.fields != nil {
+			routeRules = append(routeRules, entry.fields)
+		}
 	}
 	route.set("rules", listOrEmpty(routeRules))
 	route.set("rule_set", listOrEmpty(b.ruleSets))
@@ -569,7 +581,7 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 	)
 	content, err := indented(document)
 	if err != nil {
-		return nil, E.Cause(err, "encode the configuration")
+		return nil, nil, E.Cause(err, "encode the configuration")
 	}
 	// the dataplane first: it warns of what it leaves out (the users of the router for
 	// BitTorrent), and the warnings are read after it. In one composite literal the call and the
@@ -595,10 +607,10 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 	for path, file := range b.files {
 		result.Files[path], err = indented(file)
 		if err != nil {
-			return nil, E.Cause(err, "encode the rule-set ", path)
+			return nil, nil, E.Cause(err, "encode the rule-set ", path)
 		}
 	}
-	return result, nil
+	return result, b, nil
 }
 
 func (b *builder) warn(message ...any) {
@@ -970,6 +982,8 @@ func (b *builder) buildRoute() (*object, error) {
 		for _, address := range settings.RoutingExcludedIPs {
 			patch(entry.fields, "source_ip_cidr", argument(address))
 		}
+		excluded, _ := model.ParseRouted(settings.RoutingExcludedIPs)
+		entry.device = &DeviceRoute{Kind: RouteExcluded, Exit: model.ExitDirect, Limited: true, Devices: excluded}
 	}
 	for index := range b.config.Sections {
 		section := &b.config.Sections[index]
@@ -983,6 +997,7 @@ func (b *builder) buildRoute() (*object, error) {
 		for _, device := range routed {
 			patch(entry.fields, "source_ip_cidr", device.Text)
 		}
+		entry.device = &DeviceRoute{Kind: RouteFullyRouted, Section: section.Name, Exit: b.config.Exit(section), Limited: true, Devices: routed}
 	}
 	for index := lead; index < len(b.config.Sections); index++ {
 		err := b.buildSectionLists(&b.config.Sections[index])

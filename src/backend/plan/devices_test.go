@@ -335,3 +335,75 @@ func TestEmptyListMatchesNothing(t *testing.T) {
 	result = devicesBuild(t, devicesSource+ruleText("tv", row("server", "own")), Facts{})
 	require.JSONEq(t, `{"version": 3, "rules": [{"domain_suffix": ["tv.example"]}]}`, string(result.Files[result.FileOrder[0]]))
 }
+
+// DeviceRoutes are the route rules of the configuration Build makes, in its order: the leading rule
+// of direct, the devices left out, the devices routed whole, the rules of lists (one only for a word,
+// which has no route rule, in its place); each that is written is the next route rule of the
+// configuration with its devices as source_ip_cidr. IPv6 needs the settings and the facts both.
+func TestDeviceRoutes(t *testing.T) {
+	t.Parallel()
+	settings := exitHead + "\toption ipv6_routing 'podkop'\n\tlist routing_excluded_ips '192.168.78.70'\n\tlist routing_excluded_ips '2001:2:0:78::70'\n" +
+		devicesSource +
+		limited("bank", row("server", "direct"), "\tlist only_devices '192.168.78.30'\n") +
+		limited("tv", row("server", "own"), "\tlist only_devices '192.168.78.10'\n\tlist only_devices '2001:2:0:78::/64'\n") +
+		limited("bad", row("server", "block"), "\tlist only_devices 'word'\n") +
+		limited("pc", row("server", "own"), "\tlist fully_routed_ips '192.168.78.60'\n\tlist fully_routed_ips '2001:2:0:78::60'\n") +
+		ruleText("all", row("server", "own")) +
+		limited("off", row("server", "own"), "\toption enabled '0'\n\tlist only_devices '192.168.78.10'\n")
+	parsed, err := uci.Parse([]byte(settings))
+	require.NoError(t, err)
+	config, err := model.Load(parsed)
+	require.NoError(t, err)
+	options := Options{DecodeLink: decodeTestLink}
+	routes, err := BuildDeviceRoutes(config, Facts{IPv6: true}, options)
+	require.NoError(t, err)
+	require.True(t, routes.IPv6)
+	var told []string
+	var written [][]string
+	for _, route := range routes.Routes {
+		limit := "every"
+		if route.Limited {
+			limit = "only " + strings.Join(model.Texts(route.Devices), " ")
+		}
+		told = append(told, route.Kind+" "+route.Section+" "+route.Exit+" "+limit)
+		if !route.Limited || len(route.Devices) > 0 {
+			written = append(written, model.Texts(route.Devices))
+		}
+	}
+	require.Equal(t, []string{
+		"lists bank direct only 192.168.78.30",
+		"excluded  direct only 192.168.78.70 2001:2:0:78::70",
+		"fully_routed pc servers only 192.168.78.60 2001:2:0:78::60",
+		"lists tv servers only 192.168.78.10 2001:2:0:78::/64",
+		"lists bad block only ",
+		"lists pc servers every",
+		"lists all servers every",
+	}, told)
+
+	result, err := Build(config, Facts{IPv6: true}, options)
+	require.NoError(t, err)
+	var routed [][]string
+	for _, rule := range devicesOf(t, result).Route.Rules {
+		if (rule["action"] != "route" && rule["action"] != "reject") || rule["protocol"] != nil || (rule["rule_set"] == nil && rule["source_ip_cidr"] == nil) {
+			continue
+		}
+		require.True(t, jsonEqual(rule["inbound"], []any{tagTProxyInbound, tagTProxyInbound6}), rule)
+		sources := []string{}
+		switch value := rule["source_ip_cidr"].(type) {
+		case string:
+			sources = []string{value}
+		case []any:
+			for _, item := range value {
+				sources = append(sources, item.(string))
+			}
+		}
+		routed = append(routed, sources)
+	}
+	require.Equal(t, written, routed)
+
+	// a router without ::1: IPv6 goes past podkop
+	routes, err = BuildDeviceRoutes(config, Facts{}, options)
+	require.NoError(t, err)
+	require.False(t, routes.IPv6)
+	require.Len(t, routes.Routes, len(told))
+}

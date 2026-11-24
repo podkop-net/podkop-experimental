@@ -30,12 +30,16 @@ func (b *builder) buildSectionLists(section *model.Section) error {
 		return nil
 	}
 	devices := b.devicesOf[section.Name]
+	device := &DeviceRoute{Kind: RouteLists, Section: section.Name, Exit: b.config.Exit(section), Limited: devices.Limited, Devices: devices.Devices}
 	if devices.Limited && len(devices.Devices) == 0 {
 		// only for devices, and none is named (readDevices told it): the rule takes nothing, for
-		// any device, and its names are not answered from FakeIP
+		// any device, and its names are not answered from FakeIP. Its place is kept for
+		// DeviceRoutes, with no route rule.
+		b.routeRules = append(b.routeRules, &rule{device: device})
 		return nil
 	}
 	target := b.addRouteRule("section "+section.Name, b.sectionRoute(section, b.proxyInbounds()))
+	target.device = device
 	if devices.Limited {
 		// the source group of the rule: sing-box matches it with the rule sets of the lists, a set
 		// of one rule merged with it, one of several rules once it matched (devices.go)
