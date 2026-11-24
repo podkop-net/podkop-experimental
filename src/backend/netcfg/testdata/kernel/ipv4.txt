@@ -1,0 +1,13 @@
+# ip -4 rule list
+0:	from all lookup local
+104:	from all fwmark 0x100000/0x100000 iif lo lookup main
+105:	from all fwmark 0x100000/0x100000 lookup 105
+105:	from all fwmark 0x400000/0x400000 lookup 105
+32766:	from all lookup main
+32767:	from all lookup default
+# ip -4 route show table 105
+local default dev lo scope host 
+# ip -6 rule list
+0:	from all lookup local
+32766:	from all lookup main
+# ip -6 route show table 105
