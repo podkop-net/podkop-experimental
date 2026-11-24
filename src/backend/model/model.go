@@ -2,8 +2,8 @@
 // (podkop-exp 0.8.8; podkop migrate converts the older ones): one "settings" section, the
 // sources of servers ("source": a subscription, links, an outbound JSON or a network
 // interface), the rules ("section": lists and where their traffic goes) and the rows of the
-// rules ("member": a source with a filter of server names, as a server or a fallback). Values
-// are kept the way the shell backend read the options it had, defaults included.
+// rules ("member": a source with a filter of server names and protocols, as a server or a
+// fallback). Values are kept the way the shell backend read the options it had, defaults included.
 package model
 
 import (
@@ -107,11 +107,14 @@ type Member struct {
 	// server), Exclude words none of which it may; letters of any case.
 	Include []string
 	Exclude []string
+	// Protocols are the protocols of the servers the row takes (ProtocolName; none: of every
+	// protocol). A name that is no protocol stays: no server is of it, and the plan warns.
+	Protocols []string
 	// Via is the source the connections to the servers of the row go through ("": none).
 	Via string
 }
 
-// Takes tells whether the row takes a server of the name.
+// Takes tells whether the row takes a server of the name, whatever its protocol (TakesProtocol).
 func (m *Member) Takes(name string) bool {
 	for _, word := range m.Exclude {
 		if NameHas(name, word) {
@@ -494,7 +497,8 @@ func Load(parsed *uci.Package) (*Config, error) {
 			// a row of a rule deleted on the page: nothing to go to
 			continue
 		}
-		row := Member{Source: member.Get("source"), Include: words(member, "include"), Exclude: words(member, "exclude"), Via: member.Get("via")}
+		row := Member{Source: member.Get("source"), Include: words(member, "include"), Exclude: words(member, "exclude"),
+			Protocols: ProtocolNames(member.List("protocols")), Via: member.Get("via")}
 		if member.Get("role") == "fallback" {
 			rule.Fallbacks = append(rule.Fallbacks, row)
 		} else {
