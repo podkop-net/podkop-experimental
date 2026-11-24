@@ -401,7 +401,7 @@ type Supervisor struct {
 	liveMaskLists []string
 	// liveStable is the stable identity, the way (via) and the applied cure of every live server,
 	// by tag: what the detect report tells the page so it shows a treatment badge and joins a tag
-	// to its stable id. Built in done() under statusAccess with liveServers.
+	// to its stable id (serversOf)
 	liveStable map[string]detect.Identity
 	// diag is the state of the block detector's probes (diagnose.go)
 	diag diagnosis
@@ -537,34 +537,7 @@ func (s *Supervisor) done(ok bool, replaced bool, message ...any) Result {
 	var stable map[string]detect.Identity
 	var stale int
 	if s.current != nil {
-		servers, fallback = engine.ServersOf(s.current.result.Config)
-		// the stable identity, the way and the cure of each server, from the plan's tags and the
-		// cure store; set on the servers too, so a probe carries it
-		stable = make(map[string]detect.Identity, len(servers))
-		// the live tag of a server reached directly, by its stable identity: the relay of a detour
-		direct := make(map[string]string, len(servers))
-		for index := range servers {
-			tagOf := s.current.result.Tags.Outbounds[servers[index].Tag]
-			if tagOf.Via == "" && tagOf.StableHash != "" {
-				direct[tagOf.StableHash] = servers[index].Tag
-			}
-		}
-		for index := range servers {
-			tagOf := s.current.result.Tags.Outbounds[servers[index].Tag]
-			servers[index].StableHash = tagOf.StableHash
-			identity := detect.Identity{Hash: tagOf.StableHash, Via: tagOf.Via, Source: tagOf.Source}
-			if source := s.current.settings.Source(tagOf.Via); source != nil && source.Type == "interface" {
-				// an interface gives the server its own socket: a mask works through it
-				identity.ViaInterface = true
-			}
-			if cure := s.current.settings.Cure(tagOf.StableHash, tagOf.Via); cure != nil {
-				identity.Cure = &detect.Cure{Kind: cure.Kind, SNI: cure.SNI, Through: cure.Through}
-				if cure.Relay != "" {
-					identity.Cure.Relay = direct[cure.Relay]
-				}
-			}
-			stable[servers[index].Tag] = identity
-		}
+		servers, fallback, stable = serversOf(s.current)
 		stale = staleCures(s.current.settings, stable)
 	}
 	s.statusAccess.Lock()

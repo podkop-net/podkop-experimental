@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/detect"
+	"github.com/podkop-net/podkop-experimental/src/backend/engine"
 )
 
 // The block detector of the servers. What the traffic shows is read when asked (Detect), and a
@@ -116,6 +117,39 @@ func (s *Supervisor) detectSnapshot() detectSnapshot {
 	s.statusAccess.Lock()
 	defer s.statusAccess.Unlock()
 	return detectSnapshot{instance: s.live, servers: s.liveServers, fallback: s.liveFallback, epoch: s.liveEpoch, stable: s.liveStable, staleCures: s.liveStaleCures, maskLists: s.liveMaskLists}
+}
+
+// serversOf are the proxies of the configuration that runs, whether its uTLS fallback is on, and
+// the stable identity, the way and the cure of each by its tag, from the plan's tags and the cure
+// store; the identity is set on the servers too, so a probe carries it.
+func serversOf(current *running) ([]detect.Server, bool, map[string]detect.Identity) {
+	servers, fallback := engine.ServersOf(current.result.Config)
+	stable := make(map[string]detect.Identity, len(servers))
+	// the live tag of a server reached directly, by its stable identity: the relay of a detour
+	direct := make(map[string]string, len(servers))
+	for index := range servers {
+		tagOf := current.result.Tags.Outbounds[servers[index].Tag]
+		if tagOf.Via == "" && tagOf.StableHash != "" {
+			direct[tagOf.StableHash] = servers[index].Tag
+		}
+	}
+	for index := range servers {
+		tagOf := current.result.Tags.Outbounds[servers[index].Tag]
+		servers[index].StableHash = tagOf.StableHash
+		identity := detect.Identity{Hash: tagOf.StableHash, Via: tagOf.Via, Source: tagOf.Source}
+		if source := current.settings.Source(tagOf.Via); source != nil && source.Type == "interface" {
+			// an interface gives the server its own socket: a mask works through it
+			identity.ViaInterface = true
+		}
+		if cure := current.settings.Cure(tagOf.StableHash, tagOf.Via); cure != nil {
+			identity.Cure = &detect.Cure{Kind: cure.Kind, SNI: cure.SNI, Through: cure.Through}
+			if cure.Relay != "" {
+				identity.Cure.Relay = direct[cure.Relay]
+			}
+		}
+		stable[servers[index].Tag] = identity
+	}
+	return servers, fallback, stable
 }
 
 func findServer(servers []detect.Server, tag string) (detect.Server, bool) {
