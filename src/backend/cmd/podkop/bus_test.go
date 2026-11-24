@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"os"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
@@ -183,7 +182,7 @@ func TestBusMethodsInACL(t *testing.T) {
 	require.NotContains(t, group.Read.Ubus[object.Name], "force_detect")
 }
 
-// A command of the page and of the CLI (ctl.Commands) has no name of a command of the program
+// A command of the page and of the CLI (ctl.Methods) has no name of a command of the program
 // itself (daemon, release, ctl, migrate, ...): "podkop <name>" would run the program's own.
 func TestCommandsOfTheProgramApart(t *testing.T) {
 	own := make(map[string]bool)
@@ -191,9 +190,8 @@ func TestCommandsOfTheProgramApart(t *testing.T) {
 		own[command.Name()] = true
 	}
 	require.True(t, own["daemon"] && own["ctl"], "the commands of the program were not read: %v", own)
-	for _, command := range ctl.Commands {
-		for _, name := range strings.Split(command[0], "|") {
-			name = strings.TrimSpace(name)
+	for _, method := range ctl.Methods {
+		for _, name := range method.Names() {
 			require.False(t, own[name], "podkop %s is a command of the program and of the CLI both", name)
 			require.False(t, ownCommand(name), name)
 		}

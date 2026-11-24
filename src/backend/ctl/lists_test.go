@@ -16,12 +16,12 @@ import (
 	"testing"
 )
 
-// The names of the commands are kept in several lists by hand: the help (Commands), the switch of
-// Run, the commands answered inside the backend (inProcess), the actions of clash_api (its help,
-// its switch, the list its unknown action answers), and on the side of the page the commands it
-// runs (fe-app-podkop: the methods of methods/shell, and the bundle of them the package ships,
-// main.js), the methods of ubus it calls (rpc.declare) and the ACL of rpcd that grants them
-// (luci-app-podkop.json). TestCommandLists holds them together: a command the help names and
+// The names of the commands are kept in several lists by hand: the table (Methods, which the help
+// is made from), the switch of Run, the commands answered inside the backend (inProcess), the
+// actions of clash_api (its help, its switch, the list its unknown action answers), and on the side
+// of the page the commands it runs (fe-app-podkop: the methods of methods/shell, and the bundle of
+// them the package ships, main.js), the methods of ubus it calls (rpc.declare) and the ACL of rpcd
+// that grants them (luci-app-podkop.json). TestCommandLists holds them together: a command the help names and
 // Run does not handle, one Run handles that the help leaves out and that is not listed as hidden,
 // a name of inProcess that is no command, a command the page runs that is none or that the ACL
 // does not let it run, a grant of the ACL that names nothing the page calls. The methods of the
@@ -93,7 +93,7 @@ func TestCommandLists(t *testing.T) {
 		case slices.Contains(help, name) && hidden:
 			t.Errorf("%s is in the help: take it out of hiddenCommands", name)
 		case !slices.Contains(help, name) && !hidden:
-			t.Errorf("Run handles %s, which the help does not name: add it to Commands, or to hiddenCommands with why", name)
+			t.Errorf("Run handles %s, which the help does not name: add it to Methods, or to hiddenCommands with why", name)
 		}
 	}
 	for name := range hiddenCommands {
@@ -260,12 +260,11 @@ func TestCommandLists(t *testing.T) {
 	}
 }
 
-// helpNames are the commands of the help: "start | stop | restart" is three.
+// helpNames are the commands of the help, with their other names.
 func helpNames(t *testing.T) []string {
 	var names []string
-	for _, command := range Commands {
-		for name := range strings.SplitSeq(command[0], "|") {
-			name = strings.TrimSpace(name)
+	for index := range Methods {
+		for _, name := range Methods[index].Names() {
 			if slices.Contains(names, name) {
 				t.Errorf("the help names %s twice", name)
 			}
@@ -339,12 +338,12 @@ func switchesOn(tag ast.Expr, name string) bool {
 // clashHelp are the actions the help of clash_api names: the first word of each part between
 // the bars, what is in parentheses left out.
 func clashHelp(t *testing.T) []string {
-	for _, command := range Commands {
-		if command[0] != "clash_api" {
+	for _, method := range Methods {
+		if method.Name != "clash_api" {
 			continue
 		}
 		text, depth := "", 0
-		for _, character := range command[1] {
+		for _, character := range method.Help {
 			switch {
 			case character == '(':
 				depth++

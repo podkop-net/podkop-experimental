@@ -68,8 +68,8 @@ func TestBusObject(t *testing.T) {
 
 	// each command answered here is one of the commands
 	known := map[string]bool{}
-	for _, command := range Commands {
-		known[command[0]] = true
+	for _, method := range Methods {
+		known[method.Name] = true
 	}
 	for command := range inProcess {
 		require.True(t, known[command], command)

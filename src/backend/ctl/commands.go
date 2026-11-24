@@ -76,54 +76,11 @@ const serviceActionVariable = "PODKOP_SERVICE_ACTION"
 
 const singBoxAutostartPath = "/etc/rc.d/S99sing-box"
 
-// Commands lists the commands with what each does, for the help.
-var Commands = [][2]string{
-	{"get_status", "Whether the backend starts at boot; whether it runs, and then whether sing-box runs and since when, and what the last boot or change of the settings came to and when, as JSON: {enabled, status, backend, running, since, last: {ok, message}, last_at} (times in RFC 3339, UTC)"},
-	{"get_sing_box_status", "Whether sing-box runs and the DNS of the LAN asks it"},
-	{"get_system_info", "Versions and the model of the device"},
-	{"get_sing_box_features", "What this build adds to sing-box, as a JSON list"},
-	{"check_dns_available", "Whether the DNS servers of the settings answer"},
-	{"check_sing_box", "Whether sing-box runs and listens"},
-	{"check_nft_rules", "[label]: whether the firewall table is there and counts packets; with the label of a check name a device opened a connection to, that connection is waited for where the LAN has not been counted yet"},
-	{"check_fakeip", "Whether a name asked on the router is answered from FakeIP and a connection of the router to it reaches sing-box"},
-	{"check_fakeip_client", "<label> [ms]: what the backend saw of the check name a device opened a connection to"},
-	{"clash_api", "get_proxies | get_proxy_latency <tag> [ms] (with the first server check URL of HTTPS, then the second when it does not answer; direct-out: all of them at once, the median) | get_group_latency <tag> [ms] (a selector with a URL test: a round of it; one without: each server as get_proxy_latency, 0 for no answer) | set_group_proxy <group> <proxy> | upgrade_ui (the dashboard YACD of GitHub in place of the one served)"},
-	{"yacd_builtin", "The dashboard YACD of the package served again in place of the one upgraded from GitHub"},
-	{"global_check", "[label port]: every check as one report; with the label of a check name and a port the device that asks opens connections to meanwhile, also what came of its DNS question and its connections"},
-	{"device", "<address>: the rules that take the traffic of the device of that IPv4 or IPv6 address, in the order they are matched: by their Only for devices, with the devices excluded from routing and those routed whole (for a device that cannot open the page)"},
-	{"check_links", "<link>...: each proxy link as the engine of this build takes it when the settings run, as JSON: [{ok, error}]"},
-	{"subscription_load", "<address> [JSON {user_agent_preset, user_agent, headers}]: download the list of a subscription to be shown, not taken, asked as that preset (podkop, happ, incy, sing-box, custom), with that User-Agent of custom and those headers (Name: value), as JSON: {route, error, error_code, took_ms, attempts, provider, agent, preset, format, configs, servers: [{name, scheme, address, link, reason, notes, made}]}"},
-	{"subscription_load_start", "<address> [JSON {user_agent_preset, user_agent, headers}]: start a download of the list of a subscription to be shown, as JSON: {id, state, elapsed_ms, attempts}"},
-	{"subscription_load_state", "<id>: how a download started by subscription_load_start goes, as JSON: {id, state (running, done, failed, canceled), elapsed_ms, attempts, preview}"},
-	{"subscription_load_cancel", "<id>: stop a download started by subscription_load_start"},
-	{"group_check", "<JSON {subscriptions, include, exclude, addresses, requests}>: the servers a group would choose, as JSON: {chosen, total, missing}; addresses and requests ({user_agent_preset, user_agent, headers}) are those of the form by the name of the subscription, those of the settings that run when not given"},
-	{"subscription_status", "Each subscription of the settings, as JSON: its servers, when its list was taken and checked, the way it came, the last error, the next download"},
-	{"subscription_update", "[name]: download the list of a subscription now (every one without a name)"},
-	{"subscription_update_start", "<name>: start a download of the list of a subscription now, as JSON: the states of subscription_status at once; the attempted time of the subscription is new once it has ended"},
-	{"hwid", "What the identifier of this device that providers are told (x-hwid) is made of, and its beginning"},
-	{"check_logs", "[--since RUN:NUMBER]: the log of the backend and of sing-box; with --since, as JSON, only the lines after that number of that run (all of another run), and where to go on from"},
-	{"show_sing_box_config", "The sing-box configuration that runs, secrets masked; --rejected: the last one refused"},
-	{"show_config", "The settings, secrets masked"},
-	{"show_version", "The version of the backend"},
-	{"show_sing_box_version", "The version of sing-box in the backend"},
-	{"show_system_info", "The version of OpenWrt and the model of the device"},
-	{"check_nft", "The firewall table of the backend as nft prints it"},
-	{"bittorrent_counters", "What the BitTorrent module has counted since sing-box started, as JSON (empty when BitTorrent is off)"},
-	{"bittorrent_stats", "What the BitTorrent traffic of the LAN came to since the detector was on (or the last bittorrent_reset), by its kind and the way the mode sent it, as JSON: {mode, lan, rule, since, read, counted, rows: [{kind, way, open, connections, received, sent}], blocked, utp_to_tcp, limits, module, reset_at}"},
-	{"bittorrent_reset", "Start the BitTorrent statistics again from now (the dashboard's Reset), without a restart of podkop"},
-	{"bittorrent_record", "[minutes] [--reset]: write a report of BitTorrent for a test, a sample every 10 s for the minutes (default 10): the router, the settings, CPU, memory, connections and the BitTorrent statistics, without any address or name; --reset starts the statistics first. It prints the file it wrote"},
-	{"list_update", "Download every list now instead of at the update interval"},
-	{"restore_routing", "Put back the routing rule and route, the firewall table and the DNS of the LAN when the network took them, apply the settings again when the network changed under them, try a start that failed again (the hotplug script of the package runs it at every ifup)"},
-	{"list_status", "Each list of what runs, as JSON: who fills it, its URL or file, when it was last downloaded, the last error of each plain list's URL"},
-	{"reload", "Apply the settings again and tell what that came to"},
-	{"start | stop | restart", "The same action of the service /etc/init.d/podkop"},
-}
-
 // Run runs a command and returns its exit status. As with the shell backend, the user
 // interface takes an empty output for a failure and anything else for an answer.
 func Run(env Environment, arguments []string, output io.Writer, errorOutput io.Writer) int {
 	if len(arguments) == 0 {
-		return usage(errorOutput)
+		return usage(Methods, errorOutput)
 	}
 	ctx := context.Background()
 	client := api.Client{Path: env.Socket}
@@ -191,13 +148,13 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 	case "subscription_load":
 		request, read := listRequest(arguments)
 		if len(arguments) < 2 || !read {
-			return usage(errorOutput)
+			return usage(Methods, errorOutput)
 		}
 		return compact(loadAndWait(client, arguments[1], request))
 	case "subscription_load_start", "subscription_load_state", "subscription_load_cancel":
 		request, read := listRequest(arguments)
 		if len(arguments) < 2 || !read {
-			return usage(errorOutput)
+			return usage(Methods, errorOutput)
 		}
 		var job *api.LoadJob
 		var err error
@@ -220,7 +177,7 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 	case "group_check":
 		var check api.GroupCheck
 		if len(arguments) < 2 || json.Unmarshal([]byte(arguments[1]), &check) != nil {
-			return usage(errorOutput)
+			return usage(Methods, errorOutput)
 		}
 		preview, err := client.CheckGroup(check, 19*time.Second)
 		if err != nil {
@@ -467,16 +424,7 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 		}
 		return 0
 	}
-	return usage(errorOutput)
-}
-
-func usage(errorOutput io.Writer) int {
-	io.WriteString(errorOutput, "Commands:\n")
-	for _, command := range Commands {
-		// a name longer than the column gets one space
-		io.WriteString(errorOutput, "    "+command[0]+strings.Repeat(" ", max(1, 24-len(command[0])))+command[1]+"\n")
-	}
-	return 1
+	return usage(Methods, errorOutput)
 }
 
 // printTable prints the firewall table of the backend as the nft program shows it. The
