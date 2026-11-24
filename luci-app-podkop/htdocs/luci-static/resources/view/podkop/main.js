@@ -1197,6 +1197,56 @@ function isMultiServer(source) {
 function linkScheme(link) {
   return link.includes("://") ? link.slice(0, link.indexOf("://")).toLowerCase() : "";
 }
+var PROTOCOLS = {
+  vless: "VLESS",
+  vmess: "VMess",
+  trojan: "Trojan",
+  shadowsocks: "Shadowsocks",
+  hysteria2: "Hysteria2",
+  hysteria: "Hysteria",
+  tuic: "TUIC",
+  anytls: "AnyTLS",
+  naive: "Naive",
+  socks: "SOCKS",
+  http: "HTTP"
+};
+var PROTOCOL_SCHEMES = /* @__PURE__ */ new Map([
+  ["ss", "shadowsocks"],
+  ["hy2", "hysteria2"],
+  ["https", "http"],
+  ["naive+https", "naive"],
+  ["naive+quic", "naive"],
+  ["socks4", "socks"],
+  ["socks4a", "socks"],
+  ["socks5", "socks"],
+  ["socks5h", "socks"]
+]);
+function knownProtocol(name) {
+  return Object.keys(PROTOCOLS).includes(name);
+}
+function protocolName(text) {
+  const name = String(text).trim().toLowerCase();
+  return PROTOCOL_SCHEMES.get(name) ?? name;
+}
+function protocolNames(value) {
+  const order = Object.keys(PROTOCOLS);
+  const place = (name) => knownProtocol(name) ? order.indexOf(name) : order.length;
+  return [
+    ...new Set(
+      asList(value).flatMap((item) => item.split(/[\s,]+/)).filter(Boolean).map(protocolName)
+    )
+  ].sort((a, b) => place(a) - place(b));
+}
+function protocolLabel(name) {
+  return knownProtocol(name) ? PROTOCOLS[name] : name;
+}
+function takesProtocol(protocol, protocols) {
+  return !protocols.length || protocols.includes(protocolName(protocol));
+}
+function choosesProtocols(source) {
+  const kind = sourceKind(source);
+  return kind !== "" && kind !== "interface";
+}
 function decoded(text) {
   try {
     return decodeURIComponent(text);
@@ -1259,6 +1309,17 @@ function sourceLabel(source) {
 }
 function sourceServerNames(source) {
   return sourceLinks(source).map(linkName);
+}
+function sourceServerProtocols(source) {
+  switch (sourceKind(source)) {
+    case "links":
+      return sourceLinks(source).map((link) => protocolName(linkScheme(link)));
+    case "json": {
+      const type = parseOutbound(String(source.outbound_json ?? ""))?.type;
+      return [typeof type === "string" ? protocolName(type) : ""];
+    }
+  }
+  return [];
 }
 function nameHas(name, word) {
   const lowName = String(name).toLowerCase();
@@ -8975,6 +9036,7 @@ return baseclass.extend({
   MAX_NAME,
   MAX_VALUE,
   PODKOP_LUCI_APP_VERSION,
+  PROTOCOLS,
   PROXY_LINK_SCHEMES,
   PodkopShellMethods,
   REGIONAL_OPTIONS,
@@ -8993,6 +9055,7 @@ return baseclass.extend({
   barView,
   bulkValidate,
   checkLinksBeforeSave,
+  choosesProtocols,
   clockOf,
   coreService,
   countChanges,
@@ -9017,6 +9080,7 @@ return baseclass.extend({
   isUniqueLocal,
   isUnspecifiedIPv6,
   judge,
+  knownProtocol,
   linkBatches,
   linkHost,
   linkLabel,
@@ -9036,6 +9100,9 @@ return baseclass.extend({
   parseValueList,
   preserveScrollForPage,
   presetName,
+  protocolLabel,
+  protocolName,
+  protocolNames,
   requestProblem,
   requestProblemLine,
   requestProblemText,
@@ -9055,11 +9122,13 @@ return baseclass.extend({
   sourceLabel,
   sourceLinks,
   sourceServerNames,
+  sourceServerProtocols,
   splitProxyString,
   stagedChange,
   store,
   subnetContains,
   svgEl,
+  takesProtocol,
   tellsResult,
   unwrapSubscription,
   validateAnytlsUrl,

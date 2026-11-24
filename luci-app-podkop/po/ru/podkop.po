@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-23 22:26+0000\n"
-"PO-Revision-Date: 2026-11-23 22:26+0000\n"
+"POT-Creation-Date: 2026-11-24 20:51+0000\n"
+"PO-Revision-Date: 2026-11-24 20:51+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -64,6 +64,9 @@ msgstr "%s (выключено)"
 
 msgid "%s (the rule is deleted)"
 msgstr "%s (удалено)"
+
+msgid "%s (unknown protocol)"
+msgstr "%s (неизвестный протокол)"
 
 msgid "%s at %s"
 msgstr "%s в %s"
@@ -148,6 +151,9 @@ msgstr "✘ Остановлен"
 
 msgid "0 of %d, check the words"
 msgstr "0 из %d, проверьте слова"
+
+msgid "0 of %d, check the words and the protocols"
+msgstr "0 из %d, проверьте слова и протоколы"
 
 msgid "A check is not possible now: this address was checked recently or is waiting in the queue, or the queue is full. Try again in %d s."
 msgstr "Проверка сейчас невозможна: этот адрес недавно проверялся или уже стоит в очереди, либо очередь заполнена. Повторите через %d с."
@@ -1202,6 +1208,9 @@ msgstr "Нужен один outbound: {\"type\": \"vless\", …}"
 msgid "One request passes, the requests after it do not. It looks like a limit of the server or the line."
 msgstr "Один запрос проходит, следующие за ним — нет. Похоже на ограничение сервера или линии."
 
+msgid "only %s"
+msgstr "только %s"
+
 msgid "Only for devices"
 msgstr "Только для устройств"
 
@@ -1312,6 +1321,9 @@ msgstr "предварительно: проб пока мало"
 
 msgid "Protocol"
 msgstr "Протокол"
+
+msgid "Protocols"
+msgstr "Протоколы"
 
 msgid "Public lists of masks"
 msgstr "Открытые списки масок"
