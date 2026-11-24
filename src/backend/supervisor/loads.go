@@ -66,9 +66,6 @@ func (t *subscriptionRuntime) startLoad(ctx context.Context, address string, req
 	key := subscription.RequestKey(address, custom)
 	t.access.Lock()
 	now := time.Now()
-	if t.jobs == nil {
-		t.jobs = make(map[string]*loadJob)
-	}
 	running := 0
 	for id, job := range t.jobs {
 		switch {
@@ -273,9 +270,6 @@ func (t *subscriptionRuntime) groupList(ctx context.Context, name string, addres
 func (t *subscriptionRuntime) keepPreview(list *subscription.Saved, request string) {
 	t.access.Lock()
 	defer t.access.Unlock()
-	if t.previews == nil {
-		t.previews = make(map[string]*preview)
-	}
 	for key, kept := range t.previews {
 		if time.Since(kept.list.Changed) >= previewKept {
 			delete(t.previews, key)

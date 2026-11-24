@@ -822,6 +822,15 @@ func TestSubscriptionUpdateByHand(t *testing.T) {
 	s.Stop()
 }
 
+// All the subscriptions asked for before any settings could be read: there are none, and the caller
+// is told so.
+func TestSubscriptionUpdateBeforeSettings(t *testing.T) {
+	s := New(Options{})
+	reply := make(chan []SubscriptionState, 1)
+	s.askDownload(subscriptionRequest{reply: reply})
+	require.Empty(t, <-reply)
+}
+
 // A label changed on the page renames the outbounds of its source: they are replaced while
 // sing-box runs, and the log tells the configuration by the new name.
 func TestLabelRenamesWhileRunning(t *testing.T) {

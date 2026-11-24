@@ -132,7 +132,14 @@ type subscriptionHost interface {
 }
 
 func newSubscriptionRuntime(options *Options, host subscriptionHost) *subscriptionRuntime {
-	return &subscriptionRuntime{options: options, host: host, downloads: make(chan downloaded), requests: make(chan subscriptionRequest)}
+	return &subscriptionRuntime{
+		options: options, host: host,
+		downloads: make(chan downloaded), requests: make(chan subscriptionRequest),
+		addresses: make(map[string]string), intervals: make(map[string]time.Duration), lists: make(map[string]*subscription.Saved),
+		states: make(map[string]*SubscriptionState), verdicts: make(map[string]string), customs: make(map[string]subscription.Custom),
+		waiting: make(map[string][]chan []SubscriptionState), previews: make(map[string]*preview), histories: make(map[string]*history),
+		jobs: make(map[string]*loadJob), forced: make(map[string]bool), failures: make(map[string]int),
+	}
 }
 
 func (t *subscriptionRuntime) log(level string, message ...any) {
@@ -181,13 +188,6 @@ func (t *subscriptionRuntime) store() subscription.Store {
 func (t *subscriptionRuntime) syncSubscriptions(settings *model.Config, tell bool) {
 	t.access.Lock()
 	defer t.access.Unlock()
-	if t.lists == nil {
-		t.addresses, t.intervals, t.lists = make(map[string]string), make(map[string]time.Duration), make(map[string]*subscription.Saved)
-		t.states, t.verdicts, t.waiting = make(map[string]*SubscriptionState), make(map[string]string), make(map[string][]chan []SubscriptionState)
-	}
-	if t.customs == nil {
-		t.customs = make(map[string]subscription.Custom)
-	}
 	var names []string
 	now := time.Now()
 	for _, item := range settings.Sources {

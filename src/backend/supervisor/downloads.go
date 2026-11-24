@@ -61,9 +61,6 @@ func (h *history) plan() subscription.Plan {
 func (t *subscriptionRuntime) remember(key string, tries []subscription.Try) {
 	t.access.Lock()
 	defer t.access.Unlock()
-	if t.histories == nil {
-		t.histories = make(map[string]*history)
-	}
 	record := t.histories[key]
 	if record == nil {
 		record = &history{}
@@ -140,7 +137,7 @@ func (t *subscriptionRuntime) fetch(ctx context.Context, address string, custom 
 	func() {
 		t.access.Lock()
 		defer t.access.Unlock()
-		if t.verdicts == nil || len(t.verdicts) > 10000 {
+		if len(t.verdicts) > 10000 {
 			t.verdicts = make(map[string]string)
 		}
 		for id, reason := range verdicts {
@@ -159,9 +156,6 @@ func (t *subscriptionRuntime) fetch(ctx context.Context, address string, custom 
 func (t *subscriptionRuntime) downloadDue(now time.Time, force string) {
 	t.access.Lock()
 	defer t.access.Unlock()
-	if t.forced == nil {
-		t.forced = make(map[string]bool)
-	}
 	busy := 0
 	var names []string
 	for name, state := range t.states {
@@ -286,9 +280,6 @@ func (t *subscriptionRuntime) takeResult(result downloaded) (tell func(), answer
 			// stays when it was, and the failure does not count towards the backoff
 			next = *result.planned
 		} else {
-			if t.failures == nil {
-				t.failures = make(map[string]int)
-			}
 			t.failures[result.name]++
 			next = now.Add(min(downloadRetry, t.interval(result.name)))
 			if t.lists[result.name] == nil {
