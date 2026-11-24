@@ -206,33 +206,43 @@ describe('the protocols of a row', () => {
   });
 
   it('offers the protocols by the names of the dashboard', () => {
-    const view = rowsOfRule({ protocols: 'hy2, vles' }, links(VLESS, HY2));
+    const view = rowsOfRule(
+      { protocols: 'hy2, vles, vmess' },
+      links(VLESS, HY2),
+    );
     const field = view.servers.lookup('protocols');
     const widget = { style: { minWidth: '' } };
     const shown = vi.fn(() => widget);
     (view.form.MultiValue.prototype as Row).renderWidget = shown;
     const stored = field.load('row1');
-    expect(stored).toEqual(['hysteria2', 'vles']);
+    expect(stored).toEqual(['vmess', 'hysteria2', 'vles']);
     expect(field.call('renderWidget', 'row1', 0, stored)).toBe(widget);
     expect(shown).toHaveBeenCalledWith('row1', 0, stored);
     // the source of the row keeps its place
     expect(widget.style.minWidth).toBe('110px');
-    expect((field.keylist as string[]).slice(0, 5)).toEqual([
+    // those the engine of the packages has, then what the settings have besides
+    expect(field.keylist).toEqual([
       'vless',
-      'vmess',
       'trojan',
       'shadowsocks',
       'hysteria2',
+      'tuic',
+      'socks',
+      'http',
+      'vmess',
+      'vles',
     ]);
-    expect((field.vallist as string[]).slice(0, 5)).toEqual([
+    expect(field.vallist).toEqual([
       'VLESS',
-      'VMess',
       'Trojan',
       'Shadowsocks',
       'Hysteria2',
+      'TUIC',
+      'SOCKS',
+      'HTTP',
+      'VMess (not in this build)',
+      'vles (unknown protocol)',
     ]);
-    expect((field.keylist as string[]).at(-1)).toBe('vles');
-    expect((field.vallist as string[]).at(-1)).toBe('vles (unknown protocol)');
   });
 
   it('knows the type of an outbound JSON', () => {

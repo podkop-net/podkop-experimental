@@ -129,6 +129,18 @@ const PROTOCOL_SCHEMES = new Map([
   ['socks5h', 'socks'],
 ]);
 
+// The protocols the field offers: those the engine of the packages connects by (its build,
+// podkop_slim without podkop_full, has no outbound of the others)
+export const OFFERED_PROTOCOLS = [
+  'vless',
+  'trojan',
+  'shadowsocks',
+  'hysteria2',
+  'tuic',
+  'socks',
+  'http',
+];
+
 // knownProtocol tells whether a name is one of PROTOCOLS
 export function knownProtocol(name: string): boolean {
   return Object.keys(PROTOCOLS).includes(name);

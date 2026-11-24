@@ -602,19 +602,25 @@ function rowsTable(section, tab, option, role, description, placeholder) {
   column.renderWidget = function (section_id, option_index, cfgvalue) {
     this.keylist = [];
     this.vallist = [];
-    Object.keys(main.PROTOCOLS).forEach((name) => {
+    main.OFFERED_PROTOCOLS.forEach((name) => {
       this.value(name, main.protocolLabel(name));
     });
     // a name written by hand stays shown: no server is of one that is no protocol, but an outbound
-    // JSON may be of any type of sing-box
+    // JSON may be of any type of sing-box, and the servers of a protocol the engine of the packages
+    // does not have are there (they are told as ones it cannot use)
     const item = sourceOf(uci.get("podkop", section_id, "source"));
     const own = item ? main.sourceServerProtocols(item) : [];
     main.protocolNames(cfgvalue).forEach((name) => {
-      if (!main.knownProtocol(name)) {
-        this.value(
-          name,
-          own.includes(name) ? name : _("%s (unknown protocol)").format(name),
-        );
+      if (main.OFFERED_PROTOCOLS.includes(name)) {
+        return;
+      }
+      const label = main.protocolLabel(name);
+      if (own.includes(name)) {
+        this.value(name, label);
+      } else if (main.knownProtocol(name)) {
+        this.value(name, _("%s (not in this build)").format(label));
+      } else {
+        this.value(name, _("%s (unknown protocol)").format(label));
       }
     });
     const node = form.MultiValue.prototype.renderWidget.call(

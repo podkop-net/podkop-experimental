@@ -1231,6 +1231,15 @@ var PROTOCOL_SCHEMES = /* @__PURE__ */ new Map([
   ["socks5", "socks"],
   ["socks5h", "socks"]
 ]);
+var OFFERED_PROTOCOLS = [
+  "vless",
+  "trojan",
+  "shadowsocks",
+  "hysteria2",
+  "tuic",
+  "socks",
+  "http"
+];
 function knownProtocol(name) {
   return Object.keys(PROTOCOLS).includes(name);
 }
@@ -9147,6 +9156,7 @@ return baseclass.extend({
   MAX_HEADERS,
   MAX_NAME,
   MAX_VALUE,
+  OFFERED_PROTOCOLS,
   PODKOP_LUCI_APP_VERSION,
   PROTOCOLS,
   PROXY_LINK_SCHEMES,

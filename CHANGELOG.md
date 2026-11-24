@@ -23,8 +23,7 @@ answers one "502 Bad Gateway".
   answer, the loss of the fallbacks is not checked. The dashboard shows the fallbacks as one tier
   named by the choice; the global check tells what loss and balance have counted.
 - **Protocols of the rows (new):** a row of Servers or Fallback takes only the servers of the chosen
-  protocols (VLESS, VMess, Trojan, Shadowsocks, Hysteria2, Hysteria, TUIC, AnyTLS, Naive, SOCKS,
-  HTTP), with the words of its names as before. Links and JSON count as their protocol; an
+  protocols (VLESS, Trojan, Shadowsocks, Hysteria2, TUIC, SOCKS, HTTP), with the words of its names as before. Links and JSON count as their protocol; an
   interface has none and is always taken. The list in the window counts what is chosen. A name that
   is no protocol warns in the log and takes nothing.
 - **The Servers list shows the traffic of a subscription without a limit** ("1.2 GB, no limit").
