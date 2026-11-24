@@ -6,7 +6,6 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
-	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,27 +15,23 @@ import (
 	"testing"
 )
 
-// The names of the commands are kept in several lists by hand: the table (Methods, which the help
-// is made from), the switch of Run, the commands answered inside the backend (inProcess), the
-// actions of clash_api (its help, its switch, the list its unknown action answers), and on the side
-// of the page the commands it runs (fe-app-podkop: the methods of methods/shell, and the bundle of
-// them the package ships, main.js), the methods of ubus it calls (rpc.declare) and the ACL of rpcd
-// that grants them (luci-app-podkop.json). TestCommandLists holds them together: a command the help names and
-// Run does not handle, one Run handles that the help leaves out and that is not listed as hidden,
-// a name of inProcess that is no command, a command the page runs that is none or that the ACL
-// does not let it run, a grant of the ACL that names nothing the page calls. The methods of the
-// object podkop on ubus and their grants are held by TestBusMethodsInACL (cmd/podkop).
+// The commands are in one table (Methods: the help, Run and the commands the running backend
+// answers itself are made from it), their names once more in what calls them: the actions of
+// clash_api (its help, its switch, the list its unknown action answers), and on the side of the
+// page the commands it runs (fe-app-podkop: the methods of methods/shell, and the bundle of them the
+// package ships, main.js), the methods of ubus it calls (rpc.declare) and the ACL of rpcd that
+// grants them (luci-app-podkop.json). TestCommandLists holds them together: a command the page runs
+// that is none, or that the ACL does not let it run, a grant of the ACL that names nothing the page
+// calls. The methods of the object podkop on ubus and their grants are held by TestBusMethodsInACL
+// (cmd/podkop).
 //
 // A known difference is listed below with its reason; a listed difference that is gone fails as
 // well, so that the lists stay what is there.
 
-// hiddenCommands are the commands Run handles that the help does not list.
-var hiddenCommands = map[string]string{}
-
 // pagePrograms are the commands the page runs with /usr/bin/podkop that the backend does not
-// answer itself (inProcess): the call to ubus is refused, and the page starts the program.
+// answer itself (Method.InProcess): the call to ubus is refused, and the page starts the program.
 var pagePrograms = map[string]string{
-	"global_check": "rare and long: in a program of its own a mistake in it cannot take the backend down (ctl/bus.go)",
+	"global_check": "rare and long: in a program of its own a mistake in it cannot take the backend down (Method.InProcess)",
 }
 
 // pageUncalled are the methods of methods/shell no part of the page calls.
@@ -75,36 +70,9 @@ func TestCommandLists(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(repository, pageACL)); os.IsNotExist(err) {
 		t.Skip("no page of the package next to the backend")
 	}
-	help := helpNames(t)
-	handled := switchCases(t, "commands.go", "Run", "arguments")
-	if len(handled) < 30 {
-		t.Fatalf("only %d cases of Run were read: the test does not look where the switch is", len(handled))
-	}
-
-	// the help and the switch
-	for _, name := range help {
-		if !slices.Contains(handled, name) {
-			t.Errorf("the help names %s, which Run does not handle", name)
-		}
-	}
-	for _, name := range handled {
-		_, hidden := hiddenCommands[name]
-		switch {
-		case slices.Contains(help, name) && hidden:
-			t.Errorf("%s is in the help: take it out of hiddenCommands", name)
-		case !slices.Contains(help, name) && !hidden:
-			t.Errorf("Run handles %s, which the help does not name: add it to Methods, or to hiddenCommands with why", name)
-		}
-	}
-	for name := range hiddenCommands {
-		if !slices.Contains(handled, name) {
-			t.Errorf("Run no longer handles %s: take it out of hiddenCommands", name)
-		}
-	}
-	for _, name := range slices.Sorted(maps.Keys(inProcess)) {
-		if !slices.Contains(handled, name) {
-			t.Errorf("inProcess names %s, which Run does not handle", name)
-		}
+	commands := commandNames(t)
+	if len(commands) < 30 {
+		t.Fatalf("only %d commands were read: the test does not look where the table is", len(commands))
 	}
 
 	// the actions of clash_api: its help, its switch, the list of its unknown action
@@ -163,13 +131,13 @@ func TestCommandLists(t *testing.T) {
 		}
 		switch call.program {
 		case program:
-			if !slices.Contains(handled, call.command) {
-				t.Errorf("the page runs podkop %s (%s), which Run does not handle", call.command, call.method)
+			if !slices.Contains(commands, call.command) {
+				t.Errorf("the page runs podkop %s (%s), which is no command", call.command, call.method)
 			}
 			if call.command == "clash_api" && !slices.Contains(actions, call.action) {
 				t.Errorf("the page runs podkop clash_api %s (%s), which clash_api does not handle", call.action, call.method)
 			}
-			if !inProcess[call.command] {
+			if method := find(Methods, call.command); method != nil && !method.InProcess {
 				asProgram[call.command] = true
 			}
 		case service:
@@ -182,7 +150,7 @@ func TestCommandLists(t *testing.T) {
 	}
 	for command := range asProgram {
 		if _, listed := pagePrograms[command]; !listed {
-			t.Errorf("the page runs podkop %s, which the backend does not answer itself (inProcess): each call starts the program; add it to inProcess, or to pagePrograms with why", command)
+			t.Errorf("the page runs podkop %s, which the backend does not answer itself (InProcess): each call starts the program; let the backend answer it, or list it in pagePrograms with why", command)
 		}
 	}
 	for command := range pagePrograms {
@@ -243,9 +211,9 @@ func TestCommandLists(t *testing.T) {
 			t.Errorf("the ACL no longer grants %s: take it out of aclUncalled", grant)
 		}
 	}
-	t.Logf("%d commands in the help, %d cases of Run, %d answered inside the backend, %d actions of clash_api; "+
+	t.Logf("%d commands, %d actions of clash_api; "+
 		"the page: %d methods of methods/shell (%d called), %d methods of ubus declared; the ACL: %d grants of ubus, %d programs",
-		len(help), len(handled), len(inProcess), len(actions), len(source.calls), len(used), len(source.declared), len(acl.ubus), len(acl.files))
+		len(commands), len(actions), len(source.calls), len(used), len(source.declared), len(acl.ubus), len(acl.files))
 	makefile, err := os.ReadFile(filepath.Join(repository, packageMake))
 	if err != nil {
 		t.Fatal(err)
@@ -260,13 +228,28 @@ func TestCommandLists(t *testing.T) {
 	}
 }
 
-// helpNames are the commands of the help, with their other names.
-func helpNames(t *testing.T) []string {
+// Each command is told by the help and answers in one way.
+func TestMethods(t *testing.T) {
+	for index := range Methods {
+		method := &Methods[index]
+		switch {
+		case method.Help == "":
+			t.Errorf("the help tells nothing of %s", method.Name)
+		case (method.Answer == nil) == (method.Print == nil):
+			t.Errorf("%s answers with a value and with a text, or with neither", method.Name)
+		case (method.Answer == nil) != (method.Form == 0):
+			t.Errorf("%s: the form of a value (%d) goes with Answer", method.Name, method.Form)
+		}
+	}
+}
+
+// commandNames are the names of the commands, the other names among them.
+func commandNames(t *testing.T) []string {
 	var names []string
 	for index := range Methods {
 		for _, name := range Methods[index].Names() {
 			if slices.Contains(names, name) {
-				t.Errorf("the help names %s twice", name)
+				t.Errorf("%s is in the table of the commands twice", name)
 			}
 			names = append(names, name)
 		}

@@ -157,10 +157,10 @@ func takenAgo(passed time.Duration) string {
 // It tells false for what is not that JSON.
 func listRequest(arguments []string) (api.ListRequest, bool) {
 	var request api.ListRequest
-	if len(arguments) < 3 || strings.TrimSpace(arguments[2]) == "" {
+	if len(arguments) < 2 || strings.TrimSpace(arguments[1]) == "" {
 		return request, true
 	}
-	return request, json.Unmarshal([]byte(arguments[2]), &request) == nil
+	return request, json.Unmarshal([]byte(arguments[1]), &request) == nil
 }
 
 // loadAndWait downloads a list to be shown as a job of the backend, and waits for it: the

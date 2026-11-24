@@ -45,13 +45,12 @@ import (
 // recorded as the answer they print to fixed findings (the compat shapes of answers.go), not run.
 // get_sing_box_status and check_sing_box read the host (/etc/rc.d, /proc/net): they are not
 // recorded on a host that has sing-box's autostart or listens where sing-box does. Left out:
-// global_check (the kernel, the network and the system log; the page runs it as a program),
-// check_nft (the nft program), hwid, show_system_info and yacd_builtin (the files of the host), the
-// lines of subscription_update (told by the time that passed; TestSubscriptionCommands) and the
-// reports of bittorrent_record (TestBitTorrentRecord). Besides what the page reads, the help, the
-// failures and the actions of the CLI are recorded (recordActions). Each case of "podkop device" is
-// also compared with the route rules of the configuration plan.Build makes of the same settings
-// (compareWithPlan), but the one of settings it refuses.
+// the commands of unrecorded, the lines of subscription_update (told by the time that passed;
+// TestSubscriptionCommands) and the reports of bittorrent_record (TestBitTorrentRecord). Besides
+// what the page reads, the help, the failures and the actions of the CLI are recorded
+// (recordActions). Each case of "podkop device" is also compared with the route rules of the
+// configuration plan.Build makes of the same settings (compareWithPlan), but the one of settings it
+// refuses.
 var updateAnswers = flags.Bool("update", false, "write the recorded answers of testdata/answers anew")
 
 const (
@@ -114,8 +113,28 @@ func (r *recorder) keep(name string, command string, about string, code int, std
 	}
 }
 
-// finish fails for a file of answersDir no case wrote.
+// unrecorded are the commands no case records: what they print is of the host.
+var unrecorded = map[string]string{
+	"global_check":     "the kernel, the network and the system log",
+	"check_nft":        "the nft program",
+	"hwid":             "the files of the host",
+	"show_system_info": "the files of the host",
+	"yacd_builtin":     "the files of the host",
+}
+
+// finish fails for a file of answersDir no case wrote, and for a command no case records (the name
+// of a case begins with it) that is not in unrecorded.
 func (r *recorder) finish() {
+	recorded := make(map[string]bool)
+	for name := range r.written {
+		command, _, _ := strings.Cut(name, "-")
+		recorded[command] = true
+	}
+	for _, command := range commandNames(r.t) {
+		if _, listed := unrecorded[command]; listed == recorded[command] {
+			r.t.Errorf("podkop %s: recorded %v, in unrecorded %v", command, recorded[command], listed)
+		}
+	}
 	entries, err := os.ReadDir(answersDir)
 	require.NoError(r.t, err)
 	for _, entry := range entries {

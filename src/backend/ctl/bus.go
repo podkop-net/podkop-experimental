@@ -8,44 +8,6 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/ubus"
 )
 
-// The commands the running backend answers itself, as the method "run" of its object on
-// ubus: the page calls them through uhttpd and no program starts for a call, where each call
-// of /usr/bin/podkop was a start of the whole binary. These only read and check. The
-// actions on the service and the settings (start, stop, reload, list_update,
-// restore_routing) stay programs of their own: the backend would end in the middle of its
-// answer. global_check too: it is rare and long, and in a program of its own a mistake in it
-// cannot take the backend down.
-var inProcess = map[string]bool{
-	"get_status":                true,
-	"get_sing_box_status":       true,
-	"get_system_info":           true,
-	"get_sing_box_features":     true,
-	"check_dns_available":       true,
-	"check_sing_box":            true,
-	"check_nft_rules":           true,
-	"check_fakeip":              true,
-	"check_fakeip_client":       true,
-	"clash_api":                 true,
-	"check_links":               true,
-	"check_logs":                true,
-	"show_sing_box_config":      true,
-	"show_config":               true,
-	"show_version":              true,
-	"show_system_info":          true,
-	"check_nft":                 true,
-	"list_status":               true,
-	"subscription_load":         true,
-	"subscription_load_start":   true,
-	"subscription_load_state":   true,
-	"subscription_load_cancel":  true,
-	"group_check":               true,
-	"subscription_status":       true,
-	"subscription_update_start": true,
-	"hwid":                      true,
-	"bittorrent_counters":       true,
-	"bittorrent_stats":          true,
-}
-
 // ExecResult is the answer of "run", in the form of the answer of rpcd's file.exec, so that
 // the page reads both alike.
 type ExecResult struct {
@@ -66,7 +28,7 @@ func BusObject(env Environment) ubus.Object {
 				Arguments: map[string]int{"command": ubus.TypeString, "params": ubus.TypeArray},
 				Call: func(ctx context.Context, arguments map[string]any) (any, int) {
 					command, _ := arguments["command"].(string)
-					if !inProcess[command] {
+					if method := find(Methods, command); method == nil || !method.InProcess {
 						return nil, ubus.StatusNotSupported
 					}
 					line := []string{command}

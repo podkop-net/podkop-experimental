@@ -66,15 +66,6 @@ func TestBusObject(t *testing.T) {
 	_, status = run(ctx, map[string]any{"command": "check_logs", "params": "--since"})
 	require.Equal(t, ubus.StatusInvalidArgument, status)
 
-	// each command answered here is one of the commands
-	known := map[string]bool{}
-	for _, method := range Methods {
-		known[method.Name] = true
-	}
-	for command := range inProcess {
-		require.True(t, known[command], command)
-	}
-
 	// the links the page asks about before it saves: in the order asked
 	env.CheckLink = func(link string) error {
 		if strings.Contains(link, "kcp") {

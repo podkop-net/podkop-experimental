@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
@@ -82,349 +84,458 @@ func Run(env Environment, arguments []string, output io.Writer, errorOutput io.W
 	if len(arguments) == 0 {
 		return usage(Methods, errorOutput)
 	}
-	ctx := context.Background()
-	client := api.Client{Path: env.Socket}
-	running := func() bool {
-		status, err := client.Status()
-		return err == nil && status.Running
+	return execute(Methods, &Call{
+		Name: arguments[0], Arguments: arguments[1:], Output: output, Errors: errorOutput,
+		env: env, client: api.Client{Path: env.Socket},
+	})
+}
+
+// Call is a call of a command: what it asks, and where its text goes.
+type Call struct {
+	// Name is the name the command is called by, Arguments what follows it.
+	Name      string
+	Arguments []string
+	Output    io.Writer
+	Errors    io.Writer
+	env       Environment
+	client    api.Client
+	loading   sync.Once
+	loaded    *model.Config
+}
+
+// errUsage ends a command whose arguments are not those of its help: the help is printed.
+// errSilent ends one that fails with nothing to tell.
+var (
+	errUsage  = errors.New("not the arguments of the command")
+	errSilent = errors.New("no answer")
+)
+
+// argument is an argument by its place, "" when there is none.
+func (c *Call) argument(index int) string {
+	if index < len(c.Arguments) {
+		return c.Arguments[index]
 	}
-	// JSON as the shell backend prints it: text as it is, with no escapes for HTML
-	write := func(value any, indent string) int {
-		encoder := json.NewEncoder(output)
-		encoder.SetEscapeHTML(false)
-		encoder.SetIndent("", indent)
-		if encoder.Encode(value) != nil {
-			return 1
-		}
-		return 0
+	return ""
+}
+
+// write prints a value as JSON as the shell backend prints it: text as it is, with no escapes
+// for HTML.
+func (c *Call) write(value any, form Form) int {
+	encoder := json.NewEncoder(c.Output)
+	encoder.SetEscapeHTML(false)
+	if form == Pretty {
+		encoder.SetIndent("", "  ")
 	}
-	compact := func(value any) int { return write(value, "") }
-	pretty := func(value any) int { return write(value, "  ") }
-	// the settings as the backend reads them, with its defaults
-	config := new(model.Config)
-	if loaded, err := model.Load(readUCI(env.Paths.Settings)); err == nil {
-		config = loaded
+	if encoder.Encode(value) != nil {
+		return 1
 	}
-	settings := &config.Settings
-	// the check URLs the delay tests take (oneOffURLs), read by those only
-	links := func() []string { return oneOffURLs(checkURLs(env.ConfigDir, settings.Check)) }
-	switch arguments[0] {
-	case "get_status":
-		status, err := client.Status()
-		if err != nil {
-			status = nil
+	return 0
+}
+
+// print prints a text.
+func (c *Call) print(text string) int {
+	io.WriteString(c.Output, text)
+	return 0
+}
+
+// fail tells why the command failed.
+func (c *Call) fail(text string) int {
+	io.WriteString(c.Errors, text+"\n")
+	return 1
+}
+
+// down tells that no backend answered.
+func (c *Call) down(err error) int {
+	return c.fail("the backend does not run: " + err.Error())
+}
+
+// running tells whether the backend answers that sing-box runs.
+func (c *Call) running() bool {
+	status, err := c.client.Status()
+	return err == nil && status.Running
+}
+
+// config are the settings as the backend reads them, with its defaults.
+func (c *Call) config() *model.Config {
+	c.loading.Do(func() {
+		c.loaded = new(model.Config)
+		if loaded, err := model.Load(readUCI(c.env.Paths.Settings)); err == nil {
+			c.loaded = loaded
 		}
-		return compact(answerStatus(executable(env.AutostartPath), status))
-	case "get_sing_box_status":
-		// "enabled" is the autostart of a sing-box service of its own, which the shell
-		// backend switches off and this backend does not have: sing-box starts with it
-		isRunning, enabled := running(), executable(singBoxAutostartPath)
-		status := words(isRunning, "running", "stopped") + words(isRunning == enabled, " & ", " but ") + words(enabled, "enabled", "disabled")
-		return compact(struct {
-			Running       int    `json:"running"`
-			Enabled       int    `json:"enabled"`
-			Status        string `json:"status"`
-			DNSConfigured int    `json:"dns_configured"`
-		}{asNumber(isRunning), asNumber(enabled), status, asNumber(diag.DNSOfLAN(readUCI(env.Paths.DHCP)))})
-	case "get_system_info":
-		return pretty(answerSystem(diag.SystemInfo(ctx, env.Version, env.SingBoxVersion, false), env.Engine))
-	case "check_links":
-		// the page asks before it saves the settings: the reason of a link the configuration
-		// would be refused for, by the field it is in, and not in the log after the apply
-		results := make([]LinkCheck, 0, len(arguments)-1)
-		for _, link := range arguments[1:] {
-			result := LinkCheck{OK: true}
-			if env.CheckLink == nil {
-				result = LinkCheck{Error: "links are not checked by this program"}
-			} else if err := env.CheckLink(link); err != nil {
-				// a kind of outbound the slim build leaves out: the advice of the engine names its
-				// own packages, which are not those of podkop
-				message, _, _ := strings.Cut(err.Error(), ", install podkop-engine-full")
-				result = LinkCheck{Error: message}
-			}
-			results = append(results, result)
-		}
-		return compact(results)
-	case "subscription_load":
-		request, read := listRequest(arguments)
-		if len(arguments) < 2 || !read {
-			return usage(Methods, errorOutput)
-		}
-		return compact(loadAndWait(client, arguments[1], request))
-	case "subscription_load_start", "subscription_load_state", "subscription_load_cancel":
-		request, read := listRequest(arguments)
-		if len(arguments) < 2 || !read {
-			return usage(Methods, errorOutput)
-		}
-		var job *api.LoadJob
-		var err error
-		switch arguments[0] {
-		case "subscription_load_start":
-			job, err = client.StartLoad(arguments[1], request)
-		case "subscription_load_state":
-			job, err = client.LoadState(arguments[1])
-		default:
-			job, err = client.CancelLoad(arguments[1])
-		}
-		if err != nil {
-			job = &api.LoadJob{State: "failed", Attempts: []api.Attempt{}, Preview: notRunning()}
-			if _, down := client.Status(); down == nil {
-				// the backend runs: the job ended long ago, or the backend started anew
-				job.Preview = &api.SubscriptionPreview{Servers: []api.PreviewServer{}, Error: "the download is not known to podkop: it ended long ago, or podkop restarted", ErrorCode: "nojob"}
-			}
-		}
-		return compact(job)
-	case "group_check":
-		var check api.GroupCheck
-		if len(arguments) < 2 || json.Unmarshal([]byte(arguments[1]), &check) != nil {
-			return usage(Methods, errorOutput)
-		}
-		preview, err := client.CheckGroup(check, 19*time.Second)
-		if err != nil {
-			return 1
-		}
-		return compact(preview)
-	case "subscription_status":
-		states, err := client.Subscriptions()
-		if err != nil {
-			states = []api.SubscriptionState{}
-		}
-		return compact(states)
-	case "subscription_update_start":
-		name := ""
-		if len(arguments) > 1 {
-			name = arguments[1]
-		}
-		states, err := client.StartSubscriptionUpdate(name)
-		if err != nil {
-			states = []api.SubscriptionState{}
-		}
-		return compact(states)
-	case "subscription_update":
-		name := ""
-		if len(arguments) > 1 {
-			name = arguments[1]
-		}
-		states, err := client.UpdateSubscriptions(name)
-		if err != nil {
-			if _, down := client.Status(); down == nil {
-				io.WriteString(errorOutput, "podkop runs, its downloads go on: the wait for them ended ("+err.Error()+")\n")
-			} else {
-				io.WriteString(errorOutput, "podkop does not run: "+err.Error()+"\n")
-			}
-			return 1
-		}
-		io.WriteString(output, strings.Join(subscriptionLines(states, config.Names(), time.Now()), "\n")+"\n")
-		return 0
-	case "hwid":
-		device := subscription.ReadDevice("/")
-		io.WriteString(output, "source: "+device.Source+"\nhwid: "+device.HWID[:min(8, len(device.HWID))]+"…\n")
-		return 0
-	case "get_sing_box_features":
-		features := env.Features
-		if features == nil {
-			features = []string{}
-		}
-		return compact(features)
-	case "check_dns_available":
-		return pretty(AnswerDNS(diag.CheckDNS(ctx, dnsSettings(settings), readUCI(env.Paths.DHCP))))
-	case "check_sing_box":
-		return pretty(answerSingBox(diag.CheckSingBox(running())))
-	case "check_nft_rules":
-		// with the label of a check name the device that asks has opened a connection to
-		var awaitDevice func(context.Context)
-		if len(arguments) > 1 && probe.ValidLabel(arguments[1]) {
-			awaitDevice = func(context.Context) { _, _ = client.Probe(arguments[1], 0) }
-		}
-		return pretty(answerFirewall(diag.CheckFirewall(ctx, awaitDevice)))
-	case "check_fakeip":
-		// the answer of the shell backend came from a server outside and had the flag
-		// "fakeip"; the flag stays, and what it is made of is shown beside it
-		result, err := client.ProbeSelf()
-		if err != nil {
-			return 1
-		}
-		return pretty(struct {
-			FakeIP     bool `json:"fakeip"`
-			DNS        bool `json:"dns"`
-			Connection bool `json:"connection"`
-		}{result.DNS && result.Connection, result.DNS, result.Connection})
-	case "check_fakeip_client":
-		if len(arguments) < 2 || !probe.ValidLabel(arguments[1]) {
-			io.WriteString(errorOutput, "check_fakeip_client <label> [ms]: the label is 8 to 40 lower-case letters and digits\n")
-			return 1
-		}
-		var wait time.Duration
-		if len(arguments) > 2 {
-			milliseconds, _ := strconv.Atoi(arguments[2])
-			wait = time.Duration(milliseconds) * time.Millisecond
-		}
-		result, err := client.Probe(arguments[1], wait)
-		if err != nil {
-			return 1
-		}
-		return pretty(result)
-	case "bittorrent_stats":
-		// what the BitTorrent traffic of the LAN came to, by its kind and its way
-		report, err := client.BitTorrentStats()
-		if err != nil {
-			return 1
-		}
-		return pretty(report)
-	case "bittorrent_reset":
-		report, err := client.ResetBitTorrentStats()
-		if err != nil {
-			return 1
-		}
-		return pretty(report)
-	case "bittorrent_record":
-		return bitTorrentRecord(env, client, arguments[1:], output, errorOutput)
-	case "bittorrent_counters":
-		// what the BitTorrent module has counted since sing-box started (none when it is off)
-		counters, err := client.BitTorrent()
-		if err != nil {
-			return 1
-		}
-		if counters == nil {
-			counters = map[string]int64{}
-		}
-		return pretty(counters)
-	case "clash_api":
-		return clashAPI(client, links, arguments[1:], output)
-	case "global_check":
-		// with the label of a check name and a port: the device that asks opens
-		// connections to them while the report is made
-		var device *deviceCheck
-		if len(arguments) > 2 && probe.ValidLabel(arguments[1]) {
-			if port, err := strconv.ParseUint(arguments[2], 10, 16); err == nil && port > 0 {
-				device = &deviceCheck{label: arguments[1], port: uint16(port), probe: client.Probe, sources: settings.SourceNetworkInterfaces}
-			}
-		}
-		io.WriteString(output, globalCheck(ctx, env.Paths, config, env.Version, env.SingBoxVersion, env.Engine, running(), func() (bool, bool) {
-			result, err := client.ProbeSelf()
-			return err == nil && result.DNS && result.Connection, err == nil
-		}, func() []string { return outboundLines(&clashCaller{client: client}, config, links()) },
-			func() []string { return choiceLines(&clashCaller{client: client}, config) }, func() []string {
-				states, err := client.Subscriptions()
-				if err != nil {
-					return nil
-				}
-				return subscriptionLines(states, config.Names(), time.Now())
-			}, func() []string {
-				report, err := client.BitTorrentStats()
-				if err != nil {
-					return []string{"❌ What BitTorrent's traffic came to was not read: " + err.Error()}
-				}
-				return btstats.Lines(report)
-			}, device))
-		return 0
-	case "device":
-		if len(arguments) < 2 {
-			io.WriteString(errorOutput, "the address of the device is missing: podkop device <address>\n")
-			return 1
-		}
-		lines, ok := deviceReport(config, routerFacts(env), arguments[1])
-		io.WriteString(output, strings.Join(lines, "\n")+"\n")
-		if !ok {
-			return 1
-		}
-		return 0
-	case "check_logs":
-		if len(arguments) > 2 && arguments[1] == "--since" {
-			return compact(logsSince(client, arguments[2]))
-		}
-		return logs(client, output)
-	case "show_sing_box_config":
-		return showConfig(env, len(arguments) > 1 && arguments[1] == "--rejected", output, errorOutput)
-	case "show_config":
-		content, err := os.ReadFile(env.Paths.Settings)
-		if err != nil {
-			return 1
-		}
-		io.WriteString(output, diag.MaskSettings(content))
-		return 0
-	case "show_version":
-		io.WriteString(output, env.Version+"\n")
-		return 0
-	case "show_sing_box_version":
-		io.WriteString(output, env.SingBoxVersion+"\n")
-		return 0
-	case "show_system_info":
-		release, model := diag.Device()
-		io.WriteString(output, "=== OpenWrt Version ===\n"+release+"\n\n=== Device Model ===\n"+model+"\n")
-		return 0
-	case "check_nft":
-		return printTable(output)
-	case "yacd_builtin":
-		err := yacd.Restore(yacd.BuiltinDir, yacd.ServedDir)
-		if err != nil {
-			message, _ := json.Marshal(err.Error())
-			io.WriteString(output, `{"success":false,"message":`+string(message)+"}\n")
-			return 1
-		}
-		io.WriteString(output, `{"success":true}`+"\n")
-		return 0
-	case "restore_routing":
-		result, err := client.RestoreRouting()
-		if err != nil {
-			io.WriteString(errorOutput, "the backend does not run: "+err.Error()+"\n")
-			return 1
-		}
-		io.WriteString(output, result+"\n")
-		return 0
-	case "list_status":
-		states, err := client.Lists()
-		if err != nil {
-			io.WriteString(errorOutput, "the backend does not run: "+err.Error()+"\n")
-			return 1
-		}
-		return pretty(states)
-	case "list_update":
-		io.WriteString(output, "🔄 Starting lists update...\n")
-		result, err := client.UpdateLists()
-		if err != nil {
-			io.WriteString(errorOutput, "the backend does not run: "+err.Error()+"\n")
-			return 1
-		}
-		for _, line := range result.Lines {
-			io.WriteString(output, line+"\n")
-		}
-		if !result.OK {
-			io.WriteString(output, "❌ Lists update failed\n")
-			return 1
-		}
-		io.WriteString(output, "✅ Lists update completed successfully\n")
-		return 0
-	case "start", "stop", "restart":
-		// the shell backend did these itself; here they are the actions of the service.
-		// A script of the service that calls these back is not the script of this package
-		// (the shell backend's, kept by apk as an edited file, with this package's beside
-		// it as .apk-new): the two would call each other until the memory runs out.
-		if os.Getenv(serviceActionVariable) != "" {
-			io.WriteString(errorOutput, "the script "+env.ServicePath+" calls podkop back: it is not the script of this backend ("+
-				"compare it with "+env.ServicePath+".apk-new); "+arguments[0]+" is not done\n")
-			return 1
-		}
-		command := exec.Command(env.ServicePath, arguments[0])
-		command.Env = append(os.Environ(), serviceActionVariable+"="+arguments[0])
-		command.Stdout, command.Stderr = output, errorOutput
-		if command.Run() != nil {
-			return 1
-		}
-		return 0
-	case "reload":
-		result, err := client.Apply()
-		if err != nil {
-			io.WriteString(errorOutput, "the backend does not run: "+err.Error()+"\n")
-			return 1
-		}
-		io.WriteString(output, result.Message+"\n")
-		if !result.OK {
-			return 1
-		}
-		return 0
+	})
+	return c.loaded
+}
+
+// links are the check URLs the delay tests take (oneOffURLs), read by those only.
+func (c *Call) links() []string {
+	return oneOffURLs(checkURLs(c.env.ConfigDir, c.config().Settings.Check))
+}
+
+func (c *Call) getStatus() (any, error) {
+	status, err := c.client.Status()
+	if err != nil {
+		status = nil
 	}
-	return usage(Methods, errorOutput)
+	return answerStatus(executable(c.env.AutostartPath), status), nil
+}
+
+func (c *Call) getSingBoxStatus() (any, error) {
+	// "enabled" is the autostart of a sing-box service of its own, which the shell
+	// backend switches off and this backend does not have: sing-box starts with it
+	isRunning, enabled := c.running(), executable(singBoxAutostartPath)
+	status := words(isRunning, "running", "stopped") + words(isRunning == enabled, " & ", " but ") + words(enabled, "enabled", "disabled")
+	return struct {
+		Running       int    `json:"running"`
+		Enabled       int    `json:"enabled"`
+		Status        string `json:"status"`
+		DNSConfigured int    `json:"dns_configured"`
+	}{asNumber(isRunning), asNumber(enabled), status, asNumber(diag.DNSOfLAN(readUCI(c.env.Paths.DHCP)))}, nil
+}
+
+func (c *Call) getSystemInfo() (any, error) {
+	return answerSystem(diag.SystemInfo(context.Background(), c.env.Version, c.env.SingBoxVersion, false), c.env.Engine), nil
+}
+
+func (c *Call) getSingBoxFeatures() (any, error) {
+	features := c.env.Features
+	if features == nil {
+		features = []string{}
+	}
+	return features, nil
+}
+
+func (c *Call) checkLinks() (any, error) {
+	// the page asks before it saves the settings: the reason of a link the configuration
+	// would be refused for, by the field it is in, and not in the log after the apply
+	results := make([]LinkCheck, 0, len(c.Arguments))
+	for _, link := range c.Arguments {
+		result := LinkCheck{OK: true}
+		if c.env.CheckLink == nil {
+			result = LinkCheck{Error: "links are not checked by this program"}
+		} else if err := c.env.CheckLink(link); err != nil {
+			// a kind of outbound the slim build leaves out: the advice of the engine names its
+			// own packages, which are not those of podkop
+			message, _, _ := strings.Cut(err.Error(), ", install podkop-engine-full")
+			result = LinkCheck{Error: message}
+		}
+		results = append(results, result)
+	}
+	return results, nil
+}
+
+func (c *Call) loadSubscription() (any, error) {
+	request, read := listRequest(c.Arguments)
+	if len(c.Arguments) == 0 || !read {
+		return nil, errUsage
+	}
+	return loadAndWait(c.client, c.Arguments[0], request), nil
+}
+
+func (c *Call) startLoad() (any, error) {
+	return c.loadJob(func(address string, request api.ListRequest) (*api.LoadJob, error) {
+		return c.client.StartLoad(address, request)
+	})
+}
+
+func (c *Call) loadState() (any, error) {
+	return c.loadJob(func(id string, _ api.ListRequest) (*api.LoadJob, error) { return c.client.LoadState(id) })
+}
+
+func (c *Call) cancelLoad() (any, error) {
+	return c.loadJob(func(id string, _ api.ListRequest) (*api.LoadJob, error) { return c.client.CancelLoad(id) })
+}
+
+// loadJob asks for a download of a list: it starts one, or tells of it or stops it by its id.
+func (c *Call) loadJob(ask func(of string, request api.ListRequest) (*api.LoadJob, error)) (any, error) {
+	request, read := listRequest(c.Arguments)
+	if len(c.Arguments) == 0 || !read {
+		return nil, errUsage
+	}
+	job, err := ask(c.Arguments[0], request)
+	if err != nil {
+		job = &api.LoadJob{State: "failed", Attempts: []api.Attempt{}, Preview: notRunning()}
+		if _, down := c.client.Status(); down == nil {
+			// the backend runs: the job ended long ago, or the backend started anew
+			job.Preview = &api.SubscriptionPreview{Servers: []api.PreviewServer{}, Error: "the download is not known to podkop: it ended long ago, or podkop restarted", ErrorCode: "nojob"}
+		}
+	}
+	return job, nil
+}
+
+func (c *Call) checkGroup() (any, error) {
+	var check api.GroupCheck
+	if len(c.Arguments) == 0 || json.Unmarshal([]byte(c.Arguments[0]), &check) != nil {
+		return nil, errUsage
+	}
+	preview, err := c.client.CheckGroup(check, 19*time.Second)
+	if err != nil {
+		return nil, errSilent
+	}
+	return preview, nil
+}
+
+func (c *Call) subscriptionStatus() (any, error) {
+	states, err := c.client.Subscriptions()
+	if err != nil {
+		states = []api.SubscriptionState{}
+	}
+	return states, nil
+}
+
+func (c *Call) startSubscriptionUpdate() (any, error) {
+	states, err := c.client.StartSubscriptionUpdate(c.argument(0))
+	if err != nil {
+		states = []api.SubscriptionState{}
+	}
+	return states, nil
+}
+
+func (c *Call) updateSubscriptions() int {
+	names := c.config().Names()
+	states, err := c.client.UpdateSubscriptions(c.argument(0))
+	if err != nil {
+		if _, down := c.client.Status(); down == nil {
+			return c.fail("podkop runs, its downloads go on: the wait for them ended (" + err.Error() + ")")
+		}
+		return c.fail("podkop does not run: " + err.Error())
+	}
+	return c.print(strings.Join(subscriptionLines(states, names, time.Now()), "\n") + "\n")
+}
+
+func (c *Call) showHWID() int {
+	device := subscription.ReadDevice("/")
+	return c.print("source: " + device.Source + "\nhwid: " + device.HWID[:min(8, len(device.HWID))] + "…\n")
+}
+
+func (c *Call) checkDNS() (any, error) {
+	return AnswerDNS(diag.CheckDNS(context.Background(), dnsSettings(&c.config().Settings), readUCI(c.env.Paths.DHCP))), nil
+}
+
+func (c *Call) checkSingBox() (any, error) {
+	return answerSingBox(diag.CheckSingBox(c.running())), nil
+}
+
+func (c *Call) checkFirewall() (any, error) {
+	// with the label of a check name the device that asks has opened a connection to
+	var awaitDevice func(context.Context)
+	if label := c.argument(0); probe.ValidLabel(label) {
+		awaitDevice = func(context.Context) { _, _ = c.client.Probe(label, 0) }
+	}
+	return answerFirewall(diag.CheckFirewall(context.Background(), awaitDevice)), nil
+}
+
+func (c *Call) checkFakeIP() (any, error) {
+	// the answer of the shell backend came from a server outside and had the flag
+	// "fakeip"; the flag stays, and what it is made of is shown beside it
+	result, err := c.client.ProbeSelf()
+	if err != nil {
+		return nil, errSilent
+	}
+	return struct {
+		FakeIP     bool `json:"fakeip"`
+		DNS        bool `json:"dns"`
+		Connection bool `json:"connection"`
+	}{result.DNS && result.Connection, result.DNS, result.Connection}, nil
+}
+
+func (c *Call) checkFakeIPOfClient() (any, error) {
+	if !probe.ValidLabel(c.argument(0)) {
+		return nil, errors.New("check_fakeip_client <label> [ms]: the label is 8 to 40 lower-case letters and digits")
+	}
+	var wait time.Duration
+	if len(c.Arguments) > 1 {
+		milliseconds, _ := strconv.Atoi(c.Arguments[1])
+		wait = time.Duration(milliseconds) * time.Millisecond
+	}
+	result, err := c.client.Probe(c.Arguments[0], wait)
+	if err != nil {
+		return nil, errSilent
+	}
+	return result, nil
+}
+
+func (c *Call) bitTorrentStats() (any, error) {
+	report, err := c.client.BitTorrentStats()
+	if err != nil {
+		return nil, errSilent
+	}
+	return report, nil
+}
+
+func (c *Call) resetBitTorrentStats() (any, error) {
+	report, err := c.client.ResetBitTorrentStats()
+	if err != nil {
+		return nil, errSilent
+	}
+	return report, nil
+}
+
+func (c *Call) recordBitTorrent() int {
+	return bitTorrentRecord(c.env, c.client, c.Arguments, c.Output, c.Errors)
+}
+
+func (c *Call) bitTorrentCounters() (any, error) {
+	counters, err := c.client.BitTorrent()
+	if err != nil {
+		return nil, errSilent
+	}
+	if counters == nil {
+		counters = map[string]int64{}
+	}
+	return counters, nil
+}
+
+func (c *Call) clashAPI() int {
+	return clashAPI(c.client, c.links, c.Arguments, c.Output)
+}
+
+func (c *Call) globalCheck() int {
+	config := c.config()
+	// with the label of a check name and a port: the device that asks opens
+	// connections to them while the report is made
+	var device *deviceCheck
+	if len(c.Arguments) > 1 && probe.ValidLabel(c.Arguments[0]) {
+		if port, err := strconv.ParseUint(c.Arguments[1], 10, 16); err == nil && port > 0 {
+			device = &deviceCheck{label: c.Arguments[0], port: uint16(port), probe: c.client.Probe, sources: config.Settings.SourceNetworkInterfaces}
+		}
+	}
+	return c.print(globalCheck(context.Background(), c.env.Paths, config, c.env.Version, c.env.SingBoxVersion, c.env.Engine, c.running(), func() (bool, bool) {
+		result, err := c.client.ProbeSelf()
+		return err == nil && result.DNS && result.Connection, err == nil
+	}, func() []string { return outboundLines(&clashCaller{client: c.client}, config, c.links()) },
+		func() []string { return choiceLines(&clashCaller{client: c.client}, config) }, func() []string {
+			states, err := c.client.Subscriptions()
+			if err != nil {
+				return nil
+			}
+			return subscriptionLines(states, config.Names(), time.Now())
+		}, func() []string {
+			report, err := c.client.BitTorrentStats()
+			if err != nil {
+				return []string{"❌ What BitTorrent's traffic came to was not read: " + err.Error()}
+			}
+			return btstats.Lines(report)
+		}, device))
+}
+
+func (c *Call) showDevice() int {
+	if len(c.Arguments) == 0 {
+		return c.fail("the address of the device is missing: podkop device <address>")
+	}
+	lines, ok := deviceReport(c.config(), routerFacts(c.env), c.Arguments[0])
+	c.print(strings.Join(lines, "\n") + "\n")
+	if !ok {
+		return 1
+	}
+	return 0
+}
+
+func (c *Call) checkLogs() int {
+	if len(c.Arguments) > 1 && c.Arguments[0] == "--since" {
+		return c.write(logsSince(c.client, c.Arguments[1]), Compact)
+	}
+	return logs(c.client, c.Output)
+}
+
+func (c *Call) showSingBoxConfig() int {
+	return showConfig(c.env, c.argument(0) == "--rejected", c.Output, c.Errors)
+}
+
+func (c *Call) showSettings() int {
+	content, err := os.ReadFile(c.env.Paths.Settings)
+	if err != nil {
+		return 1
+	}
+	return c.print(diag.MaskSettings(content))
+}
+
+func (c *Call) showVersion() int {
+	return c.print(c.env.Version + "\n")
+}
+
+func (c *Call) showSingBoxVersion() int {
+	return c.print(c.env.SingBoxVersion + "\n")
+}
+
+func (c *Call) showSystemInfo() int {
+	release, model := diag.Device()
+	return c.print("=== OpenWrt Version ===\n" + release + "\n\n=== Device Model ===\n" + model + "\n")
+}
+
+func (c *Call) checkNft() int {
+	return printTable(c.Output)
+}
+
+func (c *Call) restoreYACD() int {
+	err := yacd.Restore(yacd.BuiltinDir, yacd.ServedDir)
+	if err != nil {
+		message, _ := json.Marshal(err.Error())
+		c.print(`{"success":false,"message":` + string(message) + "}\n")
+		return 1
+	}
+	return c.print(`{"success":true}` + "\n")
+}
+
+func (c *Call) restoreRouting() int {
+	result, err := c.client.RestoreRouting()
+	if err != nil {
+		return c.down(err)
+	}
+	return c.print(result + "\n")
+}
+
+func (c *Call) listStatus() (any, error) {
+	states, err := c.client.Lists()
+	if err != nil {
+		return nil, errors.New("the backend does not run: " + err.Error())
+	}
+	return states, nil
+}
+
+func (c *Call) updateLists() int {
+	c.print("🔄 Starting lists update...\n")
+	result, err := c.client.UpdateLists()
+	if err != nil {
+		return c.down(err)
+	}
+	for _, line := range result.Lines {
+		c.print(line + "\n")
+	}
+	if !result.OK {
+		c.print("❌ Lists update failed\n")
+		return 1
+	}
+	return c.print("✅ Lists update completed successfully\n")
+}
+
+func (c *Call) serviceAction() int {
+	// the shell backend did these itself; here they are the actions of the service.
+	// A script of the service that calls these back is not the script of this package
+	// (the shell backend's, kept by apk as an edited file, with this package's beside
+	// it as .apk-new): the two would call each other until the memory runs out.
+	if os.Getenv(serviceActionVariable) != "" {
+		return c.fail("the script " + c.env.ServicePath + " calls podkop back: it is not the script of this backend (" +
+			"compare it with " + c.env.ServicePath + ".apk-new); " + c.Name + " is not done")
+	}
+	command := exec.Command(c.env.ServicePath, c.Name)
+	command.Env = append(os.Environ(), serviceActionVariable+"="+c.Name)
+	command.Stdout, command.Stderr = c.Output, c.Errors
+	if command.Run() != nil {
+		return 1
+	}
+	return 0
+}
+
+func (c *Call) reload() int {
+	result, err := c.client.Apply()
+	if err != nil {
+		return c.down(err)
+	}
+	c.print(result.Message + "\n")
+	if !result.OK {
+		return 1
+	}
+	return 0
 }
 
 // printTable prints the firewall table of the backend as the nft program shows it. The
