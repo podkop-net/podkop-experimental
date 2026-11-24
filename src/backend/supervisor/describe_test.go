@@ -43,6 +43,20 @@ func TestDescribeRows(t *testing.T) {
 	require.Contains(t, line, "configuration: rules TV (Own with FI/SE without old only vless/hysteria2; fallbacks Own only trojan, Own);")
 }
 
+// The fallbacks of a rule are told with the choice among them, when the rule has one.
+func TestDescribeFallbackChoice(t *testing.T) {
+	t.Parallel()
+	for choice, text := range map[string]string{"": "", model.ChoiceOrder: "", "random": "", model.ChoiceFastest: "by the fastest: ",
+		model.ChoiceLoss: "avoiding loss: ", model.ChoiceBalance: "by balance: "} {
+		config := &model.Config{
+			Sources:  []model.Source{{Name: "own", Label: "Own", Type: "links", Links: []string{"vless://x"}}},
+			Sections: []model.Section{{Name: "tv", Label: "TV", Enabled: true, Servers: []model.Member{{Source: "own"}}, Fallbacks: []model.Member{{Source: "own"}, {Source: "block"}}, FallbackChoice: choice}},
+		}
+		line := describeConfig(&candidate{settings: config, result: &plan.Result{}})
+		require.Contains(t, line, "configuration: rules TV (Own; fallbacks "+text+"Own, block);", choice)
+	}
+}
+
 // The line names the interfaces of the LAN as the settings do; settings that name none, the one
 // the plan takes then (br-lan: the transcripts have it of plan.Build).
 func TestDescribeLAN(t *testing.T) {

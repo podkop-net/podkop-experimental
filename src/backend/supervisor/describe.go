@@ -27,7 +27,8 @@ func describeConfig(next *candidate) string {
 		case what == model.ExitServers:
 			what = rowsText(names, section.Servers)
 			if len(section.Fallbacks) > 0 {
-				what += "; fallbacks " + rowsText(names, section.Fallbacks)
+				what += "; fallbacks " + map[string]string{model.ChoiceFastest: "by the fastest: ", model.ChoiceLoss: "avoiding loss: ",
+					model.ChoiceBalance: "by balance: "}[section.FallbackChoice] + rowsText(names, section.Fallbacks)
 			}
 		}
 		if devices := section.Devices(); section.Enabled && devices.Limited {
