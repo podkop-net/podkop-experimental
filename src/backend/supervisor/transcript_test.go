@@ -50,9 +50,11 @@ import (
 // scenario skip-downloads), a branch of takeList that skips downloadDue (a subscription that waited
 // for a place stays not busy), applyTaken (the lists taken are not applied at the end of a round)
 // or answerWaiting (a caller stays waiting): the takelist-* scenarios go through each branch with
-// a subscription waiting and as the last of a round (lab/v0822/kern/mutants.sh deletes each of
-// those calls in turn: all are caught but the applyTaken of the branch of a changed request, which
-// can apply nothing there).
+// a subscription waiting and as the last of a round (lab/v0822/kern/mutants.sh deleted each of
+// those calls in turn while each branch had its own: all were caught but the applyTaken of the
+// branch of a changed request, which can apply nothing there). The tails and the branches now
+// share nowRunning and the end of takeList; lab/v0822/sup/sup.sh NAME mutants deletes each of
+// their calls in turn.
 //
 //	go test -count=1 -run TestTranscripts -update ./supervisor/   (with the tags of the package's tests)
 //

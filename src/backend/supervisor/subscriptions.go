@@ -569,16 +569,34 @@ func (s *Supervisor) downloadDue(now time.Time, force string) {
 // the settings are applied again with it once no other download is under way; one that has
 // the same servers, under other names or in another order, is not, and nothing changes, unless
 // the new names change what a group chooses (a server the provider calls DE now, not NL).
+// Whatever the download came to, the downloads that waited for a place start, the lists of a
+// round that ended are applied, and the callers that waited for it are answered when it was
+// taken (takeResult).
 func (s *Supervisor) takeList(result downloaded) {
+	tell, answer := s.takeResult(result)
+	// the log and the file of the list after the lock: the previews of other goroutines wait
+	// on it
+	if tell != nil {
+		tell()
+	}
+	s.downloadDue(time.Now(), "")
+	s.applyTaken()
+	if answer {
+		s.answerWaiting(result.name)
+	}
+}
+
+// takeResult is what takeList does under the lock of the subscriptions. tell is what is logged
+// and written of it after the lock, none when nothing is; answer tells that the callers waiting
+// for the subscription are answered.
+func (s *Supervisor) takeResult(result downloaded) (tell func(), answer bool) {
 	t := &s.subscriptions
 	t.access.Lock()
+	defer t.access.Unlock()
 	state := t.states[result.name]
 	if state == nil || t.addresses[result.name] != result.address {
 		// the settings changed meanwhile: the list of another address is not taken
-		t.access.Unlock()
-		s.downloadDue(time.Now(), "")
-		s.applyTaken()
-		return
+		return nil, false
 	}
 	state.Busy = false
 	now := time.Now()
@@ -586,10 +604,7 @@ func (s *Supervisor) takeList(result downloaded) {
 		// the User-Agent or the headers changed meanwhile: the answer to the old ones is not
 		// taken, and the list is downloaded again with the new ones now
 		state.Next = &now
-		t.access.Unlock()
-		s.downloadDue(time.Now(), "")
-		s.applyTaken()
-		return
+		return nil, false
 	}
 	if result.err == nil {
 		// what the provider tells in this answer counts at once: under auto the next download
@@ -627,20 +642,18 @@ func (s *Supervisor) takeList(result downloaded) {
 		state.Error, state.ErrorCode, state.ErrorArgs = failureOf(result.err)
 		repeated = repeated && state.ErrorCode == previousCode
 		failures := t.failures[result.name]
-		t.access.Unlock()
-		if repeated {
-			again := "again"
-			if failures > 1 {
-				again = strconv.Itoa(failures) + " times in a row"
+		code, text := state.ErrorCode, state.Error
+		return func() {
+			if repeated {
+				again := "again"
+				if failures > 1 {
+					again = strconv.Itoa(failures) + " times in a row"
+				}
+				s.log("info", "subscription ", result.name, ": not downloaded ", again, " (", code, "), the next try at ", next.Format(time.TimeOnly))
+			} else {
+				s.log("warn", "subscription ", result.name, ": ", text)
 			}
-			s.log("info", "subscription ", result.name, ": not downloaded ", again, " (", state.ErrorCode, "), the next try at ", next.Format(time.TimeOnly))
-		} else {
-			s.log("warn", "subscription ", result.name, ": ", state.Error)
-		}
-		s.downloadDue(time.Now(), "")
-		s.applyTaken()
-		s.answerWaiting(result.name)
-		return
+		}, true
 	}
 	failed := t.failures[result.name]
 	delete(t.failures, result.name)
@@ -669,20 +682,15 @@ func (s *Supervisor) takeList(result downloaded) {
 			result.list.Info, result.list.Changed = old.Info, old.Changed
 			t.lists[result.name] = result.list
 		}
-		t.access.Unlock()
-		for _, line := range formatLine {
-			s.log("info", "subscription ", result.name, ": ", line)
-		}
-		s.log("info", "subscription ", result.name, ": the list has not changed (", way, ")")
-		if reformatted && s.options.SubscriptionDir != "" {
-			if err := s.store().Save(result.name, result.list); err != nil {
-				s.log("warn", "subscription ", result.name, ": ", err)
+		return func() {
+			for _, line := range formatLine {
+				s.log("info", "subscription ", result.name, ": ", line)
 			}
-		}
-		s.downloadDue(time.Now(), "")
-		s.applyTaken()
-		s.answerWaiting(result.name)
-		return
+			s.log("info", "subscription ", result.name, ": the list has not changed (", way, ")")
+			if reformatted {
+				s.saveList(result.name, result.list)
+			}
+		}, true
 	}
 	t.lists[result.name] = result.list
 	changed := result.list.Changed
@@ -693,24 +701,28 @@ func (s *Supervisor) takeList(result downloaded) {
 		state.Changes = &changes
 	}
 	t.changed = true
-	t.access.Unlock()
-	for _, line := range formatLine {
-		s.log("info", "subscription ", result.name, ": ", line)
-	}
-	if state.Changes != nil {
-		s.log("info", "subscription ", result.name, ": ", changesLine(state.Changes), "; ", state.Servers, " servers, ", state.Usable, " can be used (", way, ")")
-	} else {
-		s.log("info", "subscription ", result.name, ": ", state.Servers, " servers, ", state.Usable, " can be used (", way, ")")
-	}
-	if s.options.SubscriptionDir != "" {
-		err := s.store().Save(result.name, result.list)
-		if err != nil {
-			s.log("warn", "subscription ", result.name, ": ", err)
+	changes, count, canUse := state.Changes, state.Servers, state.Usable
+	return func() {
+		for _, line := range formatLine {
+			s.log("info", "subscription ", result.name, ": ", line)
 		}
+		if changes != nil {
+			s.log("info", "subscription ", result.name, ": ", changesLine(changes), "; ", count, " servers, ", canUse, " can be used (", way, ")")
+		} else {
+			s.log("info", "subscription ", result.name, ": ", count, " servers, ", canUse, " can be used (", way, ")")
+		}
+		s.saveList(result.name, result.list)
+	}, true
+}
+
+// saveList keeps the list taken of a subscription on flash, when there is a directory for them.
+func (s *Supervisor) saveList(name string, list *subscription.Saved) {
+	if s.options.SubscriptionDir == "" {
+		return
 	}
-	s.downloadDue(time.Now(), "")
-	s.applyTaken()
-	s.answerWaiting(result.name)
+	if err := s.store().Save(name, list); err != nil {
+		s.log("warn", "subscription ", name, ": ", err)
+	}
 }
 
 // formatLine tells the log what a list came as, when it is a configuration (its counts, never a
