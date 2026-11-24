@@ -110,7 +110,7 @@ func CheckOutbound(outbound []byte) ([]string, error) {
 
 func build(configuration []byte, tell bool) ([]string, error) {
 	collected := &notes{tell: tell}
-	ctx, cancel := context.WithCancel(service.ExtendContext(boxContext(service.ContextWith[deprecated.Manager](context.Background(), collected))))
+	ctx, cancel := context.WithCancel(service.ExtendContext(boxContext(service.ContextWith[deprecated.Manager](context.Background(), collected), Services{})))
 	defer cancel()
 	options, err := json.UnmarshalExtendedContext[option.Options](ctx, configuration)
 	if err != nil {

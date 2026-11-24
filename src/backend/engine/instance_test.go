@@ -160,7 +160,7 @@ func TestLogSink(t *testing.T) {
 // connection while it is open, nothing to tell once it is closed.
 func TestTraffic(t *testing.T) {
 	dnsPort, mixedPort := freePort(t), freePort(t)
-	instance, err := BuildLogged(configuration(t, dnsPort, mixedPort), func(string, string) {})
+	instance, err := BuildLogged(configuration(t, dnsPort, mixedPort), func(string, string) {}, Services{})
 	require.NoError(t, err)
 	require.NoError(t, instance.Start())
 	defer instance.Close(10 * time.Second)

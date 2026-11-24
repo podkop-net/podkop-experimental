@@ -82,7 +82,7 @@ func TestMixedLogin(t *testing.T) {
 			access.Lock()
 			defer access.Unlock()
 			lines = append(lines, message)
-		})
+		}, Services{})
 		require.NoError(t, err)
 		require.NoError(t, instance.Start())
 		running = instance

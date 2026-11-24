@@ -38,7 +38,7 @@ func (r *ruleSetRouter) RuleSet(tag string) (adapter.RuleSet, bool) {
 // built by this engine with the rule sets the configuration names, the local files read.
 func routeRules(t *testing.T, configuration []byte) []adapter.Rule {
 	t.Helper()
-	ctx := boxContext(context.Background())
+	ctx := boxContext(context.Background(), Services{})
 	options, err := json.UnmarshalExtendedContext[option.Options](ctx, configuration)
 	require.NoError(t, err)
 	logger := log.NewNOPFactory().NewLogger("")

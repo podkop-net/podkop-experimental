@@ -16,6 +16,8 @@ import (
 	"github.com/podkop-net/podkop-experimental/src/backend/clock"
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
 	"github.com/podkop-net/podkop-experimental/src/backend/dnsmasq"
+	"github.com/podkop-net/podkop-experimental/src/backend/engine"
+	"github.com/podkop-net/podkop-experimental/src/backend/engine/bittorrent"
 	"github.com/podkop-net/podkop-experimental/src/backend/firewall"
 	"github.com/podkop-net/podkop-experimental/src/backend/logbuf"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
@@ -120,6 +122,10 @@ var commandDaemon = &cobra.Command{
 			EngineLog: func(level string, message string) {
 				logs.Write("sing-box", level, message)
 			},
+			// the BitTorrent module ends the older connections of a suspect it told (the
+			// suspicion by fan-out: dataplane.Fan) and keeps a device whose handshakes it
+			// confirms known to the firewall, both by the firewall's own code
+			EngineServices: engine.Services{BitTorrent: bittorrent.Hooks{EndOlder: firewall.EndUndecidedFlows, KeepKnown: firewall.KnowBitTorrentHost}},
 		})
 		go func() {
 			err := api.Serve(ctx, api.SocketPath, backend, logs)

@@ -346,7 +346,7 @@ func TestProbeThroughADetourLogsAtDebug(t *testing.T) {
 					if strings.Contains(message, address) {
 						lines = append(lines, message)
 					}
-				})
+				}, Services{})
 				require.NoError(t, err)
 				require.NoError(t, instance.Start())
 				defer instance.Close(10 * time.Second)

@@ -123,18 +123,28 @@ type InspectOptions struct {
 	// the connections of devices the firewall suspects of running a client (by the fan-out of
 	// their connection openings). When the early check tells such a device, the module puts it
 	// in the set Hosts itself (the firewall then inspects its connections as a client's) and has
-	// the connections it opened before ended (EndOlder).
+	// the connections it opened before ended (Hooks.EndOlder).
 	Suspect bool `json:"suspect,omitempty"`
 }
 
-// EndOlder ends the connections a device opened before it was told, those the firewall left as
-// forwarded, and tells how many (the backend sets it: firewall.EndUndecidedFlows; nil, nothing is
-// ended).
-var EndOlder func(device netip.Addr) (int, error)
+// Hooks are what the module does by the firewall's own code, given by the backend where it builds
+// the box (engine.Services); a nil one does nothing (a configuration built to be checked, a test,
+// a build without the firewall).
+type Hooks struct {
+	// EndOlder ends the connections a device opened before it was told, those the firewall left
+	// as forwarded, and tells how many (firewall.EndUndecidedFlows).
+	EndOlder func(device netip.Addr) (int, error)
+	// KeepKnown keeps a device in the firewall's set of devices for the set's whole timeout from
+	// now (firewall.KnowBitTorrentHost).
+	KeepKnown func(device netip.Addr) error
+}
 
-// Register adds the service to a registry of sing-box services.
-func Register(registry *boxService.Registry) {
-	boxService.Register[Options](registry, Type, New)
+// Register adds the service to a registry of sing-box services: each service of it is given the
+// hooks.
+func Register(registry *boxService.Registry, hooks Hooks) {
+	boxService.Register[Options](registry, Type, func(ctx context.Context, logger log.ContextLogger, tag string, options Options) (adapter.Service, error) {
+		return New(ctx, logger, tag, options, hooks)
+	})
 }
 
 // Service is the module, a service of sing-box.
@@ -143,6 +153,7 @@ type Service struct {
 	logger    log.ContextLogger
 	tag       string
 	options   Options
+	hooks     Hooks
 	learnOn   map[string]bool
 	sniffedOn map[string]bool
 	inspectOn map[string]Confirmed
@@ -251,9 +262,9 @@ type adder interface {
 // running is the service of the box that runs (Snapshot).
 var running atomic.Pointer[Service]
 
-// New makes the service of the options; nothing opens before Start.
-func New(ctx context.Context, logger log.ContextLogger, tag string, options Options) (adapter.Service, error) {
-	s := &Service{ctx: ctx, logger: logger, tag: tag, options: options,
+// New makes the service of the options, with the hooks; nothing opens before Start.
+func New(ctx context.Context, logger log.ContextLogger, tag string, options Options, hooks Hooks) (adapter.Service, error) {
+	s := &Service{ctx: ctx, logger: logger, tag: tag, options: options, hooks: hooks,
 		learnOn: make(map[string]bool), sniffedOn: make(map[string]bool), inspectOn: make(map[string]Confirmed), neverPorts: make(map[uint16]struct{}),
 		earlyOn: make(map[string]Confirmed), pending: make(map[netip.Addr][]*waiting), stopPolling: make(chan struct{}),
 		kick: make(chan struct{}, 1), suspectOn: make(map[string]bool), ended: make(map[netip.Addr]time.Time)}
@@ -550,10 +561,6 @@ func (s *Service) actOnKnown(now time.Time) {
 	}
 }
 
-// KeepKnown keeps a device in the firewall's set of devices for the set's whole timeout from now
-// (firewall.KnowBitTorrentHost; set by the engine, nil in tests and where there is no firewall).
-var KeepKnown func(device netip.Addr) error
-
 // keepKnownEvery is how often at most a device is kept known: a third of the 30 minutes the firewall
 // keeps a device, so that one whose handshakes go on being confirmed never leaves the set.
 const keepKnownEvery = 10 * time.Minute
@@ -564,7 +571,7 @@ const keepKnownEvery = 10 * time.Minute
 // again, so once out of the set it would go unchecked. Off the connection's path: a netlink
 // round trip, at most one every keepKnownEvery a device.
 func (s *Service) keepKnown(device netip.Addr) {
-	if len(s.suspectOn) == 0 || KeepKnown == nil || !device.Is4() {
+	if len(s.suspectOn) == 0 || s.hooks.KeepKnown == nil || !device.Is4() {
 		return
 	}
 	now := time.Now()
@@ -594,7 +601,7 @@ func (s *Service) keepKnown(device netip.Addr) {
 				forget()
 			}
 		}()
-		if err := KeepKnown(device); err != nil {
+		if err := s.hooks.KeepKnown(device); err != nil {
 			forget()
 			if s.logger != nil {
 				s.logger.Warn("BitTorrent: ", device, " was not kept in the set of devices: ", err)
@@ -611,8 +618,8 @@ const keptMost = 1024
 // tell does, for a suspect the early check told (or that the firewall knows by now), what the
 // firewall cannot: the device goes to the set Hosts, so that its next connections are inspected as
 // a client's and a packet of a connection whose entry is ended is reset; then the connections it
-// opened before, which the firewall left as forwarded, are ended (EndOlder). Before its confirmed
-// connections are acted on.
+// opened before, which the firewall left as forwarded, are ended (Hooks.EndOlder). Before its
+// confirmed connections are acted on.
 func (s *Service) tell(device netip.Addr) {
 	// (earlySuspects counts a device once, not each time its older connections are ended again;
 	// kept takes the device only when it was written: keepKnown does not wait keepKnownEvery
@@ -641,10 +648,10 @@ func (s *Service) tell(device netip.Addr) {
 	if !before {
 		s.earlySuspects.Add(1)
 	}
-	if EndOlder == nil {
+	if s.hooks.EndOlder == nil {
 		return
 	}
-	ended, err := EndOlder(device)
+	ended, err := s.hooks.EndOlder(device)
 	s.earlyEnded.Add(int64(ended))
 	if s.logger == nil {
 		return

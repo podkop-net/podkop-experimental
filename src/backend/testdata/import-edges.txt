@@ -26,6 +26,7 @@ cmd/podkop -> detect
 cmd/podkop -> diag
 cmd/podkop -> dnsmasq
 cmd/podkop -> engine
+cmd/podkop -> engine/bittorrent
 cmd/podkop -> firewall
 cmd/podkop -> logbuf
 cmd/podkop -> migrate
@@ -69,7 +70,6 @@ dnsmasq -> dataplane
 dnsmasq -> uci
 engine -> detect
 engine -> engine/bittorrent
-engine -> firewall          # known: an init() of engine/bittorrent_linux.go stores two functions of the firewall into variables of engine/bittorrent: the adapter of sing-box depends on the adapter of nftables through globals
 firewall -> btstats         # known: the adapter of nftables returns the types of the statistics (firewall/conntrack_linux.go), and btstats imports model
 firewall -> dataplane
 lists -> engine             # noted: a small helper above the adapter of sing-box (lists/derive.go)

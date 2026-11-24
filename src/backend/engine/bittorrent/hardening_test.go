@@ -719,24 +719,27 @@ func TestAnnounceOnLearnInbound(t *testing.T) {
 // is not.
 func TestSuspectTold(t *testing.T) {
 	var calls []netip.Addr
-	EndOlder = func(device netip.Addr) (int, error) {
-		calls = append(calls, device)
-		return 7, nil
-	}
 	// (kept known: a device whose handshake is confirmed again keepKnownEvery after it was told
 	// is put back in the firewall's set, off the connection's path)
 	keptKnown := make(chan netip.Addr, 16)
-	KeepKnown = func(device netip.Addr) error {
-		keptKnown <- device
-		return nil
+	// the hooks the backend gives every service of the module (each service below has them)
+	hooks := Hooks{
+		EndOlder: func(device netip.Addr) (int, error) {
+			calls = append(calls, device)
+			return 7, nil
+		},
+		KeepKnown: func(device netip.Addr) error {
+			keptKnown <- device
+			return nil
+		},
 	}
-	t.Cleanup(func() { EndOlder, KeepKnown = nil, nil })
 	suspects := func(conns []*conn) {
 		for _, c := range conns {
 			c.suspect, c.waits.suspect = true, true
 		}
 	}
 	s, _, add := early(t, ConfirmedReject)
+	s.hooks = hooks
 	hosts := &recordSink{}
 	s.hostsSink = hosts
 	s.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{}, nil }
@@ -816,6 +819,7 @@ func TestSuspectTold(t *testing.T) {
 		<-keptKnown
 	}
 	routed, _, add := early(t, ConfirmedReject)
+	routed.hooks = hooks
 	routed.suspectOn = map[string]bool{"bt-suspect": true}
 	routedHosts := &recordSink{}
 	routed.hostsSink = routedHosts
@@ -837,6 +841,7 @@ func TestSuspectTold(t *testing.T) {
 	// and a suspect's keep the device known through act itself
 	for _, c := range []*conn{{early: false}, {early: true, suspect: true}} {
 		kept, _, _ := early(t, ConfirmedReject)
+		kept.hooks = hooks
 		kept.suspectOn = map[string]bool{"bt-suspect": true}
 		device, other := net.Pipe()
 		t.Cleanup(func() { other.Close() })
@@ -853,6 +858,7 @@ func TestSuspectTold(t *testing.T) {
 	// a suspect the firewall knows by now (a signature that came after its first connections):
 	// one confirmed connection is enough, and its older connections are ended too
 	known, _, add := early(t, ConfirmedLearnReset)
+	known.hooks = hooks
 	known.hostsSink = &recordSink{}
 	known.known = func() (map[netip.Addr]bool, error) { return map[netip.Addr]bool{testDevice: true}, nil }
 	suspects(add(10, 1, start))

@@ -208,16 +208,19 @@ type Instance interface {
 
 var _ Instance = (*engine.Instance)(nil)
 
-// realEngine is the Engine of the package engine.
-type realEngine struct{}
+// realEngine is the Engine of the package engine; its instances are built with the services
+// (Options.EngineServices).
+type realEngine struct {
+	services engine.Services
+}
 
 func (realEngine) Check(config []byte, links []plan.Link) error {
 	_, err := render.Check(config, links)
 	return err
 }
 
-func (realEngine) Build(config []byte, sink engine.LogSink, hooks ...engine.ConnectionHook) (Instance, error) {
-	instance, err := engine.BuildLogged(config, sink, hooks...)
+func (e realEngine) Build(config []byte, sink engine.LogSink, hooks ...engine.ConnectionHook) (Instance, error) {
+	instance, err := engine.BuildLogged(config, sink, e.services, hooks...)
 	if err != nil {
 		return nil, err
 	}
@@ -279,8 +282,10 @@ type Options struct {
 	Log func(level string, message string)
 	// EngineLog, when set, is given the lines sing-box logs.
 	EngineLog engine.LogSink
-	// Engine is sing-box; the real one when nil.
-	Engine Engine
+	// Engine is sing-box; the real one when nil, which gives podkop's own services of sing-box
+	// EngineServices (the hooks of the BitTorrent module into the firewall).
+	Engine         Engine
+	EngineServices engine.Services
 	// Watcher, when set, makes the checks with made-up names possible: the configuration
 	// gets their rules, and sing-box shows the watcher the connections it routes. Who
 	// sets it serves the dead end of those connections (probe.ServeDeadEnd).
@@ -486,7 +491,7 @@ func New(options Options) *Supervisor {
 		options.Log = func(string, string) {}
 	}
 	if options.Engine == nil {
-		options.Engine = realEngine{}
+		options.Engine = realEngine{services: options.EngineServices}
 	}
 	return &Supervisor{options: options, derive: make(chan struct{}, 1), requests: make(chan chan Result), updates: make(chan chan ListsUpdate), probes: make(chan probeRequest), statuses: make(chan chan []ListState), restores: make(chan chan string),
 		downloads: make(chan downloaded), subscriptionRequests: make(chan subscriptionRequest), bitTorrentWake: make(chan struct{}, 1)}

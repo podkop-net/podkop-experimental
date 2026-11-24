@@ -149,7 +149,7 @@ func detectConfiguration(t *testing.T, mixedPort int, serverPort int, packetEnco
 // with the build for a log.
 func detectInstance(t *testing.T, configuration []byte) *Instance {
 	t.Helper()
-	instance, err := BuildLogged(configuration, func(string, string) {})
+	instance, err := BuildLogged(configuration, func(string, string) {}, Services{})
 	require.NoError(t, err)
 	require.NoError(t, instance.Start())
 	t.Cleanup(func() { instance.Close(10 * time.Second) })

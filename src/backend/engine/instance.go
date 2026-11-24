@@ -73,7 +73,7 @@ var ErrStuck = E.New("sing-box does not close")
 // on and no file is opened, so it can be built while another instance runs. A
 // configuration that cannot be built is refused here, with the words of sing-box.
 func Build(configuration []byte) (*Instance, error) {
-	return BuildLogged(configuration, nil)
+	return BuildLogged(configuration, nil, Services{})
 }
 
 // LogSink takes the lines sing-box logs: the level by its name and the message.
@@ -117,11 +117,12 @@ func sinkLevel(options *option.LogOptions) log.Level {
 }
 
 // BuildLogged is Build with the log of the instance also given to a sink, besides where
-// the configuration sends it, and with hooks that are told of every connection the
-// instance routes. The instances share the urltest history of the process (history).
-func BuildLogged(configuration []byte, sink LogSink, hooks ...ConnectionHook) (*Instance, error) {
+// the configuration sends it, podkop's own services of sing-box given the services, and
+// with hooks that are told of every connection the instance routes. The instances share
+// the urltest history of the process (history).
+func BuildLogged(configuration []byte, sink LogSink, services Services, hooks ...ConnectionHook) (*Instance, error) {
 	collected := &notes{tell: true}
-	ctx, cancel := context.WithCancel(withHistory(service.ExtendContext(boxContext(service.ContextWith[deprecated.Manager](context.Background(), collected)))))
+	ctx, cancel := context.WithCancel(withHistory(service.ExtendContext(boxContext(service.ContextWith[deprecated.Manager](context.Background(), collected), services))))
 	type built struct {
 		box *box.Box
 		err error
