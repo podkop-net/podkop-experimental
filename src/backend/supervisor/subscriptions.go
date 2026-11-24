@@ -570,8 +570,8 @@ func (s *Supervisor) downloadDue(now time.Time, force string) {
 // the same servers, under other names or in another order, is not, and nothing changes, unless
 // the new names change what a group chooses (a server the provider calls DE now, not NL).
 // Whatever the download came to, the downloads that waited for a place start, the lists of a
-// round that ended are applied, and the callers that waited for it are answered when it was
-// taken (takeResult).
+// round that ended are applied, and the callers that waited for it are answered, unless the list
+// is downloaded again at once (takeResult).
 func (s *Supervisor) takeList(result downloaded) {
 	tell, answer := s.takeResult(result)
 	// the log and the file of the list after the lock: the previews of other goroutines wait
@@ -588,21 +588,27 @@ func (s *Supervisor) takeList(result downloaded) {
 
 // takeResult is what takeList does under the lock of the subscriptions. tell is what is logged
 // and written of it after the lock, none when nothing is; answer tells that the callers waiting
-// for the subscription are answered.
+// for the subscription are answered, and those waiting for all if none is busy then
+// (answerWaiting).
 func (s *Supervisor) takeResult(result downloaded) (tell func(), answer bool) {
 	t := &s.subscriptions
 	t.access.Lock()
 	defer t.access.Unlock()
 	state := t.states[result.name]
 	if state == nil || t.addresses[result.name] != result.address {
-		// the settings changed meanwhile: the list of another address is not taken
-		return nil, false
+		// the settings changed meanwhile: the list of another address is not taken. The callers
+		// that waited for it are answered all the same: nothing else answers those of a
+		// subscription that is gone, nor those of all while no other download is under way, and
+		// the next download of another address is the scheduler's, not one they asked for
+		return nil, true
 	}
 	state.Busy = false
 	now := time.Now()
 	if t.customs[result.name].Key() != result.request {
 		// the User-Agent or the headers changed meanwhile: the answer to the old ones is not
-		// taken, and the list is downloaded again with the new ones now
+		// taken, and the list is downloaded again with the new ones now. The callers that waited
+		// for it wait for that download, whose end answers them: answered now, they would be told
+		// it is busy, and those of all could not be (it is, or the downloads it waits for are)
 		state.Next = &now
 		return nil, false
 	}

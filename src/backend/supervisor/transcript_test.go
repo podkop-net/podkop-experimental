@@ -1109,7 +1109,7 @@ func transcriptScenarios() []scenario {
 			provide(subscriptionAddress(1), servers("NL 11"), false),
 			stop(),
 		}},
-		{"takelist-address-changed", "the answer of an address the settings no longer have is not taken: it applies the lists taken and starts the one that waited, and answers no caller", []step{
+		{"takelist-address-changed", "the answer of an address the settings no longer have is not taken: it applies the lists taken, starts the one that waited and answers the callers (those of all: none is busy)", []step{
 			writeSettings("three subscriptions in a group of NL", subscriptionsSettings(3, nil, nil)),
 			boot(),
 			due(),
@@ -1123,6 +1123,20 @@ func transcriptScenarios() []scenario {
 			writeSettings("prov1 has its first address again", subscriptionsSettings(3, nil, nil)),
 			apply(),
 			provide("https://sub1b.example/s", servers("NL 12"), false),
+			stop(),
+		}},
+		{"takelist-removed", "the answer of a subscription the settings no longer have is not taken: the callers that waited for it are answered, those of all once none is busy (prov1 too, which they asked for)", []step{
+			writeSettings("three subscriptions in a group of NL", subscriptionsSettings(3, nil, nil)),
+			boot(),
+			due(),
+			provide(subscriptionAddress(1), servers("NL 11"), false),
+			waitFor("prov3"),
+			waitFor(""),
+			writeSettings("prov3 is gone", subscriptionsSettings(2, nil, nil)),
+			apply(),
+			provide(subscriptionAddress(3), servers("NL 31"), false),
+			provide(subscriptionAddress(2), servers("NL 21"), false),
+			provide(subscriptionAddress(1), servers("NL 11"), false),
 			stop(),
 		}},
 		{"bittorrent-modes", "the modes of the BitTorrent detector: the firewall plan follows them, and the connections past podkop a new mode takes otherwise are ended", []step{

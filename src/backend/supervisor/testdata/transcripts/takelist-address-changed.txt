@@ -1,4 +1,4 @@
-# takelist-address-changed: the answer of an address the settings no longer have is not taken: it applies the lists taken and starts the one that waited, and answers no caller
+# takelist-address-changed: the answer of an address the settings no longer have is not taken: it applies the lists taken, starts the one that waited and answers the callers (those of all: none is busy)
 # (supervisor/transcript_test.go; go test -run TestTranscripts -update ./supervisor/ writes it anew)
 
 == write the settings: three subscriptions in a group of NL
@@ -91,6 +91,7 @@ system RouteUplinks -> []
 system UpdateFirewall P1 to P1 -> ok
 system TakeOverDNS -> changed false
 log info: the settings are applied in N ms, sing-box keeps running
+answered the caller of all: prov1 0 servers, next in 10s; prov2 1 servers, next in 1h0m0s; prov3 1 servers, next in 1h0m0s
 subscriptions: prov1 0 servers, next in 10s; prov2 1 servers, next in 1h0m0s; prov3 1 servers, next in 1h0m0s
 state: running, running true
 
@@ -132,4 +133,3 @@ system RemoveRouting
 instance 1 Close -> ok
 subscriptions: prov1 0 servers, next in 10s; prov2 busy; prov3 busy
 state: stopped, running false
-still waiting: the caller of all
