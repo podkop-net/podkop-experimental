@@ -30,12 +30,28 @@ Engine r28, as 0.8.21.
   window opens, and a tunnel that is not up has to be typed by name, as the field says now. The same
   goes for the output interface in Settings.
 - The community list Block is called Block in Russian too (it was "Блокировать", the action).
+- **Subscriptions:** the page waiting for the download of a subscription that was removed or given
+  another address meanwhile is answered at once (it waited up to 170 s). **Update now** runs inside
+  the backend instead of starting a program for each click. Subscriptions due at the same time start
+  in the order of their names.
+- **`podkop device`** reads the rules the planner itself makes instead of a copy of their order. It
+  tells a router without IPv6 (the IPv6 of a device then goes past podkop), says the reason when the
+  settings cannot be used, and says that from an IPv6 address a rule of lists takes the connections
+  to the IPv6 subnets of its lists only (the names of the lists get FakeIP IPv4 addresses).
 - The log says that a subscription asked differently is downloaded again in 10 to 25 s (it said
-  10 s); the installer counts every feed the router reads (it said "0 of them" for feeds outside
-  distfeeds).
+  10 s), or as soon as the download under way ends; the line of a configuration names the LAN it
+  takes when no source interface is set (br-lan). The installer counts every feed the router reads
+  (it said "0 of them" for feeds outside distfeeds). `show_sing_box_version` is in the help.
 - For developers: the tests run on every push and pull request (with nftables and iproute2 for the
   firewall's, the race detector on every package that starts goroutines, ShellCheck of every
-  script), and new tests hold the ways into sing-box to the package engine.
+  script). New tests record byte for byte what the planner builds (649 sets of settings, 597 of them
+  0.7's after conversion), the nftables table and the routes in the kernel, the supervisor's course
+  in 17 scenarios and the answers the page reads, and hold the ways into sing-box, the imports
+  between the packages and the lists of commands. Under them the inner structure was reworked with no
+  change to what they record: one tail for the applies, one exit for a downloaded list, the hooks of
+  the BitTorrent module and the version of sing-box passed in instead of set globally, one intent of
+  the router for the planner and the firewall, the types of the socket's answers below it, the
+  helpers in one place each.
 
 ## 0.8.21 — 2026-11-22
 
