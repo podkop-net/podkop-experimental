@@ -90,6 +90,22 @@ func (s *Section) Bool(name string, defaultValue bool) bool {
 	return defaultValue
 }
 
+// IsOne tells whether a value is the number one as the shell's "-eq 1" reads it: spaces around it,
+// a plus sign and zeros before it allowed. The shell backend read some switches so, not as
+// config_get_bool does (Bool): "on" and "true" are not one.
+func IsOne(text string) bool {
+	text = strings.TrimPrefix(strings.Trim(text, " \t\n"), "+")
+	if text == "" {
+		return false
+	}
+	for index := 0; index < len(text)-1; index++ {
+		if text[index] != '0' {
+			return false
+		}
+	}
+	return text[len(text)-1] == '1'
+}
+
 // Parse reads the text of a configuration file. A section without a name gets the name
 // libuci gives it, as the shell functions see it: "cfg", the number of the section in the
 // file and a hash of its type.

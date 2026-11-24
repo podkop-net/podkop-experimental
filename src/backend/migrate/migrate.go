@@ -237,7 +237,7 @@ func (c *converter) section(section *uci.Section) {
 	case "vpn":
 		source := c.source(name+"_if", "interface")
 		source.Set("interface", section.Get("interface"))
-		if isOne(section.Get("domain_resolver_enabled")) {
+		if uci.IsOne(section.Get("domain_resolver_enabled")) {
 			source.Set("domain_resolver_enabled", "1")
 			for _, option := range []string{"domain_resolver_dns_type", "domain_resolver_dns_server"} {
 				if value := section.Get(option); value != "" {
@@ -437,13 +437,4 @@ func listWords(section *uci.Section, name string) []string {
 		}
 	}
 	return result
-}
-
-// isOne reads a switch as the shell backend's "-eq 1" did.
-func isOne(text string) bool {
-	text = strings.TrimPrefix(strings.Trim(text, " \t\n"), "+")
-	if text == "" {
-		return false
-	}
-	return strings.TrimLeft(text[:len(text)-1], "0") == "" && text[len(text)-1] == '1'
 }

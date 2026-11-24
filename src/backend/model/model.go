@@ -469,7 +469,7 @@ func Load(parsed *uci.Package) (*Config, error) {
 			OutboundJSON:            section.Get("outbound_json"),
 			Interface:               section.Get("interface"),
 			RoutingMark:             section.Get("routing_mark"),
-			DomainResolverEnabled:   isOne(section.Get("domain_resolver_enabled")),
+			DomainResolverEnabled:   uci.IsOne(section.Get("domain_resolver_enabled")),
 			DomainResolverDNSType:   get(section, "domain_resolver_dns_type", "udp"),
 			DomainResolverDNSServer: section.Get("domain_resolver_dns_server"),
 			SkipDownloads:           section.Bool("skip_downloads", false),
@@ -582,21 +582,6 @@ func list(section *uci.Section, name string) []string {
 		return nil
 	}
 	return section.List(name)
-}
-
-// isOne tells whether the text is the number one for the shell's "-eq": spaces around it
-// and zeros before it allowed. The shell backend reads one switch this way.
-func isOne(text string) bool {
-	text = strings.TrimPrefix(strings.Trim(text, " \t\n"), "+")
-	if text == "" {
-		return false
-	}
-	for index := 0; index < len(text)-1; index++ {
-		if text[index] != '0' {
-			return false
-		}
-	}
-	return text[len(text)-1] == '1'
 }
 
 // links splits a list of proxy links the way the shell backend walks it: by white space,

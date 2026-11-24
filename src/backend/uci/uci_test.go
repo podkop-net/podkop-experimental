@@ -102,3 +102,13 @@ func TestParseAnonymousSections(t *testing.T) {
 	require.Equal(t, "cfg03dc81", anonymousName(3, "zone"))
 	require.Equal(t, "cfg0592bd", anonymousName(5, "rule"))
 }
+
+func TestIsOne(t *testing.T) {
+	t.Parallel()
+	for _, text := range []string{"1", " 1", "1 ", "01", "+1", "001"} {
+		require.True(t, IsOne(text), text)
+	}
+	for _, text := range []string{"", "0", "2", "11", "on", "true", "1x", "-1", "10", "+", "++1", "0+1", "\r1"} {
+		require.False(t, IsOne(text), text)
+	}
+}

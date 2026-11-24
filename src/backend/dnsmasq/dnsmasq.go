@@ -370,7 +370,7 @@ func Restore(system System) (bool, error) {
 		if current.resolvFile == "" {
 			script.WriteString("set " + section + ".resolvfile=" + Quote(resolvFile) + "\n")
 		}
-		if isOne(current.keptNoResolv) {
+		if uci.IsOne(current.keptNoResolv) {
 			// no servers to ask and told not to read the resolvers: it would ask nobody
 			script.WriteString("set " + section + ".noresolv='0'\n")
 		}
@@ -391,11 +391,6 @@ func general(servers []string) bool {
 		}
 	}
 	return false
-}
-
-func isOne(text string) bool {
-	text = strings.TrimLeft(strings.TrimSpace(text), "+0")
-	return text == "1"
 }
 
 // Quote writes a value for a line of "uci batch".

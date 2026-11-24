@@ -73,16 +73,6 @@ func TestValues(t *testing.T) {
 	}
 }
 
-func TestIsOne(t *testing.T) {
-	t.Parallel()
-	for _, text := range []string{"1", " 1", "1 ", "01", "+1", "001"} {
-		require.True(t, isOne(text), text)
-	}
-	for _, text := range []string{"", "0", "2", "11", "on", "true", "1x", "-1", "10", "+"} {
-		require.False(t, isOne(text), text)
-	}
-}
-
 // The cache file is never in a directory of the sing-box package: the places podkop 0.7
 // offered are taken to the backend's own.
 func TestCachePathMoved(t *testing.T) {
