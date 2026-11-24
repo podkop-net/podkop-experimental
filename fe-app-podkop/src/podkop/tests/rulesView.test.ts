@@ -383,16 +383,32 @@ describe('the choice among the fallbacks', () => {
     const field = view.section.lookup('fallback_choice');
     expect(field).toBeInstanceOf(view.form.ListValue);
     expect(field.tab).toBe('fallback');
-    expect(field.keylist).toEqual(['order', 'fastest', 'loss', 'balance']);
-    expect(field.default).toBe('order');
-    // "order" is not written: the settings of a rule nobody touched stay as they are
+    expect(field.keylist).toEqual(['', 'fastest', 'loss', 'balance']);
+    expect(field.vallist).toEqual([
+      'In order',
+      'Fastest',
+      'Fastest, avoiding loss',
+      'Balance between the best',
+    ]);
+    // "in order" is not written: the settings of a rule nobody touched stay as they are
+    expect(field.default).toBe('');
     expect(field.rmempty).toBe(true);
+  });
+
+  it('shows "order" as in order', () => {
+    const loaded = (choice?: string) =>
+      rule(MODES, choice ? { fallback_choice: choice } : {})
+        .section.lookup('fallback_choice')
+        .load('rule1');
+    expect(loaded('order')).toBe('');
+    expect(loaded('loss')).toBe('loss');
+    expect(loaded()).toBeUndefined();
   });
 
   it('offers what the engine has', () => {
     expect(
       rule(['urltest.fallbacks']).section.lookup('fallback_choice').keylist,
-    ).toEqual(['order', 'fastest']);
+    ).toEqual(['', 'fastest']);
   });
 
   it('brings the fields of the loss, as the server choice does', () => {

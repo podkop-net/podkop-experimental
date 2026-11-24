@@ -1275,14 +1275,20 @@ function createRulesContent(
       ),
     );
     o.modalonly = true;
-    o.value("order", _("In order"));
+    // "in order" is the absence of the option: LuCI writes a default that is not empty at the first
+    // Save of the window, and every rule would have a change nobody made
+    o.value("", _("In order"));
     o.value("fastest", _("Fastest"));
     if (singBoxFeatures.includes("urltest.modes")) {
       o.value("loss", _("Fastest, avoiding loss"));
       o.value("balance", _("Balance between the best"));
     }
-    o.default = "order";
+    o.default = "";
     o.rmempty = true;
+    o.load = function (section_id) {
+      const choice = uci.get("podkop", section_id, "fallback_choice");
+      return choice === "order" ? "" : choice;
+    };
   }
 
   // the tab Extra
