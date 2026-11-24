@@ -973,6 +973,7 @@ var Podkop;
     AvailableMethods2["DISABLE"] = "disable";
     AvailableMethods2["GLOBAL_CHECK"] = "global_check";
     AvailableMethods2["SHOW_SING_BOX_CONFIG"] = "show_sing_box_config";
+    AvailableMethods2["SHOW_VERSION"] = "show_version";
     AvailableMethods2["CHECK_LINKS"] = "check_links";
     AvailableMethods2["CHECK_LOGS"] = "check_logs";
     AvailableMethods2["GET_SYSTEM_INFO"] = "get_system_info";
@@ -1080,6 +1081,15 @@ var PodkopShellMethods = {
     // LuCI aborts a call after 20 s whatever is asked here
     19e3
   ),
+  // the version of the backend that runs (of the installed program when none runs), '' when
+  // nothing answers. A line of text, not JSON, which a build named by its date (0.24112026) is
+  showVersion: async () => {
+    const { stdout } = await executeShellCommand({
+      command: "/usr/bin/podkop",
+      args: [Podkop.AvailableMethods.SHOW_VERSION]
+    });
+    return stdout.trim();
+  },
   showSingBoxConfig: async () => callBaseMethod(Podkop.AvailableMethods.SHOW_SING_BOX_CONFIG),
   checkLinks: async (links) => callBaseMethod(
     Podkop.AvailableMethods.CHECK_LINKS,
@@ -1638,8 +1648,14 @@ function outboundName(code, rule, sources, tags) {
 }
 var DIRECT_TAG = "direct-out";
 var BLOCK_TAG = "block";
-function tierName(place, tag, rule, sources, members, tags) {
+function modeName(mode) {
+  if (mode === "loss") return _("Fastest, avoiding loss");
+  if (mode === "balance") return _("Balance");
+  return _("Fastest");
+}
+function tierName(place, tag, mode, rule, sources, members, tags) {
   const name = _("Fallback %s").format(place);
+  if (tags?.rules?.[rule]?.pool === tag) return `${name} \xB7 ${modeName(mode)}`;
   const number = fallbackRow(tag, rule, tags);
   if (!number) return name;
   const row = members.filter(
@@ -1675,16 +1691,15 @@ function ruleTiles(proxies, rule, sources, members, used, tags) {
   const offered = selector?.all ?? [];
   const autoTag = ruleTags.test;
   const test = autoTag && offered.includes(autoTag) ? proxies[autoTag] : void 0;
-  const balance = new Map(
-    (test?.balance ?? []).map((item) => [item.name, item.devices])
-  );
+  const balanceOf = (group) => new Map((group?.balance ?? []).map((item) => [item.name, item.devices]));
+  const balances = /* @__PURE__ */ new Map([[0, balanceOf(test)]]);
   const tile = (tag, tier2) => {
     const item = proxies[tag];
     let displayName2 = outboundName(tag, rule, sources, tags);
     if (tag === DIRECT_TAG) displayName2 = _("Directly");
     else if (tag === BLOCK_TAG && tier2 > 0) displayName2 = _("Block");
     const loss = lossOf(item?.loss);
-    const balanced = tier2 === 0 ? balance.get(tag) : void 0;
+    const balanced = balances.get(tier2)?.get(tag);
     return {
       loss: loss.text,
       lossTitle: loss.title,
@@ -1724,6 +1739,7 @@ function ruleTiles(proxies, rule, sources, members, used, tags) {
     const group = proxies[tag];
     if (group?.type === "URLTest") {
       groups.set(index + 1, tag);
+      balances.set(index + 1, balanceOf(group));
       (group.all ?? []).forEach(
         (server) => outbounds.push(tile(server, index + 1))
       );
@@ -1741,7 +1757,15 @@ function ruleTiles(proxies, rule, sources, members, used, tags) {
   const tiers = fallbacks.length ? [
     _("Fastest"),
     ...fallbacks.map(
-      (tag, index) => tierName(index + 1, tag, rule, sources, members, tags)
+      (tag, index) => tierName(
+        index + 1,
+        tag,
+        proxies[tag]?.mode,
+        rule,
+        sources,
+        members,
+        tags
+      )
     )
   ] : [];
   let active;
@@ -1774,17 +1798,15 @@ function ruleTiles(proxies, rule, sources, members, used, tags) {
   if (mode === "auto" && (test.mode === "loss" || test.mode === "balance")) {
     route.choice = test.mode;
   }
-  if (mode === "auto" && !tier && balance.size) {
-    route.balance = outbounds.filter((item) => item.balanced).map((item) => item.displayName);
+  if (mode === "auto" && balances.get(tier)?.size) {
+    route.balance = outbounds.filter((item) => item.balanced && item.tier === tier).map((item) => item.displayName);
   }
   return { outbounds, tiers, auto: autoTag, route };
 }
 function routeLabel(route) {
   if (route.mode === "single") return "";
   if (route.mode === "manual") return _("Manual");
-  let first = _("Fastest");
-  if (route.choice === "loss") first = _("Fastest, avoiding loss");
-  if (route.choice === "balance") first = _("Balance");
+  const first = modeName(route.choice);
   return route.tier ? `${first} \u2192 ${_("Fallback %s").format(route.tier)}` : first;
 }
 
@@ -8332,6 +8354,9 @@ function showLinkProblems(problems, show) {
   );
 }
 
+// src/helpers/luciText.ts
+var luciText = (key) => _(key);
+
 // src/podkop/applyBar.ts
 var APPLY_POLL_MS = 1e3;
 var APPLY_DEADLINE_MS = 6e4;
@@ -8496,7 +8521,6 @@ async function readStatus() {
 function luciChanges() {
   return ui.changes;
 }
-var luciText = (key) => _(key);
 function createApplyBar(options) {
   const bar = E("div", {
     id: "podkop-apply-bar",
@@ -8658,6 +8682,89 @@ function createApplyBar(options) {
   return bar;
 }
 
+// src/podkop/versionBar.ts
+var DISMISSED_KEY = "podkop-version-dismissed";
+function versionText(page, backend) {
+  switch (compareVersions(page, backend)) {
+    case -1:
+      return _(
+        "This page (version %s) is older than the backend (version %s): reload it without the cache"
+      ).format(page, backend);
+    case 1:
+      return _(
+        "This page (version %s) is newer than the backend (version %s): after an update restart podkop, after a downgrade reload this page without the cache"
+      ).format(page, backend);
+    default:
+      return "";
+  }
+}
+function readDismissed() {
+  try {
+    return sessionStorage.getItem(DISMISSED_KEY);
+  } catch {
+    return null;
+  }
+}
+function writeDismissed(pair) {
+  try {
+    sessionStorage.setItem(DISMISSED_KEY, pair);
+  } catch {
+  }
+}
+async function reloadWithoutCache() {
+  const files = performance.getEntriesByType("resource").map((entry) => entry.name).filter((name) => name.includes("/view/podkop/"));
+  await Promise.all(
+    files.map(
+      (file) => fetch(file, { cache: "reload" }).then((response) => response.arrayBuffer()).catch((err) => logger.warn("[VERSION]", file, err))
+    )
+  );
+  location.reload();
+}
+function createVersionBar(page = PODKOP_LUCI_APP_VERSION) {
+  const bar = E("div", {
+    id: "podkop-version-bar",
+    class: "alert-message warning",
+    role: "status",
+    "aria-live": "polite",
+    style: "display: none"
+  });
+  PodkopShellMethods.showVersion().then((backend) => {
+    const text = versionText(page, backend);
+    const pair = page + " " + backend;
+    if (!text || readDismissed() === pair) return;
+    const reload = E(
+      "button",
+      {
+        class: "btn cbi-button cbi-button-action important",
+        type: "button",
+        click: () => {
+          reload.disabled = true;
+          reloadWithoutCache();
+        }
+      },
+      [_("Reload without the cache")]
+    );
+    const dismiss = E(
+      "button",
+      {
+        class: "btn cbi-button cbi-button-neutral",
+        type: "button",
+        click: () => {
+          writeDismissed(pair);
+          bar.style.display = "none";
+        }
+      },
+      [luciText("Dismiss")]
+    );
+    bar.appendChild(E("p", { class: "podkop-apply-text" }, [text]));
+    bar.appendChild(
+      E("div", { class: "podkop-apply-actions" }, [reload, dismiss])
+    );
+    bar.style.display = "";
+  }).catch((err) => logger.warn("[VERSION]", err));
+  return bar;
+}
+
 // src/styles.ts
 var GlobalStyles = `
 ${DashboardTab.styles}
@@ -8677,13 +8784,15 @@ ${PartialStyles}
     content: none;
 }
 
-/* The apply bar (podkop/applyBar.ts): LuCI's alert-message, the text and the buttons in a row
-   that wraps on a phone. Argon gives .alert-message a fixed width of 20rem (made for its
-   centred notices), and the first div of #view a column (#view > div:first-child:not(.cbi-map,
-   .Dashboard), stronger than one id: the text took 18em of height there): the bar takes the
-   width of the page, in a row, by two ids. */
+/* The apply bar (podkop/applyBar.ts) and the version bar under it (podkop/versionBar.ts): LuCI's
+   alert-message, the text and the buttons in a row that wraps on a phone. Argon gives
+   .alert-message a fixed width of 20rem (made for its centred notices), and the first div of
+   #view a column (#view > div:first-child:not(.cbi-map, .Dashboard), stronger than one id: the
+   text took 18em of height there): a bar takes the width of the page, in a row, by two ids. */
 #view > #podkop-apply-bar,
-#podkop-apply-bar {
+#view > #podkop-version-bar,
+#podkop-apply-bar,
+#podkop-version-bar {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
@@ -8694,20 +8803,23 @@ ${PartialStyles}
     box-sizing: border-box;
 }
 
-#podkop-apply-bar .podkop-apply-text {
+#podkop-apply-bar .podkop-apply-text,
+#podkop-version-bar .podkop-apply-text {
     flex: 1 1 18em;
     min-width: 0;
     margin: 0;
     overflow-wrap: anywhere;
 }
 
-#podkop-apply-bar .podkop-apply-actions {
+#podkop-apply-bar .podkop-apply-actions,
+#podkop-version-bar .podkop-apply-actions {
     display: flex;
     flex-wrap: wrap;
     gap: .5em;
 }
 
-#podkop-apply-bar .podkop-apply-actions .btn {
+#podkop-apply-bar .podkop-apply-actions .btn,
+#podkop-version-bar .podkop-apply-actions .btn {
     margin: 0;
 }
 
@@ -9060,6 +9172,7 @@ return baseclass.extend({
   coreService,
   countChanges,
   createApplyBar,
+  createVersionBar,
   customAgent,
   deniedHeader,
   detectPasted,
@@ -9103,6 +9216,7 @@ return baseclass.extend({
   protocolLabel,
   protocolName,
   protocolNames,
+  reloadWithoutCache,
   requestProblem,
   requestProblemLine,
   requestProblemText,
@@ -9159,6 +9273,7 @@ return baseclass.extend({
   validateUserAgent,
   validateVlessUrl,
   validateVmessUrl,
+  versionText,
   withTimeout,
   wrapApply
 });

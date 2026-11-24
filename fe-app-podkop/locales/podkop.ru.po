@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PODKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-24 20:51+0000\n"
-"PO-Revision-Date: 2026-11-24 20:51+0000\n"
+"POT-Creation-Date: 2026-11-24 21:39+0000\n"
+"PO-Revision-Date: 2026-11-24 21:39+0000\n"
 "Last-Translator: FiyeroT\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -124,6 +124,9 @@ msgstr "за %s после сброса"
 
 msgid "%s via %s"
 msgstr "%s через %s"
+
+msgid "%s, no limit"
+msgstr "%s, без ограничений"
 
 msgid "%s: %d packets (%s) dropped"
 msgstr "%s: отброшено пакетов — %d (%s)"
@@ -728,6 +731,18 @@ msgstr "Запасные"
 msgid "Fallback %s"
 msgstr "Запасной %s"
 
+msgid "Fallback choice"
+msgstr "Выбор запасных"
+
+msgid "Fallback, avoiding loss: %s"
+msgstr "Запасные, с учётом потерь: %s"
+
+msgid "Fallback, balance: %s"
+msgstr "Запасные, балансировка: %s"
+
+msgid "Fallback, the fastest: %s"
+msgstr "Запасные, самый быстрый: %s"
+
 msgid "Fallback: %s"
 msgstr "Запасные: %s"
 
@@ -812,6 +827,12 @@ msgstr "Если сервер не ответит, он будет провер�
 msgid "In all"
 msgstr "Всего"
 
+msgid "In order"
+msgstr "По порядку"
+
+msgid "In order: a row is used only while nothing before it answers. The others choose among the servers of all the rows together, and Directly or Block comes last. Loss is checked only while the rule goes through its fallbacks"
+msgstr "По порядку: строка берётся, только пока не отвечает ничто до неё. Остальные режимы выбирают среди серверов всех строк вместе, а «Напрямую» или «Блокировать» берётся последней. Потери проверяются, только пока правило идёт через запасные"
+
 msgid "In the balance: %d devices"
 msgstr "В балансировке, устройств: %d"
 
@@ -823,9 +844,6 @@ msgstr "По порядку"
 
 msgid "In their order: a server is asked only when the ones above it do not answer. The fastest first: the server that answered fastest lately is asked, the next fastest when it does not answer."
 msgstr "По порядку: сервер спрашивают, только когда не ответили те, что выше. Сначала самый быстрый: спрашивают сервер, который в последнее время отвечал быстрее всех, а если он не ответил — следующий по скорости."
-
-msgid "In this order, while no server of the rule answers. Directly here: blocked sites do not open, and the provider sees the addresses."
-msgstr "По порядку, пока ни один сервер правила не отвечает. «Напрямую» здесь: заблокированные сайты не откроются, а провайдер увидит адреса."
 
 msgid "Incoming through a port forward"
 msgstr "Входящие через проброс порта"
@@ -1354,6 +1372,9 @@ msgstr "Отклоняется: у правила сейчас нет серве
 
 msgid "Regional options cannot be used together"
 msgstr "Нельзя использовать несколько региональных опций одновременно"
+
+msgid "Reload without the cache"
+msgstr "Перезагрузить без кэша"
 
 msgid "Remove them"
 msgstr "Удалить"
@@ -2066,6 +2087,12 @@ msgstr "Нет ни одного пути к провайдеру"
 msgid "These are not links of servers: %s"
 msgstr "Это не ссылки на серверы: %s"
 
+msgid "This page (version %s) is newer than the backend (version %s): after an update restart podkop, after a downgrade reload this page without the cache"
+msgstr "Эта страница (версия %s) новее бэкенда (версия %s): после обновления перезапустите podkop, после возврата на прежнюю версию перезагрузите эту страницу без кэша"
+
+msgid "This page (version %s) is older than the backend (version %s): reload it without the cache"
+msgstr "Эта страница (версия %s) старее бэкенда (версия %s): перезагрузите её без кэша"
+
 msgid "This server has changed since the page was drawn; reopen it and try again."
 msgstr "Сервер изменился с момента открытия страницы; откройте его заново и повторите."
 
@@ -2206,6 +2233,9 @@ msgstr "Исходящий"
 
 msgid "URL must use one of the following protocols:"
 msgstr "URL должен использовать один из следующих протоколов:"
+
+msgid "Used while no server of the rule answers, as the choice below says. Directly here: blocked sites do not open, and the provider sees the addresses."
+msgstr "Берутся, пока ни один сервер правила не отвечает, — как выбрано ниже. «Напрямую» здесь: заблокированные сайты не откроются, а провайдер увидит адреса."
 
 msgid "User Domain List Type"
 msgstr "Тип пользовательского списка доменов"
