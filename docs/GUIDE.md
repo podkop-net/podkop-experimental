@@ -87,8 +87,9 @@ wins; drag ☰ to change the order. A rule has four tabs:
   **Only for devices** limits the rule to some devices: see [A rule for some devices](#a-rule-for-some-devices).
 - **Servers**: one or more rows. A row is a source with optional filters. **Name contains** and
   **Name does not contain** match the start of a word, so `NL` finds `NL-1` and `Amsterdam NL` but
-  not `RU2NL`. The **Through** column connects to the row's servers via another source. A row can
-  also be **Directly** (an exclusion) or **Block**.
+  not `RU2NL`. The **Protocols** column keeps only the servers of the chosen protocols (an interface
+  has none and is always taken). The **Through** column connects to the row's servers via another
+  source. A row can also be **Directly** (an exclusion) or **Block**.
 - **Fallback**: rows in order. They are used when no server of the rule answers. With **Block**
   as a fallback, the rule goes back to its servers soon after the network returns.
 - **Extra**: the server choice and the rule's mixed proxy (SOCKS5 and HTTP on a port of the
