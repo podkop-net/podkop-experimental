@@ -369,7 +369,7 @@ type Supervisor struct {
 	// this process (see close)
 	stuck bool
 	// excluded is the configuration whose sources the engine was told last to keep off the
-	// downloads (excludeDownloads), nil before the first
+	// downloads (excludeDownloads), nil before the first and once nothing runs (release)
 	excluded *plan.Result
 	// clashSecret is the key of the Clash API the settings had last, or the one this
 	// process made when they had none (see clashKey)
@@ -2308,6 +2308,9 @@ func (s *Supervisor) release() {
 	// what was read of the lists for the firewall goes with the firewall table: with
 	// nothing running it would hold the addresses of every list until the next start
 	s.derived, s.read, s.known = nil, nil, nil
+	// so does the configuration the engine was told the sources of to keep off the downloads
+	// (its rule-set files with it): the next start tells it again
+	s.excluded = nil
 	changed, err := s.options.System.RestoreDNS()
 	if err != nil {
 		s.log("error", "give the DNS of the LAN back: ", err)
