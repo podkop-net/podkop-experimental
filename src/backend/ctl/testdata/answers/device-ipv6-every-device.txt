@@ -1,0 +1,7 @@
+$ podkop device 2001:db8:5::5
+# an IPv6 address, and a rule of every device (Main)
+exit 0
+--- stdout
+ℹ️ The rules for 2001:db8:5::5, in the order they are matched:
+✅ Rule Main (main) takes its connections to the lists of the rule, as those of every device: through its servers
+➡️ What no rule takes goes directly

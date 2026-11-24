@@ -47,7 +47,8 @@ import (
 // global_check (the kernel, the network and the system log; the page runs it as a program),
 // check_nft (the nft program), hwid and show_system_info (the files of the host), the actions on
 // the service. Each case of "podkop device" is also compared with the route rules of the
-// configuration plan.Build makes of the same settings (compareWithPlan).
+// configuration plan.Build makes of the same settings (compareWithPlan), but the one of settings
+// it refuses.
 var updateAnswers = flags.Bool("update", false, "write the recorded answers of testdata/answers anew")
 
 const (
@@ -359,12 +360,16 @@ func recordDevices(t *testing.T, r *recorder) {
 		{"device-ipv6-no-rule", "2001:db8:9::9", "an IPv6 address no rule takes", "devices", routerIPv6, ""},
 		{"device-ipv6-bypass", "2001:db8:1::50", "IPv6 traffic past podkop in the settings", "devices-bypass", routerIPv6, ""},
 		{"device-not-an-address", "tv.lan", "no address", "devices", routerIPv6, ""},
+		{"device-ipv6-every-device", "2001:db8:5::5", "an IPv6 address, and a rule of every device (Main)", "podkop", routerIPv6, ""},
 	}
 	for _, test := range cases {
 		env := Environment{Paths: diag.Paths{Settings: filepath.Join(inputsDir, test.settings)}, Socket: filepath.Join(t.TempDir(), "none.sock")}
 		output := r.record(test.name, test.about, env, "device", test.address)
 		compareWithPlan(t, test, output)
 	}
+	// settings the planner refuses, which the backend does not apply either: no plan to compare with
+	r.record("device-refused", "settings the planner refuses: a link the engine cannot use", Environment{Paths: diag.Paths{Settings: filepath.Join(inputsDir, "devices-refused")},
+		Socket: filepath.Join(t.TempDir(), "none.sock")}, "device", "192.168.1.10")
 	// the report reads the settings alone: on a router without IPv6 (no ::1) the plan sends IPv6
 	// past podkop while the report names the rules of IPv6 traffic through podkop. A finding of
 	// the 0.8.22 review of the lists, kept as it is.

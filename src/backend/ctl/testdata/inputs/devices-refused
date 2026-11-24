@@ -1,0 +1,19 @@
+config settings 'settings'
+	option config_version '2'
+	option dns_type 'udp'
+	option dns_server '8.8.8.8'
+
+config source 'own'
+	option type 'links'
+	list link 'vless://x'
+
+config section 'tv'
+	option label 'TV'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'video.example'
+	list only_devices '192.168.1.10'
+
+config member
+	option section 'tv'
+	option role 'server'
+	option source 'own'

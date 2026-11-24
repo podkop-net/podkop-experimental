@@ -1,0 +1,5 @@
+$ podkop device 192.168.1.10
+# settings the planner refuses: a link the engine cannot use
+exit 1
+--- stdout
+❌ The settings make no configuration, podkop does not apply them: rule TV (tv): cannot use the proxy link 1 of the source vless link (own): missing server port
