@@ -1,0 +1,5 @@
+$ podkop reload
+# the settings refused
+exit 1
+--- stdout
+the settings cannot be used, nothing is changed: no link

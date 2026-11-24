@@ -1,0 +1,7 @@
+$ podkop clash_api set_group_proxy
+# no group and no server
+exit 1
+--- stdout
+{
+  "error": "group_tag and proxy_tag required"
+}

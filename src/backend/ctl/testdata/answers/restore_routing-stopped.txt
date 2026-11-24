@@ -1,0 +1,6 @@
+$ podkop restore_routing
+# no backend answers
+exit 1
+--- stdout
+--- stderr
+the backend does not run: Post "http://backend/routing/restore": dial unix <tmp>/001/none.sock: connect: no such file or directory

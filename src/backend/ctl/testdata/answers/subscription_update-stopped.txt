@@ -1,0 +1,6 @@
+$ podkop subscription_update prov1
+# no backend answers
+exit 1
+--- stdout
+--- stderr
+podkop does not run: Post "http://backend/subscriptions/update?name=prov1": dial unix <tmp>/001/none.sock: connect: no such file or directory

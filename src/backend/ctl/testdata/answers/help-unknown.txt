@@ -1,0 +1,6 @@
+$ podkop no_such_command
+# a command that is none
+exit 1
+--- stdout
+--- stderr
+<the help>

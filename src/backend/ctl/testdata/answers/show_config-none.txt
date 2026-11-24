@@ -1,0 +1,4 @@
+$ podkop show_config
+# no settings file
+exit 1
+--- stdout

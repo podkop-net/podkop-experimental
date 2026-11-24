@@ -1,0 +1,4 @@
+$ podkop group_check {"subscriptions":["prov1"],"include":[],"exclude":[]}
+# no backend answers
+exit 1
+--- stdout

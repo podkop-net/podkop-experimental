@@ -1,0 +1,8 @@
+$ podkop clash_api set_group_proxy main-out own-1-out
+# no backend answers: no Clash API
+exit 1
+--- stdout
+{
+  "success": false,
+  "http_code": 0
+}

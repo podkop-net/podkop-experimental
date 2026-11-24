@@ -1,0 +1,5 @@
+$ podkop check_links
+# no link
+exit 0
+--- stdout
+[]

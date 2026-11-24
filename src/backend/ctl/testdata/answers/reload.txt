@@ -1,0 +1,5 @@
+$ podkop reload
+# the settings applied
+exit 0
+--- stdout
+applied in 40 ms, sing-box runs the new configuration

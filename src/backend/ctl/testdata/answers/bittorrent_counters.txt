@@ -1,0 +1,5 @@
+$ podkop bittorrent_counters
+# the backend's answer
+exit 0
+--- stdout
+{}

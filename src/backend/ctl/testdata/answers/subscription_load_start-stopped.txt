@@ -1,0 +1,5 @@
+$ podkop subscription_load_start https://sub.example/sub/TOKEN
+# no backend answers
+exit 0
+--- stdout
+{"id":"","state":"failed","elapsed_ms":0,"attempts":[],"preview":{"error":"podkop does not run: a subscription is downloaded by its backend","error_code":"notrunning","servers":[]}}

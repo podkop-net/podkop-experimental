@@ -1,0 +1,17 @@
+$ podkop show_sing_box_config
+# nothing runs: the configuration that ran last, masked
+exit 0
+--- stdout
+{
+  "outbounds": [
+    {
+      "type": "socks",
+      "tag": "main-out",
+      "server": "MASKED",
+      "server_port": "MASKED",
+      "password": "MASKED"
+    }
+  ]
+}
+--- stderr
+nothing runs; this is the configuration that ran last

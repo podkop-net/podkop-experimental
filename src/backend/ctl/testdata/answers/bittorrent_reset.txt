@@ -1,0 +1,38 @@
+$ podkop bittorrent_reset
+# the backend's answer
+exit 0
+--- stdout
+{
+  "mode": "bypass",
+  "lan": false,
+  "rule": "Main <1>",
+  "since": 3600,
+  "read": 2,
+  "counted": true,
+  "rows": [
+    {
+      "kind": "utp",
+      "way": "past",
+      "open": 2,
+      "connections": 3,
+      "received": {
+        "packets": 10,
+        "bytes": 12000
+      },
+      "sent": {
+        "packets": 5,
+        "bytes": 600
+      }
+    }
+  ],
+  "blocked": null,
+  "utp_to_tcp": {
+    "packets": 0,
+    "bytes": 0
+  },
+  "limits": {},
+  "module": {
+    "confirmed": 1,
+    "watched": 4
+  }
+}

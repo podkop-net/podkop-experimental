@@ -1,0 +1,6 @@
+$ podkop bittorrent_record 0
+# no number of minutes
+exit 2
+--- stdout
+--- stderr
+bittorrent_record [minutes, 1-240] [--reset]

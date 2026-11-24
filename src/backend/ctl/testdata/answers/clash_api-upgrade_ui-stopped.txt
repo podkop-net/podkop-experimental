@@ -1,0 +1,9 @@
+$ podkop clash_api upgrade_ui
+# no backend answers: no Clash API
+exit 1
+--- stdout
+{
+  "success": false,
+  "http_code": 0,
+  "message": "the Clash API did not answer (YACD off, or podkop not running)"
+}

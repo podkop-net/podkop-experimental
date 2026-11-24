@@ -1,0 +1,7 @@
+$ podkop list_update
+# no backend answers
+exit 1
+--- stdout
+🔄 Starting lists update...
+--- stderr
+the backend does not run: Post "http://backend/lists/update": dial unix <tmp>/001/none.sock: connect: no such file or directory

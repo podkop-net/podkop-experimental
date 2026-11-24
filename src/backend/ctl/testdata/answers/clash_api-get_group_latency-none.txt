@@ -1,0 +1,7 @@
+$ podkop clash_api get_group_latency
+# no group
+exit 1
+--- stdout
+{
+  "error": "group_tag required"
+}

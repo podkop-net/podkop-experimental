@@ -1,0 +1,4 @@
+$ podkop bittorrent_reset
+# no backend answers
+exit 1
+--- stdout

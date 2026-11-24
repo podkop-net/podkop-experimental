@@ -1,0 +1,6 @@
+$ podkop 
+# an empty name
+exit 1
+--- stdout
+--- stderr
+<the help>

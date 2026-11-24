@@ -1,0 +1,9 @@
+$ podkop clash_api upgrade_ui
+# the dashboard of GitHub, not downloaded
+exit 1
+--- stdout
+{
+  "success": false,
+  "http_code": 500,
+  "message": "download external ui failed: 404 Not Found"
+}

@@ -1,0 +1,5 @@
+$ podkop restore_routing
+# what the backend put back
+exit 0
+--- stdout
+nothing was missing

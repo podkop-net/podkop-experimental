@@ -1,0 +1,6 @@
+$ podkop group_check
+# no group
+exit 1
+--- stdout
+--- stderr
+<the help>

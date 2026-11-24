@@ -1,0 +1,6 @@
+$ podkop device
+# no address
+exit 1
+--- stdout
+--- stderr
+the address of the device is missing: podkop device <address>

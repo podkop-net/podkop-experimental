@@ -1,0 +1,6 @@
+$ podkop subscription_load_start https://sub.example/sub/TOKEN Happ
+# a request that is no JSON
+exit 1
+--- stdout
+--- stderr
+<the help>

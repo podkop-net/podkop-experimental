@@ -1,0 +1,6 @@
+$ podkop start
+# the script of the service calls podkop back
+exit 1
+--- stdout
+--- stderr
+the script <tmp>/001/service calls podkop back: it is not the script of this backend (compare it with <tmp>/001/service.apk-new); start is not done

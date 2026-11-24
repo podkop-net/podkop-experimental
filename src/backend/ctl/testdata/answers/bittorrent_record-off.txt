@@ -1,0 +1,6 @@
+$ podkop bittorrent_record
+# BitTorrent is as the other traffic
+exit 1
+--- stdout
+--- stderr
+BitTorrent is "as the other traffic": nothing to record (Settings → BitTorrent)

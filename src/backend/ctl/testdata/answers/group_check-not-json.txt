@@ -1,0 +1,6 @@
+$ podkop group_check NL
+# a group that is no JSON
+exit 1
+--- stdout
+--- stderr
+<the help>

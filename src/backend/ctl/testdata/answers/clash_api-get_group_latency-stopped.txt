@@ -1,0 +1,4 @@
+$ podkop clash_api get_group_latency main-out
+# no backend answers: no Clash API
+exit 1
+--- stdout

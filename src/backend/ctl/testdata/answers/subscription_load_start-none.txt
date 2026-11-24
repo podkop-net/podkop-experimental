@@ -1,0 +1,6 @@
+$ podkop subscription_load_start
+# no address or job
+exit 1
+--- stdout
+--- stderr
+<the help>

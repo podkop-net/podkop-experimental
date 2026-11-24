@@ -1,0 +1,7 @@
+$ podkop stop
+# the script of the service (here one that tells what it was asked, and fails to stop)
+exit 1
+--- stdout
+asked to stop (stop)
+--- stderr
+failing

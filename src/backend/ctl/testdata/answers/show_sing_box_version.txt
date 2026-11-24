@@ -1,0 +1,5 @@
+$ podkop show_sing_box_version
+# the version of sing-box
+exit 0
+--- stdout
+1.14.4-test

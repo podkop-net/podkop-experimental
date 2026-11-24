@@ -1,0 +1,5 @@
+$ podkop show_version
+# the version of the backend
+exit 0
+--- stdout
+0.8.22-test

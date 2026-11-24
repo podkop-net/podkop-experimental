@@ -1,0 +1,5 @@
+$ podkop subscription_load_cancel job9
+# a job the backend does not know
+exit 0
+--- stdout
+{"id":"","state":"failed","elapsed_ms":0,"attempts":[],"preview":{"error":"the download is not known to podkop: it ended long ago, or podkop restarted","error_code":"nojob","servers":[]}}

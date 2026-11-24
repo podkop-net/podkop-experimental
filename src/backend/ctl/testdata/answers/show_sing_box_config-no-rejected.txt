@@ -1,0 +1,6 @@
+$ podkop show_sing_box_config --rejected
+# no configuration was refused
+exit 1
+--- stdout
+--- stderr
+no configuration was refused since the backend started

@@ -1,0 +1,7 @@
+$ podkop start
+# the script of the service (here one that tells what it was asked, and fails to stop)
+exit 0
+--- stdout
+asked to start (start)
+--- stderr
+failing

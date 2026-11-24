@@ -1,0 +1,5 @@
+$ podkop subscription_update_start prov1
+# no backend answers
+exit 0
+--- stdout
+[]

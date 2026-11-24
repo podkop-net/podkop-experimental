@@ -1,0 +1,7 @@
+$ podkop list_update
+# a list not downloaded
+exit 1
+--- stdout
+🔄 Starting lists update...
+rule sets: 3 asked, 0 with a new list, 1 failed
+❌ Lists update failed

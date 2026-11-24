@@ -1,0 +1,7 @@
+$ podkop restart
+# the script of the service (here one that tells what it was asked, and fails to stop)
+exit 0
+--- stdout
+asked to restart (restart)
+--- stderr
+failing

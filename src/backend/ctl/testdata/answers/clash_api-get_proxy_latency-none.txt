@@ -1,0 +1,7 @@
+$ podkop clash_api get_proxy_latency
+# no outbound
+exit 1
+--- stdout
+{
+  "error": "proxy_tag required"
+}

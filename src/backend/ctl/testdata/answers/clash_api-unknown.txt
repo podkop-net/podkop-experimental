@@ -1,0 +1,14 @@
+$ podkop clash_api get_rules
+# an action that is none
+exit 1
+--- stdout
+{
+  "error": "unknown action",
+  "available": [
+    "get_proxies",
+    "get_proxy_latency",
+    "get_group_latency",
+    "set_group_proxy",
+    "upgrade_ui"
+  ]
+}

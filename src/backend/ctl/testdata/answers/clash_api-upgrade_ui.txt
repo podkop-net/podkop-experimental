@@ -1,0 +1,7 @@
+$ podkop clash_api upgrade_ui
+# the dashboard of GitHub
+exit 0
+--- stdout
+{
+  "success": true
+}

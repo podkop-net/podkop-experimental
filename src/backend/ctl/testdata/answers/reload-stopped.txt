@@ -1,0 +1,6 @@
+$ podkop reload
+# no backend answers
+exit 1
+--- stdout
+--- stderr
+the backend does not run: Post "http://backend/apply": dial unix <tmp>/001/none.sock: connect: no such file or directory

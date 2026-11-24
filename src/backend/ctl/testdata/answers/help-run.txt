@@ -1,0 +1,6 @@
+$ podkop run get_status
+# a method of the bus, which is no command
+exit 1
+--- stdout
+--- stderr
+<the help>

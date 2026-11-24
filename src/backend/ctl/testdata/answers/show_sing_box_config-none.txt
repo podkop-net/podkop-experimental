@@ -1,0 +1,4 @@
+$ podkop show_sing_box_config
+# no directory of the configurations
+exit 1
+--- stdout

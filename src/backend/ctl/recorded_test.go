@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
+	"github.com/podkop-net/podkop-experimental/src/backend/btstats"
 	"github.com/podkop-net/podkop-experimental/src/backend/diag"
 	"github.com/podkop-net/podkop-experimental/src/backend/logbuf"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
@@ -29,13 +30,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The answers the page reads, and those of "podkop device", recorded: each command runs as the
-// page's run runs it (Run, in the process), against a backend of fixed answers on a socket (the
-// fake of ctl_test.go), a fake Clash API, and fixed settings (testdata/inputs). Each file of
-// testdata/answers holds the command line, what the case is, the exit status, the standard output
-// as it is and the error output; a file no case writes fails as well. A change of an answer is a
-// change of what the page gets: a refactor keeps the files as they are, a change of an answer
-// writes them anew in the commit that says why:
+// The answers of the commands recorded, those the page reads and those of "podkop device" above
+// all: each command runs as the page's run runs it (Run, in the process), against a backend of
+// fixed answers on a socket (the fake of ctl_test.go), a fake Clash API, and fixed settings
+// (testdata/inputs). Each file of testdata/answers holds the command line, what the case is, the
+// exit status, the standard output as it is and the error output; a file no case writes fails as
+// well. A change of an answer is a change of what the page gets: a refactor keeps the files as they
+// are, a change of an answer writes them anew in the commit that says why:
 //
 //	go test ./ctl -run TestRecordedAnswers -update
 //
@@ -45,10 +46,12 @@ import (
 // get_sing_box_status and check_sing_box read the host (/etc/rc.d, /proc/net): they are not
 // recorded on a host that has sing-box's autostart or listens where sing-box does. Left out:
 // global_check (the kernel, the network and the system log; the page runs it as a program),
-// check_nft (the nft program), hwid and show_system_info (the files of the host), the actions on
-// the service. Each case of "podkop device" is also compared with the route rules of the
-// configuration plan.Build makes of the same settings (compareWithPlan), but the one of settings
-// it refuses.
+// check_nft (the nft program), hwid, show_system_info and yacd_builtin (the files of the host), the
+// lines of subscription_update (told by the time that passed; TestSubscriptionCommands) and the
+// reports of bittorrent_record (TestBitTorrentRecord). Besides what the page reads, the help, the
+// failures and the actions of the CLI are recorded (recordActions). Each case of "podkop device" is
+// also compared with the route rules of the configuration plan.Build makes of the same settings
+// (compareWithPlan), but the one of settings it refuses.
 var updateAnswers = flags.Bool("update", false, "write the recorded answers of testdata/answers anew")
 
 const (
@@ -137,8 +140,13 @@ func encodeAnswer(t *testing.T, value any) string {
 	return output.String()
 }
 
-// logTimes are the times at the start of the lines of the log.
-var logTimes = regexp.MustCompile(`(?m)^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d `)
+// logTimes are the times at the start of the lines of the log, logLineTimes those at the start of
+// its lines in JSON, runOfLog the run it is of.
+var (
+	logTimes     = regexp.MustCompile(`(?m)^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d `)
+	logLineTimes = regexp.MustCompile(`"\d{4}-\d\d-\d\d \d\d:\d\d:\d\d `)
+	runOfLog     = regexp.MustCompile(`"run":"\w+"`)
+)
 
 func TestRecordedAnswers(t *testing.T) {
 	directory := t.TempDir()
@@ -186,6 +194,14 @@ func TestRecordedAnswers(t *testing.T) {
 		default:
 			writer.WriteHeader(http.StatusNoContent)
 		}
+	})
+	upgradeFails := false
+	clash.HandleFunc("POST /upgrade/ui", func(writer http.ResponseWriter, request *http.Request) {
+		if upgradeFails {
+			http.Error(writer, `{"message":"download external ui failed: 404 Not Found"}`, http.StatusInternalServerError)
+			return
+		}
+		writer.Write([]byte(`{"status":"ok"}`))
 	})
 	server := httptest.NewServer(clash)
 	defer server.Close()
@@ -324,7 +340,105 @@ func TestRecordedAnswers(t *testing.T) {
 	r.record("group_check", "the servers a group would choose", running, "group_check", `{"subscriptions":["prov1","prov3"],"include":["NL"],"exclude":["XX"]}`)
 
 	recordDevices(t, r)
+	recordActions(t, r, fake, running, stopped, &upgradeFails)
 	r.finish()
+}
+
+// recordActions records what the page does not read: the help and the calls that end in it, the
+// other failures of the commands, and the actions on the service, the lists, the subscriptions and
+// the statistics of BitTorrent. upgradeFails makes the Clash API fail the upgrade of the dashboard.
+func recordActions(t *testing.T, r *recorder, fake *backend, running Environment, stopped Environment, upgradeFails *bool) {
+	r.record("help", "no command: the help", running)
+	var help bytes.Buffer
+	Run(running, nil, &bytes.Buffer{}, &help)
+	asHelp := func(name string, about string, arguments ...string) {
+		r.recordWith(name, about, func(text string) string { return strings.ReplaceAll(text, help.String(), "<the help>\n") }, running, arguments...)
+	}
+	asHelp("help-unknown", "a command that is none", "no_such_command")
+	asHelp("help-empty", "an empty name", "")
+	asHelp("help-run", "a method of the bus, which is no command", "run", "get_status")
+	asHelp("group_check-none", "no group", "group_check")
+	asHelp("group_check-not-json", "a group that is no JSON", "group_check", "NL")
+	for _, command := range []string{"subscription_load", "subscription_load_start", "subscription_load_state", "subscription_load_cancel"} {
+		asHelp(command+"-none", "no address or job", command)
+	}
+	asHelp("subscription_load-not-json", "a request that is no JSON", "subscription_load", "https://sub.example/sub/TOKEN", "Happ")
+	asHelp("subscription_load_start-not-json", "a request that is no JSON", "subscription_load_start", "https://sub.example/sub/TOKEN", "Happ")
+
+	r.record("show_version", "the version of the backend", running, "show_version")
+	r.record("show_sing_box_version", "the version of sing-box", running, "show_sing_box_version")
+	r.record("check_links-none", "no link", running, "check_links")
+	r.record("show_config-none", "no settings file", Environment{Paths: diag.Paths{Settings: filepath.Join(r.temporary, "none")}}, "show_config")
+	r.record("show_sing_box_config-none", "no directory of the configurations", Environment{}, "show_sing_box_config")
+	r.record("show_sing_box_config-no-rejected", "no configuration was refused", stopped, "show_sing_box_config", "--rejected")
+	last := stopped
+	last.ConfigDir = t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(last.ConfigDir, api.LastConfig), []byte(`{"outbounds":[{"type":"socks","tag":"main-out","server":"203.0.113.15","server_port":1080,"password":"p"}]}`), 0o600))
+	r.record("show_sing_box_config-last", "nothing runs: the configuration that ran last, masked", last, "show_sing_box_config")
+	r.record("device-none", "no address", running, "device")
+	r.record("check_fakeip_client-none", "no label", running, "check_fakeip_client")
+	r.record("check_fakeip_client-stopped", "no backend answers", stopped, "check_fakeip_client", "0a1b2c3d4e5f")
+	r.record("group_check-stopped", "no backend answers", stopped, "group_check", `{"subscriptions":["prov1"],"include":[],"exclude":[]}`)
+	r.recordWith("check_logs-since", "the lines after a number of another run: all of this one (the times of the lines and the run made fixed)", func(text string) string {
+		return runOfLog.ReplaceAllString(logLineTimes.ReplaceAllString(text, `"<time> `), `"run":"<run>"`)
+	}, running, "check_logs", "--since", "otherrun:1")
+
+	// the actions of the Clash API but its answers to the page
+	r.record("clash_api-none", "no action", running, "clash_api")
+	r.record("clash_api-unknown", "an action that is none", running, "clash_api", "get_rules")
+	r.record("clash_api-get_proxy_latency-none", "no outbound", running, "clash_api", "get_proxy_latency")
+	r.record("clash_api-get_group_latency-none", "no group", running, "clash_api", "get_group_latency")
+	r.record("clash_api-get_group_latency-stopped", "no backend answers: no Clash API", stopped, "clash_api", "get_group_latency", "main-out")
+	r.record("clash_api-set_group_proxy-none", "no group and no server", running, "clash_api", "set_group_proxy")
+	r.record("clash_api-set_group_proxy-stopped", "no backend answers: no Clash API", stopped, "clash_api", "set_group_proxy", "main-out", "own-1-out")
+	r.record("clash_api-upgrade_ui", "the dashboard of GitHub", running, "clash_api", "upgrade_ui")
+	*upgradeFails = true
+	r.record("clash_api-upgrade_ui-failed", "the dashboard of GitHub, not downloaded", running, "clash_api", "upgrade_ui")
+	r.record("clash_api-upgrade_ui-stopped", "no backend answers: no Clash API", stopped, "clash_api", "upgrade_ui")
+
+	// the subscriptions and the jobs
+	r.record("subscription_load", "a list downloaded to be shown: the job's preview once it ended", running, "subscription_load", "https://sub.example/sub/TOKEN")
+	r.record("subscription_load-stopped", "no backend answers", stopped, "subscription_load", "https://sub.example/sub/TOKEN")
+	r.record("subscription_load_start-stopped", "no backend answers", stopped, "subscription_load_start", "https://sub.example/sub/TOKEN")
+	r.record("subscription_load_cancel-unknown", "a job the backend does not know", running, "subscription_load_cancel", "job9")
+	r.record("subscription_update_start-stopped", "no backend answers", stopped, "subscription_update_start", "prov1")
+	r.record("subscription_update-stopped", "no backend answers", stopped, "subscription_update", "prov1")
+
+	// the statistics of BitTorrent
+	fake.bitTorrent = btstats.Report{Mode: "bypass", Rule: "Main <1>", Since: 3600, Read: 2, Counted: true,
+		Rows: []btstats.Row{{Kind: btstats.KindUTP, Way: btstats.WayPast, Open: 2, Connections: 3,
+			Received: btstats.Count{Packets: 10, Bytes: 12000}, Sent: btstats.Count{Packets: 5, Bytes: 600}}},
+		Module: map[string]int64{"watched": 4, "confirmed": 1}}
+	for _, command := range []string{"bittorrent_stats", "bittorrent_reset", "bittorrent_counters"} {
+		r.record(command, "the backend's answer", running, command)
+		r.record(command+"-stopped", "no backend answers", stopped, command)
+	}
+	r.record("bittorrent_record-minutes", "no number of minutes", running, "bittorrent_record", "0")
+	r.record("bittorrent_record-stopped", "no backend answers", stopped, "bittorrent_record")
+	fake.bitTorrent = btstats.Report{}
+	r.record("bittorrent_record-off", "BitTorrent is as the other traffic", running, "bittorrent_record")
+
+	// the actions on what runs, the lists and the service
+	fake.result = api.Result{OK: true, Message: "applied in 40 ms, sing-box runs the new configuration"}
+	r.record("reload", "the settings applied", running, "reload")
+	fake.result = api.Result{Message: "the settings cannot be used, nothing is changed: no link"}
+	r.record("reload-refused", "the settings refused", running, "reload")
+	r.record("reload-stopped", "no backend answers", stopped, "reload")
+	fake.lists = api.ListsUpdate{OK: true, Lines: []string{"rule sets: 3 asked, 1 with a new list, 0 failed"}}
+	r.record("list_update", "every list downloaded", running, "list_update")
+	fake.lists = api.ListsUpdate{Lines: []string{"rule sets: 3 asked, 0 with a new list, 1 failed"}}
+	r.record("list_update-failed", "a list not downloaded", running, "list_update")
+	r.record("list_update-stopped", "no backend answers", stopped, "list_update")
+	r.record("restore_routing", "what the backend put back", running, "restore_routing")
+	r.record("restore_routing-stopped", "no backend answers", stopped, "restore_routing")
+	service := running
+	service.ServicePath = filepath.Join(filepath.Dir(stopped.Socket), "service")
+	require.NoError(t, os.WriteFile(service.ServicePath, []byte("#!/bin/sh\necho \"asked to $1 ($PODKOP_SERVICE_ACTION)\"\necho failing >&2\n[ $1 != stop ]\n"), 0o755))
+	for _, action := range []string{"start", "stop", "restart"} {
+		r.record(action, "the script of the service (here one that tells what it was asked, and fails to stop)", service, action)
+	}
+	t.Setenv(serviceActionVariable, "restart")
+	r.record("start-called-back", "the script of the service calls podkop back", service, "start")
 }
 
 // deviceCase is a case of "podkop device": the address, what the case is, the settings it reads,
