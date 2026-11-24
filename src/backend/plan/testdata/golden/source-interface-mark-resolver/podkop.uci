@@ -1,0 +1,49 @@
+config settings 'settings'
+	option config_version '2'
+	option dns_type 'udp'
+	option dns_server '77.88.8.8'
+	option bootstrap_dns_server '77.88.8.8'
+	option dns_rewrite_ttl '60'
+	list source_network_interfaces 'br-lan'
+	option update_interval '1d'
+	option cache_path '/usr/share/podkop/cache.db'
+	option log_level 'warn'
+
+config source 'awg'
+	option type 'interface'
+	option interface 'awg'
+	option routing_mark '0x10000'
+	option domain_resolver_enabled '1'
+	option domain_resolver_dns_type 'doh'
+	option domain_resolver_dns_server 'dns.example.org/dns-query'
+
+config source 'wg'
+	option type 'interface'
+	option interface 'wg0'
+	option routing_mark '77'
+
+config source 'mainroute'
+	option type 'interface'
+
+config section 'main'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'example.com'
+
+config member
+	option section 'main'
+	option role 'server'
+	option source 'awg'
+
+config member
+	option section 'main'
+	option role 'fallback'
+	option source 'mainroute'
+
+config section 'work'
+	option user_subnet_list_type 'dynamic'
+	list user_subnets '10.30.0.0/16'
+
+config member
+	option section 'work'
+	option role 'server'
+	option source 'wg'

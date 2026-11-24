@@ -1,0 +1,2 @@
+rule main, the user domain list: 1 item(s) are no domain and are left out, the first: "bad!name"
+rule main, the user subnet list: 1 item(s) are no subnet and are left out, the first: "not-a-subnet"

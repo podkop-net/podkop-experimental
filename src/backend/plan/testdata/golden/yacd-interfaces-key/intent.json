@@ -1,0 +1,26 @@
+{
+  "interfaces": [
+    "br-lan"
+  ],
+  "exclude_ntp": false,
+  "sources": [],
+  "take_dns": true,
+  "clash_api": "127.0.0.1:9090",
+  "clash_secret": "golden-yacd-key",
+  "clash_api_interfaces": [
+    "br-lan",
+    "wg-admin"
+  ],
+  "bittorrent": "",
+  "bittorrent_lan": false,
+  "bittorrent_fan": {
+    "burst": 0,
+    "rate": 0,
+    "unit": 0,
+    "pair": "0s",
+    "suspect": "0s"
+  },
+  "bittorrent_router_users": [],
+  "own_marks": [],
+  "ipv6": false
+}

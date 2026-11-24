@@ -1,0 +1,1 @@
+rule none: its sources name no server now: its connections are refused

@@ -1,0 +1,114 @@
+{
+  "routes": true,
+  "rules": {
+    "ai": {
+      "name": "ai",
+      "selector": "ai-out"
+    },
+    "main": {
+      "name": "main",
+      "selector": "main-out",
+      "test": "main-urltest-out"
+    },
+    "none": {
+      "name": "none",
+      "selector": "none-out"
+    }
+  },
+  "outbounds": {
+    "My servers: NL 1": {
+      "source": "mine",
+      "server": "NL 1",
+      "stable_hash": "7701d3024fda156cb642892d"
+    },
+    "My servers: NL 1 #2": {
+      "source": "mine",
+      "server": "NL 1 #2",
+      "stable_hash": "631d2477cda168f4b1210ed2"
+    },
+    "My servers: US AI-1": {
+      "source": "mine",
+      "server": "US AI-1",
+      "stable_hash": "c70289102f666c4d1e989e2e"
+    },
+    "ai-out": {
+      "rule": "ai"
+    },
+    "main-out": {
+      "rule": "main"
+    },
+    "main-urltest-out": {
+      "rule": "main"
+    },
+    "none-out": {
+      "rule": "none"
+    }
+  },
+  "swappable": [
+    "My servers: NL 1",
+    "My servers: NL 1 #2",
+    "My servers: US AI-1",
+    "ai-out",
+    "main-out",
+    "main-urltest-out",
+    "none-out"
+  ],
+  "legacy": {
+    "mine: NL 1": "My servers: NL 1",
+    "mine: NL 1 #2": "My servers: NL 1 #2",
+    "mine: US AI-1": "My servers: US AI-1"
+  },
+  "adopted_selectors": {
+    "ai-out": "ai-out",
+    "main-out": "main-out",
+    "none-out": "none-out"
+  },
+  "adopted_members": {
+    "mine: NL 1": "My servers: NL 1",
+    "mine: NL 1 #2": "My servers: NL 1 #2",
+    "mine: US AI-1": "My servers: US AI-1"
+  },
+  "no_downloads": [],
+  "rule_sets": [
+    {
+      "tag": "main-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+      "format": "source"
+    },
+    {
+      "tag": "ai-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/ai-user-domains-ruleset.json",
+      "format": "source"
+    },
+    {
+      "tag": "none-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/none-user-domains-ruleset.json",
+      "format": "source"
+    }
+  ],
+  "links": [
+    {
+      "section": "main",
+      "name": "My servers: NL 1",
+      "tag": "My servers: NL 1",
+      "text": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.41:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#NL%201"
+    },
+    {
+      "section": "main",
+      "name": "My servers: NL 1 #2",
+      "tag": "My servers: NL 1 #2",
+      "text": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.45:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#NL%201"
+    },
+    {
+      "section": "ai",
+      "name": "My servers: US AI-1",
+      "tag": "My servers: US AI-1",
+      "text": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.44:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#US%20AI-1"
+    }
+  ],
+  "file_order": [
+    "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+    "/var/run/podkop/rulesets/ai-user-domains-ruleset.json",
+    "/var/run/podkop/rulesets/none-user-domains-ruleset.json"
+  ]
+}

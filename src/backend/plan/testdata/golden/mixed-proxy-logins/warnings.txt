@@ -1,0 +1,1 @@
+rule half: the mixed proxy has a user name and no password: the mixed proxy is not created

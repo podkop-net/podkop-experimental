@@ -1,0 +1,2 @@
+BitTorrent: the user "root" (bittorrent_router_users) is root, as which nearly every program of the router runs: left out
+BitTorrent: the router has no user "ghost" (bittorrent_router_users): left out

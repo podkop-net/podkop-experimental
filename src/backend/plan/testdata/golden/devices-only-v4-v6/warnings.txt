@@ -1,0 +1,2 @@
+rule main, only for devices: 1 item(s) are no address or subnet of a device and are left out, the first: "laptop"
+rule main: the fully routed IP 192.168.1.99 is not among its devices (only for devices): left out

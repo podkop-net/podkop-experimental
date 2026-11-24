@@ -1,0 +1,199 @@
+{
+  "log": {
+    "disabled": false,
+    "level": "warn",
+    "timestamp": false
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "udp",
+        "tag": "bootstrap-dns-server",
+        "server": "77.88.8.8",
+        "server_port": 53
+      },
+      {
+        "type": "udp",
+        "tag": "dns-server",
+        "server": "77.88.8.8",
+        "server_port": 53
+      },
+      {
+        "type": "fakeip",
+        "tag": "fakeip-server",
+        "inet4_range": "198.18.0.0/15"
+      }
+    ],
+    "rules": [
+      {
+        "action": "reject",
+        "query_type": "HTTPS"
+      },
+      {
+        "action": "reject",
+        "domain_suffix": "use-application-dns.net"
+      },
+      {
+        "action": "route",
+        "server": "dns-server",
+        "domain": [
+          "0.openwrt.pool.ntp.org",
+          "1.openwrt.pool.ntp.org",
+          "2.openwrt.pool.ntp.org",
+          "3.openwrt.pool.ntp.org"
+        ]
+      },
+      {
+        "action": "route",
+        "server": "fakeip-server",
+        "rewrite_ttl": 60,
+        "rule_set": "main-user-domains-ruleset"
+      },
+      {
+        "action": "route",
+        "server": "fakeip-server",
+        "rewrite_ttl": 60,
+        "domain": [
+          "ready.fakeipchecker.podkop.net"
+        ]
+      },
+      {
+        "action": "route",
+        "server": "fakeip-server",
+        "rewrite_ttl": 60,
+        "domain_suffix": "fakeipchecker.podkop.net"
+      }
+    ],
+    "final": "dns-server",
+    "strategy": "ipv4_only",
+    "ipv6_if_no_ipv4": true
+  },
+  "ntp": {},
+  "certificate": {},
+  "http_clients": [
+    {
+      "tag": "lists",
+      "outbounds": [
+        "direct-out",
+        "main-out"
+      ]
+    }
+  ],
+  "endpoints": [],
+  "inbounds": [
+    {
+      "type": "tproxy",
+      "tag": "tproxy-in",
+      "listen": "127.0.0.1",
+      "listen_port": 1602,
+      "tcp_fast_open": true,
+      "udp_fragment": true
+    },
+    {
+      "type": "direct",
+      "tag": "dns-in",
+      "listen": "127.0.0.42",
+      "listen_port": 53
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct-out"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    },
+    {
+      "type": "vless",
+      "tag": "NL Reality",
+      "server": "203.0.113.10",
+      "server_port": 443,
+      "uuid": "9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4",
+      "flow": "xtls-rprx-vision",
+      "tls": {
+        "enabled": true,
+        "server_name": "www.example.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow",
+          "short_id": "0123abcd"
+        }
+      }
+    },
+    {
+      "type": "selector",
+      "tag": "main-out",
+      "outbounds": [
+        "NL Reality"
+      ],
+      "default": "NL Reality"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "action": "sniff",
+        "inbound": [
+          "tproxy-in",
+          "dns-in"
+        ]
+      },
+      {
+        "action": "hijack-dns",
+        "protocol": "dns"
+      },
+      {
+        "action": "route-options",
+        "domain_suffix": "fakeipchecker.podkop.net",
+        "override_address": "127.0.0.1",
+        "override_port": 1603
+      },
+      {
+        "action": "route",
+        "ip_cidr": "127.0.0.1",
+        "port": 1603,
+        "outbound": "direct-out"
+      },
+      {
+        "action": "route",
+        "inbound": "tproxy-in",
+        "outbound": "main-out",
+        "rule_set": "main-user-domains-ruleset"
+      }
+    ],
+    "rule_set": [
+      {
+        "type": "local",
+        "tag": "main-user-domains-ruleset",
+        "format": "source",
+        "path": "/var/run/podkop/rulesets/main-user-domains-ruleset.json"
+      }
+    ],
+    "final": "direct-out",
+    "default_mark": 2097152,
+    "default_domain_resolver": "dns-server",
+    "default_http_client": "lists"
+  },
+  "services": [],
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "/usr/share/podkop/cache.db",
+      "store_fakeip": true
+    },
+    "clash_api": {
+      "external_controller": "0.0.0.0:9090",
+      "external_ui": "/usr/share/podkop/ui",
+      "secret": "golden-yacd-key"
+    },
+    "utls_fallback": {
+      "enabled": true
+    }
+  }
+}

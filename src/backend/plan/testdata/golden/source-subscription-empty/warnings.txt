@@ -1,0 +1,4 @@
+source Subscription (sub) has no servers yet
+rule main: its sources name no server now: its connections are refused
+the source Subscription (sub) to connect through has no servers yet: the rows through it take none for now
+rule through: its sources name no server now: its connections are refused

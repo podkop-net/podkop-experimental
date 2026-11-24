@@ -1,0 +1,328 @@
+{
+  "log": {
+    "disabled": false,
+    "level": "warn",
+    "timestamp": false
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "udp",
+        "tag": "bootstrap-dns-server",
+        "server": "77.88.8.8",
+        "server_port": 53
+      },
+      {
+        "type": "udp",
+        "tag": "dns-server",
+        "server": "77.88.8.8",
+        "server_port": 53
+      },
+      {
+        "type": "fakeip",
+        "tag": "fakeip-server",
+        "inet4_range": "198.18.0.0/15"
+      }
+    ],
+    "rules": [
+      {
+        "action": "reject",
+        "query_type": "HTTPS"
+      },
+      {
+        "action": "reject",
+        "domain_suffix": "use-application-dns.net"
+      },
+      {
+        "action": "route",
+        "server": "dns-server",
+        "domain": [
+          "0.openwrt.pool.ntp.org",
+          "1.openwrt.pool.ntp.org",
+          "2.openwrt.pool.ntp.org",
+          "3.openwrt.pool.ntp.org"
+        ]
+      },
+      {
+        "action": "route",
+        "server": "fakeip-server",
+        "rewrite_ttl": 60,
+        "rule_set": [
+          "ads-user-domains-ruleset",
+          "bank-russia_inside-community-ruleset",
+          "bank-user-domains-ruleset",
+          "main-user-domains-ruleset",
+          "late-user-domains-ruleset",
+          "video-youtube-community-ruleset"
+        ]
+      },
+      {
+        "action": "route",
+        "server": "fakeip-server",
+        "rewrite_ttl": 60,
+        "domain": [
+          "ready.fakeipchecker.podkop.net"
+        ]
+      },
+      {
+        "action": "route",
+        "server": "fakeip-server",
+        "rewrite_ttl": 60,
+        "domain_suffix": "fakeipchecker.podkop.net"
+      }
+    ],
+    "final": "dns-server",
+    "strategy": "ipv4_only",
+    "ipv6_if_no_ipv4": true
+  },
+  "ntp": {},
+  "certificate": {},
+  "http_clients": [
+    {
+      "tag": "lists",
+      "outbounds": [
+        "direct-out",
+        "main-out",
+        "video-out"
+      ]
+    }
+  ],
+  "endpoints": [],
+  "inbounds": [
+    {
+      "type": "tproxy",
+      "tag": "tproxy-in",
+      "listen": "127.0.0.1",
+      "listen_port": 1602,
+      "tcp_fast_open": true,
+      "udp_fragment": true
+    },
+    {
+      "type": "direct",
+      "tag": "dns-in",
+      "listen": "127.0.0.42",
+      "listen_port": 53
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct-out"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    },
+    {
+      "type": "vless",
+      "tag": "NL Reality",
+      "server": "203.0.113.10",
+      "server_port": 443,
+      "uuid": "9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4",
+      "flow": "xtls-rprx-vision",
+      "tls": {
+        "enabled": true,
+        "server_name": "www.example.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow",
+          "short_id": "0123abcd"
+        }
+      }
+    },
+    {
+      "type": "selector",
+      "tag": "main-out",
+      "outbounds": [
+        "NL Reality"
+      ],
+      "default": "NL Reality"
+    },
+    {
+      "type": "vless",
+      "tag": "DE WS",
+      "server": "ws.example.org",
+      "server_port": 443,
+      "uuid": "1d8af00a-326d-47d5-ad31-4bcc2767a48d",
+      "tls": {
+        "enabled": true,
+        "server_name": "ws.example.org",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "firefox"
+        }
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/ws",
+        "headers": {
+          "Host": "cdn.example.org"
+        }
+      }
+    },
+    {
+      "type": "selector",
+      "tag": "video-out",
+      "outbounds": [
+        "DE WS"
+      ],
+      "default": "DE WS"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "action": "sniff",
+        "inbound": [
+          "tproxy-in",
+          "dns-in"
+        ]
+      },
+      {
+        "action": "hijack-dns",
+        "protocol": "dns"
+      },
+      {
+        "action": "route-options",
+        "domain_suffix": "fakeipchecker.podkop.net",
+        "override_address": "127.0.0.1",
+        "override_port": 1603
+      },
+      {
+        "action": "route",
+        "ip_cidr": "127.0.0.1",
+        "port": 1603,
+        "outbound": "direct-out"
+      },
+      {
+        "action": "reject",
+        "inbound": "tproxy-in",
+        "rule_set": "ads-user-domains-ruleset"
+      },
+      {
+        "action": "route",
+        "inbound": "tproxy-in",
+        "outbound": "direct-out",
+        "rule_set": [
+          "bank-russia_inside-community-ruleset",
+          "bank-user-domains-ruleset"
+        ]
+      },
+      {
+        "action": "route",
+        "inbound": "tproxy-in",
+        "outbound": "direct-out",
+        "source_ip_cidr": "192.168.1.10"
+      },
+      {
+        "action": "reject",
+        "inbound": "tproxy-in",
+        "source_ip_cidr": "192.168.1.66"
+      },
+      {
+        "action": "route",
+        "inbound": "tproxy-in",
+        "outbound": "main-out",
+        "source_ip_cidr": "192.168.1.50"
+      },
+      {
+        "action": "route",
+        "inbound": "tproxy-in",
+        "outbound": "video-out",
+        "source_ip_cidr": "192.168.1.60"
+      },
+      {
+        "action": "route",
+        "inbound": "tproxy-in",
+        "outbound": "main-out",
+        "rule_set": "main-user-domains-ruleset"
+      },
+      {
+        "action": "route",
+        "inbound": "tproxy-in",
+        "outbound": "direct-out",
+        "rule_set": "late-user-domains-ruleset"
+      },
+      {
+        "action": "route",
+        "inbound": "tproxy-in",
+        "outbound": "video-out",
+        "rule_set": "video-youtube-community-ruleset"
+      },
+      {
+        "action": "reject",
+        "inbound": "tproxy-in",
+        "rule_set": "lateblock-user-subnets-ruleset"
+      }
+    ],
+    "rule_set": [
+      {
+        "type": "local",
+        "tag": "ads-user-domains-ruleset",
+        "format": "source",
+        "path": "/var/run/podkop/rulesets/ads-user-domains-ruleset.json"
+      },
+      {
+        "type": "remote",
+        "tag": "bank-russia_inside-community-ruleset",
+        "format": "binary",
+        "url": "https://github.com/itdoginfo/allow-domains/releases/latest/download/russia_inside.srs",
+        "update_interval": "1d"
+      },
+      {
+        "type": "local",
+        "tag": "bank-user-domains-ruleset",
+        "format": "source",
+        "path": "/var/run/podkop/rulesets/bank-user-domains-ruleset.json"
+      },
+      {
+        "type": "local",
+        "tag": "main-user-domains-ruleset",
+        "format": "source",
+        "path": "/var/run/podkop/rulesets/main-user-domains-ruleset.json"
+      },
+      {
+        "type": "local",
+        "tag": "late-user-domains-ruleset",
+        "format": "source",
+        "path": "/var/run/podkop/rulesets/late-user-domains-ruleset.json"
+      },
+      {
+        "type": "remote",
+        "tag": "video-youtube-community-ruleset",
+        "format": "binary",
+        "url": "https://github.com/itdoginfo/allow-domains/releases/latest/download/youtube.srs",
+        "update_interval": "1d"
+      },
+      {
+        "type": "local",
+        "tag": "lateblock-user-subnets-ruleset",
+        "format": "source",
+        "path": "/var/run/podkop/rulesets/lateblock-user-subnets-ruleset.json"
+      }
+    ],
+    "final": "direct-out",
+    "default_mark": 2097152,
+    "default_domain_resolver": "dns-server",
+    "default_http_client": "lists"
+  },
+  "services": [],
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "/usr/share/podkop/cache.db",
+      "store_fakeip": true
+    },
+    "clash_api": {
+      "external_controller": "127.0.0.1:9090",
+      "secret": "a1b2c3d4e5f60718293a4b5c6d7e8f90"
+    },
+    "utls_fallback": {
+      "enabled": true
+    }
+  }
+}

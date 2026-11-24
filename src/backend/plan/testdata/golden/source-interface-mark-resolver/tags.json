@@ -1,0 +1,75 @@
+{
+  "routes": true,
+  "rules": {
+    "main": {
+      "name": "main",
+      "selector": "main-out",
+      "test": "main-urltest-out"
+    },
+    "work": {
+      "name": "work",
+      "selector": "work-out"
+    }
+  },
+  "outbounds": {
+    "Main route": {
+      "source": "mainroute",
+      "stable_hash": "5acb2294dfab281c74fbb829"
+    },
+    "awg": {
+      "source": "awg",
+      "stable_hash": "5cbcf6b4cbbaf92f5a4c3a5a"
+    },
+    "main-out": {
+      "rule": "main"
+    },
+    "main-urltest-out": {
+      "rule": "main"
+    },
+    "wg0": {
+      "source": "wg",
+      "stable_hash": "9596888592731eac841cb162"
+    },
+    "work-out": {
+      "rule": "work"
+    }
+  },
+  "swappable": [
+    "Main route",
+    "awg",
+    "main-out",
+    "main-urltest-out",
+    "wg0",
+    "work-out"
+  ],
+  "legacy": {
+    "mainroute": "Main route",
+    "wg": "wg0"
+  },
+  "adopted_selectors": {
+    "main-out": "main-out",
+    "work-out": "work-out"
+  },
+  "adopted_members": {
+    "mainroute": "Main route",
+    "wg": "wg0"
+  },
+  "no_downloads": [],
+  "rule_sets": [
+    {
+      "tag": "main-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+      "format": "source"
+    },
+    {
+      "tag": "work-user-subnets-ruleset",
+      "path": "/var/run/podkop/rulesets/work-user-subnets-ruleset.json",
+      "format": "source"
+    }
+  ],
+  "links": [],
+  "file_order": [
+    "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+    "/var/run/podkop/rulesets/work-user-subnets-ruleset.json"
+  ]
+}

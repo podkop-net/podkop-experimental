@@ -1,0 +1,1 @@
+unsupported DNS server type "quic"

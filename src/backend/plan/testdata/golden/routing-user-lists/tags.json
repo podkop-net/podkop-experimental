@@ -1,0 +1,71 @@
+{
+  "routes": true,
+  "rules": {
+    "main": {
+      "name": "main",
+      "selector": "main-out"
+    },
+    "text": {
+      "name": "text",
+      "selector": "text-out"
+    }
+  },
+  "outbounds": {
+    "NL Reality": {
+      "source": "own",
+      "stable_hash": "d841d613b2254e22c07f8808"
+    },
+    "main-out": {
+      "rule": "main"
+    },
+    "text-out": {
+      "rule": "text"
+    }
+  },
+  "swappable": [
+    "NL Reality",
+    "main-out",
+    "text-out"
+  ],
+  "legacy": {
+    "own": "NL Reality"
+  },
+  "adopted_selectors": {
+    "main-out": "main-out",
+    "text-out": "text-out"
+  },
+  "adopted_members": {
+    "own": "NL Reality"
+  },
+  "no_downloads": [],
+  "rule_sets": [
+    {
+      "tag": "main-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+      "format": "source"
+    },
+    {
+      "tag": "main-user-subnets-ruleset",
+      "path": "/var/run/podkop/rulesets/main-user-subnets-ruleset.json",
+      "format": "source"
+    },
+    {
+      "tag": "text-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/text-user-domains-ruleset.json",
+      "format": "source"
+    }
+  ],
+  "links": [
+    {
+      "section": "main",
+      "name": "NL Reality",
+      "tag": "NL Reality",
+      "text": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.10:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=0123abcd&flow=xtls-rprx-vision&type=tcp&encryption=none&fp=chrome#NL%20Reality"
+    }
+  ],
+  "file_order": [
+    "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+    "/var/run/podkop/rulesets/main-user-subnets-ruleset.json",
+    "/var/run/podkop/rulesets/text-user-domains-ruleset.json"
+  ]
+}

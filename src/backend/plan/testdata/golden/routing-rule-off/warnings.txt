@@ -1,0 +1,2 @@
+rule nothing has no servers: the rule does nothing
+rule pending: its sources are not filled yet: the rule does nothing

@@ -1,0 +1,1 @@
+IPv6 is set to go through podkop, but the router has no IPv6 (no address ::1): IPv6 goes past podkop

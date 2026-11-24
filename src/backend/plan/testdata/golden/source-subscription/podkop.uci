@@ -1,0 +1,46 @@
+config settings 'settings'
+	option config_version '2'
+	option dns_type 'udp'
+	option dns_server '77.88.8.8'
+	option bootstrap_dns_server '77.88.8.8'
+	option dns_rewrite_ttl '60'
+	list source_network_interfaces 'br-lan'
+	option update_interval '1d'
+	option cache_path '/usr/share/podkop/cache.db'
+	option log_level 'warn'
+
+config source 'sub'
+	option type 'subscription'
+	option url 'https://sub.example.org/api/sub/TOKEN'
+	option update_interval 'auto'
+	option user_agent_preset 'happ'
+	list header 'X-Device: golden'
+
+config source 'own'
+	option type 'links'
+	list link 'vless://1d8af00a-326d-47d5-ad31-4bcc2767a48d@ws.example.org:443?security=tls&type=ws&host=cdn.example.org&path=%2Fws&sni=ws.example.org&fp=firefox#DE%20WS'
+
+config section 'main'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'example.com'
+
+config member
+	option section 'main'
+	option role 'server'
+	option source 'sub'
+	list exclude 'RU'
+
+config member
+	option section 'main'
+	option role 'fallback'
+	option source 'own'
+
+config section 'nl'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'nl.example'
+
+config member
+	option section 'nl'
+	option role 'server'
+	option source 'sub'
+	list include 'NL'

@@ -1,0 +1,42 @@
+config settings 'settings'
+	option config_version '2'
+	option dns_type 'udp'
+	option dns_server '77.88.8.8'
+	option bootstrap_dns_server '77.88.8.8'
+	option dns_rewrite_ttl '60'
+	list source_network_interfaces 'br-lan'
+	option update_interval '1d'
+	option cache_path '/usr/share/podkop/cache.db'
+	option log_level 'warn'
+
+config source 'own'
+	option type 'links'
+	list link 'vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.10:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=0123abcd&flow=xtls-rprx-vision&type=tcp&encryption=none&fp=chrome#NL%20Reality'
+
+config section 'main'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'example.com'
+	list user_domains 'sub.example.org'
+	list user_domains 'bad!name'
+	list user_domains 'xn--80ak6aa92e.com'
+	option user_subnet_list_type 'text'
+	option user_subnets_text '203.0.113.0/24, 198.51.100.7 // a comment
+2001:db8:10::/48
+not-a-subnet
+// only a comment'
+
+config member
+	option section 'main'
+	option role 'server'
+	option source 'own'
+
+config section 'text'
+	option user_domain_list_type 'text'
+	option user_domains_text 'one.example two.example,three.example
+// comment line
+four.example // trailing'
+
+config member
+	option section 'text'
+	option role 'server'
+	option source 'own'

@@ -1,0 +1,4 @@
+the loss URL "ftp://loss.example.org/1mb" is not an http or https URL with a host: https://speed.cloudflare.com/__down?bytes=1048576 is used
+rule odd: the loss check interval "2" is not a number of minutes from 5 to 1440: 30 minutes are used
+rule odd: the loss threshold "80" is not a percentage above 0 and up to 50: 1 % is used
+rule unknown: the server choice "random" is not known: the fastest server is used

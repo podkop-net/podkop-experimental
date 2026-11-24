@@ -1,0 +1,3 @@
+server socks: a treatment needs TLS, which this server has none of; it is left off
+server trojan: the mask "e.example.org" is not a host name other than the server's; the treatment is left off
+server vless (b) via vless (relay): tls.spoof does not work through a proxy, only directly or through an interface (it needs the server's own connection): it is left off here

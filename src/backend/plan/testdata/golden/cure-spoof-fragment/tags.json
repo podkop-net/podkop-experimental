@@ -1,0 +1,99 @@
+{
+  "routes": true,
+  "rules": {
+    "far": {
+      "name": "far",
+      "selector": "far-out"
+    },
+    "main": {
+      "name": "main",
+      "selector": "main-out",
+      "test": "main-urltest-out"
+    }
+  },
+  "outbounds": {
+    "far-out": {
+      "rule": "far"
+    },
+    "main-out": {
+      "rule": "main"
+    },
+    "main-urltest-out": {
+      "rule": "main"
+    },
+    "socks": {
+      "source": "c",
+      "stable_hash": "80e394223ec0f130f372308d"
+    },
+    "trojan": {
+      "source": "e",
+      "stable_hash": "10fe40da0790f8c915dc2c5e"
+    },
+    "vless": {
+      "source": "a",
+      "stable_hash": "6576998386d2ccfd67ff9949"
+    },
+    "vless (b)": {
+      "source": "b",
+      "stable_hash": "340431d63284711c5b13718b"
+    },
+    "vless (b) via vless (relay)": {
+      "source": "b",
+      "via": "relay",
+      "stable_hash": "340431d63284711c5b13718b"
+    },
+    "vless (relay)": {
+      "source": "relay",
+      "stable_hash": "b18f3b63e6da3071a2049bc9"
+    }
+  },
+  "swappable": [
+    "far-out",
+    "main-out",
+    "main-urltest-out",
+    "socks",
+    "trojan",
+    "vless",
+    "vless (b)",
+    "vless (b) via vless (relay)",
+    "vless (relay)"
+  ],
+  "legacy": {
+    "a": "vless",
+    "b": "vless (b)",
+    "b via relay": "vless (b) via vless (relay)",
+    "c": "socks",
+    "e": "trojan",
+    "relay": "vless (relay)"
+  },
+  "adopted_selectors": {
+    "far-out": "far-out",
+    "main-out": "main-out"
+  },
+  "adopted_members": {
+    "a": "vless",
+    "b": "vless (b)",
+    "b via relay": "vless (b) via vless (relay)",
+    "c": "socks",
+    "e": "trojan",
+    "relay": "vless (relay)"
+  },
+  "no_downloads": [],
+  "rule_sets": [
+    {
+      "tag": "main-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+      "format": "source"
+    },
+    {
+      "tag": "far-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/far-user-domains-ruleset.json",
+      "format": "source"
+    }
+  ],
+  "links": [],
+  "file_order": [
+    "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+    "/var/run/podkop/rulesets/far-user-domains-ruleset.json"
+  ]
+}

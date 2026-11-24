@@ -1,0 +1,1 @@
+section main: rule main: no community list is named "no_such_list"

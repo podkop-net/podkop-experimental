@@ -1,0 +1,92 @@
+{
+  "routes": true,
+  "rules": {
+    "main": {
+      "name": "main",
+      "selector": "main-out",
+      "test": "main-urltest-out"
+    },
+    "picked": {
+      "name": "picked",
+      "selector": "picked-out"
+    }
+  },
+  "outbounds": {
+    "NL Reality": {
+      "source": "relay",
+      "stable_hash": "d841d613b2254e22c07f8808"
+    },
+    "Plain JSON": {
+      "source": "plain",
+      "stable_hash": "099cd956b668f87ec58a66ba"
+    },
+    "main-out": {
+      "rule": "main"
+    },
+    "main-urltest-out": {
+      "rule": "main"
+    },
+    "picked-out": {
+      "rule": "picked"
+    },
+    "selector": {
+      "source": "pick",
+      "stable_hash": "9ffedafb0743262fcc56130d"
+    },
+    "socks via NL Reality": {
+      "source": "chain",
+      "via": "relay",
+      "stable_hash": "1059ea4c42d572cb6257971e"
+    }
+  },
+  "swappable": [
+    "NL Reality",
+    "Plain JSON",
+    "main-out",
+    "main-urltest-out",
+    "picked-out",
+    "selector",
+    "socks via NL Reality"
+  ],
+  "legacy": {
+    "chain via relay": "socks via NL Reality",
+    "pick": "selector",
+    "plain": "Plain JSON",
+    "relay": "NL Reality"
+  },
+  "adopted_selectors": {
+    "main-out": "main-out",
+    "picked-out": "picked-out"
+  },
+  "adopted_members": {
+    "chain via relay": "socks via NL Reality",
+    "pick": "selector",
+    "plain": "Plain JSON",
+    "relay": "NL Reality"
+  },
+  "no_downloads": [],
+  "rule_sets": [
+    {
+      "tag": "main-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+      "format": "source"
+    },
+    {
+      "tag": "picked-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/picked-user-domains-ruleset.json",
+      "format": "source"
+    }
+  ],
+  "links": [
+    {
+      "section": "relay",
+      "name": "NL Reality",
+      "tag": "NL Reality",
+      "text": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.10:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=0123abcd&flow=xtls-rprx-vision&type=tcp&encryption=none&fp=chrome#NL%20Reality"
+    }
+  ],
+  "file_order": [
+    "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+    "/var/run/podkop/rulesets/picked-user-domains-ruleset.json"
+  ]
+}

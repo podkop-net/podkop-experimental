@@ -1,0 +1,2 @@
+rule odd: a row of the source DE WS (far) connects through the same source: the row takes no server
+rule odd: there is no source nosuch to connect through: the row takes no server

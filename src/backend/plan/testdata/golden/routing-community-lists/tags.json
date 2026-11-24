@@ -1,0 +1,100 @@
+{
+  "routes": true,
+  "rules": {
+    "cdn": {
+      "name": "cdn",
+      "selector": "cdn-out"
+    },
+    "main": {
+      "name": "main",
+      "selector": "main-out"
+    }
+  },
+  "outbounds": {
+    "DE WS": {
+      "source": "cdnsrc",
+      "stable_hash": "80d4db020c8aaec6e6199868"
+    },
+    "NL Reality": {
+      "source": "own",
+      "stable_hash": "d841d613b2254e22c07f8808"
+    },
+    "cdn-out": {
+      "rule": "cdn"
+    },
+    "main-out": {
+      "rule": "main"
+    }
+  },
+  "swappable": [
+    "DE WS",
+    "NL Reality",
+    "cdn-out",
+    "main-out"
+  ],
+  "legacy": {
+    "cdnsrc": "DE WS",
+    "own": "NL Reality"
+  },
+  "adopted_selectors": {
+    "cdn-out": "cdn-out",
+    "main-out": "main-out"
+  },
+  "adopted_members": {
+    "cdnsrc": "DE WS",
+    "own": "NL Reality"
+  },
+  "no_downloads": [],
+  "rule_sets": [
+    {
+      "tag": "main-russia_inside-community-ruleset",
+      "url": "https://github.com/itdoginfo/allow-domains/releases/latest/download/russia_inside.srs",
+      "format": "binary"
+    },
+    {
+      "tag": "main-youtube-community-ruleset",
+      "url": "https://github.com/itdoginfo/allow-domains/releases/latest/download/youtube.srs",
+      "format": "binary"
+    },
+    {
+      "tag": "main-discord-community-ruleset",
+      "url": "https://github.com/itdoginfo/allow-domains/releases/latest/download/discord.srs",
+      "format": "binary"
+    },
+    {
+      "tag": "main-telegram-community-ruleset",
+      "url": "https://github.com/itdoginfo/allow-domains/releases/latest/download/telegram.srs",
+      "format": "binary"
+    },
+    {
+      "tag": "cdn-cloudflare-community-ruleset",
+      "url": "https://github.com/itdoginfo/allow-domains/releases/latest/download/cloudflare.srs",
+      "format": "binary"
+    },
+    {
+      "tag": "cdn-hetzner-community-ruleset",
+      "url": "https://github.com/itdoginfo/allow-domains/releases/latest/download/hetzner.srs",
+      "format": "binary"
+    },
+    {
+      "tag": "cdn-ovh-community-ruleset",
+      "url": "https://github.com/itdoginfo/allow-domains/releases/latest/download/ovh.srs",
+      "format": "binary"
+    }
+  ],
+  "links": [
+    {
+      "section": "main",
+      "name": "NL Reality",
+      "tag": "NL Reality",
+      "text": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.10:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=0123abcd&flow=xtls-rprx-vision&type=tcp&encryption=none&fp=chrome#NL%20Reality"
+    },
+    {
+      "section": "cdn",
+      "name": "DE WS",
+      "tag": "DE WS",
+      "text": "vless://1d8af00a-326d-47d5-ad31-4bcc2767a48d@ws.example.org:443?security=tls&type=ws&host=cdn.example.org&path=%2Fws&sni=ws.example.org&fp=firefox#DE%20WS"
+    }
+  ],
+  "file_order": []
+}

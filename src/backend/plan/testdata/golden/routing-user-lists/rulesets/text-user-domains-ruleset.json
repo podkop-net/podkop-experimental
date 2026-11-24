@@ -1,0 +1,13 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "one.example",
+        "two.example",
+        "three.example",
+        "four.example"
+      ]
+    }
+  ]
+}

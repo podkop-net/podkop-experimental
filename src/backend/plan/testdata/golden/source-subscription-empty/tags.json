@@ -1,0 +1,49 @@
+{
+  "routes": true,
+  "rules": {
+    "main": {
+      "name": "main",
+      "selector": "main-out"
+    },
+    "through": {
+      "name": "through",
+      "selector": "through-out"
+    }
+  },
+  "outbounds": {
+    "main-out": {
+      "rule": "main"
+    },
+    "through-out": {
+      "rule": "through"
+    }
+  },
+  "swappable": [
+    "main-out",
+    "through-out"
+  ],
+  "legacy": {},
+  "adopted_selectors": {
+    "main-out": "main-out",
+    "through-out": "through-out"
+  },
+  "adopted_members": {},
+  "no_downloads": [],
+  "rule_sets": [
+    {
+      "tag": "main-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+      "format": "source"
+    },
+    {
+      "tag": "through-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/through-user-domains-ruleset.json",
+      "format": "source"
+    }
+  ],
+  "links": [],
+  "file_order": [
+    "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+    "/var/run/podkop/rulesets/through-user-domains-ruleset.json"
+  ]
+}

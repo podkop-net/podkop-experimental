@@ -1,0 +1,10 @@
+IPv6 traffic "both" is no mode (bypass, podkop): IPv6 goes past podkop
+BitTorrent: the rule "nothere" is not there, is off or goes nowhere: BitTorrent goes as the other traffic
+rule tvonly, only for devices: 2 item(s) are no address or subnet of a device and are left out, the first: "tv"
+rule tvonly: no item of "only for devices" is an address or a subnet: the rule takes no traffic: its devices go past its servers, by the rules below or directly
+rule main: direct among the servers counts only as the one row of the servers: the row is left out; as a fallback it is used
+rule main: there is no source nosuch
+rule unfilled: its sources are not filled yet: the rule does nothing
+DNS addresses "v6" is no mode (prefer_ipv4, ipv4_only, both): prefer_ipv4 is used
+rule nolists has no list: no route rule for it
+the address for the mixed proxy of main is not known: it is not created

@@ -1,0 +1,12 @@
+{
+  "version": 3,
+  "rules": [
+    {
+      "domain_suffix": [
+        "example.com",
+        "sub.example.org",
+        "xn--80ak6aa92e.com"
+      ]
+    }
+  ]
+}

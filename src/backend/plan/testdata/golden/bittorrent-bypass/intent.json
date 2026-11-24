@@ -1,0 +1,25 @@
+{
+  "interfaces": [
+    "br-lan"
+  ],
+  "exclude_ntp": false,
+  "sources": [
+    "192.168.1.50/32"
+  ],
+  "take_dns": true,
+  "clash_api": "127.0.0.1:9090",
+  "clash_secret": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+  "clash_api_interfaces": [],
+  "bittorrent": "bypass",
+  "bittorrent_lan": false,
+  "bittorrent_fan": {
+    "burst": 0,
+    "rate": 0,
+    "unit": 0,
+    "pair": "0s",
+    "suspect": "0s"
+  },
+  "bittorrent_router_users": [],
+  "own_marks": [],
+  "ipv6": false
+}

@@ -1,0 +1,50 @@
+config settings 'settings'
+	option config_version '2'
+	option dns_type 'udp'
+	option dns_server '77.88.8.8'
+	option bootstrap_dns_server '77.88.8.8'
+	option dns_rewrite_ttl '60'
+	list source_network_interfaces 'br-lan'
+	option update_interval '1d'
+	option cache_path '/usr/share/podkop/cache.db'
+	option log_level 'warn'
+
+config source 'relay'
+	option type 'links'
+	list link 'vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.10:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=0123abcd&flow=xtls-rprx-vision&type=tcp&encryption=none&fp=chrome#NL%20Reality'
+
+config source 'chain'
+	option type 'json'
+	option outbound_json '{"type": "socks", "server": "198.51.100.60", "server_port": 1080, "detour": "relay"}'
+
+config source 'plain'
+	option type 'json'
+	option label 'Plain JSON'
+	option outbound_json '﻿{"type": "http", "tag": "ignored", "server": "198.51.100.61", "server_port": 8080}'
+
+config source 'pick'
+	option type 'json'
+	option outbound_json '{"type": "selector", "outbounds": ["relay", "main-out", "direct-out"]}'
+
+config section 'main'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'example.com'
+
+config member
+	option section 'main'
+	option role 'server'
+	option source 'chain'
+
+config member
+	option section 'main'
+	option role 'server'
+	option source 'plain'
+
+config section 'picked'
+	option user_domain_list_type 'dynamic'
+	list user_domains 'picked.example'
+
+config member
+	option section 'picked'
+	option role 'server'
+	option source 'pick'

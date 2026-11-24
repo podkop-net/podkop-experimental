@@ -1,0 +1,28 @@
+{
+  "sub": [
+    {
+      "name": "🇳🇱 NL 1",
+      "link": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.51:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#x"
+    },
+    {
+      "name": "🇳🇱 NL 1",
+      "link": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.52:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#x"
+    },
+    {
+      "name": "",
+      "link": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.53:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#x"
+    },
+    {
+      "name": "🇷🇺 RU",
+      "link": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.54:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#x"
+    },
+    {
+      "name": "DE",
+      "link": "bogus://203.0.113.55"
+    },
+    {
+      "name": "FI Hy2",
+      "link": "hysteria2://golden-hy2@hy.example.org:443/?sni=hy.example.org&obfs=salamander&obfs-password=golden-obfs#HY2"
+    }
+  ]
+}

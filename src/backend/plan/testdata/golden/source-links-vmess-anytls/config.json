@@ -1,0 +1,231 @@
+{
+  "log": {
+    "disabled": false,
+    "level": "warn",
+    "timestamp": false
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "udp",
+        "tag": "bootstrap-dns-server",
+        "server": "77.88.8.8",
+        "server_port": 53
+      },
+      {
+        "type": "udp",
+        "tag": "dns-server",
+        "server": "77.88.8.8",
+        "server_port": 53
+      },
+      {
+        "type": "fakeip",
+        "tag": "fakeip-server",
+        "inet4_range": "198.18.0.0/15"
+      }
+    ],
+    "rules": [
+      {
+        "action": "reject",
+        "query_type": "HTTPS"
+      },
+      {
+        "action": "reject",
+        "domain_suffix": "use-application-dns.net"
+      },
+      {
+        "action": "route",
+        "server": "dns-server",
+        "domain": [
+          "0.openwrt.pool.ntp.org",
+          "1.openwrt.pool.ntp.org",
+          "2.openwrt.pool.ntp.org",
+          "3.openwrt.pool.ntp.org"
+        ]
+      },
+      {
+        "action": "route",
+        "server": "fakeip-server",
+        "rewrite_ttl": 60,
+        "rule_set": "main-user-domains-ruleset"
+      },
+      {
+        "action": "route",
+        "server": "fakeip-server",
+        "rewrite_ttl": 60,
+        "domain": [
+          "ready.fakeipchecker.podkop.net"
+        ]
+      },
+      {
+        "action": "route",
+        "server": "fakeip-server",
+        "rewrite_ttl": 60,
+        "domain_suffix": "fakeipchecker.podkop.net"
+      }
+    ],
+    "final": "dns-server",
+    "strategy": "ipv4_only",
+    "ipv6_if_no_ipv4": true
+  },
+  "ntp": {},
+  "certificate": {},
+  "http_clients": [
+    {
+      "tag": "lists",
+      "outbounds": [
+        "direct-out",
+        "main-out"
+      ]
+    }
+  ],
+  "endpoints": [],
+  "inbounds": [
+    {
+      "type": "tproxy",
+      "tag": "tproxy-in",
+      "listen": "127.0.0.1",
+      "listen_port": 1602,
+      "tcp_fast_open": true,
+      "udp_fragment": true
+    },
+    {
+      "type": "direct",
+      "tag": "dns-in",
+      "listen": "127.0.0.42",
+      "listen_port": 53
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct-out"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    },
+    {
+      "type": "vmess",
+      "tag": "vmess link",
+      "server": "vm.example.org",
+      "server_port": 443,
+      "uuid": "a4aed896-0146-4777-a6ba-5434b88f7aba",
+      "security": "auto",
+      "tls": {
+        "enabled": true,
+        "server_name": "vm.example.org",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "transport": {
+        "type": "ws",
+        "path": "/vm",
+        "headers": {
+          "Host": "cdn.example.org"
+        }
+      }
+    },
+    {
+      "type": "anytls",
+      "tag": "AnyTLS",
+      "server": "any.example.org",
+      "server_port": 443,
+      "tls": {
+        "enabled": true,
+        "server_name": "any.example.org"
+      },
+      "password": "golden-anytls"
+    },
+    {
+      "type": "urltest",
+      "tag": "main-urltest-out",
+      "outbounds": [
+        "vmess link",
+        "AnyTLS"
+      ],
+      "urls": [
+        "https://www.gstatic.com/generate_204",
+        "https://cp.cloudflare.com/generate_204",
+        "https://captive.apple.com/hotspot-detect.html",
+        "https://detectportal.firefox.com/success.txt",
+        "https://www.apple.com/library/test/success.html"
+      ],
+      "interval": "1m",
+      "tolerance": 50,
+      "download_url": "https://speed.cloudflare.com/__down?bytes=65536"
+    },
+    {
+      "type": "selector",
+      "tag": "main-out",
+      "outbounds": [
+        "main-urltest-out",
+        "vmess link",
+        "AnyTLS"
+      ],
+      "default": "main-urltest-out"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "action": "sniff",
+        "inbound": [
+          "tproxy-in",
+          "dns-in"
+        ]
+      },
+      {
+        "action": "hijack-dns",
+        "protocol": "dns"
+      },
+      {
+        "action": "route-options",
+        "domain_suffix": "fakeipchecker.podkop.net",
+        "override_address": "127.0.0.1",
+        "override_port": 1603
+      },
+      {
+        "action": "route",
+        "ip_cidr": "127.0.0.1",
+        "port": 1603,
+        "outbound": "direct-out"
+      },
+      {
+        "action": "route",
+        "inbound": "tproxy-in",
+        "outbound": "main-out",
+        "rule_set": "main-user-domains-ruleset"
+      }
+    ],
+    "rule_set": [
+      {
+        "type": "local",
+        "tag": "main-user-domains-ruleset",
+        "format": "source",
+        "path": "/var/run/podkop/rulesets/main-user-domains-ruleset.json"
+      }
+    ],
+    "final": "direct-out",
+    "default_mark": 2097152,
+    "default_domain_resolver": "dns-server",
+    "default_http_client": "lists"
+  },
+  "services": [],
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "/usr/share/podkop/cache.db",
+      "store_fakeip": true
+    },
+    "clash_api": {
+      "external_controller": "127.0.0.1:9090",
+      "secret": "a1b2c3d4e5f60718293a4b5c6d7e8f90"
+    },
+    "utls_fallback": {
+      "enabled": true
+    }
+  }
+}

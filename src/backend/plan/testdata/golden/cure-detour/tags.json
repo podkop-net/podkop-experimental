@@ -1,0 +1,97 @@
+{
+  "routes": true,
+  "rules": {
+    "main": {
+      "name": "main",
+      "selector": "main-out",
+      "test": "main-urltest-out"
+    }
+  },
+  "outbounds": {
+    "My servers-best": {
+      "source": "pool"
+    },
+    "My servers: P1": {
+      "source": "pool",
+      "server": "P1",
+      "stable_hash": "0df5fdd00da7e5e424ae7e79"
+    },
+    "My servers: P2": {
+      "source": "pool",
+      "server": "P2",
+      "stable_hash": "5f5eca81b758297a1757236d"
+    },
+    "main-out": {
+      "rule": "main"
+    },
+    "main-urltest-out": {
+      "rule": "main"
+    },
+    "vless": {
+      "source": "own",
+      "stable_hash": "06f04a30f00d7c5e50e934a7"
+    },
+    "vless (other)": {
+      "source": "other",
+      "stable_hash": "340431d63284711c5b13718b"
+    },
+    "vless (relay)": {
+      "source": "relay",
+      "stable_hash": "b18f3b63e6da3071a2049bc9"
+    }
+  },
+  "swappable": [
+    "My servers-best",
+    "My servers: P1",
+    "My servers: P2",
+    "main-out",
+    "main-urltest-out",
+    "vless",
+    "vless (other)",
+    "vless (relay)"
+  ],
+  "legacy": {
+    "other": "vless (other)",
+    "own": "vless",
+    "pool-best": "My servers-best",
+    "pool: P1": "My servers: P1",
+    "pool: P2": "My servers: P2",
+    "relay": "vless (relay)"
+  },
+  "adopted_selectors": {
+    "main-out": "main-out"
+  },
+  "adopted_members": {
+    "other": "vless (other)",
+    "own": "vless",
+    "pool-best": "My servers-best",
+    "pool: P1": "My servers: P1",
+    "pool: P2": "My servers: P2",
+    "relay": "vless (relay)"
+  },
+  "no_downloads": [],
+  "rule_sets": [
+    {
+      "tag": "main-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+      "format": "source"
+    }
+  ],
+  "links": [
+    {
+      "section": "pool",
+      "name": "My servers: P1",
+      "tag": "My servers: P1",
+      "text": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.91:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#P1"
+    },
+    {
+      "section": "pool",
+      "name": "My servers: P2",
+      "tag": "My servers: P2",
+      "text": "vless://9c17d9be-4eaa-4336-89ce-1ecdd76b7ac4@203.0.113.92:443?security=reality&sni=www.example.com&pbk=6x33-mZSKbpyS22-wakXnzZvlay3BUianS6cPaJQ-Ow&sid=01&type=tcp&fp=chrome#P2"
+    }
+  ],
+  "file_order": [
+    "/var/run/podkop/rulesets/main-user-domains-ruleset.json"
+  ]
+}

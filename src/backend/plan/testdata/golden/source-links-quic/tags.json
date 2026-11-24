@@ -1,0 +1,68 @@
+{
+  "routes": true,
+  "rules": {
+    "main": {
+      "name": "main",
+      "selector": "main-out",
+      "test": "main-urltest-out"
+    }
+  },
+  "outbounds": {
+    "HY2": {
+      "source": "hy2",
+      "stable_hash": "67b563dccfff1ad997ad9e7e"
+    },
+    "TUIC": {
+      "source": "tuic",
+      "stable_hash": "f61cc4db6873745904f76f9c"
+    },
+    "main-out": {
+      "rule": "main"
+    },
+    "main-urltest-out": {
+      "rule": "main"
+    }
+  },
+  "swappable": [
+    "HY2",
+    "TUIC",
+    "main-out",
+    "main-urltest-out"
+  ],
+  "legacy": {
+    "hy2": "HY2",
+    "tuic": "TUIC"
+  },
+  "adopted_selectors": {
+    "main-out": "main-out"
+  },
+  "adopted_members": {
+    "hy2": "HY2",
+    "tuic": "TUIC"
+  },
+  "no_downloads": [],
+  "rule_sets": [
+    {
+      "tag": "main-user-domains-ruleset",
+      "path": "/var/run/podkop/rulesets/main-user-domains-ruleset.json",
+      "format": "source"
+    }
+  ],
+  "links": [
+    {
+      "section": "main",
+      "name": "HY2",
+      "tag": "HY2",
+      "text": "hysteria2://golden-hy2@hy.example.org:443/?sni=hy.example.org&obfs=salamander&obfs-password=golden-obfs#HY2"
+    },
+    {
+      "section": "main",
+      "name": "TUIC",
+      "tag": "TUIC",
+      "text": "tuic://52bda3d4-630e-481a-8e23-d3e8ec070abc:golden-tuic@tuic.example.org:443?congestion_control=bbr&alpn=h3&sni=tuic.example.org#TUIC"
+    }
+  ],
+  "file_order": [
+    "/var/run/podkop/rulesets/main-user-domains-ruleset.json"
+  ]
+}

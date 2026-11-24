@@ -1,0 +1,3 @@
+local list /etc/podkop/lists/work.lst: 1 item(s) are neither a domain nor an IP CIDR and are left out, the first: "not a domain"
+local list /etc/podkop/lists/missing.lst is not found: it is left empty until the settings are applied again
+local list /etc/podkop/lists/broken.json cannot be read as a list (unexpected end of JSON input: row 2, column 0): it is left empty until the settings are applied again

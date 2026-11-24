@@ -1,0 +1,1 @@
+rule main: the routing mark of the source awg0 (awg) has the bits of podkop's marks (0x100000, 0x400000): its connections would come back into sing-box
