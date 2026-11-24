@@ -1,0 +1,113 @@
+# The import edges between the packages of the backend: the files that are not tests, whatever
+# their build constraints (TestImportEdges, edges_test.go). A line is "from -> to", the directories
+# of the packages under src/backend ("." is the root package podkop), and a note after "#".
+#
+# A new edge fails the test, and so does a line whose edge the sources no longer have: the commit
+# that adds or removes an edge changes this list. go test -run TestImportEdges -update . writes it
+# anew, with the notes of the edges that stay.
+#
+# "known:" marks a layering problem already found (the workspace's
+# notes/2026-11-23-ux-refactor/backend.md, section 1.2), to be struck by the commit that removes
+# the edge; "noted:" an edge that section names as cutting across the layers, a smaller one.
+
+api -> btstats              # noted: the types of the socket hold the report of the statistics (api.go)
+api -> logbuf
+btstats -> dataplane
+btstats -> model            # noted: how firewall and api reach model (with firewall -> btstats and api -> btstats)
+clock -> dataplane
+clock -> uci
+cmd/podkop -> .
+cmd/podkop -> api
+cmd/podkop -> btstats
+cmd/podkop -> clock
+cmd/podkop -> ctl
+cmd/podkop -> dataplane
+cmd/podkop -> detect
+cmd/podkop -> diag
+cmd/podkop -> dnsmasq
+cmd/podkop -> engine
+cmd/podkop -> firewall
+cmd/podkop -> logbuf
+cmd/podkop -> migrate
+cmd/podkop -> model
+cmd/podkop -> netcfg
+cmd/podkop -> plan
+cmd/podkop -> probe
+cmd/podkop -> render
+cmd/podkop -> subscription
+cmd/podkop -> supervisor
+cmd/podkop -> ubus
+cmd/podkop -> uci
+cmd/podkop -> yacd
+ctl -> api
+ctl -> btstats
+ctl -> clock
+ctl -> dataplane
+ctl -> diag
+ctl -> engine
+ctl -> firewall             # noted: a command reaches the kernel itself besides asking the daemon (ctl/device.go)
+ctl -> model
+ctl -> netcfg               # noted: commands reach the kernel themselves (ctl/global.go, interfaces.go, mtu.go)
+ctl -> plan
+ctl -> probe
+ctl -> sockets
+ctl -> subscription
+ctl -> ubus
+ctl -> uci
+ctl -> yacd
+diag -> dataplane
+diag -> dnsmasq
+diag -> firewall            # noted: the checks reach the kernel themselves (diag/checks.go, trace.go)
+diag -> model
+diag -> netcfg              # noted: the checks reach the kernel themselves (diag/router.go)
+diag -> plan
+diag -> probe
+diag -> sockets
+diag -> subscription
+diag -> uci
+dnsmasq -> dataplane
+dnsmasq -> uci
+engine -> detect
+engine -> engine/bittorrent
+engine -> firewall          # known: an init() of engine/bittorrent_linux.go stores two functions of the firewall into variables of engine/bittorrent: the adapter of sing-box depends on the adapter of nftables through globals
+firewall -> btstats         # known: the adapter of nftables returns the types of the statistics (firewall/conntrack_linux.go), and btstats imports model
+firewall -> dataplane
+lists -> engine             # noted: a small helper above the adapter of sing-box (lists/derive.go)
+lists -> firewall           # noted: a small helper above the adapter of nftables (lists/derive.go)
+migrate -> uci
+model -> dataplane
+model -> migrate
+model -> uci
+netcfg -> dataplane
+netcfg -> uci
+plan -> dataplane
+plan -> model
+plan -> serverid
+probe -> engine             # noted: a small helper above the adapter of sing-box (probe/probe.go)
+render -> engine
+render -> model
+render -> plan
+render -> uci
+subscription -> api         # known: the download and the reading of the lists take the types of the socket (subscription/changes.go, info.go)
+subscription -> dataplane
+subscription -> serverid
+supervisor -> api
+supervisor -> btstats
+supervisor -> clock
+supervisor -> dataplane
+supervisor -> detect
+supervisor -> dnsmasq
+supervisor -> engine
+supervisor -> firewall
+supervisor -> lists
+supervisor -> migrate
+supervisor -> model
+supervisor -> netcfg
+supervisor -> plan
+supervisor -> probe
+supervisor -> render
+supervisor -> sockets
+supervisor -> subscription
+supervisor -> uci
+supervisor -> yacd
+yacd -> dataplane
