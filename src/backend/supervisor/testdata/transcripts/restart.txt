@@ -1,0 +1,101 @@
+# restart: an inbound that changes starts a new sing-box
+# (supervisor/transcript_test.go; go test -run TestTranscripts -update ./supervisor/ writes it anew)
+
+== write the settings: a rule of names through a SOCKS5 proxy
+state: none, running false
+
+== Boot
+log warn: the settings were converted to the format 2: the old file is $DIR/podkop.pre-0.8.8
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine Check C1 -> ok
+    C1 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53; outbounds: direct-out direct, block block, socks5 link socks, main-out selector; rule sets: 1
+engine ExcludeDownloads []
+engine Build C1 -> instance 1
+instance 1 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 1 Start -> ok
+engine Ready -> ok
+instance 1 AdoptSelections {main-out=main-out} members {main_link=socks5 link}
+log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall none to P1 -> ok
+    P1 = interfaces br-lan
+log info: firewall: 0 address ranges of the lists go to the proxy by address
+system TakeOverDNS -> changed true
+log info: the DNS of the LAN asks the backend now
+dnsmasq Kick after 3s
+log info: running, N ms after the start
+clock Kick
+result ok: started in N ms
+state: running, running true
+
+== write the settings: the same with a mixed proxy on port 2080
+state: running, running true
+
+== Apply
+log warn: the settings were converted to the format 2: the old file is $DIR/podkop.pre-0.8.8
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine Check C2 -> ok
+    C2 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53, main-mixed-in mixed 192.168.1.1:2080; outbounds: direct-out direct, block block, socks5 link socks, main-out selector; rule sets: 1
+instance 1 CarrySelections C2 -> none
+instance 1 Close -> ok
+engine ExcludeDownloads []
+engine Build C2 -> instance 2
+instance 2 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 2 Start -> ok
+engine Ready -> ok
+instance 2 AdoptSelections {main-out=main-out} members {main_link=socks5 link}
+log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall P1 to P1 -> ok
+system TakeOverDNS -> changed false
+log info: the settings are applied in N ms, sing-box runs the new configuration (it did not answer for N ms, of which the previous one took N ms to close)
+result ok: applied in N ms, sing-box runs the new configuration
+state: running, running true
+
+== write the settings: the mixed proxy off again, another TTL
+state: running, running true
+
+== Apply
+log warn: the settings were converted to the format 2: the old file is $DIR/podkop.pre-0.8.8
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine Check C3 -> ok
+    C3 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53; outbounds: direct-out direct, block block, socks5 link socks, main-out selector; rule sets: 1
+instance 2 CarrySelections C3 -> none
+instance 2 Close -> ok
+engine ExcludeDownloads []
+engine Build C3 -> instance 3
+instance 3 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 3 Start -> ok
+engine Ready -> ok
+instance 3 AdoptSelections {main-out=main-out} members {main_link=socks5 link}
+log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall P1 to P1 -> ok
+system TakeOverDNS -> changed false
+log info: the settings are applied in N ms, sing-box runs the new configuration (it did not answer for N ms, of which the previous one took N ms to close)
+result ok: applied in N ms, sing-box runs the new configuration
+state: running, running true
+
+== Stop
+system RestoreDNS -> changed true
+log info: the DNS of the LAN is as it was before the backend
+dnsmasq Kick after 3s
+system RemoveFirewall
+system RemoveRouting
+instance 3 Close -> ok
+state: stopped, running false

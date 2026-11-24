@@ -1,0 +1,199 @@
+# rollback: a configuration that does not come up gives way to the previous one; when that does not either, the router is given back and the start tried again
+# (supervisor/transcript_test.go; go test -run TestTranscripts -update ./supervisor/ writes it anew)
+
+== write the settings: the TTL 60
+state: none, running false
+
+== Boot
+log warn: the settings were converted to the format 2: the old file is $DIR/podkop.pre-0.8.8
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine Check C1 -> ok
+    C1 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53; outbounds: direct-out direct, block block, socks5 link socks, main-out selector; rule sets: 1
+engine ExcludeDownloads []
+engine Build C1 -> instance 1
+instance 1 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 1 Start -> ok
+engine Ready -> ok
+instance 1 AdoptSelections {main-out=main-out} members {main_link=socks5 link}
+log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall none to P1 -> ok
+    P1 = interfaces br-lan
+log info: firewall: 0 address ranges of the lists go to the proxy by address
+system TakeOverDNS -> changed true
+log info: the DNS of the LAN asks the backend now
+dnsmasq Kick after 3s
+log info: running, N ms after the start
+clock Kick
+result ok: started in N ms
+state: running, running true
+
+== meanwhile: a start of the configuration of the TTL 61 fails
+state: running, running true
+
+== write the settings: the TTL 61
+state: running, running true
+
+== Apply
+log warn: the settings were converted to the format 2: the old file is $DIR/podkop.pre-0.8.8
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine Check C2 -> ok
+    C2 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53; outbounds: direct-out direct, block block, socks5 link socks, main-out selector; rule sets: 1
+instance 1 CarrySelections C2 -> none
+instance 1 Close -> ok
+engine ExcludeDownloads []
+engine Build C2 -> instance 2
+instance 2 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 2 Start -> error: permission denied
+log error: the new configuration does not come up, going back to the previous one: start sing-box: permission denied
+engine ExcludeDownloads []
+engine Build C1 -> instance 3
+instance 3 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 3 Start -> ok
+engine Ready -> ok
+instance 3 AdoptSelections {main-out=main-out} members {main_link=socks5 link}
+log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+instance 3 Select none
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall P1 to P1 -> ok
+system TakeOverDNS -> changed false
+result failed: the new configuration does not come up, the previous one runs again: start sing-box: permission denied
+state: running, running true
+
+== meanwhile: sing-box of the TTL 62 does not answer
+state: running, running true
+
+== write the settings: the TTL 62
+state: running, running true
+
+== Apply
+log warn: the settings were converted to the format 2: the old file is $DIR/podkop.pre-0.8.8
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine Check C3 -> ok
+    C3 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53; outbounds: direct-out direct, block block, socks5 link socks, main-out selector; rule sets: 1
+instance 3 CarrySelections C3 -> none
+instance 3 Close -> ok
+engine ExcludeDownloads []
+engine Build C3 -> instance 4
+instance 4 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 4 Start -> ok
+engine Ready -> error: i/o timeout
+instance 4 Close -> ok
+log error: the new configuration does not come up, going back to the previous one: i/o timeout
+engine ExcludeDownloads []
+engine Build C1 -> instance 5
+instance 5 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 5 Start -> ok
+engine Ready -> ok
+instance 5 AdoptSelections {main-out=main-out} members {main_link=socks5 link}
+log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+instance 5 Select none
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall P1 to P1 -> ok
+system TakeOverDNS -> changed false
+result failed: the new configuration does not come up, the previous one runs again: i/o timeout
+state: running, running true
+
+== meanwhile: the starts of the TTL 61 and 60 both fail
+state: running, running true
+
+== write the settings: the TTL 61
+state: running, running true
+
+== Apply
+log warn: the settings were converted to the format 2: the old file is $DIR/podkop.pre-0.8.8
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine Check C2 -> ok
+instance 5 CarrySelections C2 -> none
+instance 5 Close -> ok
+engine ExcludeDownloads []
+engine Build C2 -> instance 6
+instance 6 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 6 Start -> error: permission denied
+log error: the new configuration does not come up, going back to the previous one: start sing-box: permission denied
+engine ExcludeDownloads []
+engine Build C1 -> instance 7
+instance 7 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 7 Start -> error: permission denied
+log error: the previous configuration does not come up either: start sing-box: permission denied
+system RestoreDNS -> changed true
+log info: the DNS of the LAN is as it was before the backend
+dnsmasq Kick after 3s
+system RemoveFirewall
+system RemoveRouting
+result failed: the new configuration does not come up: start sing-box: permission denied; the previous one does not either: start sing-box: permission denied
+state: failed, running false
+
+== the network changes (RestoreRouting)
+dnsmasq Kick after 12s
+log info: the start failed before (1 in a row): it is tried again
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine Check C2 -> ok
+engine ExcludeDownloads []
+engine Build C2 -> instance 8
+instance 8 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 8 Start -> error: permission denied
+log error: start sing-box: permission denied
+system RestoreDNS -> changed false
+system RemoveFirewall
+system RemoveRouting
+answer: the start that had failed was tried again: start sing-box: permission denied
+state: failed, running false
+
+== meanwhile: sing-box starts again
+state: failed, running false
+
+== the network changes (RestoreRouting)
+dnsmasq Kick after 12s
+log info: the start failed before (2 in a row): it is tried again
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine Check C2 -> ok
+engine ExcludeDownloads []
+engine Build C2 -> instance 9
+instance 9 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 9 Start -> ok
+engine Ready -> ok
+instance 9 AdoptSelections {main-out=main-out} members {main_link=socks5 link}
+log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall none to P1 -> ok
+system TakeOverDNS -> changed true
+log info: the DNS of the LAN asks the backend now
+dnsmasq Kick after 3s
+log info: running, N ms after the start
+clock Kick
+answer: the start that had failed was tried again: started in N ms
+state: running, running true
+
+== Stop
+system RestoreDNS -> changed true
+log info: the DNS of the LAN is as it was before the backend
+dnsmasq Kick after 3s
+system RemoveFirewall
+system RemoveRouting
+instance 9 Close -> ok
+state: stopped, running false

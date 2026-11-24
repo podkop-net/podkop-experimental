@@ -1,0 +1,140 @@
+# hot-swap: the servers of a subscription that change are swapped into the sing-box that runs; a list in another order changes nothing; a swap sing-box refuses starts it anew
+# (supervisor/transcript_test.go; go test -run TestTranscripts -update ./supervisor/ writes it anew)
+
+== write the settings: a subscription in a group of NL
+state: none, running false
+
+== Boot
+log warn: the settings were converted to the format 2: the old file is $DIR/podkop.pre-0.8.8
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+log warn: source prov1 has no servers yet
+engine Check C1 -> ok
+    C1 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53; outbounds: direct-out direct, block block, socks5 link socks, main-out selector, youtube-urltest-out urltest, youtube-out selector; rule sets: 2
+engine ExcludeDownloads []
+engine Build C1 -> instance 1
+instance 1 OnRuleSetUpdate [main-user-domains-ruleset, youtube-user-domains-ruleset]
+instance 1 Start -> ok
+engine Ready -> ok
+instance 1 AdoptSelections {main-out=main-out, youtube-out=youtube-out} members {main_link=socks5 link}
+log info: configuration: rules main (socks5 link), youtube (prov1 with NL; fallbacks block); sources prov1 (subscription), socks5 link (1 links); 2 lists (0 downloaded, 2 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+log info: list youtube-user-domains-ruleset: file $DIR/rulesets/youtube-user-domains-ruleset.json
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall none to P1 -> ok
+    P1 = interfaces br-lan
+log info: firewall: 0 address ranges of the lists go to the proxy by address
+system TakeOverDNS -> changed true
+log info: the DNS of the LAN asks the backend now
+dnsmasq Kick after 3s
+log info: running, N ms after the start
+clock Kick
+result ok: started in N ms
+subscriptions: prov1 0 servers, next in 10s
+state: running, running true
+
+== every subscription is due: the downloads start
+subscriptions: prov1 busy
+state: running, running true
+
+== the provider https://sub1.example/s answers with 2 servers
+log info: subscription prov1: 2 servers, 2 can be used (direct in 0.8 s)
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine ExcludeDownloads []
+instance 1 Swap C2 put [prov1: NL 1, youtube-urltest-out, youtube-out] remove [] limit 64 -> ok
+    C2 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53; outbounds: direct-out direct, block block, socks5 link socks, main-out selector, prov1: NL 1 vless, youtube-urltest-out urltest, youtube-out selector; rule sets: 2
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall P1 to P1 -> ok
+system TakeOverDNS -> changed false
+log info: the settings are applied in N ms: the servers of the groups are replaced (1 new outbounds, 2 rebuilt, 0 taken out; 0 replaced ones kept while connections may use them), sing-box keeps running
+subscriptions: prov1 2 servers, next in 1h0m0s
+state: running, running true
+
+== every subscription is due: the downloads start
+subscriptions: prov1 busy
+state: running, running true
+
+== the provider https://sub1.example/s answers with 2 servers
+log info: subscription prov1: the list has not changed (direct in 0.8 s)
+subscriptions: prov1 2 servers, next in 1h0m0s
+state: running, running true
+
+== every subscription is due: the downloads start
+subscriptions: prov1 busy
+state: running, running true
+
+== the provider https://sub1.example/s answers with 2 servers
+log info: subscription prov1: renamed 1, changed 0, removed 0, added 0; 2 servers, 2 can be used (direct in 0.8 s)
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine ExcludeDownloads []
+instance 1 Swap C3 put [prov1: NL 1 (29 days), youtube-urltest-out, youtube-out] remove [prov1: NL 1] limit 64 -> ok
+    C3 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53; outbounds: direct-out direct, block block, socks5 link socks, main-out selector, prov1: NL 1 (29 days) vless, youtube-urltest-out urltest, youtube-out selector; rule sets: 2
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall P1 to P1 -> ok
+system TakeOverDNS -> changed false
+log info: the settings are applied in N ms: the servers of the groups are replaced (1 new outbounds, 2 rebuilt, 1 taken out; 0 replaced ones kept while connections may use them), sing-box keeps running
+subscriptions: prov1 2 servers, next in 1h0m0s
+state: running, running true
+
+== meanwhile: sing-box refuses to take a configuration with NL 2 while it runs
+subscriptions: prov1 2 servers, next in 1h0m0s
+state: running, running true
+
+== every subscription is due: the downloads start
+subscriptions: prov1 busy
+state: running, running true
+
+== the provider https://sub1.example/s answers with 2 servers
+log info: subscription prov1: renamed 0, changed 0, removed 1, added 1; 2 servers, 2 can be used (direct in 0.8 s)
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine ExcludeDownloads []
+instance 1 Swap C4 put [prov1: NL 2, youtube-urltest-out, youtube-out] remove [] limit 64 -> error: invalid argument
+    C4 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53; outbounds: direct-out direct, block block, socks5 link socks, main-out selector, prov1: NL 1 (29 days) vless, prov1: NL 2 vless, youtube-urltest-out urltest, youtube-out selector; rule sets: 2
+engine ExcludeDownloads []
+log warn: sing-box did not take the new servers of the groups while it runs (invalid argument): the configuration is checked to start anew
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine Check C4 -> ok
+instance 1 CarrySelections C4 -> none
+instance 1 Close -> ok
+engine ExcludeDownloads []
+engine Build C4 -> instance 2
+instance 2 OnRuleSetUpdate [main-user-domains-ruleset, youtube-user-domains-ruleset]
+instance 2 Start -> ok
+engine Ready -> ok
+instance 2 AdoptSelections {main-out=main-out, youtube-out=youtube-out} members {main_link=socks5 link}
+log info: configuration: rules main (socks5 link), youtube (prov1 with NL; fallbacks block); sources prov1 (subscription), socks5 link (1 links); 2 lists (0 downloaded, 2 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+log info: list youtube-user-domains-ruleset: file $DIR/rulesets/youtube-user-domains-ruleset.json
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall P1 to P1 -> ok
+system TakeOverDNS -> changed false
+log info: the settings are applied in N ms, sing-box runs the new configuration (it did not answer for N ms, of which the previous one took N ms to close)
+subscriptions: prov1 2 servers, next in 1h0m0s
+state: running, running true
+
+== Stop
+system RestoreDNS -> changed true
+log info: the DNS of the LAN is as it was before the backend
+dnsmasq Kick after 3s
+system RemoveFirewall
+system RemoveRouting
+instance 2 Close -> ok
+subscriptions: prov1 2 servers, next in 1h0m0s
+state: stopped, running false

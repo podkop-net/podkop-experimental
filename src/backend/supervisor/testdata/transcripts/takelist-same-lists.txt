@@ -1,0 +1,121 @@
+# takelist-same-lists: a list that has not changed starts the download that waited, and, the last of a round, applies the lists taken and answers the callers
+# (supervisor/transcript_test.go; go test -run TestTranscripts -update ./supervisor/ writes it anew)
+
+== write the settings: three subscriptions in a group of NL
+state: none, running false
+
+== Boot
+log warn: the settings were converted to the format 2: the old file is $DIR/podkop.pre-0.8.8
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+log warn: source prov1 has no servers yet
+log warn: source prov2 has no servers yet
+log warn: source prov3 has no servers yet
+engine Check C1 -> ok
+    C1 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53; outbounds: direct-out direct, block block, socks5 link socks, main-out selector, youtube-urltest-out urltest, youtube-out selector; rule sets: 2
+engine ExcludeDownloads []
+engine Build C1 -> instance 1
+instance 1 OnRuleSetUpdate [main-user-domains-ruleset, youtube-user-domains-ruleset]
+instance 1 Start -> ok
+engine Ready -> ok
+instance 1 AdoptSelections {main-out=main-out, youtube-out=youtube-out} members {main_link=socks5 link}
+log info: configuration: rules main (socks5 link), youtube (prov1 with NL, prov2 with NL, prov3 with NL; fallbacks block); sources prov1 (subscription), prov2 (subscription), prov3 (subscription), socks5 link (1 links); 2 lists (0 downloaded, 2 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+log info: list youtube-user-domains-ruleset: file $DIR/rulesets/youtube-user-domains-ruleset.json
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall none to P1 -> ok
+    P1 = interfaces br-lan
+log info: firewall: 0 address ranges of the lists go to the proxy by address
+system TakeOverDNS -> changed true
+log info: the DNS of the LAN asks the backend now
+dnsmasq Kick after 3s
+log info: running, N ms after the start
+clock Kick
+result ok: started in N ms
+subscriptions: prov1 0 servers, next in 10s; prov2 0 servers, next in 10s; prov3 0 servers, next in 10s
+state: running, running true
+
+== every subscription is due: the downloads start
+subscriptions: prov1 busy; prov2 busy; prov3 0 servers, due
+state: running, running true
+
+== the provider https://sub1.example/s answers with 1 servers
+log info: subscription prov1: 1 servers, 1 can be used (direct in 0.8 s)
+subscriptions: prov1 1 servers, next in 1h0m0s; prov2 busy; prov3 busy
+state: running, running true
+
+== the provider https://sub2.example/s answers with 1 servers
+log info: subscription prov2: 1 servers, 1 can be used (direct in 0.8 s)
+subscriptions: prov1 1 servers, next in 1h0m0s; prov2 1 servers, next in 1h0m0s; prov3 busy
+state: running, running true
+
+== the provider https://sub3.example/s answers with 1 servers
+log info: subscription prov3: 1 servers, 1 can be used (direct in 0.8 s)
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine ExcludeDownloads []
+instance 1 Swap C2 put [prov1: NL 11, prov2: NL 21, prov3: NL 31, youtube-urltest-out, youtube-out] remove [] limit 64 -> ok
+    C2 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53; outbounds: direct-out direct, block block, socks5 link socks, main-out selector, prov1: NL 11 vless, prov2: NL 21 vless, prov3: NL 31 vless, youtube-urltest-out urltest, youtube-out selector; rule sets: 2
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall P1 to P1 -> ok
+system TakeOverDNS -> changed false
+log info: the settings are applied in N ms: the servers of the groups are replaced (3 new outbounds, 2 rebuilt, 0 taken out; 0 replaced ones kept while connections may use them), sing-box keeps running
+subscriptions: prov1 1 servers, next in 1h0m0s; prov2 1 servers, next in 1h0m0s; prov3 1 servers, next in 1h0m0s
+state: running, running true
+
+== every subscription is due: the downloads start
+subscriptions: prov1 busy; prov2 busy; prov3 1 servers, due
+state: running, running true
+
+== a caller asks for the download of prov3 and waits
+subscriptions: prov1 busy; prov2 busy; prov3 1 servers, due
+state: running, running true
+
+== a caller asks for the download of all and waits
+subscriptions: prov1 busy; prov2 busy; prov3 1 servers, due
+state: running, running true
+
+== the provider https://sub1.example/s answers with 1 servers
+log info: subscription prov1: the list has not changed (direct in 0.8 s)
+subscriptions: prov1 1 servers, next in 1h0m0s; prov2 busy; prov3 busy
+state: running, running true
+
+== the provider https://sub2.example/s answers with 2 servers
+log info: subscription prov2: renamed 0, changed 0, removed 0, added 1; 2 servers, 2 can be used (direct in 0.8 s)
+subscriptions: prov1 1 servers, next in 1h0m0s; prov2 2 servers, next in 1h0m0s; prov3 busy
+state: running, running true
+
+== the provider https://sub3.example/s answers with 1 servers
+log info: subscription prov3: the list has not changed (direct in 0.8 s)
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine ExcludeDownloads []
+instance 1 Swap C3 put [prov2: NL 22, youtube-urltest-out, youtube-out] remove [] limit 64 -> ok
+    C3 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53; outbounds: direct-out direct, block block, socks5 link socks, main-out selector, prov1: NL 11 vless, prov2: NL 21 vless, prov2: NL 22 vless, prov3: NL 31 vless, youtube-urltest-out urltest, youtube-out selector; rule sets: 2
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall P1 to P1 -> ok
+system TakeOverDNS -> changed false
+log info: the settings are applied in N ms: the servers of the groups are replaced (1 new outbounds, 2 rebuilt, 0 taken out; 0 replaced ones kept while connections may use them), sing-box keeps running
+answered the caller of prov3: prov1 1 servers, next in 1h0m0s; prov2 2 servers, next in 1h0m0s; prov3 1 servers, next in 1h0m0s
+answered the caller of all: prov1 1 servers, next in 1h0m0s; prov2 2 servers, next in 1h0m0s; prov3 1 servers, next in 1h0m0s
+subscriptions: prov1 1 servers, next in 1h0m0s; prov2 2 servers, next in 1h0m0s; prov3 1 servers, next in 1h0m0s
+state: running, running true
+
+== Stop
+system RestoreDNS -> changed true
+log info: the DNS of the LAN is as it was before the backend
+dnsmasq Kick after 3s
+system RemoveFirewall
+system RemoveRouting
+instance 1 Close -> ok
+subscriptions: prov1 1 servers, next in 1h0m0s; prov2 2 servers, next in 1h0m0s; prov3 1 servers, next in 1h0m0s
+state: stopped, running false

@@ -1,0 +1,88 @@
+# rule-set-loads: a list sing-box loads fills the firewall sets; one without addresses is not read; one not loaded again is not read again
+# (supervisor/transcript_test.go; go test -run TestTranscripts -update ./supervisor/ writes it anew)
+
+== write the settings: a rule with a list of subnets and a list of names
+state: none, running false
+
+== Boot
+log warn: the settings were converted to the format 2: the old file is $DIR/podkop.pre-0.8.8
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine Check C1 -> ok
+    C1 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53; outbounds: direct-out direct, block block, socks5 link socks, main-out selector; rule sets: 3
+engine ExcludeDownloads []
+engine Build C1 -> instance 1
+instance 1 OnRuleSetUpdate [main-user-domains-ruleset, main-domains-text-domains-ruleset, main-subnets-text-subnets-ruleset]
+instance 1 Start -> ok
+engine Ready -> ok
+instance 1 AdoptSelections {main-out=main-out} members {main_link=socks5 link}
+log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 3 lists (2 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+log info: list main-domains-text-domains-ruleset: http://192.0.2.80/domains.lst
+log info: list main-subnets-text-subnets-ruleset: http://192.0.2.80/subnets.lst
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+instance 1 RuleSetContent main-domains-text-domains-ruleset -> none
+instance 1 RuleSetContent main-subnets-text-subnets-ruleset -> none
+system UpdateFirewall none to P1 -> ok
+    P1 = interfaces br-lan
+log info: firewall: 0 address ranges of the lists go to the proxy by address
+system TakeOverDNS -> changed true
+log info: the DNS of the LAN asks the backend now
+dnsmasq Kick after 3s
+log info: running, N ms after the start
+clock Kick
+result ok: started in N ms
+state: running, running true
+
+== meanwhile: the list of names has no rule of addresses
+state: running, running true
+
+== sing-box loads the list /subnets.lst: 11.0.0.0/24
+log info: list main-subnets-text-subnets-ruleset updated (http://192.0.2.80/subnets.lst)
+instance 1 RuleSetContent main-domains-text-domains-ruleset -> none
+instance 1 RuleSetContent main-subnets-text-subnets-ruleset -> 12 bytes
+system UpdateFirewall P1 to P2 -> ok
+    P2 = interfaces br-lan
+      subnets 11.0.0.0/24
+log info: firewall: 1 address ranges of the lists go to the proxy by address
+state: running, running true
+
+== sing-box loads the list /domains.lst: one.lab.example
+log info: list main-domains-text-domains-ruleset updated (http://192.0.2.80/domains.lst)
+system UpdateFirewall P2 to P2 -> ok
+state: running, running true
+
+== sing-box loads the list /subnets.lst: 11.0.0.0/24 11.0.2.0/24
+log info: list main-subnets-text-subnets-ruleset updated (http://192.0.2.80/subnets.lst)
+instance 1 RuleSetContent main-subnets-text-subnets-ruleset -> 24 bytes
+system UpdateFirewall P2 to P3 -> ok
+    P3 = interfaces br-lan
+      subnets 11.0.0.0/24 11.0.2.0/24
+log info: firewall: 2 address ranges of the lists go to the proxy by address
+state: running, running true
+
+== Apply
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine ExcludeDownloads []
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall P3 to P3 -> ok
+system TakeOverDNS -> changed false
+log info: the settings are applied in N ms, sing-box keeps running
+result ok: applied in N ms, sing-box keeps running
+state: running, running true
+
+== Stop
+system RestoreDNS -> changed true
+log info: the DNS of the LAN is as it was before the backend
+dnsmasq Kick after 3s
+system RemoveFirewall
+system RemoveRouting
+instance 1 Close -> ok
+state: stopped, running false

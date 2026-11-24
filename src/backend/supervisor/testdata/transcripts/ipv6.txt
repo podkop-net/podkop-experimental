@@ -1,0 +1,143 @@
+# ipv6: IPv6 through podkop: its routing and firewall; what fails of IPv6 alone leaves IPv4 working
+# (supervisor/transcript_test.go; go test -run TestTranscripts -update ./supervisor/ writes it anew)
+
+== meanwhile: the router has IPv6
+state: none, running false
+
+== write the settings: IPv6 through podkop, devices routed whole, the NTP of the LAN left alone
+state: none, running false
+
+== Boot
+log warn: the settings were converted to the format 2: the old file is $DIR/podkop.pre-0.8.8
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+system IPv6 -> true
+engine Check C1 -> ok
+    C1 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53, tproxy-in6 tproxy [::1]:1602; outbounds: direct-out direct, block block, socks5 link socks, main-out selector; rule sets: 1
+engine ExcludeDownloads []
+engine Build C1 -> instance 1
+instance 1 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 1 Start -> ok
+engine Ready -> ok
+instance 1 AdoptSelections {main-out=main-out} members {main_link=socks5 link}
+log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=true -> ok
+system RouteUplinks -> []
+system UpdateFirewall none to P1 -> ok
+    P1 = interfaces br-lan
+      NTP of the LAN left alone
+      devices routed whole 192.168.1.60/32
+      IPv6 through podkop
+log info: firewall: 0 address ranges of the lists go to the proxy by address
+system TakeOverDNS -> changed true
+log info: the DNS of the LAN asks the backend now
+dnsmasq Kick after 3s
+log info: running, N ms after the start
+clock Kick
+result ok: started in N ms
+state: running, running true
+
+== meanwhile: the routing of IPv6 fails
+state: running, running true
+
+== write the settings: another TTL
+state: running, running true
+
+== Apply
+log warn: the settings were converted to the format 2: the old file is $DIR/podkop.pre-0.8.8
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+system IPv6 -> true
+engine Check C2 -> ok
+    C2 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53, tproxy-in6 tproxy [::1]:1602; outbounds: direct-out direct, block block, socks5 link socks, main-out selector; rule sets: 1
+instance 1 CarrySelections C2 -> none
+instance 1 Close -> ok
+engine ExcludeDownloads []
+engine Build C2 -> instance 2
+instance 2 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 2 Start -> ok
+engine Ready -> ok
+instance 2 AdoptSelections {main-out=main-out} members {main_link=socks5 link}
+log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=true -> error: permission denied
+log warn: the routing of IPv6 failed (permission denied): IPv6 goes past podkop
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall P1 to P2 -> ok
+    P2 = interfaces br-lan
+      NTP of the LAN left alone
+      devices routed whole 192.168.1.60/32
+system TakeOverDNS -> changed false
+log info: the settings are applied in N ms, sing-box runs the new configuration (it did not answer for N ms, of which the previous one took N ms to close)
+result ok: applied in N ms, sing-box runs the new configuration
+state: running, running true
+
+== meanwhile: the routing of IPv6 works, the firewall of IPv6 fails
+state: running, running true
+
+== write the settings: another TTL
+state: running, running true
+
+== Apply
+log warn: the settings were converted to the format 2: the old file is $DIR/podkop.pre-0.8.8
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+system IPv6 -> true
+engine Check C3 -> ok
+    C3 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53, tproxy-in6 tproxy [::1]:1602; outbounds: direct-out direct, block block, socks5 link socks, main-out selector; rule sets: 1
+instance 2 CarrySelections C3 -> none
+instance 2 Close -> ok
+engine ExcludeDownloads []
+engine Build C3 -> instance 3
+instance 3 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 3 Start -> ok
+engine Ready -> ok
+instance 3 AdoptSelections {main-out=main-out} members {main_link=socks5 link}
+log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=true -> ok
+system RouteUplinks -> []
+system UpdateFirewall P2 to P1 -> error: permission denied
+log warn: the firewall of IPv6 failed (permission denied): IPv6 goes past podkop
+system ApplyRouting ipv6=false -> ok
+system UpdateFirewall P2 to P2 -> ok
+system TakeOverDNS -> changed false
+log info: the settings are applied in N ms, sing-box runs the new configuration (it did not answer for N ms, of which the previous one took N ms to close)
+result ok: applied in N ms, sing-box runs the new configuration
+state: running, running true
+
+== meanwhile: netifd flushed the rules
+state: running, running true
+
+== the network changes (RestoreRouting)
+dnsmasq Kick after 12s
+clock Kick
+system AllowBridgedTraffic -> []
+system RoutingPresent ipv6=false -> false
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system FirewallPresent -> true
+system TakeOverDNS -> changed false
+log warn: the network changed: the rule and the route of the routing table had gone and are back
+system LANAddress -> "192.168.1.1"
+system IPv6 -> true
+system Listening -> not known
+answer: the rule and the route of the routing table had gone and are back
+state: running, running true
+
+== Stop
+system RestoreDNS -> changed true
+log info: the DNS of the LAN is as it was before the backend
+dnsmasq Kick after 3s
+system RemoveFirewall
+system RemoveRouting
+instance 3 Close -> ok
+state: stopped, running false

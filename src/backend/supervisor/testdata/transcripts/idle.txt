@@ -1,0 +1,64 @@
+# idle: settings with nothing to route leave the router alone; a source filled starts sing-box; emptied again it is closed
+# (supervisor/transcript_test.go; go test -run TestTranscripts -update ./supervisor/ writes it anew)
+
+== write the settings: a rule whose source is empty
+state: none, running false
+
+== Boot
+system RestoreDNS -> changed false
+system RemoveFirewall
+system RemoveRouting
+log info: no rule has a server yet: the router is left alone until a source is filled
+result ok: no rule has a server yet: the router is left alone until a source is filled
+state: released, running false
+
+== write the settings: the source has a SOCKS5 link
+state: released, running false
+
+== Apply
+system LANAddress -> "192.168.1.1"
+system Devices [] -> none
+system NTPServerNames -> []
+engine Check C1 -> ok
+    C1 = inbounds: tproxy-in tproxy 127.0.0.1:1602, dns-in direct 127.0.0.42:53; outbounds: direct-out direct, block block, s5 socks, main-out selector; rule sets: 1
+engine ExcludeDownloads []
+engine Build C1 -> instance 1
+instance 1 OnRuleSetUpdate [main-user-domains-ruleset]
+instance 1 Start -> ok
+engine Ready -> ok
+instance 1 AdoptSelections {main-out=main-out} members {src1=s5}
+log info: configuration: rules main (s5); sources s5 (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
+system AllowBridgedTraffic -> []
+system ApplyRouting ipv6=false -> ok
+system RouteUplinks -> []
+system UpdateFirewall none to P1 -> ok
+    P1 = interfaces br-lan
+log info: firewall: 0 address ranges of the lists go to the proxy by address
+system TakeOverDNS -> changed true
+log info: the DNS of the LAN asks the backend now
+dnsmasq Kick after 3s
+log info: running, N ms after the start
+clock Kick
+result ok: started in N ms
+state: running, running true
+
+== write the settings: the source empty again
+state: running, running true
+
+== Apply
+system RestoreDNS -> changed true
+log info: the DNS of the LAN is as it was before the backend
+dnsmasq Kick after 3s
+system RemoveFirewall
+system RemoveRouting
+instance 1 Close -> ok
+log info: no rule has a server yet: the router is left alone until a source is filled
+result ok: no rule has a server yet: the router is left alone until a source is filled
+state: released, running false
+
+== Stop
+system RestoreDNS -> changed false
+system RemoveFirewall
+system RemoveRouting
+state: stopped, running false
