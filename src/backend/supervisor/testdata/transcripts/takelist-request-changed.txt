@@ -20,7 +20,7 @@ instance 1 OnRuleSetUpdate [main-user-domains-ruleset, youtube-user-domains-rule
 instance 1 Start -> ok
 engine Ready -> ok
 instance 1 AdoptSelections {main-out=main-out, youtube-out=youtube-out} members {main_link=socks5 link}
-log info: configuration: rules main (socks5 link), youtube (prov1 with NL, prov2 with NL, prov3 with NL; fallbacks block); sources prov1 (subscription), prov2 (subscription), prov3 (subscription), socks5 link (1 links); 2 lists (0 downloaded, 2 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: configuration: rules main (socks5 link), youtube (prov1 with NL, prov2 with NL, prov3 with NL; fallbacks block); sources prov1 (subscription), prov2 (subscription), prov3 (subscription), socks5 link (1 links); 2 lists (0 downloaded, 2 from files); DNS udp 127.0.0.1:9; the LAN on br-lan (the default)
 log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
 log info: list youtube-user-domains-ruleset: file $DIR/rulesets/youtube-user-domains-ruleset.json
 system AllowBridgedTraffic -> []

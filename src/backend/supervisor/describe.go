@@ -61,11 +61,20 @@ func describeConfig(next *candidate) string {
 		}
 	}
 	settings := &next.settings.Settings
+	// the interfaces as the settings name them; when they name none, what the plan takes then
+	// (plan.Dataplane.Interfaces: the bridge of the LAN of OpenWrt)
+	lan := strings.Join(settings.SourceNetworkInterfaces, ", ")
+	if lan == "" {
+		lan = "the default"
+		if interfaces := next.result.Dataplane.Interfaces; len(interfaces) > 0 {
+			lan = strings.Join(interfaces, ", ") + " (the default)"
+		}
+	}
 	return "configuration: rules " + strings.Join(sections, ", ") +
 		"; sources " + strings.Join(sources, ", ") +
 		"; " + strconv.Itoa(len(next.result.RuleSets)) + " lists (" + strconv.Itoa(downloaded) + " downloaded, " + strconv.Itoa(files) + " from files)" +
 		"; DNS " + settings.DNSType + " " + settings.DNSServer +
-		"; the LAN on " + strings.Join(settings.SourceNetworkInterfaces, ", ")
+		"; the LAN on " + lan
 }
 
 // tellConfig logs what the configuration is: always when a sing-box starts with it, otherwise

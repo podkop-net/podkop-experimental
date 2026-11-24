@@ -27,7 +27,7 @@ instance 1 OnRuleSetUpdate [main-user-domains-ruleset]
 instance 1 Start -> ok
 engine Ready -> ok
 instance 1 AdoptSelections {main-out=main-out} members {src1=s5}
-log info: configuration: rules main (s5); sources s5 (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: configuration: rules main (s5); sources s5 (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on br-lan (the default)
 log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
 system AllowBridgedTraffic -> []
 system ApplyRouting ipv6=false -> ok

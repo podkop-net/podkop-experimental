@@ -1,6 +1,7 @@
 package supervisor
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
@@ -26,4 +27,18 @@ func TestDescribeOnlyDevices(t *testing.T) {
 	line := describeConfig(&candidate{settings: config, result: &plan.Result{}})
 	require.Contains(t, line, "configuration: rules TV (Own; only for 192.168.78.10, IPv6 items: 1), bad (block; only for no device), noyt (block), off (off);")
 	require.NotContains(t, line, "2001:db8")
+}
+
+// The line names the interfaces of the LAN as the settings do; settings that name none, the one
+// the plan takes then (br-lan: the transcripts have it of plan.Build).
+func TestDescribeLAN(t *testing.T) {
+	t.Parallel()
+	named := &model.Config{Settings: model.Settings{DNSType: "udp", DNSServer: "127.0.0.1:9", SourceNetworkInterfaces: []string{"lan", "guest"}}}
+	result := &plan.Result{Dataplane: plan.Dataplane{Interfaces: []string{"br-lan", "br-guest"}}}
+	line := describeConfig(&candidate{settings: named, result: result})
+	require.True(t, strings.HasSuffix(line, "; DNS udp 127.0.0.1:9; the LAN on lan, guest"), line)
+	unnamed := &model.Config{Settings: model.Settings{DNSType: "udp", DNSServer: "127.0.0.1:9"}}
+	result = &plan.Result{Dataplane: plan.Dataplane{Interfaces: []string{"br-lan"}}}
+	line = describeConfig(&candidate{settings: unnamed, result: result})
+	require.True(t, strings.HasSuffix(line, "; DNS udp 127.0.0.1:9; the LAN on br-lan (the default)"), line)
 }

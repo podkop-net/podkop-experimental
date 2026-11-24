@@ -17,7 +17,7 @@ instance 1 OnRuleSetUpdate [main-user-domains-ruleset]
 instance 1 Start -> ok
 engine Ready -> ok
 instance 1 AdoptSelections {main-out=main-out} members {main_link=socks5 link}
-log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on br-lan (the default)
 log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
 system AllowBridgedTraffic -> []
 system ApplyRouting ipv6=false -> ok
@@ -113,7 +113,7 @@ instance 2 OnRuleSetUpdate [main-user-domains-ruleset]
 instance 2 Start -> ok
 engine Ready -> ok
 instance 2 AdoptSelections {main-out=main-out} members {main_link=socks5 link}
-log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on br-lan (the default)
 log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
 system AllowBridgedTraffic -> []
 system ApplyRouting ipv6=false -> ok
@@ -149,7 +149,7 @@ instance 3 OnRuleSetUpdate [main-user-domains-ruleset]
 instance 3 Start -> ok
 engine Ready -> ok
 instance 3 AdoptSelections {main-out=main-out} members {main_link=socks5 link}
-log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on
+log info: configuration: rules main (socks5 link); sources socks5 link (1 links); 1 lists (0 downloaded, 1 from files); DNS udp 127.0.0.1:9; the LAN on br-lan (the default)
 log info: list main-user-domains-ruleset: file $DIR/rulesets/main-user-domains-ruleset.json
 system AllowBridgedTraffic -> []
 system ApplyRouting ipv6=false -> ok
