@@ -9,9 +9,10 @@ import (
 
 	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/podkop-net/podkop-experimental/src/backend/engine"
+	"github.com/podkop-net/podkop-experimental/src/backend/subscription"
 )
 
-// The block detector of the servers. What the traffic shows is read when asked (Detect), and a
+// The block detector of the servers. What the traffic shows is read when asked (report), and a
 // probe of a server runs on demand, off the goroutine of Run: it takes up to detect.Budget and
 // Run serves the reloads and the stop. One server at a time: its burst may freeze the server for
 // the real connections, and probes side by side would measure each other.
@@ -99,6 +100,48 @@ type diagnosis struct {
 	passiveEpoch uint64
 }
 
+// detectorRuntime is the block detector and the treatments of the servers while the backend runs:
+// the probes and what they found (this file), the treatments stored and the search for a mask
+// (cure.go, masklist.go). It is a part of the supervisor, which has one and hands on to it what is
+// asked from outside (the methods of Supervisor at the end of this file).
+//
+// Nothing of it runs on the goroutine of Run. What is asked is answered in the goroutine of the
+// caller, with what runs read at once (detectSnapshot); a treatment stored is applied as any change
+// of the settings, by Run, and waited for (Request). Its own goroutines: the worker of the probes,
+// one at a time (diagnosis.current), and the search for a mask, one at a time (suggestScan), with
+// that of its names and one a public list of them.
+//
+// The locks: that of the probes (diagnosis.access), cureMu and suggestAccess, within which the
+// search reserves the destination with the lock of the probes; none is held with the lock of the
+// status.
+type detectorRuntime struct {
+	options *Options
+	host    detectorHost
+	// diag is the state of the probes
+	diag diagnosis
+	// cureMu serializes writes of the cure store to the settings file; suggestAccess guards the
+	// one on-demand white-SNI scan (cure.go)
+	cureMu        sync.Mutex
+	suggestAccess sync.Mutex
+	suggest       *suggestScan
+}
+
+// detectorHost is what the detector uses of the supervisor, from any goroutine.
+type detectorHost interface {
+	log(level string, message ...any)
+	// survive is deferred by the worker of the probes
+	survive(what string, answer func())
+	// routes are the ways to the host of a public list of names
+	routes(proxies int, first string, host string) ([]subscription.Route, Instance, bool)
+	detectSnapshot() detectSnapshot
+	// Request applies the settings a treatment was written into
+	Request(ctx context.Context) Result
+}
+
+func newDetectorRuntime(options *Options, host detectorHost) *detectorRuntime {
+	return &detectorRuntime{options: options, host: host}
+}
+
 // detectSnapshot is what the detector reads of what runs.
 type detectSnapshot struct {
 	instance Instance
@@ -111,12 +154,6 @@ type detectSnapshot struct {
 	staleCures int
 	// maskLists are the public lists of names a mask search downloads, none when off
 	maskLists []string
-}
-
-func (s *Supervisor) detectSnapshot() detectSnapshot {
-	s.statusAccess.Lock()
-	defer s.statusAccess.Unlock()
-	return detectSnapshot{instance: s.live, servers: s.liveServers, fallback: s.liveFallback, epoch: s.liveEpoch, stable: s.liveStable, staleCures: s.liveStaleCures, maskLists: s.liveMaskLists}
 }
 
 // serversOf are the proxies of the configuration that runs, whether its uTLS fallback is on, and
@@ -160,12 +197,12 @@ func findServer(servers []detect.Server, tag string) (detect.Server, bool) {
 	return servers[index], true
 }
 
-// Detect tells what the block detector knows of the servers of the running sing-box: what the
+// report tells what the block detector knows of the servers of the running sing-box: what the
 // traffic shows, a recent probe over it, read in process. It may be called from any goroutine. A
 // server with nothing to say has no entry.
-func (s *Supervisor) Detect() detect.Report {
+func (r *detectorRuntime) report() detect.Report {
 	report := detect.Report{Verdicts: map[string]detect.Verdict{}, Servers: map[string]detect.Identity{}, Queued: []string{}, NoProbe: []string{}}
-	snapshot := s.detectSnapshot()
+	snapshot := r.host.detectSnapshot()
 	if snapshot.instance == nil {
 		return report
 	}
@@ -176,9 +213,9 @@ func (s *Supervisor) Detect() detect.Report {
 	}
 	report.StaleCures = snapshot.staleCures
 	report.Fallback = snapshot.fallback
-	passive := s.passiveVerdicts(snapshot)
+	passive := r.passiveVerdicts(snapshot)
 	now := time.Now()
-	d := &s.diag
+	d := &r.diag
 	d.access.Lock()
 	report.Probing = d.current
 	report.Queued = append(report.Queued, d.queue...)
@@ -208,9 +245,9 @@ func (s *Supervisor) Detect() detect.Report {
 
 // passiveVerdicts is what the traffic shows of the servers, read at most every few seconds. The
 // map is shared: not to be changed.
-func (s *Supervisor) passiveVerdicts(snapshot detectSnapshot) map[string]detect.Verdict {
+func (r *detectorRuntime) passiveVerdicts(snapshot detectSnapshot) map[string]detect.Verdict {
 	now := time.Now()
-	d := &s.diag
+	d := &r.diag
 	d.access.Lock()
 	cached, fresh := d.passive, d.passive != nil && d.passiveEpoch == snapshot.epoch && now.Sub(d.passiveAt) < passiveCacheFor
 	d.access.Unlock()
@@ -233,9 +270,9 @@ func (s *Supervisor) passiveVerdicts(snapshot detectSnapshot) map[string]detect.
 		Flows:    flows,
 		Open:     open,
 		Outcome:  snapshot.instance.DetectOutcome,
-		Failure:  s.options.Engine.URLTestFailure,
-		Download: s.options.Engine.DownloadResult,
-		Delays:   s.options.Engine.Delays(tags),
+		Failure:  r.options.Engine.URLTestFailure,
+		Download: r.options.Engine.DownloadResult,
+		Delays:   r.options.Engine.Delays(tags),
 		Started:  snapshot.instance.StartedAt(),
 		Now:      now,
 	}, detect.DefaultPolicy)
@@ -245,18 +282,18 @@ func (s *Supervisor) passiveVerdicts(snapshot detectSnapshot) map[string]detect.
 	return verdicts
 }
 
-// ForceDetect asks for a probe of a server: it starts now or waits its turn, and its verdict comes
-// in a later Detect. cancel empties the queue instead, the probe that runs goes on: its burst is
+// force asks for a probe of a server: it starts now or waits its turn, and its verdict comes in a
+// later report. cancel empties the queue instead, the probe that runs goes on: its burst is
 // out already. It answers at once and may be called from any goroutine.
-func (s *Supervisor) ForceDetect(tag string, cancel bool) detect.ForceAnswer {
-	d := &s.diag
+func (r *detectorRuntime) force(tag string, cancel bool) detect.ForceAnswer {
+	d := &r.diag
 	if cancel {
 		d.access.Lock()
 		d.queue = nil
 		d.access.Unlock()
 		return detect.ForceAnswer{State: detect.ForceCanceled}
 	}
-	snapshot := s.detectSnapshot()
+	snapshot := r.host.detectSnapshot()
 	if snapshot.instance == nil {
 		return detect.ForceAnswer{State: detect.ForceNotRunning}
 	}
@@ -292,7 +329,7 @@ func (s *Supervisor) ForceDetect(tag string, cancel bool) detect.ForceAnswer {
 		return detect.ForceAnswer{State: detect.ForceQueued}
 	}
 	d.begin(tag, server.Destination, now)
-	go s.diagnoseWorker(tag)
+	go r.diagnoseWorker(tag)
 	return detect.ForceAnswer{State: detect.ForceStarted}
 }
 
@@ -325,26 +362,26 @@ func secondsUp(wait time.Duration) int {
 
 // diagnoseWorker probes a server and then those in the queue, one at a time, and ends with the
 // queue. A probe holds no lock and nothing of Run's.
-func (s *Supervisor) diagnoseWorker(tag string) {
-	defer s.survive("the probe of a server", func() {
-		d := &s.diag
+func (r *detectorRuntime) diagnoseWorker(tag string) {
+	defer r.host.survive("the probe of a server", func() {
+		d := &r.diag
 		d.access.Lock()
 		d.current, d.queue = "", nil
 		d.access.Unlock()
 	})
 	for tag != "" {
-		s.diagnoseServer(tag)
-		tag = s.nextDiagnosis()
+		r.diagnoseServer(tag)
+		tag = r.nextDiagnosis()
 	}
 }
 
 // nextDiagnosis takes the next server of the queue that can be probed now; "" ends the worker. A
 // destination another server of the queue has just been probed at is passed over: its probe would
 // measure the one before. Nothing stays queued when nothing runs.
-func (s *Supervisor) nextDiagnosis() string {
-	snapshot := s.detectSnapshot()
+func (r *detectorRuntime) nextDiagnosis() string {
+	snapshot := r.host.detectSnapshot()
 	now := time.Now()
-	d := &s.diag
+	d := &r.diag
 	d.access.Lock()
 	defer d.access.Unlock()
 	d.current = ""
@@ -368,22 +405,22 @@ func (s *Supervisor) nextDiagnosis() string {
 
 // diagnoseServer runs the probe of a server. What it found of an instance or an outbound that is
 // no longer there is dropped: a tag may name another server by then.
-func (s *Supervisor) diagnoseServer(tag string) {
-	snapshot := s.detectSnapshot()
+func (r *detectorRuntime) diagnoseServer(tag string) {
+	snapshot := r.host.detectSnapshot()
 	server, found := findServer(snapshot.servers, tag)
 	if snapshot.instance == nil || !found {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), detect.Budget)
 	defer cancel()
-	verdict := detect.Run(ctx, snapshot.instance.Prober(), server, detect.RunOptions{Fallback: snapshot.fallback, Relays: s.relaysFor(server, snapshot)})
-	latest := s.detectSnapshot()
+	verdict := detect.Run(ctx, snapshot.instance.Prober(), server, detect.RunOptions{Fallback: snapshot.fallback, Relays: r.relaysFor(server, snapshot)})
+	latest := r.host.detectSnapshot()
 	current, found := findServer(latest.servers, tag)
 	if latest.instance != snapshot.instance || !found || current.Hash != server.Hash {
 		return
 	}
 	now := time.Now()
-	d := &s.diag
+	d := &r.diag
 	d.access.Lock()
 	for known, old := range d.active {
 		if now.Sub(old.at) >= activeVerdictTTL {
@@ -395,7 +432,7 @@ func (s *Supervisor) diagnoseServer(tag string) {
 	}
 	d.active[tag] = activeVerdict{verdict: verdict, at: now, hash: server.Hash}
 	d.access.Unlock()
-	s.log("info", diagnosisLine(tag, verdict))
+	r.host.log("info", diagnosisLine(tag, verdict))
 }
 
 // diagnosisLine is what the log tells of a finished probe: a weak verdict may stay hidden under what
@@ -411,16 +448,16 @@ func diagnosisLine(tag string, verdict detect.Verdict) string {
 
 // relaysFor are the servers a probe may ask through: a probe or the traffic found them working, or
 // their URL test passed.
-func (s *Supervisor) relaysFor(server detect.Server, snapshot detectSnapshot) []detect.Server {
-	passive := s.passiveVerdicts(snapshot)
+func (r *detectorRuntime) relaysFor(server detect.Server, snapshot detectSnapshot) []detect.Server {
+	passive := r.passiveVerdicts(snapshot)
 	tags := make([]string, len(snapshot.servers))
 	for index, candidate := range snapshot.servers {
 		tags[index] = candidate.Tag
 	}
-	delays := s.options.Engine.Delays(tags)
+	delays := r.options.Engine.Delays(tags)
 	now := time.Now()
 	probed := make(map[string]bool)
-	d := &s.diag
+	d := &r.diag
 	d.access.Lock()
 	for tag, found := range d.active {
 		probed[tag] = found.verdict.Block == detect.BlockNone && now.Sub(found.at) < activeVerdictTTL
@@ -429,4 +466,45 @@ func (s *Supervisor) relaysFor(server detect.Server, snapshot detectSnapshot) []
 	return detect.RelayCandidates(server, snapshot.servers, func(candidate detect.Server) bool {
 		return probed[candidate.Tag] || passive[candidate.Tag].Block == detect.BlockNone || delays[candidate.Tag] > 0
 	})
+}
+
+// The detector as the supervisor has it: what it reads of what runs, then what is asked from any
+// goroutine (the page).
+
+func (s *Supervisor) detectSnapshot() detectSnapshot {
+	s.statusAccess.Lock()
+	defer s.statusAccess.Unlock()
+	return detectSnapshot{instance: s.live, servers: s.liveServers, fallback: s.liveFallback, epoch: s.liveEpoch, stable: s.liveStable, staleCures: s.liveStaleCures, maskLists: s.liveMaskLists}
+}
+
+// Detect tells what the block detector knows of the servers of the running sing-box. It may be
+// called from any goroutine.
+func (s *Supervisor) Detect() detect.Report {
+	return s.detector.report()
+}
+
+// ForceDetect asks for a probe of a server, or with cancel empties the queue of those asked for. It
+// answers at once and may be called from any goroutine.
+func (s *Supervisor) ForceDetect(tag string, cancel bool) detect.ForceAnswer {
+	return s.detector.force(tag, cancel)
+}
+
+// SetCure stores a treatment for the server a tag names and applies it (detectorRuntime.setCure).
+func (s *Supervisor) SetCure(ctx context.Context, tag, kind, sni, wantHash, through string) CureResult {
+	return s.detector.setCure(ctx, tag, kind, sni, wantHash, through)
+}
+
+// ClearCure removes the treatment of the server a tag names and applies the change.
+func (s *Supervisor) ClearCure(ctx context.Context, tag string) CureResult {
+	return s.detector.clearCure(ctx, tag)
+}
+
+// DropStaleCures removes the stored treatments that name no live server, and applies the change.
+func (s *Supervisor) DropStaleCures(ctx context.Context) CureResult {
+	return s.detector.dropStaleCures(ctx)
+}
+
+// SuggestMask looks for a whitelisted SNI that lifts a limit on a server (detectorRuntime.suggestMask).
+func (s *Supervisor) SuggestMask(ctx context.Context, tag string) SuggestResult {
+	return s.detector.suggestMask(ctx, tag)
 }

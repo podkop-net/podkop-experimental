@@ -24,12 +24,12 @@ const maskListDir = "masklists"
 // probeMaskPer, and a set after it would not start within the budget of the scan. A site is tried
 // once, whichever list names it first (model.MaskSite). It closes names when it has given all,
 // or when ctx ends.
-func (s *Supervisor) feedMasks(ctx context.Context, names chan<- string, addresses []string) {
+func (r *detectorRuntime) feedMasks(ctx context.Context, names chan<- string, addresses []string) {
 	defer close(names)
 	// a fault ends the feeding (the search goes on with the names it has), not the backend
 	defer func() {
 		if fault := recover(); fault != nil {
-			s.log("error", "the names of a mask search: ", fault)
+			r.host.log("error", "the names of a mask search: ", fault)
 		}
 	}()
 	type arrival struct {
@@ -42,11 +42,11 @@ func (s *Supervisor) feedMasks(ctx context.Context, names chan<- string, address
 			got := arrival{source: index + 1}
 			defer func() {
 				if fault := recover(); fault != nil {
-					s.log("error", "the list of masks at ", address, ": ", fault)
+					r.host.log("error", "the list of masks at ", address, ": ", fault)
 				}
 				arrived <- got
 			}()
-			got.names = s.maskList(ctx, address)
+			got.names = r.maskList(ctx, address)
 		}()
 	}
 	waiting := len(addresses)
@@ -120,17 +120,17 @@ func maskListFile(dir string, address string) string {
 // the ways of the lists, directly first, so a blocked GitHub still gives it), without the headers of
 // the device, and returns its names beyond the built-in ones (model.MaskNames). A list that does
 // not come is taken from the copy of the last download.
-func (s *Supervisor) maskList(ctx context.Context, address string) []string {
-	download := s.options.Download
+func (r *detectorRuntime) maskList(ctx context.Context, address string) []string {
+	download := r.options.Download
 	if download == nil {
 		download = subscription.Download
 	}
 	cache := ""
-	if s.options.ConfigDir != "" {
-		cache = maskListFile(s.options.ConfigDir, address)
+	if r.options.ConfigDir != "" {
+		cache = maskListFile(r.options.ConfigDir, address)
 	}
 	host := hostOf(address)
-	routes, through, together := s.routes(previewProxies, "", host)
+	routes, through, together := r.host.routes(previewProxies, "", host)
 	way := subscription.DefaultPlan
 	way.Together = together
 	answer, tries, err := download(ctx, address, http.Header{}, routes, way, nil)
@@ -140,16 +140,16 @@ func (s *Supervisor) maskList(ctx context.Context, address string) []string {
 		if len(names) > 0 {
 			if cache != "" {
 				if err := os.MkdirAll(filepath.Dir(cache), 0o700); err != nil {
-					s.log("warn", "keep the list of masks: ", err)
+					r.host.log("warn", "keep the list of masks: ", err)
 				} else if err := os.WriteFile(cache, answer.Body, 0o600); err != nil {
-					s.log("warn", "keep the list of masks: ", err)
+					r.host.log("warn", "keep the list of masks: ", err)
 				}
 			}
 			return names
 		}
-		s.log("warn", "the list of masks at ", address, " has no host names")
+		r.host.log("warn", "the list of masks at ", address, " has no host names")
 	} else if ctx.Err() == nil {
-		s.log("warn", "download the list of masks at ", address, ": ", err)
+		r.host.log("warn", "download the list of masks at ", address, ": ", err)
 	}
 	if cache == "" {
 		return nil

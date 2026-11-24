@@ -98,9 +98,9 @@ func probed(tag string, destination string) detect.Server {
 func waitIdle(t *testing.T, s *Supervisor) {
 	t.Helper()
 	require.Eventually(t, func() bool {
-		s.diag.access.Lock()
-		defer s.diag.access.Unlock()
-		return s.diag.current == ""
+		s.detector.diag.access.Lock()
+		defer s.detector.diag.access.Unlock()
+		return s.detector.diag.current == ""
 	}, 10*time.Second, 5*time.Millisecond)
 }
 
@@ -170,9 +170,9 @@ func TestForceDetectThrottle(t *testing.T) {
 	// the interval is of the destination: another tag of the same server waits as well
 	require.Equal(t, detect.ForceThrottled, s.ForceDetect("a2", false).State)
 
-	s.diag.access.Lock()
-	s.diag.lastByDestination["192.0.2.1:443"] = time.Now().Add(-DiagnoseMinInterval - time.Second)
-	s.diag.access.Unlock()
+	s.detector.diag.access.Lock()
+	s.detector.diag.lastByDestination["192.0.2.1:443"] = time.Now().Add(-DiagnoseMinInterval - time.Second)
+	s.detector.diag.access.Unlock()
 	require.Equal(t, detect.ForceStarted, s.ForceDetect("a", false).State)
 	waitIdle(t, s)
 }
@@ -200,9 +200,9 @@ func TestDiagnosisQueuePassesOverADestination(t *testing.T) {
 	s, _, prober := diagnoseFixture(t, a, sameDestination, c)
 	require.Equal(t, detect.ForceStarted, s.ForceDetect("c", false).State)
 	prober.wait(t, "c")
-	s.diag.access.Lock()
-	s.diag.queue = []string{"a", "a2"}
-	s.diag.access.Unlock()
+	s.detector.diag.access.Lock()
+	s.detector.diag.queue = []string{"a", "a2"}
+	s.detector.diag.access.Unlock()
 	close(prober.release)
 	waitIdle(t, s)
 	report := s.Detect()
@@ -291,10 +291,10 @@ func TestDiagnosisDuringStop(t *testing.T) {
 	close(prober.release)
 	waitIdle(t, s)
 	require.Empty(t, s.Detect().Verdicts)
-	s.diag.access.Lock()
-	defer s.diag.access.Unlock()
-	require.Empty(t, s.diag.queue)
-	require.Empty(t, s.diag.active)
+	s.detector.diag.access.Lock()
+	defer s.detector.diag.access.Unlock()
+	require.Empty(t, s.detector.diag.queue)
+	require.Empty(t, s.detector.diag.active)
 }
 
 // cutProber is a probe cut by the close of its instance: what it comes to is what the cut did.
@@ -329,11 +329,11 @@ func TestDiagnosisDuringApply(t *testing.T) {
 	}
 	require.True(t, s.close(s.current.instance))
 	require.Equal(t, 1, closes)
-	s.diag.access.Lock()
-	defer s.diag.access.Unlock()
-	require.Empty(t, s.diag.active, "what the cut did is not a finding")
-	require.Empty(t, s.diag.queue)
-	require.NotContains(t, s.diag.lastByDestination, b.Destination, "the next probe of the queue did not start")
+	s.detector.diag.access.Lock()
+	defer s.detector.diag.access.Unlock()
+	require.Empty(t, s.detector.diag.active, "what the cut did is not a finding")
+	require.Empty(t, s.detector.diag.queue)
+	require.NotContains(t, s.detector.diag.lastByDestination, b.Destination, "the next probe of the queue did not start")
 	prober.access.Lock()
 	defer prober.access.Unlock()
 	require.Zero(t, prober.requests["b"])
@@ -392,9 +392,9 @@ func TestDetectMerge(t *testing.T) {
 	require.Equal(t, detect.SourcePassive, s.Detect().Verdicts["a"].Source)
 
 	store := func(block detect.Block, at time.Time, hash string) {
-		s.diag.access.Lock()
-		defer s.diag.access.Unlock()
-		s.diag.active = map[string]activeVerdict{"a": {verdict: detect.Verdict{Block: block, Source: detect.SourceActive}, at: at, hash: hash}}
+		s.detector.diag.access.Lock()
+		defer s.detector.diag.access.Unlock()
+		s.detector.diag.active = map[string]activeVerdict{"a": {verdict: detect.Verdict{Block: block, Source: detect.SourceActive}, at: at, hash: hash}}
 	}
 	// an active verdict over the passive one, with its age
 	store(detect.BlockFreeze, time.Now().Add(-time.Minute), a.Hash)
@@ -417,9 +417,9 @@ func TestDetectFreezeFollowsTheFallback(t *testing.T) {
 	a := probed("a", "192.0.2.1:443")
 	s, _, _ := diagnoseFixture(t, a)
 	store := func(notes ...string) {
-		s.diag.access.Lock()
-		defer s.diag.access.Unlock()
-		s.diag.active = map[string]activeVerdict{"a": {verdict: detect.Verdict{Block: detect.BlockFreeze, Source: detect.SourceActive, Notes: notes}, at: time.Now(), hash: a.Hash}}
+		s.detector.diag.access.Lock()
+		defer s.detector.diag.access.Unlock()
+		s.detector.diag.active = map[string]activeVerdict{"a": {verdict: detect.Verdict{Block: detect.BlockFreeze, Source: detect.SourceActive, Notes: notes}, at: time.Now(), hash: a.Hash}}
 	}
 	fallback := func(on bool) {
 		s.statusAccess.Lock()
@@ -431,9 +431,9 @@ func TestDetectFreezeFollowsTheFallback(t *testing.T) {
 	require.Equal(t, []string{detect.NoteFallbackOff}, s.Detect().Verdicts["a"].Notes)
 	fallback(true)
 	require.Equal(t, []string{detect.NoteCured}, s.Detect().Verdicts["a"].Notes)
-	s.diag.access.Lock()
-	require.Equal(t, []string{detect.NoteFallbackOff}, s.diag.active["a"].verdict.Notes, "what is stored is not touched")
-	s.diag.access.Unlock()
+	s.detector.diag.access.Lock()
+	require.Equal(t, []string{detect.NoteFallbackOff}, s.detector.diag.active["a"].verdict.Notes, "what is stored is not touched")
+	s.detector.diag.access.Unlock()
 
 	store(detect.NoteCured)
 	fallback(false)
@@ -452,19 +452,19 @@ func TestDetectMergeByWhatAVerdictSays(t *testing.T) {
 	a := probed("a", "192.0.2.1:443")
 	s, _, _ := diagnoseFixture(t, a)
 	store := func(age time.Duration, block detect.Block, notes ...string) {
-		s.diag.access.Lock()
-		defer s.diag.access.Unlock()
-		s.diag.active = map[string]activeVerdict{"a": {verdict: detect.Verdict{Block: block, Source: detect.SourceActive, Notes: notes}, at: time.Now().Add(-age), hash: a.Hash}}
+		s.detector.diag.access.Lock()
+		defer s.detector.diag.access.Unlock()
+		s.detector.diag.active = map[string]activeVerdict{"a": {verdict: detect.Verdict{Block: block, Source: detect.SourceActive, Notes: notes}, at: time.Now().Add(-age), hash: a.Hash}}
 	}
 	// passive sets what the traffic shows; an empty block: nothing
 	passive := func(block detect.Block, notes ...string) {
-		s.diag.access.Lock()
-		defer s.diag.access.Unlock()
-		s.diag.passive = map[string]detect.Verdict{}
+		s.detector.diag.access.Lock()
+		defer s.detector.diag.access.Unlock()
+		s.detector.diag.passive = map[string]detect.Verdict{}
 		if block != "" {
-			s.diag.passive["a"] = detect.Verdict{Block: block, Source: detect.SourcePassive, Notes: notes}
+			s.detector.diag.passive["a"] = detect.Verdict{Block: block, Source: detect.SourcePassive, Notes: notes}
 		}
-		s.diag.passiveAt, s.diag.passiveEpoch = time.Now(), s.liveEpoch
+		s.detector.diag.passiveAt, s.detector.diag.passiveEpoch = time.Now(), s.liveEpoch
 	}
 	type verdictOf struct {
 		block detect.Block
@@ -643,9 +643,9 @@ func TestDetectPressEndsVisibly(t *testing.T) {
 		wait(now.Add(-time.Minute)), wait(now.Add(-50 * time.Second)), wait(now.Add(-40 * time.Second)),
 	}}}
 	fake.access.Unlock()
-	s.diag.access.Lock()
-	s.diag.passive = nil
-	s.diag.access.Unlock()
+	s.detector.diag.access.Lock()
+	s.detector.diag.passive = nil
+	s.detector.diag.access.Unlock()
 	verdict = s.Detect().Verdicts["a"]
 	require.Equal(t, detect.BlockLimit, verdict.Block)
 	require.Equal(t, detect.SourcePassive, verdict.Source)
@@ -655,10 +655,10 @@ func TestDetectPressEndsVisibly(t *testing.T) {
 func TestDetectLeavesOutNothing(t *testing.T) {
 	s, _, _ := diagnoseFixture(t, probed("a", "192.0.2.1:443"))
 	require.Empty(t, s.Detect().Verdicts)
-	s.diag.access.Lock()
-	s.diag.passive = map[string]detect.Verdict{"a": {Block: detect.BlockUnknown, Notes: []string{detect.NoteNeedsMLKEM}}}
-	s.diag.passiveAt, s.diag.passiveEpoch = time.Now(), s.liveEpoch
-	s.diag.access.Unlock()
+	s.detector.diag.access.Lock()
+	s.detector.diag.passive = map[string]detect.Verdict{"a": {Block: detect.BlockUnknown, Notes: []string{detect.NoteNeedsMLKEM}}}
+	s.detector.diag.passiveAt, s.detector.diag.passiveEpoch = time.Now(), s.liveEpoch
+	s.detector.diag.access.Unlock()
 	require.Contains(t, s.Detect().Verdicts, "a")
 }
 
@@ -678,9 +678,9 @@ func TestDetectCache(t *testing.T) {
 	s.Detect()
 	require.Equal(t, first, reads())
 
-	s.diag.access.Lock()
-	s.diag.passiveAt = time.Now().Add(-passiveCacheFor - time.Second)
-	s.diag.access.Unlock()
+	s.detector.diag.access.Lock()
+	s.detector.diag.passiveAt = time.Now().Add(-passiveCacheFor - time.Second)
+	s.detector.diag.access.Unlock()
 	s.Detect()
 	require.Equal(t, first+1, reads())
 
@@ -696,14 +696,14 @@ func TestRelaysFor(t *testing.T) {
 	s, fake, _ := diagnoseFixture(t, a, working, tested, traffic, idle, frozen)
 	fake.delays = map[string]uint16{"tested": 100}
 	fake.flows = map[string]detect.FlowSample{"traffic": {LastBigAt: time.Now()}}
-	s.diag.access.Lock()
-	s.diag.active = map[string]activeVerdict{
+	s.detector.diag.access.Lock()
+	s.detector.diag.active = map[string]activeVerdict{
 		"working": {verdict: detect.Verdict{Block: detect.BlockNone}, at: time.Now()},
 		"frozen":  {verdict: detect.Verdict{Block: detect.BlockFreeze}, at: time.Now()},
 	}
-	s.diag.access.Unlock()
+	s.detector.diag.access.Unlock()
 	var tags []string
-	for _, relay := range s.relaysFor(a, s.detectSnapshot()) {
+	for _, relay := range s.detector.relaysFor(a, s.detectSnapshot()) {
 		tags = append(tags, relay.Tag)
 	}
 	require.Equal(t, []string{"working", "tested", "traffic"}, tags)

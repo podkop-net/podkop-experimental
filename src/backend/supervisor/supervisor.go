@@ -5,6 +5,12 @@
 // meet. A change of the settings is applied by comparing what it would write with what
 // runs: sing-box is replaced only for another configuration, a list that changed is a
 // file sing-box reads again, a firewall set that changed is refilled in place.
+//
+// Three parts of the Supervisor hold what is theirs only: the subscriptions (subscriptionRuntime,
+// subscriptions.go), BitTorrent (bitTorrentRuntime, bittorrent.go), the block detector with the
+// treatments (detectorRuntime, diagnose.go). The goroutines of a part (the downloads, the reads of
+// the traffic, the probes) are told at its type, with its locks. None of them changes the router:
+// that is left to the goroutine of Run.
 package supervisor
 
 import (
@@ -403,16 +409,11 @@ type Supervisor struct {
 	// by tag: what the detect report tells the page so it shows a treatment badge and joins a tag
 	// to its stable id (serversOf)
 	liveStable map[string]detect.Identity
-	// diag is the state of the block detector's probes (diagnose.go)
-	diag diagnosis
 	// liveStaleCures counts the stored treatments that name no live server (detect report)
 	liveStaleCures int
-	// cureMu serializes writes of the cure store to the settings file; suggestAccess guards the
-	// one on-demand white-SNI scan (cure.go)
-	cureMu        sync.Mutex
-	suggestAccess sync.Mutex
-	suggest       *suggestScan
 
+	// detector is the block detector and the treatments of the servers, with locks of their own
+	detector *detectorRuntime
 	// subscriptions are the lists of the subscriptions and their downloads, with a lock of their own
 	subscriptions *subscriptionRuntime
 	// bitTorrent is the detector of BitTorrent in the firewall table and what the reads of its
@@ -476,6 +477,7 @@ func New(options Options) *Supervisor {
 	s := &Supervisor{options: options, derive: make(chan struct{}, 1), requests: make(chan chan Result), updates: make(chan chan ListsUpdate), probes: make(chan probeRequest), statuses: make(chan chan []ListState), restores: make(chan chan string)}
 	s.subscriptions = newSubscriptionRuntime(&s.options, s)
 	s.bitTorrent = newBitTorrentRuntime(&s.options, s)
+	s.detector = newDetectorRuntime(&s.options, s)
 	return s
 }
 

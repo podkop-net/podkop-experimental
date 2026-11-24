@@ -39,10 +39,10 @@ func TestCureStoreRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "podkop")
 	require.NoError(t, os.WriteFile(path, []byte("config settings 'settings'\n\toption config_version '2'\n"), 0o640))
-	s := &Supervisor{options: Options{SettingsPath: path}}
+	s := New(Options{SettingsPath: path})
 
-	require.NoError(t, s.writeCure(model.Cure{Hash: "h1", Kind: model.CureSpoof, SNI: "packagist.org"}))
-	require.NoError(t, s.writeCure(model.Cure{Hash: "h2", Via: "relay", Kind: model.CureRecordFragment}))
+	require.NoError(t, s.detector.writeCure(model.Cure{Hash: "h1", Kind: model.CureSpoof, SNI: "packagist.org"}))
+	require.NoError(t, s.detector.writeCure(model.Cure{Hash: "h2", Via: "relay", Kind: model.CureRecordFragment}))
 	parsed := parseFile(t, path)
 	require.Len(t, parsed.SectionsOfType("cure"), 2)
 	require.Equal(t, "2", parsed.Section("settings").Get("config_version"), "the settings section is kept")
@@ -61,14 +61,14 @@ func TestCureStoreRoundTrip(t *testing.T) {
 	require.Equal(t, os.FileMode(0o640), info.Mode().Perm(), "the permissions are kept")
 
 	// updating the same {hash, via} replaces, it does not add a second row
-	require.NoError(t, s.writeCure(model.Cure{Hash: "h1", Kind: model.CureRecordFragment}))
+	require.NoError(t, s.detector.writeCure(model.Cure{Hash: "h1", Kind: model.CureRecordFragment}))
 	parsed = parseFile(t, path)
 	require.Len(t, parsed.SectionsOfType("cure"), 2)
 	h1 = cureByHash(parsed, "h1", "")
 	require.Equal(t, "record_fragment", h1.Get("kind"))
 	require.Empty(t, h1.Get("sni"), "a non-spoof cure keeps no sni")
 
-	removed, err := s.editCures(func(sections []*uci.Section) []*uci.Section { return dropCure(sections, "h2", "relay") })
+	removed, err := s.detector.editCures(func(sections []*uci.Section) []*uci.Section { return dropCure(sections, "h2", "relay") })
 	require.NoError(t, err)
 	require.Equal(t, 1, removed)
 	parsed = parseFile(t, path)
@@ -110,10 +110,10 @@ func TestSetCureRefusals(t *testing.T) {
 	ctx := context.Background()
 
 	// nothing runs
-	down := &Supervisor{}
+	down := New(Options{})
 	require.Equal(t, CureNotRunning, down.SetCure(ctx, "srv", "spoof", "x", "", "").State)
 
-	s := &Supervisor{}
+	s := New(Options{})
 	s.live = &fakeInstance{}
 	s.liveStable = map[string]detect.Identity{
 		"srv":    {Hash: "h1", Via: ""},
@@ -149,7 +149,7 @@ func liveSupervisor(t *testing.T, instance *fakeInstance) (*Supervisor, string) 
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "podkop")
 	require.NoError(t, os.WriteFile(path, []byte("config settings 'settings'\n\toption config_version '2'\n"), 0o600))
-	s := &Supervisor{options: Options{SettingsPath: path, Log: func(string, string) {}}}
+	s := New(Options{SettingsPath: path, Log: func(string, string) {}})
 	s.live = instance
 	s.liveServers = []detect.Server{
 		{Tag: "srv", Kind: detect.KindTLS, Destination: "a.example:443", Content: []byte(`{"type":"vless","tls":{"server_name":"cover.example"}}`)},
@@ -364,9 +364,9 @@ func TestSuggestMaskAsync(t *testing.T) {
 	require.Equal(t, int32(1), instance.scans.Load(), "asking again joins the scan")
 	close(instance.release)
 	require.Eventually(t, func() bool {
-		s.suggestAccess.Lock()
-		defer s.suggestAccess.Unlock()
-		return s.suggest != nil && !s.suggest.running
+		s.detector.suggestAccess.Lock()
+		defer s.detector.suggestAccess.Unlock()
+		return s.detector.suggest != nil && !s.detector.suggest.running
 	}, 5*time.Second, 10*time.Millisecond)
 	result := s.SuggestMask(ctx, "srv")
 	require.Equal(t, SuggestResult{State: SuggestFound, SNI: "packagist.org", Tried: 3}, result)

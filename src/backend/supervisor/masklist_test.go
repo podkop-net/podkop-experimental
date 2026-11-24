@@ -48,7 +48,7 @@ func (m *maskSource) download(ctx context.Context, address string, header http.H
 
 func maskSupervisor(t *testing.T, source *maskSource) *Supervisor {
 	t.Helper()
-	return &Supervisor{options: Options{ConfigDir: t.TempDir(), Download: source.download, Log: func(string, string) {}}}
+	return New(Options{ConfigDir: t.TempDir(), Download: source.download, Log: func(string, string) {}})
 }
 
 func collect(t *testing.T, names <-chan string, count int) []string {
@@ -76,7 +76,7 @@ func TestFeedMasks(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	names := make(chan string)
-	go s.feedMasks(ctx, names, []string{"https://lists.example/white.txt"})
+	go s.detector.feedMasks(ctx, names, []string{"https://lists.example/white.txt"})
 	builtin := engine.WhiteSNICandidates
 	require.Equal(t, builtin[:2], collect(t, names, 2))
 	close(source.release)
@@ -100,7 +100,7 @@ func TestFeedMasks(t *testing.T) {
 
 	failing := &maskSource{err: errors.New("no way")}
 	s.options.Download = failing.download
-	require.Equal(t, []string{"img.avito.st", "mail.ru"}, s.maskList(ctx, "https://lists.example/white.txt"))
+	require.Equal(t, []string{"img.avito.st", "mail.ru"}, s.detector.maskList(ctx, "https://lists.example/white.txt"))
 }
 
 // Once the lists are in, their names come in turn with the built-in ones, a name of each source
@@ -139,7 +139,7 @@ func TestFeedMasksLists(t *testing.T) {
 	}}
 	s := maskSupervisor(t, source)
 	names := make(chan string)
-	go s.feedMasks(context.Background(), names, []string{first, second})
+	go s.detector.feedMasks(context.Background(), names, []string{first, second})
 	listed := []string{"img.avito.st", "vk.com", "ozon.ru", "wb.ru", "ok.ru"}
 	// mail.ru or www.mail.ru, whichever list has its turn first
 	got := collect(t, names, len(engine.WhiteSNICandidates)+len(listed)+2)
@@ -158,7 +158,7 @@ func TestFeedMasksLists(t *testing.T) {
 func TestFeedMasksNoList(t *testing.T) {
 	s := maskSupervisor(t, &maskSource{})
 	names := make(chan string)
-	go s.feedMasks(context.Background(), names, nil)
+	go s.detector.feedMasks(context.Background(), names, nil)
 	got := collect(t, names, len(engine.WhiteSNICandidates)+1)
 	require.Equal(t, engine.WhiteSNICandidates, got)
 }

@@ -68,7 +68,7 @@ type SuggestResult struct {
 	RetryAfter int    `json:"retry_after,omitempty"`
 }
 
-// suggestScan is the one white-SNI scan that runs or ran last; Supervisor.suggestAccess guards it.
+// suggestScan is the one white-SNI scan that runs or ran last; detectorRuntime.suggestAccess guards it.
 type suggestScan struct {
 	tag      string
 	running  bool
@@ -77,7 +77,7 @@ type suggestScan struct {
 	finished time.Time
 }
 
-// SetCure stores a treatment for the server a tag names and applies it. It refuses with a state
+// setCure stores a treatment for the server a tag names and applies it. It refuses with a state
 // when the tag is not a live server (unknown), the kind or sni is wrong (invalid: a mask must be a
 // host name other than the server's own; a detour goes through another live server, of any
 // source, which itself connects directly and has no detour of its own), or a mask or a detour is
@@ -86,8 +86,8 @@ type suggestScan struct {
 // server a detour connects through (the one a pathblock answered through); that server is stored
 // by its stable identity, with its source. wantHash, when the page sends it, must still name the
 // same server (unknown on a mismatch — the config changed under the page).
-func (s *Supervisor) SetCure(ctx context.Context, tag, kind, sni, wantHash, through string) CureResult {
-	snapshot := s.detectSnapshot()
+func (r *detectorRuntime) setCure(ctx context.Context, tag, kind, sni, wantHash, through string) CureResult {
+	snapshot := r.host.detectSnapshot()
 	if snapshot.instance == nil {
 		return CureResult{State: CureNotRunning}
 	}
@@ -141,18 +141,18 @@ func (s *Supervisor) SetCure(ctx context.Context, tag, kind, sni, wantHash, thro
 	} else if sni != "" {
 		return CureResult{State: CureInvalid}
 	}
-	if err := s.writeCure(cure); err != nil {
-		s.log("warn", "set the treatment of ", tag, ": ", err)
+	if err := r.writeCure(cure); err != nil {
+		r.host.log("warn", "set the treatment of ", tag, ": ", err)
 		return CureResult{State: CureInvalid}
 	}
-	s.Request(ctx)
+	r.host.Request(ctx)
 	return CureResult{State: CureOK}
 }
 
-// ClearCure removes the treatment of the server a tag names and applies the change; a server with
+// clearCure removes the treatment of the server a tag names and applies the change; a server with
 // no treatment stored is left alone, without a rebuild.
-func (s *Supervisor) ClearCure(ctx context.Context, tag string) CureResult {
-	snapshot := s.detectSnapshot()
+func (r *detectorRuntime) clearCure(ctx context.Context, tag string) CureResult {
+	snapshot := r.host.detectSnapshot()
 	if snapshot.instance == nil {
 		return CureResult{State: CureNotRunning}
 	}
@@ -160,31 +160,31 @@ func (s *Supervisor) ClearCure(ctx context.Context, tag string) CureResult {
 	if !ok {
 		return CureResult{State: CureUnknown}
 	}
-	removed, err := s.editCures(func(sections []*uci.Section) []*uci.Section {
+	removed, err := r.editCures(func(sections []*uci.Section) []*uci.Section {
 		return dropCure(sections, identity.Hash, identity.Via)
 	})
 	if err != nil {
-		s.log("warn", "clear the treatment of ", tag, ": ", err)
+		r.host.log("warn", "clear the treatment of ", tag, ": ", err)
 		return CureResult{State: CureInvalid}
 	}
 	if removed > 0 {
-		s.Request(ctx)
+		r.host.Request(ctx)
 	}
 	return CureResult{State: CureOK}
 }
 
-// DropStaleCures removes the stored treatments that name no live server (the server changed or
+// dropStaleCures removes the stored treatments that name no live server (the server changed or
 // went away, or its subscription is not downloaded yet; for a detour, its relay server too) and the
 // rows this build cannot read. The
 // page offers it when the report counts stale treatments; nothing is dropped on its own, as a
 // subscription that failed to download looks the same as a server that is gone.
-func (s *Supervisor) DropStaleCures(ctx context.Context) CureResult {
-	snapshot := s.detectSnapshot()
+func (r *detectorRuntime) dropStaleCures(ctx context.Context) CureResult {
+	snapshot := r.host.detectSnapshot()
 	if snapshot.instance == nil {
 		return CureResult{State: CureNotRunning}
 	}
 	live, direct := liveKeys(snapshot.stable)
-	removed, err := s.editCures(func(sections []*uci.Section) []*uci.Section {
+	removed, err := r.editCures(func(sections []*uci.Section) []*uci.Section {
 		detoured := make(map[string]bool)
 		for _, section := range sections {
 			if section.Type == "cure" && section.Get("kind") == model.CureDetour && section.Get("via") == "" {
@@ -204,12 +204,12 @@ func (s *Supervisor) DropStaleCures(ctx context.Context) CureResult {
 		return kept
 	})
 	if err != nil {
-		s.log("warn", "remove the stale treatments: ", err)
+		r.host.log("warn", "remove the stale treatments: ", err)
 		return CureResult{State: CureInvalid}
 	}
 	if removed > 0 {
-		s.log("info", "removed ", removed, " stale treatment(s)")
-		s.Request(ctx)
+		r.host.log("info", "removed ", removed, " stale treatment(s)")
+		r.host.Request(ctx)
 	}
 	return CureResult{State: CureOK}
 }
@@ -279,42 +279,42 @@ func relayOfOthers(stable map[string]detect.Identity, tag string) bool {
 	return false
 }
 
-// SuggestMask looks for a whitelisted SNI that lifts a limit on a server, on demand. One scan runs
+// suggestMask looks for a whitelisted SNI that lifts a limit on a server, on demand. One scan runs
 // at a time, in the background with its own budget; a call waits for it up to suggestWait and
 // answers "running" when it is not done yet, and the page asks again for the result. The scan is
 // throttled per destination together with the detector's probes, so it does not burst a server the
 // detector just probed (or the reverse), and sends real traffic to the server only when the page
 // asks.
-func (s *Supervisor) SuggestMask(ctx context.Context, tag string) SuggestResult {
-	snapshot := s.detectSnapshot()
+func (r *detectorRuntime) suggestMask(ctx context.Context, tag string) SuggestResult {
+	snapshot := r.host.detectSnapshot()
 	if snapshot.instance == nil {
 		return SuggestResult{State: SuggestNotRunning}
 	}
-	s.suggestAccess.Lock()
-	scan := s.suggest
+	r.suggestAccess.Lock()
+	scan := r.suggest
 	switch {
 	case scan != nil && scan.running && scan.tag != tag:
-		s.suggestAccess.Unlock()
+		r.suggestAccess.Unlock()
 		return SuggestResult{State: SuggestBusy}
 	case scan != nil && scan.running:
 		// the page asks again for the scan it started
 	case scan != nil && scan.tag == tag && time.Since(scan.finished) < suggestKeep:
 		// a scan finished since the last call: its result, once
-		s.suggest = nil
-		s.suggestAccess.Unlock()
+		r.suggest = nil
+		r.suggestAccess.Unlock()
 		return scan.result
 	default:
 		server, ok := findServer(snapshot.servers, tag)
 		if !ok || !server.Kind.Maskable() {
-			s.suggestAccess.Unlock()
+			r.suggestAccess.Unlock()
 			return SuggestResult{State: SuggestNone}
 		}
 		now := time.Now()
-		d := &s.diag
+		d := &r.diag
 		d.access.Lock()
 		if left := d.throttled(server.Destination, now); left > 0 {
 			d.access.Unlock()
-			s.suggestAccess.Unlock()
+			r.suggestAccess.Unlock()
 			return SuggestResult{State: SuggestThrottled, RetryAfter: secondsUp(left)}
 		}
 		if d.lastByDestination == nil {
@@ -323,10 +323,10 @@ func (s *Supervisor) SuggestMask(ctx context.Context, tag string) SuggestResult 
 		d.lastByDestination[server.Destination] = now // reserve the destination for the detector too
 		d.access.Unlock()
 		scan = &suggestScan{tag: tag, running: true, done: make(chan struct{})}
-		s.suggest = scan
-		go s.runSuggest(scan, snapshot.instance, server.Content, snapshot.maskLists)
+		r.suggest = scan
+		go r.runSuggest(scan, snapshot.instance, server.Content, snapshot.maskLists)
 	}
-	s.suggestAccess.Unlock()
+	r.suggestAccess.Unlock()
 
 	timer := time.NewTimer(suggestWait)
 	defer timer.Stop()
@@ -337,17 +337,17 @@ func (s *Supervisor) SuggestMask(ctx context.Context, tag string) SuggestResult 
 	case <-ctx.Done():
 		return SuggestResult{State: SuggestRunning}
 	}
-	s.suggestAccess.Lock()
-	defer s.suggestAccess.Unlock()
-	if s.suggest == scan {
-		s.suggest = nil
+	r.suggestAccess.Lock()
+	defer r.suggestAccess.Unlock()
+	if r.suggest == scan {
+		r.suggest = nil
 	}
 	return scan.result
 }
 
 // runSuggest runs one scan to its end and keeps its result for the page. The built-in names go
 // first, the names of the public lists at maskLists in turn with them once they come (feedMasks).
-func (s *Supervisor) runSuggest(scan *suggestScan, instance Instance, content []byte, maskLists []string) {
+func (r *detectorRuntime) runSuggest(scan *suggestScan, instance Instance, content []byte, maskLists []string) {
 	ctx, cancel := context.WithTimeout(context.Background(), suggestBudget)
 	defer cancel()
 	result := SuggestResult{State: SuggestNone}
@@ -355,20 +355,20 @@ func (s *Supervisor) runSuggest(scan *suggestScan, instance Instance, content []
 	// search answered "busy" (and, with no guard, ended the backend)
 	defer func() {
 		if fault := recover(); fault != nil {
-			s.log("error", "suggest a mask for ", scan.tag, ": ", fault)
+			r.host.log("error", "suggest a mask for ", scan.tag, ": ", fault)
 		}
-		s.suggestAccess.Lock()
+		r.suggestAccess.Lock()
 		scan.result, scan.running, scan.finished = result, false, time.Now()
-		s.suggestAccess.Unlock()
+		r.suggestAccess.Unlock()
 		close(scan.done)
 	}()
 	names := make(chan string)
-	go s.feedMasks(ctx, names, maskLists)
+	go r.feedMasks(ctx, names, maskLists)
 	sni, tried, err := instance.SuggestMask(ctx, content, names)
 	result.Tried = tried
 	switch {
 	case err != nil:
-		s.log("warn", "suggest a mask for ", scan.tag, ": ", err)
+		r.host.log("warn", "suggest a mask for ", scan.tag, ": ", err)
 	case sni != "":
 		result = SuggestResult{State: SuggestFound, SNI: sni, Tried: tried}
 	}
@@ -386,8 +386,8 @@ func serverNameOf(content []byte) string {
 }
 
 // writeCure stores one cure, replacing any with the same {hash, via}.
-func (s *Supervisor) writeCure(cure model.Cure) error {
-	_, err := s.editCures(func(sections []*uci.Section) []*uci.Section {
+func (r *detectorRuntime) writeCure(cure model.Cure) error {
+	_, err := r.editCures(func(sections []*uci.Section) []*uci.Section {
 		kept := dropCure(sections, cure.Hash, cure.Via)
 		section := uci.NewSection("cure", "", true)
 		section.Set("hash", cure.Hash)
@@ -426,10 +426,10 @@ func dropCure(sections []*uci.Section, hash, via string) []*uci.Section {
 // permissions. It answers how many cure sections the edit took out. It holds the lock libuci takes
 // for a commit (flock LOCK_EX on the file itself), so a `uci commit` of LuCI waits for it and it
 // waits for that one; comments of the file are not kept, as libuci does not keep them either.
-func (s *Supervisor) editCures(edit func([]*uci.Section) []*uci.Section) (int, error) {
-	s.cureMu.Lock()
-	defer s.cureMu.Unlock()
-	path := s.options.SettingsPath
+func (r *detectorRuntime) editCures(edit func([]*uci.Section) []*uci.Section) (int, error) {
+	r.cureMu.Lock()
+	defer r.cureMu.Unlock()
+	path := r.options.SettingsPath
 	file, err := lockFile(path)
 	if err != nil {
 		return 0, err
