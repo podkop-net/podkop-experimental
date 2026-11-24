@@ -16,7 +16,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"maps"
 	"net"
 	"net/http"
 	"net/netip"
@@ -27,7 +26,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
@@ -417,28 +415,9 @@ type Supervisor struct {
 
 	// subscriptions are the lists of the subscriptions and their downloads, with a lock of their own
 	subscriptions *subscriptionRuntime
-
-	// bitTorrentApplied is the BitTorrent detector of the firewall table this process put in
-	// the kernel last, nil before the first and after the table was removed: what a change of
-	// its mode is told against (updateFirewall). Not the plan of current: that is nil after an
-	// update that failed, which left the table before it in the kernel.
-	bitTorrentApplied *firewall.BitTorrent
-	// bitTorrentRule is the name the page shows of the rule of the mode section of the table made
-	// last (firewallPlan); bitTorrentSetup what the reads of BitTorrent's traffic take as the mode
-	// (nil while no table with the detector is there), bitTorrentStats what they came to
-	bitTorrentRule  string
-	bitTorrentSetup atomic.Pointer[btstats.Setup]
-	// bitTorrentNoRule is the rule the settings chose for BitTorrent when the table made last has
-	// no detector because of it (the rule is not there, is off or goes nowhere: the plan's
-	// bitTorrent); nil otherwise. The report tells it, where the card of the page was just gone.
-	bitTorrentNoRule atomic.Pointer[string]
-	// bitTorrentWake tells the reads of BitTorrent's traffic that a table was applied
-	// (updateFirewall): a detector that came is read at once (pollBitTorrent)
-	bitTorrentWake chan struct{}
-	// routerUsersTried: the users of the router's torrent clients an apply was made for by the
-	// clock (Run), so that one that fails is not made again for the same users
-	routerUsersTried map[string]uint32
-	bitTorrentStats  btstats.Stats
+	// bitTorrent is the detector of BitTorrent in the firewall table and what the reads of its
+	// traffic came to
+	bitTorrent *bitTorrentRuntime
 }
 
 // running is a state of the router that was brought up.
@@ -494,9 +473,9 @@ func New(options Options) *Supervisor {
 	if options.Engine == nil {
 		options.Engine = realEngine{services: options.EngineServices}
 	}
-	s := &Supervisor{options: options, derive: make(chan struct{}, 1), requests: make(chan chan Result), updates: make(chan chan ListsUpdate), probes: make(chan probeRequest), statuses: make(chan chan []ListState), restores: make(chan chan string),
-		bitTorrentWake: make(chan struct{}, 1)}
+	s := &Supervisor{options: options, derive: make(chan struct{}, 1), requests: make(chan chan Result), updates: make(chan chan ListsUpdate), probes: make(chan probeRequest), statuses: make(chan chan []ListState), restores: make(chan chan string)}
 	s.subscriptions = newSubscriptionRuntime(&s.options, s)
+	s.bitTorrent = newBitTorrentRuntime(&s.options, s)
 	return s
 }
 
@@ -948,7 +927,7 @@ func (s *Supervisor) drift(current *running) (changes []string, lost bool) {
 	}
 	// a user of the router's torrent clients that the router has gained or lost since (the package
 	// of the client installed after the setting was made): its number is in the firewall's rules
-	if s.routerUsersChanged(current) {
+	if routerUsersChanged(current) {
 		changes = append(changes, "the users of the router's torrent clients")
 	}
 	if listening := s.options.System.Listening(); listening != nil {
@@ -1094,7 +1073,7 @@ func (s *Supervisor) answerProbe(request probeRequest) {
 // taken back.
 func (s *Supervisor) Run(ctx context.Context, reload <-chan struct{}) error {
 	s.Begin()
-	go s.pollBitTorrent(ctx)
+	go s.bitTorrent.poll(ctx)
 	// a download brings several rule sets one after another: the firewall is refilled
 	// once, deriveMerge after the last of them (deriveMergeLimit after the first at the
 	// latest), and nothing else waits meanwhile
@@ -1128,16 +1107,7 @@ func (s *Supervisor) Run(ctx context.Context, reload <-chan struct{}) error {
 		case <-bridged.C:
 			if s.current != nil {
 				s.allowBridged()
-				// a user of the router's torrent clients that came or went: its number is in the
-				// firewall's rules (an apply again: the same configuration takes the table anew)
-				// (once for each state of them: an apply that fails is not tried again every tick)
-				if s.routerUsersChanged(s.current) {
-					if now := userIDs(s.current.settings.Settings.BitTorrentRouterUsers); !maps.Equal(now, s.routerUsersTried) {
-						s.routerUsersTried = now
-						s.log("info", "the users of the router's torrent clients changed: the settings are applied again")
-						s.Apply()
-					}
-				}
+				s.bitTorrent.tick(s.current)
 			}
 		case now := <-subscriptionTicker.C:
 			s.downloadDue(now, "")
@@ -1729,24 +1699,9 @@ func (s *Supervisor) surround(previousFirewall *firewall.Plan) error {
 // the plan, with IPv6 off once it failed: running.ipv6), the sets from what the rule sets hold
 // now.
 func (s *Supervisor) firewallPlan(current *running) *firewall.Plan {
-	wanted := &current.result.Dataplane
-	result := &firewall.Plan{Intent: *wanted}
+	result := &firewall.Plan{Intent: current.result.Dataplane}
 	result.IPv6 = current.ipv6()
-	s.bitTorrentRule = ""
-	var noRule *string
-	if current.settings != nil && current.settings.Settings.BitTorrent == model.BitTorrentSection {
-		name := current.settings.Settings.BitTorrentSection
-		label := name
-		if section := current.settings.Section(name); section != nil && section.Label != "" {
-			label = section.Label
-		}
-		if wanted.BitTorrent.Mode == model.BitTorrentSection {
-			s.bitTorrentRule = label
-		} else {
-			noRule = &label
-		}
-	}
-	s.bitTorrentNoRule.Store(noRule)
+	s.bitTorrent.planned(current)
 	var sources []keyedSource
 	known := make(map[string]knownSource, len(current.result.RuleSets))
 	for _, ruleSet := range current.result.RuleSets {
@@ -1937,32 +1892,14 @@ func (s *Supervisor) deriveSets(sources []keyedSource) (*lists.Destinations, []e
 }
 
 // updateFirewall brings the firewall table from previous to next (System.UpdateFirewall). Once the
-// kernel has next, it ends the connections of BitTorrent past podkop that a change of the mode of
-// its detector takes another way (firewall.ForgetFor), told against the detector of the table this
-// process put there last (bitTorrentApplied).
+// kernel has next, the connections of BitTorrent past podkop that a change of the mode of its
+// detector takes another way are ended, and its traffic is read (bitTorrentRuntime.updated).
 func (s *Supervisor) updateFirewall(previous, next *firewall.Plan) error {
 	err := s.options.System.UpdateFirewall(previous, next)
 	if err != nil {
 		return err
 	}
-	if s.bitTorrentApplied != nil {
-		if which := firewall.ForgetFor(*s.bitTorrentApplied, next.BitTorrent); which != firewall.ForgetNone {
-			s.forgetBitTorrent(*s.bitTorrentApplied, next.BitTorrent, which)
-		}
-	}
-	applied := next.BitTorrent
-	s.bitTorrentApplied = &applied
-	if applied.Mode == "" {
-		s.bitTorrentSetup.Store(nil)
-	} else {
-		s.bitTorrentSetup.Store(&btstats.Setup{Mode: applied.Mode, LAN: applied.LAN, Rule: s.bitTorrentRule})
-	}
-	// the statistics read now, not at their next tick: the first read is the baseline of the
-	// connections open already, and those that begin before it are taken for such
-	select {
-	case s.bitTorrentWake <- struct{}{}:
-	default:
-	}
+	s.bitTorrent.updated(next.BitTorrent)
 	return nil
 }
 
@@ -2190,12 +2127,8 @@ func (s *Supervisor) release() {
 	err = s.options.System.RemoveFirewall()
 	if err != nil {
 		s.log("error", "remove the firewall table: ", err)
-	} else {
-		s.bitTorrentApplied = nil
-		s.bitTorrentSetup.Store(nil)
 	}
-	// nothing runs: the notice of a rule of BitTorrent that is off is of a configuration that is gone
-	s.bitTorrentNoRule.Store(nil)
+	s.bitTorrent.released(err == nil)
 	err = s.options.System.RemoveRouting()
 	if err != nil {
 		s.log("error", "remove the routing: ", err)
