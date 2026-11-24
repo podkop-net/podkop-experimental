@@ -279,7 +279,12 @@ var (
 	quoted         = regexp.MustCompile(`^['"]([^'"]*)['"]$`)
 	declaration    = regexp.MustCompile(`rpc\.declare(?:<[^(]*>)?\(\{\s*object:\s*['"]([\w-]+)['"],\s*method:\s*(?:['"](\w+)['"]|Podkop\.(\w+)\.(\w+))`)
 	defaultCommand = regexp.MustCompile(`function callBaseMethod(?:<\w+>)?\([^)]*?command(?::\s*string)?\s*=\s*['"]([^'"]+)['"]`)
-	shellUse       = regexp.MustCompile(`PodkopShellMethods\.(\w+)`)
+	// a method that runs a program itself (its answer is a text, not the JSON callBaseMethod reads),
+	// and the call of callBaseMethod, whose program and command are its arguments
+	shellCall   = regexp.MustCompile(`await executeShellCommand\(\{\s*([^}]*?),?\s*\}\)`)
+	literalCall = regexp.MustCompile(`^command:\s*['"]([^'"]+)['"],\s*args:\s*\[(Podkop\.\w+\.\w+)\]$`)
+	baseCall    = regexp.MustCompile(`^command,\s*args:`)
+	shellUse    = regexp.MustCompile(`PodkopShellMethods\.(\w+)`)
 )
 
 // readPage reads what the page runs and calls: from the sources (fe-app-podkop/src: the enums of
@@ -379,6 +384,22 @@ func readPage(t *testing.T, fromBundle bool) page {
 			t.Errorf("%s runs clash_api with no action the test can read", call.method)
 		}
 		result.calls = append(result.calls, call)
+	}
+	for _, at := range shellCall.FindAllStringSubmatchIndex(whole, -1) {
+		text := whole[at[2]:at[3]]
+		if baseCall.MatchString(text) {
+			continue
+		}
+		found := literalCall.FindStringSubmatch(text)
+		if found == nil {
+			t.Fatalf("the page runs a program in a way the test does not read: %.120s", text)
+		}
+		enum, command, known := resolve(found[2])
+		properties := asyncProperty.FindAllStringSubmatch(whole[:at[0]], -1)
+		if enum != "AvailableMethods" || !known || len(properties) == 0 {
+			t.Fatalf("the page runs a program outside a method of methods/shell: %.120s", text)
+		}
+		result.calls = append(result.calls, pageCall{method: properties[len(properties)-1][1], program: found[1], command: command})
 	}
 	slices.SortFunc(result.calls, func(a, b pageCall) int { return strings.Compare(a.method, b.method) })
 	for _, found := range declaration.FindAllStringSubmatch(whole, -1) {
