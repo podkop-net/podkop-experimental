@@ -20,13 +20,15 @@ ${PartialStyles}
     content: none;
 }
 
-/* The apply bar (podkop/applyBar.ts): LuCI's alert-message, the text and the buttons in a row
-   that wraps on a phone. Argon gives .alert-message a fixed width of 20rem (made for its
-   centred notices), and the first div of #view a column (#view > div:first-child:not(.cbi-map,
-   .Dashboard), stronger than one id: the text took 18em of height there): the bar takes the
-   width of the page, in a row, by two ids. */
+/* The apply bar (podkop/applyBar.ts) and the version bar under it (podkop/versionBar.ts): LuCI's
+   alert-message, the text and the buttons in a row that wraps on a phone. Argon gives
+   .alert-message a fixed width of 20rem (made for its centred notices), and the first div of
+   #view a column (#view > div:first-child:not(.cbi-map, .Dashboard), stronger than one id: the
+   text took 18em of height there): a bar takes the width of the page, in a row, by two ids. */
 #view > #podkop-apply-bar,
-#podkop-apply-bar {
+#view > #podkop-version-bar,
+#podkop-apply-bar,
+#podkop-version-bar {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
@@ -37,20 +39,23 @@ ${PartialStyles}
     box-sizing: border-box;
 }
 
-#podkop-apply-bar .podkop-apply-text {
+#podkop-apply-bar .podkop-apply-text,
+#podkop-version-bar .podkop-apply-text {
     flex: 1 1 18em;
     min-width: 0;
     margin: 0;
     overflow-wrap: anywhere;
 }
 
-#podkop-apply-bar .podkop-apply-actions {
+#podkop-apply-bar .podkop-apply-actions,
+#podkop-version-bar .podkop-apply-actions {
     display: flex;
     flex-wrap: wrap;
     gap: .5em;
 }
 
-#podkop-apply-bar .podkop-apply-actions .btn {
+#podkop-apply-bar .podkop-apply-actions .btn,
+#podkop-version-bar .podkop-apply-actions .btn {
     margin: 0;
 }
 

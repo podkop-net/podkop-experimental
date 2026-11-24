@@ -391,7 +391,15 @@ const EntryPoint = {
       saveApply: (ev) => this.handleSaveApply(ev, "0"),
     });
 
-    return podkopMap.render().then((node) => [applyBar, node]);
+    // The version bar under it: the page and the backend are of different versions
+    // (versionBar.ts). The bundle of 0.8.22 the browser may still hold has none, and must not
+    // stop the page for that.
+    const bars = [applyBar];
+    if (main.createVersionBar) {
+      bars.push(main.createVersionBar());
+    }
+
+    return podkopMap.render().then((node) => [...bars, node]);
   },
 };
 

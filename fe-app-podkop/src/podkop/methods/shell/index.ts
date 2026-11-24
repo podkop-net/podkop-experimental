@@ -1,3 +1,4 @@
+import { executeShellCommand } from '../../../helpers';
 import { callBaseMethod } from './callBaseMethod';
 import { ClashAPI, Podkop } from '../../types';
 import { loadArguments } from '../../../validators/validateRequestHeader';
@@ -97,6 +98,15 @@ export const PodkopShellMethods = {
       // LuCI aborts a call after 20 s whatever is asked here
       19000,
     ),
+  // the version of the backend that runs (of the installed program when none runs), '' when
+  // nothing answers. A line of text, not JSON, which a build named by its date (0.24112026) is
+  showVersion: async () => {
+    const { stdout } = await executeShellCommand({
+      command: '/usr/bin/podkop',
+      args: [Podkop.AvailableMethods.SHOW_VERSION],
+    });
+    return stdout.trim();
+  },
   showSingBoxConfig: async () =>
     callBaseMethod<unknown>(Podkop.AvailableMethods.SHOW_SING_BOX_CONFIG),
   checkLinks: async (links: string[]) =>

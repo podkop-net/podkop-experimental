@@ -86,6 +86,7 @@ export namespace Podkop {
     DISABLE = 'disable',
     GLOBAL_CHECK = 'global_check',
     SHOW_SING_BOX_CONFIG = 'show_sing_box_config',
+    SHOW_VERSION = 'show_version',
     CHECK_LINKS = 'check_links',
     CHECK_LOGS = 'check_logs',
     GET_SYSTEM_INFO = 'get_system_info',

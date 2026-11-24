@@ -2,6 +2,7 @@ import { PodkopShellMethods } from './methods';
 import { logger } from './services';
 import { Podkop } from './types';
 import { withTimeout } from '../helpers';
+import { luciText } from '../helpers/luciText';
 
 // The apply bar: a line above the title and the tabs of the page, so on every tab. The page
 // saves in three ways (the Save of a window, the Save of the footer, Save & Apply) and stages
@@ -321,11 +322,6 @@ function luciChanges(): LuciChanges | undefined {
   return (ui as unknown as { changes?: LuciChanges }).changes;
 }
 
-// LuCI's own words for its buttons: the bar's buttons are named as those of the footer and of
-// LuCI's list of changes, in LuCI's translation (an alias of _ the extraction of podkop's
-// catalogue does not take)
-const luciText: (key: string) => string = (key) => _(key);
-
 export interface ApplyBarOptions {
   // the Save & Apply of the page's footer (view.handleSaveApply): the form saved, with the
   // page's checks, then applied
@@ -374,6 +370,7 @@ export function createApplyBar(options: ApplyBarOptions): HTMLElement {
     return element;
   };
 
+  // the buttons of the footer and of LuCI's list of changes have the same names here
   const actions: Record<BarButton, () => HTMLElement> = {
     apply: () =>
       button(
