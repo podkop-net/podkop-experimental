@@ -617,7 +617,11 @@ func Build(config *model.Config, facts Facts, options Options) (*Result, error) 
 	if err != nil {
 		return nil, E.Cause(err, "encode the configuration")
 	}
-	result := &Result{Config: content, Files: make(map[string][]byte), FileOrder: b.fileOrder, Warnings: b.warnings, Links: b.links, Dataplane: b.dataplane(), Facts: b.facts,
+	// the dataplane first: it warns of what it leaves out (the users of the router for
+	// BitTorrent), and the warnings are read after it. In one composite literal the call and the
+	// read of b.warnings would come in an order the language does not fix.
+	intent := b.dataplane()
+	result := &Result{Config: content, Files: make(map[string][]byte), FileOrder: b.fileOrder, Warnings: b.warnings, Links: b.links, Dataplane: intent, Facts: b.facts,
 		Swappable: b.swappable, Tags: b.tags, Legacy: b.legacyTags()}
 	for _, entry := range b.ruleSets {
 		fields := entry.(*object)
