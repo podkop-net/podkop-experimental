@@ -175,6 +175,8 @@ func TestSubscriptionRequestChangedWhileBusy(t *testing.T) {
 	require.True(t, s.subscriptionStates()[0].Busy)
 	require.NoError(t, os.WriteFile(options.SettingsPath, []byte(requestSettings(directory, "\toption user_agent 'Happ'\n")), 0o644))
 	require.True(t, s.Apply().OK)
+	require.Equal(t, 1, lines.count("[info] subscription prov1: the User-Agent or the headers changed during a download: its answer is not taken, the list is downloaded again as soon as it ends, the one in use stays until then"))
+	require.Zero(t, lines.count("downloaded again in 10 to 25 s"), "not in a time: when the download ends")
 	close(source.block)
 	old := <-s.downloads
 	s.takeList(old)

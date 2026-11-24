@@ -179,14 +179,17 @@ func (s *Supervisor) syncSubscriptions(settings *model.Config, tell bool) {
 				// taken). A download under way asked the old way: its answer is not taken
 				// (takeList), and the list is downloaded again when it ends
 				delete(t.failures, item.Name)
-				if !state.Busy {
+				if state.Busy {
+					s.log("info", "subscription ", item.Name, ": the User-Agent or the headers changed during a download: its answer is not taken, ",
+						"the list is downloaded again as soon as it ends, the one in use stays until then")
+				} else {
 					next := now.Add(firstDownloadDelay)
 					state.Next = &next
+					// the download waits for the first tick of the scheduler after the delay
+					s.log("info", "subscription ", item.Name, ": the User-Agent or the headers changed: the list is downloaded again in ",
+						int(firstDownloadDelay/time.Second), " to ", int((firstDownloadDelay+subscriptionTick)/time.Second),
+						" s, the one in use stays until then")
 				}
-				// the download waits for the first tick of the scheduler after the delay
-				s.log("info", "subscription ", item.Name, ": the User-Agent or the headers changed: the list is downloaded again in ",
-					int(firstDownloadDelay/time.Second), " to ", int((firstDownloadDelay+subscriptionTick)/time.Second),
-					" s, the one in use stays until then")
 			}
 			t.customs[item.Name] = custom
 			state.Agent, state.Preset, state.Headers, state.Problems = custom.UserAgent, custom.Preset, custom.Names(), problemsOf(problems)

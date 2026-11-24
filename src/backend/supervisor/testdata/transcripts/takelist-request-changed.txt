@@ -52,7 +52,7 @@ state: running, running true
 
 == Apply
 log warn: the settings were converted to the format 2: the old file is $DIR/podkop.pre-0.8.8
-log info: subscription prov1: the User-Agent or the headers changed: the list is downloaded again in 10 to 25 s, the one in use stays until then
+log info: subscription prov1: the User-Agent or the headers changed during a download: its answer is not taken, the list is downloaded again as soon as it ends, the one in use stays until then
 system LANAddress -> "192.168.1.1"
 system Devices [] -> none
 system NTPServerNames -> []
