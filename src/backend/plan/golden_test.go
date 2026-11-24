@@ -368,6 +368,7 @@ type goldenRule struct {
 	Name     string `json:"name"`
 	Selector string `json:"selector"`
 	Test     string `json:"test,omitempty"`
+	Pool     string `json:"pool,omitempty"`
 }
 
 type goldenOwner struct {
@@ -406,7 +407,7 @@ func tagsOf(settings *model.Config, result *plan.Result) goldenTags {
 		FileOrder:   orEmpty(result.FileOrder),
 	}
 	for section, rule := range result.Tags.Rules {
-		tags.Rules[section] = goldenRule{Name: rule.Name, Selector: rule.Selector, Test: rule.Test}
+		tags.Rules[section] = goldenRule{Name: rule.Name, Selector: rule.Selector, Test: rule.Test, Pool: rule.Pool}
 	}
 	for tag, owner := range result.Tags.Outbounds {
 		tags.Outbounds[tag] = goldenOwner{Rule: owner.Rule, Fallback: owner.Fallback, Source: owner.Source, Server: owner.Server, Via: owner.Via, StableHash: owner.StableHash}
@@ -437,7 +438,7 @@ func TestGoldenMapsTheResult(t *testing.T) {
 		value  any
 		fields int
 	}{
-		{plan.Result{}, 11}, {dataplane.Intent{}, 10}, {dataplane.BitTorrent{}, 4}, {dataplane.Fan{}, 5}, {plan.Tags{}, 2}, {plan.RuleTags{}, 3}, {plan.TagOf{}, 6},
+		{plan.Result{}, 11}, {dataplane.Intent{}, 10}, {dataplane.BitTorrent{}, 4}, {dataplane.Fan{}, 5}, {plan.Tags{}, 2}, {plan.RuleTags{}, 4}, {plan.TagOf{}, 6},
 		{plan.RuleSet{}, 4}, {plan.Link{}, 4},
 	} {
 		if fields := reflect.TypeOf(known.value).NumField(); fields != known.fields {

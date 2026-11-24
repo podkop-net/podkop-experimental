@@ -39,9 +39,10 @@ type sourceServer struct {
 // buildExits makes the outbounds of the rules (ledger item 17). A server is there once for
 // itself and once for each source its rows connect through ("<tag> via <source>"). A rule
 // that goes through servers gets a URL test of the servers of its rows, with its fallback
-// rows in their order (a fallback row of several servers is a URL test of its own), and the
-// selector "<rule>-out" of the test and all the servers, those of its fallbacks too, which its
-// route rule goes to and the dashboard pins a server on. A rule of one server and no fallback has nothing to choose from
+// rows in their order (a fallback row of several servers is a URL test of its own; with a fallback
+// choice the servers of all of them are one, fallbackTiers), and the selector "<rule>-out" of the
+// test and all the servers, those of its fallbacks too, which its route rule goes to and the
+// dashboard pins a server on. A rule of one server and no fallback has nothing to choose from
 // and its selector takes the server alone, unless a subscription can bring more at any time.
 // A rule whose rows name no server now refuses its connections
 // through a selector of the block outbound: when servers come, sing-box replaces it while it
@@ -93,44 +94,12 @@ func (b *builder) buildExit(section *model.Section) error {
 			}
 		}
 	}
-	// a fallback that is a server of the rule or a fallback before it is there once: sing-box
-	// refuses a URL test that lists an outbound twice
-	var tiers []string
-	// the servers of a fallback of several servers, by the tag of its URL test
-	groups := make(map[string][]string)
-	addTier := func(tag string) {
-		if !slices.Contains(members, tag) && !slices.Contains(tiers, tag) {
-			tiers = append(tiers, tag)
-		}
-	}
-	for index, row := range section.Fallbacks {
-		switch row.Source {
-		case model.SourceDirect:
-			addTier(tagDirectOutbound)
-			continue
-		case model.SourceBlock:
-			addTier(tagBlockOutbound)
-			continue
-		}
-		tags, err := b.rowServers(section, row)
-		if err != nil {
-			return err
-		}
-		switch len(tags) {
-		case 0:
-		case 1:
-			addTier(tags[0])
-		default:
-			kind := "fallback-" + strconv.Itoa(index+1)
-			tag := b.claim(ruleTag(b.names.Rule(section.Name), kind), "rule\x00"+section.Name+"\x00"+kind)
-			b.addURLTest(tag, tags, nil)
-			b.tags.Outbounds[tag] = TagOf{Rule: section.Name, Fallback: index + 1}
-			addTier(tag)
-			groups[tag] = tags
-		}
+	tags := RuleTags{Name: b.names.Rule(section.Name), Selector: b.ruleOutbound(section.Name)}
+	tiers, groups, err := b.fallbackTiers(section, members, &tags)
+	if err != nil {
+		return err
 	}
 	var choices []string
-	tags := RuleTags{Name: b.names.Rule(section.Name), Selector: b.ruleOutbound(section.Name)}
 	switch {
 	case len(members) == 0 && len(tiers) == 0:
 		b.warn("rule ", b.names.RuleText(section.Name), ": its sources name no server now: its connections are refused")
@@ -140,7 +109,7 @@ func (b *builder) buildExit(section *model.Section) error {
 		choices = members
 	default:
 		test := b.claim(ruleTag(tags.Name, "urltest"), "rule\x00"+section.Name+"\x00urltest")
-		b.setChoice(b.addURLTest(test, members, tiers), section)
+		b.setChoice(b.addURLTest(test, members, tiers), section, section.Choice)
 		tags.Test = test
 		b.tags.Outbounds[test] = TagOf{Rule: section.Name}
 		choices = append([]string{test}, members...)
@@ -165,6 +134,91 @@ func (b *builder) buildExit(section *model.Section) error {
 	return nil
 }
 
+// fallbackTiers makes the fallbacks of a rule whose servers are members: the tiers of its URL test,
+// and the servers of each tier that is a URL test of its own, by its tag.
+//
+// By default each row is a tier, in the order of the rows. With another fallback choice the servers
+// of all the rows are one tier, a URL test of that choice, and direct and block come after it,
+// whatever their place among the rows: direct answers the server check before any server does, and
+// block refuses, so that a choice among them and servers would be no choice. The loss of the servers
+// of a tier is probed only while the rule goes through it (the engine: a group not in use probes
+// nothing).
+func (b *builder) fallbackTiers(section *model.Section, members []string, rule *RuleTags) (tiers []string, groups map[string][]string, err error) {
+	groups = make(map[string][]string)
+	// a fallback that is a server of the rule or a fallback before it is there once: sing-box
+	// refuses a URL test that lists an outbound twice
+	addTier := func(tag string) {
+		if !slices.Contains(members, tag) && !slices.Contains(tiers, tag) {
+			tiers = append(tiers, tag)
+		}
+	}
+	addGroup := func(kind string, owner TagOf, servers []string) string {
+		tag := b.claim(ruleTag(rule.Name, kind), "rule\x00"+section.Name+"\x00"+kind)
+		group := b.addURLTest(tag, servers, nil)
+		if kind == poolKind {
+			b.setChoice(group, section, section.FallbackChoice)
+		}
+		b.tags.Outbounds[tag] = owner
+		addTier(tag)
+		groups[tag] = servers
+		return tag
+	}
+	pooled := poolsFallbacks(section)
+	if !pooled && section.FallbackChoice != "" && section.FallbackChoice != model.ChoiceOrder {
+		b.warnOnce("rule ", b.names.RuleText(section.Name), ": the fallback choice ", strconv.Quote(section.FallbackChoice), " is not known: the fallbacks are used in their order")
+	}
+	var pool, last []string
+	for index, row := range section.Fallbacks {
+		resort := map[string]string{model.SourceDirect: tagDirectOutbound, model.SourceBlock: tagBlockOutbound}[row.Source]
+		switch {
+		case resort != "" && pooled:
+			last = append(last, resort)
+			continue
+		case resort != "":
+			addTier(resort)
+			continue
+		}
+		servers, err := b.rowServers(section, row)
+		if err != nil {
+			return nil, nil, err
+		}
+		switch {
+		case pooled:
+			for _, tag := range servers {
+				if !slices.Contains(members, tag) && !slices.Contains(pool, tag) {
+					pool = append(pool, tag)
+				}
+			}
+		case len(servers) == 1:
+			addTier(servers[0])
+		case len(servers) > 1:
+			addGroup("fallback-"+strconv.Itoa(index+1), TagOf{Rule: section.Name, Fallback: index + 1}, servers)
+		}
+	}
+	switch {
+	case len(pool) == 1:
+		addTier(pool[0])
+	case len(pool) > 1:
+		rule.Pool = addGroup(poolKind, TagOf{Rule: section.Name}, pool)
+	}
+	for _, tag := range last {
+		addTier(tag)
+	}
+	return tiers, groups, nil
+}
+
+// poolKind is the kind of the tag of the URL test of the servers of all the fallbacks of a rule.
+const poolKind = "fallback"
+
+// poolsFallbacks tells whether the servers of the fallbacks of a rule are chosen among as one.
+func poolsFallbacks(section *model.Section) bool {
+	switch section.FallbackChoice {
+	case model.ChoiceFastest, model.ChoiceLoss, model.ChoiceBalance:
+		return true
+	}
+	return false
+}
+
 // addURLTest makes a URL test of the outbounds with the server check of the settings.
 func (b *builder) addURLTest(tag string, members []string, fallbacks []string) *object {
 	check := &b.config.Settings.Check
@@ -187,21 +241,21 @@ func (b *builder) addURLTest(tag string, members []string, fallbacks []string) *
 	return group
 }
 
-// setChoice gives the URL test of a rule's servers the rule's server choice: fastest goes
-// as before; loss and balance probe the servers for loss through the loss URL. The fallback
-// groups of a rule go by the fastest: they carry its connections only while its servers
-// are down.
-func (b *builder) setChoice(group *object, section *model.Section) {
+// setChoice gives a URL test of a rule its choice: of the test of its servers the server choice, of
+// the one of the servers of all its fallbacks the fallback choice. Fastest goes as before; loss and
+// balance probe the servers for loss through the loss URL. The URL test of one fallback row (in
+// order) goes by the fastest.
+func (b *builder) setChoice(group *object, section *model.Section, choice string) {
 	rule := b.names.RuleText(section.Name)
-	switch section.Choice {
+	switch choice {
 	case "", model.ChoiceFastest:
 		return
 	case model.ChoiceLoss, model.ChoiceBalance:
 	default:
-		b.warnOnce("rule ", rule, ": the server choice ", strconv.Quote(section.Choice), " is not known: the fastest server is used")
+		b.warnOnce("rule ", rule, ": the server choice ", strconv.Quote(choice), " is not known: the fastest server is used")
 		return
 	}
-	group.set("mode", section.Choice)
+	group.set("mode", choice)
 	group.set("loss_url", b.lossURL())
 	if section.LossInterval != "" {
 		minutes, err := strconv.Atoi(section.LossInterval)
@@ -211,7 +265,7 @@ func (b *builder) setChoice(group *object, section *model.Section) {
 			group.set("loss_interval", strconv.Itoa(minutes)+"m")
 		}
 	}
-	if section.Choice == model.ChoiceBalance && section.LossThreshold != "" {
+	if choice == model.ChoiceBalance && section.LossThreshold != "" {
 		percent, err := strconv.ParseFloat(section.LossThreshold, 64)
 		// written as it is, so that NaN, which no comparison holds, is refused too
 		if err != nil || !(percent > 0 && percent <= 50) {

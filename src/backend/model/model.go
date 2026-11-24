@@ -181,6 +181,8 @@ const (
 	ChoiceFastest = "fastest"
 	ChoiceLoss    = "loss"
 	ChoiceBalance = "balance"
+	// ChoiceOrder is of the fallbacks only (Section.FallbackChoice): each row in its turn
+	ChoiceOrder = "order"
 )
 
 // DefaultTestingURLs are the URLs of the server check of a new installation, and of an
@@ -365,6 +367,11 @@ type Section struct {
 	Choice        string
 	LossInterval  string
 	LossThreshold string
+	// FallbackChoice is how the rule chooses among its fallbacks while none of its servers
+	// answers: order (each row in its turn), or fastest, loss or balance, as Choice, over the
+	// servers of all the rows; direct and block are then the last. LossInterval and
+	// LossThreshold are of both.
+	FallbackChoice string
 }
 
 // Load takes the settings out of a parsed file.
@@ -450,6 +457,7 @@ func Load(parsed *uci.Package) (*Config, error) {
 			MixedProxyPassword:      section.Get("mixed_proxy_password"),
 			ResolveRealIPForRouting: section.Bool("resolve_real_ip_for_routing", false),
 			Choice:                  get(section, "server_choice", ChoiceFastest),
+			FallbackChoice:          get(section, "fallback_choice", ChoiceOrder),
 			LossInterval:            section.Get("loss_check_interval"),
 			LossThreshold:           section.Get("loss_threshold"),
 		})

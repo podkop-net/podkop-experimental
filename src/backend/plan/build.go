@@ -283,6 +283,9 @@ type RuleTags struct {
 	// for a rule of one server.
 	Selector string `json:"selector"`
 	Test     string `json:"test,omitempty"`
+	// Pool is the URL test of the servers of its fallbacks chosen among as one (the fallback
+	// choice); "" when they go in their order, or are one server.
+	Pool string `json:"pool,omitempty"`
 }
 
 // TagOf is what an outbound is: a group of a rule, a server of a source, or the URL test of the
@@ -687,6 +690,9 @@ func (b *builder) claimRuleTags() {
 		for row := range section.Fallbacks {
 			kind := "fallback-" + strconv.Itoa(row+1)
 			b.claim(ruleTag(name, kind), "rule\x00"+section.Name+"\x00"+kind)
+		}
+		if poolsFallbacks(section) {
+			b.claim(ruleTag(name, poolKind), "rule\x00"+section.Name+"\x00"+poolKind)
 		}
 	}
 }
