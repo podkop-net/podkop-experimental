@@ -501,7 +501,7 @@ func New(options Options) *Supervisor {
 }
 
 func (s *Supervisor) log(level string, message ...any) {
-	s.options.Log(level, oneLine(E.New(message...).Error()))
+	s.options.Log(level, model.OneLine(E.New(message...).Error()))
 }
 
 // Running tells whether a state is up.
@@ -552,7 +552,7 @@ func factsOf(current *running) api.Facts {
 
 // done records what a boot or a change came to and returns it.
 func (s *Supervisor) done(ok bool, replaced bool, message ...any) Result {
-	result := Result{OK: ok, Message: oneLine(E.New(message...).Error())}
+	result := Result{OK: ok, Message: model.OneLine(E.New(message...).Error())}
 	var servers []detect.Server
 	var fallback bool
 	var stable map[string]detect.Identity
@@ -710,7 +710,7 @@ func (s *Supervisor) updateLists(reply chan<- ListsUpdate) {
 		switch {
 		case err != nil:
 			result.OK = false
-			result.Lines = append(result.Lines, "rule sets: "+oneLine(err.Error()))
+			result.Lines = append(result.Lines, "rule sets: "+model.OneLine(err.Error()))
 		case summary.Total > 0:
 			result.OK = summary.Failed == 0
 			result.Lines = append(result.Lines, E.New("rule sets: ", summary.Total, " asked, ", summary.Loaded, " with a new list, ", summary.Failed, " failed").Error())
@@ -2363,11 +2363,6 @@ func (s *Supervisor) survive(what string, answer func()) {
 	if answer != nil {
 		answer()
 	}
-}
-
-// oneLine keeps a message on one line of the log.
-func oneLine(message string) string {
-	return strings.Join(strings.Fields(message), " ")
 }
 
 // excludeDownloads gives the engine the servers the downloads of the lists and the subscriptions

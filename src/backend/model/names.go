@@ -29,7 +29,7 @@ func (c *Config) Names() Names {
 	taken := make(map[string]bool)
 	for index := range c.Sections {
 		section := &c.Sections[index]
-		names.Rules[section.Name] = uniqueName(oneLine(section.Label), section.Name, taken)
+		names.Rules[section.Name] = uniqueName(OneLine(section.Label), section.Name, taken)
 	}
 	taken = make(map[string]bool)
 	for index := range c.Sources {
@@ -90,15 +90,16 @@ func uniqueName(name string, section string, taken map[string]bool) string {
 	return candidate
 }
 
-// oneLine is a text on one line, its spaces single.
-func oneLine(text string) string {
+// OneLine is a text on one line, its spaces single: a label of the settings as the names are
+// made of it, a message for the log or the page.
+func OneLine(text string) string {
 	return strings.Join(strings.Fields(text), " ")
 }
 
 // autoName is the label of the source, or a name of its kind and its contents without an
 // address (the page shows the host of a source without a label; the tags do not).
 func (s *Source) autoName() string {
-	if label := oneLine(s.Label); label != "" {
+	if label := OneLine(s.Label); label != "" {
 		return label
 	}
 	// no address: the names are in the tags of the outbounds, which the log, the dashboard and
@@ -109,7 +110,7 @@ func (s *Source) autoName() string {
 	case "links":
 		links := s.linkList()
 		if len(links) == 1 {
-			if name := oneLine(linkName(links[0])); name != "" {
+			if name := OneLine(linkName(links[0])); name != "" {
 				return name
 			}
 			if scheme := linkScheme(links[0]); scheme != "" {
@@ -124,8 +125,8 @@ func (s *Source) autoName() string {
 		var outbound map[string]any
 		if json.Unmarshal([]byte(strings.TrimPrefix(strings.TrimSpace(s.OutboundJSON), "\ufeff")), &outbound) == nil {
 			for _, key := range []string{"tag", "type"} {
-				if text, isText := outbound[key].(string); isText && oneLine(text) != "" {
-					return oneLine(text)
+				if text, isText := outbound[key].(string); isText && OneLine(text) != "" {
+					return OneLine(text)
 				}
 			}
 		}

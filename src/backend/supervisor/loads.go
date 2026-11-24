@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
+	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/subscription"
 )
 
@@ -291,9 +292,9 @@ func tookOf(tries []subscription.Try) int64 {
 func failureOf(err error) (string, string, []string) {
 	var failure *subscription.Failure
 	if errors.As(err, &failure) {
-		return oneLine(failure.Text), failure.Code, failure.Args
+		return model.OneLine(failure.Text), failure.Code, failure.Args
 	}
-	return oneLine(err.Error()), "", nil
+	return model.OneLine(err.Error()), "", nil
 }
 
 func newJobID() string {

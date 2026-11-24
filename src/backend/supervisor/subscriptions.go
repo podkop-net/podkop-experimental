@@ -937,7 +937,7 @@ func (s *Supervisor) CheckGroup(ctx context.Context, check GroupCheck) GroupPrev
 		}
 		list, err := s.groupList(ctx, name, strings.TrimSpace(check.Addresses[name]), request)
 		if err != nil {
-			preview.Missing = append(preview.Missing, name+": "+oneLine(err.Error()))
+			preview.Missing = append(preview.Missing, name+": "+model.OneLine(err.Error()))
 			continue
 		}
 		for _, server := range list.Servers {
