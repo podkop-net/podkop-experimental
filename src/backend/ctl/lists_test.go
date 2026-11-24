@@ -2,28 +2,24 @@ package ctl
 
 import (
 	"encoding/json"
-	"go/ast"
-	"go/parser"
-	"go/token"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 )
 
 // The commands are in one table (Methods: the help, Run and the commands the running backend
-// answers itself are made from it), their names once more in what calls them: the actions of
-// clash_api (its help, its switch, the list its unknown action answers), and on the side of the
-// page the commands it runs (fe-app-podkop: the methods of methods/shell, and the bundle of them the
-// package ships, main.js), the methods of ubus it calls (rpc.declare) and the ACL of rpcd that
-// grants them (luci-app-podkop.json). TestCommandLists holds them together: a command the page runs
-// that is none, or that the ACL does not let it run, a grant of the ACL that names nothing the page
-// calls, a command that acts and that the page may call under a grant to read. The methods of the
-// object podkop on ubus and their grants are held by TestBusMethodsInACL (cmd/podkop).
+// answers itself are made from it; the actions of clash_api in clashActions), their names once more
+// on the side of the page: the commands it runs (fe-app-podkop: the methods of methods/shell, and
+// the bundle of them the package ships, main.js), the methods of ubus it calls (rpc.declare) and the
+// ACL of rpcd that grants them (luci-app-podkop.json). TestCommandLists holds them together: a
+// command the page runs that is none, or that the ACL does not let it run, a grant of the ACL that
+// names nothing the page calls, a command that acts and that the page may call under a grant to
+// read. The methods of the object podkop on ubus and their grants are held by TestBusMethodsInACL
+// (cmd/podkop).
 //
 // A known difference is listed below with its reason; a listed difference that is gone fails as
 // well, so that the lists stay what is there.
@@ -96,18 +92,9 @@ func TestCommandLists(t *testing.T) {
 		}
 	}
 
-	// the actions of clash_api: its help, its switch, the list of its unknown action
-	actions := switchCases(t, "commands.go", "clashAPI", "argument")
-	helped := clashHelp(t)
-	available := clashAvailable(t)
-	if len(actions) < 4 {
-		t.Fatalf("only %d actions of clash_api were read", len(actions))
-	}
-	if !slices.Equal(slices.Sorted(slices.Values(actions)), slices.Sorted(slices.Values(helped))) {
-		t.Errorf("clash_api handles %v, its help names %v", actions, helped)
-	}
-	if !slices.Equal(slices.Sorted(slices.Values(actions)), slices.Sorted(slices.Values(available))) {
-		t.Errorf("clash_api handles %v, its unknown action answers %v", actions, available)
+	var actions []string
+	for _, action := range clashActions {
+		actions = append(actions, action.name)
 	}
 
 	// what the page runs, from its sources and from the bundle the package ships
@@ -265,127 +252,6 @@ func commandNames(t *testing.T) []string {
 		}
 	}
 	return names
-}
-
-// switchCases are the string cases of the outer switch of a function on a value read from a
-// variable (Run: arguments[0]) or by a call (clashAPI: argument(0)), from the source.
-func switchCases(t *testing.T, file string, function string, value string) []string {
-	parsed, err := parser.ParseFile(token.NewFileSet(), file, nil, parser.SkipObjectResolution)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var cases []string
-	for _, declaration := range parsed.Decls {
-		body, isFunction := declaration.(*ast.FuncDecl)
-		if !isFunction || body.Name.Name != function || body.Recv != nil {
-			continue
-		}
-		for _, statement := range body.Body.List {
-			choice, isSwitch := statement.(*ast.SwitchStmt)
-			if !isSwitch || !switchesOn(choice.Tag, value) {
-				continue
-			}
-			for _, clause := range choice.Body.List {
-				for _, expression := range clause.(*ast.CaseClause).List {
-					literal, isLiteral := expression.(*ast.BasicLit)
-					if !isLiteral || literal.Kind != token.STRING {
-						t.Fatalf("%s: a case of the switch of %s is no string: %T", file, function, expression)
-					}
-					name, err := strconv.Unquote(literal.Value)
-					if err != nil {
-						t.Fatal(err)
-					}
-					if slices.Contains(cases, name) {
-						t.Errorf("%s handles %s twice", function, name)
-					}
-					cases = append(cases, name)
-				}
-			}
-			return cases
-		}
-	}
-	t.Fatalf("%s: no switch on %s(0) in %s", file, value, function)
-	return nil
-}
-
-// switchesOn tells whether the tag of a switch is name[0] or name(0).
-func switchesOn(tag ast.Expr, name string) bool {
-	var called ast.Expr
-	var index ast.Expr
-	switch expression := tag.(type) {
-	case *ast.IndexExpr:
-		called, index = expression.X, expression.Index
-	case *ast.CallExpr:
-		if len(expression.Args) != 1 {
-			return false
-		}
-		called, index = expression.Fun, expression.Args[0]
-	default:
-		return false
-	}
-	identifier, isIdentifier := called.(*ast.Ident)
-	zero, isLiteral := index.(*ast.BasicLit)
-	return isIdentifier && identifier.Name == name && isLiteral && zero.Value == "0"
-}
-
-// clashHelp are the actions the help of clash_api names: the first word of each part between
-// the bars, what is in parentheses left out.
-func clashHelp(t *testing.T) []string {
-	for _, method := range Methods {
-		if method.Name != "clash_api" {
-			continue
-		}
-		text, depth := "", 0
-		for _, character := range method.Help {
-			switch {
-			case character == '(':
-				depth++
-			case character == ')':
-				depth--
-			case depth == 0:
-				text += string(character)
-			}
-		}
-		var actions []string
-		for part := range strings.SplitSeq(text, "|") {
-			if fields := strings.Fields(part); len(fields) > 0 {
-				actions = append(actions, fields[0])
-			}
-		}
-		return actions
-	}
-	t.Fatal("the help has no clash_api")
-	return nil
-}
-
-// clashAvailable is the list of actions the unknown action of clash_api answers.
-func clashAvailable(t *testing.T) []string {
-	parsed, err := parser.ParseFile(token.NewFileSet(), "commands.go", nil, parser.SkipObjectResolution)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var available []string
-	ast.Inspect(parsed, func(node ast.Node) bool {
-		literal, isLiteral := node.(*ast.BasicLit)
-		if !isLiteral || literal.Kind != token.STRING || !strings.Contains(literal.Value, "unknown action") {
-			return true
-		}
-		text, err := strconv.Unquote(literal.Value)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var answer struct {
-			Available []string `json:"available"`
-		}
-		if json.Unmarshal([]byte(text), &answer) == nil {
-			available = answer.Available
-		}
-		return true
-	})
-	if len(available) == 0 {
-		t.Fatal("no answer of an unknown action of clash_api lists the actions")
-	}
-	return available
 }
 
 // pageCall is a method of methods/shell: the program it runs, the command, and for clash_api its

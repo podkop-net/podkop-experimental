@@ -105,7 +105,7 @@ var Methods = []Method{
 	{Name: "check_fakeip_client", Class: Read, InProcess: true, Form: Pretty, Answer: (*Call).checkFakeIPOfClient,
 		Help: "<label> [ms]: what the backend saw of the check name a device opened a connection to"},
 	{Name: "clash_api", Class: Write, InProcess: true, Print: (*Call).clashAPI,
-		Help: "get_proxies | get_proxy_latency <tag> [ms] (with the first server check URL of HTTPS, then the second when it does not answer; direct-out: all of them at once, the median) | get_group_latency <tag> [ms] (a selector with a URL test: a round of it; one without: each server as get_proxy_latency, 0 for no answer) | set_group_proxy <group> <proxy> | upgrade_ui (the dashboard YACD of GitHub in place of the one served)"},
+		Help: clashHelp()},
 	{Name: "yacd_builtin", Class: Write, Print: (*Call).restoreYACD,
 		Help: "The dashboard YACD of the package served again in place of the one upgraded from GitHub"},
 	{Name: "global_check", Class: Read, Print: (*Call).globalCheck,

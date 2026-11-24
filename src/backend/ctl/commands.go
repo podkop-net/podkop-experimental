@@ -414,10 +414,6 @@ func (c *Call) bitTorrentCounters() (any, error) {
 	return counters, nil
 }
 
-func (c *Call) clashAPI() int {
-	return clashAPI(c.client, c.links, c.Arguments, c.Output)
-}
-
 func (c *Call) globalCheck() int {
 	config := c.config()
 	// with the label of a check name and a port: the device that asks opens
@@ -498,8 +494,7 @@ func (c *Call) checkNft() int {
 func (c *Call) restoreYACD() int {
 	err := yacd.Restore(yacd.BuiltinDir, yacd.ServedDir)
 	if err != nil {
-		message, _ := json.Marshal(err.Error())
-		c.print(`{"success":false,"message":` + string(message) + "}\n")
+		c.print(`{"success":false,"message":` + jsonString(err.Error()) + "}\n")
 		return 1
 	}
 	return c.print(`{"success":true}` + "\n")
@@ -767,122 +762,157 @@ func showConfig(env Environment, rejected bool, output io.Writer, errorOutput io
 	return 1
 }
 
+// clashAction is an action of clash_api.
+type clashAction struct {
+	name string
+	// help is what the help tells of it after its name.
+	help string
+	run  func(c *Call, caller *clashCaller) int
+}
+
+// clashActions are the actions of clash_api, in the order of the help.
+var clashActions = []clashAction{
+	{"get_proxies", "", (*Call).clashProxies},
+	{"get_proxy_latency", "<tag> [ms] (with the first server check URL of HTTPS, then the second when it does not answer; direct-out: all of them at once, the median)", (*Call).clashProxyLatency},
+	{"get_group_latency", "<tag> [ms] (a selector with a URL test: a round of it; one without: each server as get_proxy_latency, 0 for no answer)", (*Call).clashGroupLatency},
+	{"set_group_proxy", "<group> <proxy>", (*Call).clashSetProxy},
+	{"upgrade_ui", "(the dashboard YACD of GitHub in place of the one served)", (*Call).clashUpgrade},
+}
+
+// clashHelp is what the help tells of clash_api.
+func clashHelp() string {
+	var actions []string
+	for _, action := range clashActions {
+		actions = append(actions, strings.TrimSpace(action.name+" "+action.help))
+	}
+	return strings.Join(actions, " | ")
+}
+
 // clashAPI asks the Clash API of sing-box, where the dashboard of the user interface
 // gets the outbounds, their delays and the choice of a group from. The answers are
 // printed as the shell backend prints them. Where the API listens and its key are what
 // the backend that runs tells (api.Facts): with no backend there is no API. The delays are
-// tested with the check URLs links gives (oneOffURLs), read only by the commands that test.
-func clashAPI(client daemon, links func() []string, arguments []string, output io.Writer) int {
-	say := func(text string) {
-		content, err := plan.Pretty([]byte(text))
-		if err == nil {
-			output.Write(content)
+// tested with the check URLs (links), read only by the actions that test.
+func (c *Call) clashAPI() int {
+	var names []string
+	for _, action := range clashActions {
+		if action.name == c.argument(0) {
+			return action.run(c, &clashCaller{client: c.client})
 		}
+		names = append(names, action.name)
 	}
-	caller := &clashCaller{client: client}
-	call := caller.call
-	argument := func(index int) string {
-		if index < len(arguments) {
-			return arguments[index]
-		}
-		return ""
+	c.printJSON(`{"error":"unknown action","available":` + jsonString(names) + `}`)
+	return 1
+}
+
+// printJSON prints a text of JSON as the shell backend printed it, one that is not JSON not at all.
+func (c *Call) printJSON(text string) {
+	if content, err := plan.Pretty([]byte(text)); err == nil {
+		c.Output.Write(content)
 	}
-	// the wait of the command line, or its default
-	wait := func(defaultMilliseconds int) time.Duration {
-		milliseconds, err := strconv.Atoi(argument(2))
-		if err != nil || milliseconds <= 0 {
-			milliseconds = defaultMilliseconds
-		}
-		return time.Duration(milliseconds) * time.Millisecond
+}
+
+// jsonString is a value as JSON.
+func jsonString(value any) string {
+	content, _ := json.Marshal(value)
+	return string(content)
+}
+
+// clashWait is the wait of the command line, the argument after the tag, or its default.
+func (c *Call) clashWait(defaultMilliseconds int) time.Duration {
+	milliseconds, err := strconv.Atoi(c.argument(2))
+	if err != nil || milliseconds <= 0 {
+		milliseconds = defaultMilliseconds
 	}
-	switch argument(0) {
-	case "get_proxies":
-		_, content := call(http.MethodGet, "/proxies", "", 10*time.Second)
-		if len(bytes.TrimSpace(content)) == 0 {
-			return 1
-		}
-		say(string(withTags(content, caller.facts.Tags)))
-		return 0
-	case "get_proxy_latency":
-		// each try waits the time of the command line; both within oneOffBudget, which the
-		// page's cut of its call leaves room for
-		tag := argument(1)
-		if tag == "" {
-			say(`{"error":"proxy_tag required"}`)
-			return 1
-		}
-		result := outboundDelay(caller, tag, links(), wait(2000), time.Now().Add(oneOffBudget))
-		if !result.answered {
-			return 1
-		}
-		say(string(jsonText(result)))
-		return 0
-	case "get_group_latency":
-		tag := argument(1)
-		if tag == "" {
-			say(`{"error":"group_tag required"}`)
-			return 1
-		}
-		content := groupLatency(caller, tag, links(), wait(5000))
-		if len(bytes.TrimSpace(content)) == 0 {
-			return 1
-		}
-		say(string(content))
-		return 0
-	case "upgrade_ui":
-		// sing-box downloads the dashboard of GitHub (Yacd-meta) and puts it in place of
-		// the one it serves (POST /upgrade/ui), through its direct outbound, as the button
-		// of the dashboard asks
-		status, content := call(http.MethodPost, "/upgrade/ui", "", 3*time.Minute)
-		if status == http.StatusOK {
-			say(`{"success":true}`)
-			return 0
-		}
-		message := "the Clash API did not answer (YACD off, or podkop not running)"
-		if status != 0 {
-			var answer struct {
-				Message string `json:"message"`
-			}
-			_ = json.Unmarshal(content, &answer)
-			message = cmp.Or(answer.Message, http.StatusText(status))
-		}
-		quoted, _ := json.Marshal(message)
-		say(`{"success":false,"http_code":` + strconv.Itoa(status) + `,"message":` + string(quoted) + `}`)
-		return 1
-	case "set_group_proxy":
-		group, proxy := argument(1), argument(2)
-		if group == "" || proxy == "" {
-			say(`{"error":"group_tag and proxy_tag required"}`)
-			return 1
-		}
-		name, _ := json.Marshal(proxy)
-		status, content := call(http.MethodPut, "/proxies/"+url.PathEscape(group), `{"name":`+string(name)+`}`, 10*time.Second)
-		text := func(value string) string {
-			quoted, _ := json.Marshal(value)
-			return string(quoted)
-		}
-		switch status {
-		case http.StatusNoContent:
-			say(`{"success":true,"group":` + text(group) + `,"proxy":` + text(proxy) + `}`)
-			return 0
-		case http.StatusNotFound:
-			say(`{"success":false,"error":"group_not_found","message":` + text(group+" does not exist") + `}`)
-		case http.StatusBadRequest:
-			if bytes.Contains(content, []byte("not found")) {
-				say(`{"success":false,"error":"proxy_not_found","message":` + text(proxy+" not found in group "+group) + `}`)
-			} else {
-				say(`{"success":false,"error":"bad_request","message":"Invalid request"}`)
-			}
-		default:
-			if json.Valid(content) && len(bytes.TrimSpace(content)) > 0 {
-				say(`{"success":false,"http_code":` + strconv.Itoa(status) + `,"body":` + string(content) + `}`)
-			} else {
-				say(`{"success":false,"http_code":` + strconv.Itoa(status) + `}`)
-			}
-		}
+	return time.Duration(milliseconds) * time.Millisecond
+}
+
+func (c *Call) clashProxies(caller *clashCaller) int {
+	_, content := caller.call(http.MethodGet, "/proxies", "", 10*time.Second)
+	if len(bytes.TrimSpace(content)) == 0 {
 		return 1
 	}
-	say(`{"error":"unknown action","available":["get_proxies","get_proxy_latency","get_group_latency","set_group_proxy","upgrade_ui"]}`)
+	c.printJSON(string(withTags(content, caller.facts.Tags)))
+	return 0
+}
+
+func (c *Call) clashProxyLatency(caller *clashCaller) int {
+	// each try waits the time of the command line; both within oneOffBudget, which the
+	// page's cut of its call leaves room for
+	tag := c.argument(1)
+	if tag == "" {
+		c.printJSON(`{"error":"proxy_tag required"}`)
+		return 1
+	}
+	result := outboundDelay(caller, tag, c.links(), c.clashWait(2000), time.Now().Add(oneOffBudget))
+	if !result.answered {
+		return 1
+	}
+	c.printJSON(string(jsonText(result)))
+	return 0
+}
+
+func (c *Call) clashGroupLatency(caller *clashCaller) int {
+	tag := c.argument(1)
+	if tag == "" {
+		c.printJSON(`{"error":"group_tag required"}`)
+		return 1
+	}
+	content := groupLatency(caller, tag, c.links(), c.clashWait(5000))
+	if len(bytes.TrimSpace(content)) == 0 {
+		return 1
+	}
+	c.printJSON(string(content))
+	return 0
+}
+
+func (c *Call) clashUpgrade(caller *clashCaller) int {
+	// sing-box downloads the dashboard of GitHub (Yacd-meta) and puts it in place of
+	// the one it serves (POST /upgrade/ui), through its direct outbound, as the button
+	// of the dashboard asks
+	status, content := caller.call(http.MethodPost, "/upgrade/ui", "", 3*time.Minute)
+	if status == http.StatusOK {
+		c.printJSON(`{"success":true}`)
+		return 0
+	}
+	message := "the Clash API did not answer (YACD off, or podkop not running)"
+	if status != 0 {
+		var answer struct {
+			Message string `json:"message"`
+		}
+		_ = json.Unmarshal(content, &answer)
+		message = cmp.Or(answer.Message, http.StatusText(status))
+	}
+	c.printJSON(`{"success":false,"http_code":` + strconv.Itoa(status) + `,"message":` + jsonString(message) + `}`)
+	return 1
+}
+
+func (c *Call) clashSetProxy(caller *clashCaller) int {
+	group, proxy := c.argument(1), c.argument(2)
+	if group == "" || proxy == "" {
+		c.printJSON(`{"error":"group_tag and proxy_tag required"}`)
+		return 1
+	}
+	status, content := caller.call(http.MethodPut, "/proxies/"+url.PathEscape(group), `{"name":`+jsonString(proxy)+`}`, 10*time.Second)
+	switch status {
+	case http.StatusNoContent:
+		c.printJSON(`{"success":true,"group":` + jsonString(group) + `,"proxy":` + jsonString(proxy) + `}`)
+		return 0
+	case http.StatusNotFound:
+		c.printJSON(`{"success":false,"error":"group_not_found","message":` + jsonString(group+" does not exist") + `}`)
+	case http.StatusBadRequest:
+		if bytes.Contains(content, []byte("not found")) {
+			c.printJSON(`{"success":false,"error":"proxy_not_found","message":` + jsonString(proxy+" not found in group "+group) + `}`)
+		} else {
+			c.printJSON(`{"success":false,"error":"bad_request","message":"Invalid request"}`)
+		}
+	default:
+		if json.Valid(content) && len(bytes.TrimSpace(content)) > 0 {
+			c.printJSON(`{"success":false,"http_code":` + strconv.Itoa(status) + `,"body":` + string(content) + `}`)
+		} else {
+			c.printJSON(`{"success":false,"http_code":` + strconv.Itoa(status) + `}`)
+		}
+	}
 	return 1
 }
 
