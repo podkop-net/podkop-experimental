@@ -3,16 +3,12 @@ package supervisor
 import (
 	"context"
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/detect"
 	"github.com/podkop-net/podkop-experimental/src/backend/model"
 	"github.com/podkop-net/podkop-experimental/src/backend/uci"
-	E "github.com/sagernet/sing/common/exceptions"
 )
 
 // The states of a set_cure / clear_cure / drop_stale_cures call, read by the page.
@@ -421,99 +417,27 @@ func dropCure(sections []*uci.Section, hash, via string) []*uci.Section {
 	return kept
 }
 
-// editCures reads the settings file, rewrites its sections with edit, and writes it back,
-// atomically (a temporary in the same directory renamed over the file) and with the same
-// permissions. It answers how many cure sections the edit took out. It holds the lock libuci takes
-// for a commit (flock LOCK_EX on the file itself), so a `uci commit` of LuCI waits for it and it
-// waits for that one; comments of the file are not kept, as libuci does not keep them either.
+// editCures changes the sections of the settings file with edit (uci.Edit). It answers how many
+// sections the edit took out.
 func (r *detectorRuntime) editCures(edit func([]*uci.Section) []*uci.Section) (int, error) {
-	r.cureMu.Lock()
-	defer r.cureMu.Unlock()
-	path := r.options.SettingsPath
-	file, err := lockFile(path)
-	if err != nil {
-		return 0, err
-	}
-	defer file.Close() // releases the lock
-	info, err := file.Stat()
-	if err != nil {
-		return 0, err
-	}
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return 0, err
-	}
-	parsed, err := uci.Parse(content)
-	if err != nil {
-		return 0, E.Cause(err, "read ", path)
-	}
-	original := make(map[*uci.Section]bool)
-	for _, section := range parsed.Sections {
-		original[section] = true
-	}
-	sections := edit(parsed.Sections)
-	kept := make(map[*uci.Section]bool)
-	added := 0
-	for _, section := range sections {
-		if original[section] {
-			kept[section] = true
-		} else {
-			added++
-		}
-	}
 	removed := 0
-	for _, section := range parsed.Sections {
-		if !kept[section] {
-			removed++
+	_, err := uci.Edit(r.options.SettingsPath, func(parsed *uci.Package) error {
+		removed = 0
+		before := parsed.Sections
+		parsed.Sections = edit(before)
+		kept := make(map[*uci.Section]bool)
+		for _, section := range parsed.Sections {
+			kept[section] = true
 		}
-	}
-	if removed == 0 && added == 0 {
-		// nothing to change: the file is not written
-		return 0, nil
-	}
-	parsed.Sections = sections
-	temporary, err := os.CreateTemp(filepath.Dir(path), ".podkop-cure-*")
+		for _, section := range before {
+			if !kept[section] {
+				removed++
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return 0, err
 	}
-	defer os.Remove(temporary.Name())
-	if _, err := temporary.Write(parsed.Format()); err != nil {
-		temporary.Close()
-		return 0, err
-	}
-	if err := temporary.Chmod(info.Mode().Perm()); err != nil {
-		temporary.Close()
-		return 0, err
-	}
-	if err := temporary.Sync(); err != nil {
-		temporary.Close()
-		return 0, err
-	}
-	if err := temporary.Close(); err != nil {
-		return 0, err
-	}
-	return removed, os.Rename(temporary.Name(), path)
-}
-
-// lockFile opens the file at path and takes the exclusive flock libuci takes before it writes a
-// configuration. A commit replaces the file by a rename: when the file at the path is no longer the
-// one locked, the lock is taken again on the new one.
-func lockFile(path string) (*os.File, error) {
-	for attempt := 0; attempt < 10; attempt++ {
-		file, err := os.Open(path)
-		if err != nil {
-			return nil, err
-		}
-		if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
-			file.Close()
-			return nil, err
-		}
-		locked, errLocked := file.Stat()
-		current, errCurrent := os.Stat(path)
-		if errLocked == nil && errCurrent == nil && os.SameFile(locked, current) {
-			return file, nil
-		}
-		file.Close()
-	}
-	return nil, E.New("lock ", path, ": the file keeps being replaced")
+	return removed, nil
 }

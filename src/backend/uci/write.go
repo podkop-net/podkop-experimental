@@ -53,6 +53,18 @@ func (s *Section) Delete(name string) {
 	}
 }
 
+// dropEmpty deletes the options set to nothing: libuci does not read them, so a file it writes has
+// none. A list keeps its empty items, as libuci keeps them.
+func (p *Package) dropEmpty() {
+	for _, section := range p.Sections {
+		for _, name := range section.Options() {
+			if section.options[name].empty() {
+				section.Delete(name)
+			}
+		}
+	}
+}
+
 // Format writes the package in the syntax of the files under /etc/config, laid out as
 // "uci export" lays it out: every value in single quotes, a quote in a value closed,
 // escaped and opened again, so Parse reads back what was written.

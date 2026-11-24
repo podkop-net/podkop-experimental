@@ -1,6 +1,7 @@
 // Package uci reads a configuration file of OpenWrt's UCI the way libuci does, without the
 // uci command: the backend reads its own file on every start, and a test reads fixtures on
-// any system.
+// any system. It writes one too (Edit), under the lock libuci takes: the one way the backend
+// writes its own settings.
 package uci
 
 import (

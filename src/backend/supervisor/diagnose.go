@@ -111,17 +111,15 @@ type diagnosis struct {
 // one at a time (diagnosis.current), and the search for a mask, one at a time (suggestScan), with
 // that of its names and one a public list of them.
 //
-// The locks: that of the probes (diagnosis.access), cureMu and suggestAccess, within which the
-// search reserves the destination with the lock of the probes; none is held with the lock of the
-// status.
+// The locks: that of the probes (diagnosis.access) and suggestAccess, within which the search
+// reserves the destination with the lock of the probes; none is held with the lock of the status.
+// The settings file has a lock of its own (uci.Edit).
 type detectorRuntime struct {
 	options *Options
 	host    detectorHost
 	// diag is the state of the probes
 	diag diagnosis
-	// cureMu serializes writes of the cure store to the settings file; suggestAccess guards the
-	// one on-demand white-SNI scan (cure.go)
-	cureMu        sync.Mutex
+	// suggestAccess guards the one on-demand white-SNI scan (cure.go)
 	suggestAccess sync.Mutex
 	suggest       *suggestScan
 }

@@ -50,12 +50,15 @@ func (Router) RouteUplinks() ([]string, error) { return netcfg.RouteUplinks() }
 func (Router) FirewallPresent() (bool, error) { return firewall.Exists() }
 
 func (Router) SetClashSecret(key string) error {
-	// a line of uci batch a command: the key is quoted, and a key that would end the
-	// line is refused
-	if strings.ContainsAny(key, "\r\n") {
-		return E.New("the key of the Clash API has a line break")
-	}
-	return dnsmasq.Router{}.Batch("set podkop.settings.yacd_secret_key=" + dnsmasq.Quote(key) + "\ncommit podkop\n")
+	_, err := uci.Edit(SettingsPath, func(parsed *uci.Package) error {
+		settings := parsed.Section("settings")
+		if settings == nil {
+			return E.New(SettingsPath, " has no section settings")
+		}
+		settings.Set("yacd_secret_key", key)
+		return nil
+	})
+	return err
 }
 
 func (Router) UpdateFirewall(previous *firewall.Plan, next *firewall.Plan) error {
@@ -166,13 +169,10 @@ var SettingsPath = "/etc/config/podkop"
 // own settings and has no use for the flag; it only never leaves it saying "not clean"
 // after it gave dnsmasq back.
 func markCleanShutdown() {
-	content, err := os.ReadFile(SettingsPath)
-	if err != nil {
-		return
-	}
-	parsed, err := uci.Parse(content)
-	if err != nil || parsed.Section("settings").Get("shutdown_correctly") != "0" {
-		return
-	}
-	_ = dnsmasq.Router{}.Batch("set podkop.settings.shutdown_correctly='1'\ncommit podkop\n")
+	_, _ = uci.Edit(SettingsPath, func(parsed *uci.Package) error {
+		if settings := parsed.Section("settings"); settings.Get("shutdown_correctly") == "0" {
+			settings.Set("shutdown_correctly", "1")
+		}
+		return nil
+	})
 }

@@ -54,3 +54,17 @@ func TestSectionEdits(t *testing.T) {
 	parsed := &Package{Sections: []*Section{section}}
 	require.Equal(t, "config source 'src1'\n\toption type 'json'\n\toption label 'x'\n", string(parsed.Format()))
 }
+
+// Options set to nothing are not read by libuci, so a file it writes has none of them; a list
+// keeps its empty items.
+func TestDropEmpty(t *testing.T) {
+	t.Parallel()
+	parsed, err := Parse([]byte("config settings 'settings'\n\toption a ''\n\toption b 'x'\n\toption c 'y'\n\toption c ''\n\tlist d ''\n\tlist e 'z'\n\tlist e ''\n\toption f ' '\n"))
+	require.NoError(t, err)
+	parsed.dropEmpty()
+	settings := parsed.Section("settings")
+	require.Equal(t, []string{"b", "c", "d", "e", "f"}, settings.Options())
+	require.Equal(t, []string{""}, settings.List("d"))
+	require.Equal(t, []string{"z", ""}, settings.List("e"))
+	require.Equal(t, "config settings 'settings'\n\toption b 'x'\n\toption c 'y'\n\tlist d ''\n\tlist e 'z'\n\tlist e ''\n\toption f ' '\n", string(parsed.Format()))
+}
