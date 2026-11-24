@@ -90,8 +90,12 @@ wins; drag ☰ to change the order. A rule has four tabs:
   not `RU2NL`. The **Protocols** column keeps only the servers of the chosen protocols (an interface
   has none and is always taken). The **Through** column connects to the row's servers via another
   source. A row can also be **Directly** (an exclusion) or **Block**.
-- **Fallback**: rows in order. They are used when no server of the rule answers. With **Block**
-  as a fallback, the rule goes back to its servers soon after the network returns.
+- **Fallback**: the rows used when no server of the rule answers. With **Block** as a fallback, the
+  rule goes back to its servers soon after the network returns. **Fallback choice** tells how they
+  are used. **In order** (the default) takes a row only while nothing before it answers.
+  **Fastest**, **Fastest, avoiding loss** and **Balance between the best** choose among the servers
+  of all the rows together, as the server choice below does; **Directly** or **Block** then comes
+  last, wherever its row is.
 - **Extra**: the server choice and the rule's mixed proxy (SOCKS5 and HTTP on a port of the
   router, see [Mixed proxy](#mixed-proxy)).
 
@@ -102,6 +106,9 @@ Server choice:
 | Fastest | the lowest median delay of the server checks; it switches only to a server faster by the tolerance (Settings) | the checks only |
 | Fastest, avoiding loss | the delay weighed by the loss that downloads of 256 KB count, through the server in use and the three next best | about 50 MB a day per rule at the default 30 minutes |
 | Balance between the best | devices are spread over the best servers and keep theirs; a server with high loss gets no devices | about 60 MB a day per rule (five servers checked) |
+
+Loss is checked only while the servers are in use: that of the fallbacks only after the rule has
+switched to them, and that of a rule without traffic not at all.
 
 ### A rule for some devices
 
