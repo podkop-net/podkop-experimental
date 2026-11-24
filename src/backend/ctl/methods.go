@@ -41,7 +41,8 @@ type Method struct {
 
 // Class is what a method does: the ACL of the page grants the methods of the bus under it. The
 // commands come to the page by the method "run" and by the program itself, both granted under read
-// whatever the class of the command is.
+// whatever the class of the command is: those of the class Write answered by "run" are listed with
+// why (TestCommandLists).
 type Class string
 
 const (

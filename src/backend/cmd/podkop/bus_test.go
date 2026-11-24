@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"slices"
 	"testing"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/api"
@@ -152,10 +151,12 @@ func TestBusForceDetect(t *testing.T) {
 	require.Equal(t, ubus.StatusInvalidArgument, status)
 }
 
-// A method the ACL of the page does not name is denied to the page, and the denial is easy to miss:
-// the page goes on without what it asked for.
+// The ACL of the page grants the methods of the bus under their classes, and no other method of the
+// object. A method the ACL does not name is denied to the page, and the denial is easy to miss: the
+// page goes on without what it asked for.
 func TestBusMethodsInACL(t *testing.T) {
-	content, err := os.ReadFile("../../../../luci-app-podkop/root/usr/share/rpcd/acl.d/luci-app-podkop.json")
+	const path = "luci-app-podkop/root/usr/share/rpcd/acl.d/luci-app-podkop.json"
+	content, err := os.ReadFile("../../../../" + path)
 	if os.IsNotExist(err) {
 		t.Skip("no ACL of the package next to the backend")
 	}
@@ -170,26 +171,24 @@ func TestBusMethodsInACL(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(content, &acl))
 	group := acl["luci-app-podkop"]
-	object := busObject(ctl.Environment{}, api.Direct{}, fixedTraffic{})
-	require.NotEmpty(t, object.Methods)
-	for name := range object.Methods {
-		granted := slices.Contains(group.Read.Ubus[object.Name], name) || slices.Contains(group.Write.Ubus[object.Name], name)
-		require.True(t, granted, "the method %s is not in the ACL of the page", name)
-	}
-	// and the ACL grants no method the object does not have (a method renamed or gone): the
-	// page's calls of the granted methods are held by ctl's TestCommandLists
-	for _, granted := range [][]string{group.Read.Ubus[object.Name], group.Write.Ubus[object.Name]} {
-		for _, name := range granted {
-			require.Contains(t, object.Methods, name, "the ACL of the page grants the method %s, which the object %s does not have", name, object.Name)
+	table := methods(fixedTraffic{})
+	object := ctl.BusObject(ctl.Environment{}, api.Direct{}, table)
+	onBus := 0
+	for class, granted := range map[ctl.Class][]string{ctl.Read: group.Read.Ubus[object.Name], ctl.Write: group.Write.Ubus[object.Name]} {
+		var names []string
+		for _, method := range table {
+			if method.Bus != nil && method.Class == class {
+				require.Contains(t, object.Methods, method.Name)
+				names = append(names, method.Name)
+			}
 		}
+		onBus += len(names)
+		require.ElementsMatch(t, names, granted, "the methods of the class %s of the object %s, and those %s grants under %s", class, object.Name, path, class)
 	}
-	require.Empty(t, slices.DeleteFunc(slices.Clone(group.Read.Ubus[object.Name]), func(name string) bool {
-		return !slices.Contains(group.Write.Ubus[object.Name], name)
-	}), "a method granted both under read and under write")
+	require.Len(t, object.Methods, onBus)
 	// the probe sends real connections: it is an action, reading what it found is not
 	require.Contains(t, group.Read.Ubus[object.Name], "detect")
 	require.Contains(t, group.Write.Ubus[object.Name], "force_detect")
-	require.NotContains(t, group.Read.Ubus[object.Name], "force_detect")
 }
 
 // Each method of the table is there once and tells what it is and what it does; a command answers in

@@ -22,8 +22,8 @@ import (
 // package ships, main.js), the methods of ubus it calls (rpc.declare) and the ACL of rpcd that
 // grants them (luci-app-podkop.json). TestCommandLists holds them together: a command the page runs
 // that is none, or that the ACL does not let it run, a grant of the ACL that names nothing the page
-// calls. The methods of the object podkop on ubus and their grants are held by TestBusMethodsInACL
-// (cmd/podkop).
+// calls, a command that acts and that the page may call under a grant to read. The methods of the
+// object podkop on ubus and their grants are held by TestBusMethodsInACL (cmd/podkop).
 //
 // A known difference is listed below with its reason; a listed difference that is gone fails as
 // well, so that the lists stay what is there.
@@ -32,6 +32,16 @@ import (
 // answer itself (Method.InProcess): the call to ubus is refused, and the page starts the program.
 var pagePrograms = map[string]string{
 	"global_check": "rare and long: in a program of its own a mistake in it cannot take the backend down (Method.InProcess)",
+}
+
+// runWrites are the commands of the class Write the backend answers itself: the ACL grants "run"
+// under read, whatever the command it is asked for, as it grants the program.
+var runWrites = map[string]string{
+	"clash_api":                 "the dashboard: the choice of a selector, the upgrade of YACD",
+	"subscription_load":         "the list of a subscription shown in its form before a save: nothing is taken",
+	"subscription_load_start":   "the list of a subscription shown in its form before a save: nothing is taken",
+	"subscription_load_cancel":  "the end of such a download",
+	"subscription_update_start": "Update now of a subscription",
 }
 
 // pageUncalled are the methods of methods/shell no part of the page calls.
@@ -73,6 +83,17 @@ func TestCommandLists(t *testing.T) {
 	commands := commandNames(t)
 	if len(commands) < 30 {
 		t.Fatalf("only %d commands were read: the test does not look where the table is", len(commands))
+	}
+
+	for _, name := range commands {
+		method := find(Methods, name)
+		_, listed := runWrites[name]
+		switch acts := method.InProcess && method.Class == Write; {
+		case acts && !listed:
+			t.Errorf("the backend answers %s itself, which acts, by a method the ACL grants under read: list it in runWrites with why", name)
+		case listed && !acts:
+			t.Errorf("%s does not act, or the backend does not answer it itself: take it out of runWrites", name)
+		}
 	}
 
 	// the actions of clash_api: its help, its switch, the list of its unknown action
