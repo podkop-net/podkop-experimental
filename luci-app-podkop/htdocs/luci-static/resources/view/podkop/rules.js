@@ -814,6 +814,12 @@ function createRulesContent(
   o.textvalue = function (section_id) {
     const servers = rowsOf(section_id, "server").map(rowText);
     const fallbacks = rowsOf(section_id, "fallback").map(rowText);
+    const choices = {
+      fastest: _("Fallback, the fastest: %s"),
+      loss: _("Fallback, avoiding loss: %s"),
+      balance: _("Fallback, balance: %s"),
+    };
+    const choice = uci.get("podkop", section_id, "fallback_choice");
     const lines = [
       E("div", {}, [
         servers.join("; ") || _("No servers: the rule does nothing"),
@@ -822,7 +828,9 @@ function createRulesContent(
     if (fallbacks.length) {
       lines.push(
         E("div", {}, [
-          E("em", {}, [_("Fallback: %s").format(fallbacks.join("; "))]),
+          E("em", {}, [
+            (choices[choice] || _("Fallback: %s")).format(fallbacks.join("; ")),
+          ]),
         ]),
       );
     }
@@ -1250,10 +1258,31 @@ function createRulesContent(
       "_fallbacks",
       "fallback",
       _(
-        "In this order, while no server of the rule answers. Directly here: blocked sites do not open, and the provider sees the addresses.",
+        "Used while no server of the rule answers, as the choice below says. Directly here: blocked sites do not open, and the provider sees the addresses.",
       ),
       _("No fallbacks"),
     );
+
+    // how the rule chooses among its fallbacks: each row in its turn, or the servers of all the
+    // rows as one, by the modes of the engine (the planner: fallbackTiers)
+    o = section.taboption(
+      "fallback",
+      form.ListValue,
+      "fallback_choice",
+      _("Fallback choice"),
+      _(
+        "In order: a row is used only while nothing before it answers. The others choose among the servers of all the rows together, and Directly or Block comes last. Loss is checked only while the rule goes through its fallbacks",
+      ),
+    );
+    o.modalonly = true;
+    o.value("order", _("In order"));
+    o.value("fastest", _("Fastest"));
+    if (singBoxFeatures.includes("urltest.modes")) {
+      o.value("loss", _("Fastest, avoiding loss"));
+      o.value("balance", _("Balance between the best"));
+    }
+    o.default = "order";
+    o.rmempty = true;
   }
 
   // the tab Extra
@@ -1437,6 +1466,8 @@ function createRulesContent(
   o.rmempty = true;
   o.depends("server_choice", "loss");
   o.depends("server_choice", "balance");
+  o.depends("fallback_choice", "loss");
+  o.depends("fallback_choice", "balance");
 
   o = section.taboption(
     "extra",
@@ -1452,6 +1483,7 @@ function createRulesContent(
   o.datatype = "and(ufloat,range(0.1,50))";
   o.rmempty = true;
   o.depends("server_choice", "balance");
+  o.depends("fallback_choice", "balance");
 }
 
 const EntryPoint = {

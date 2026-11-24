@@ -280,7 +280,7 @@ export namespace Podkop {
     lossTitle?: string;
     lossPreliminary?: boolean;
     lossTone?: 'ok' | 'warn' | 'error';
-    // a server of the balance of the rule, and the devices it carries
+    // a server of the balance of the rule or of its fallbacks, and the devices it carries
     balanced?: boolean;
     devices?: number;
     // merged from the detect report at render; the authoritative source is the report, not the tile
@@ -316,11 +316,13 @@ export namespace Podkop {
     via?: string;
   }
 
-  // the outbounds of a rule: its selector and the URL test of its servers
+  // the outbounds of a rule: its selector, the URL test of its servers, and the one of the servers
+  // of its fallbacks when it chooses among them as one
   export interface RuleTags {
     name: string;
     selector: string;
     test?: string;
+    pool?: string;
   }
 
   export interface Tags {

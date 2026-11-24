@@ -46,17 +46,26 @@ function outboundName(
 const DIRECT_TAG = 'direct-out';
 const BLOCK_TAG = 'block';
 
-// the name of the nth fallback tier, with the label of the source of a fallback of several servers:
-// its URL test is that of a fallback row of the rule
+// the name of a mode of a URL test
+function modeName(mode?: string): string {
+  if (mode === 'loss') return _('Fastest, avoiding loss');
+  if (mode === 'balance') return _('Balance');
+  return _('Fastest');
+}
+
+// the name of the nth fallback tier: with the choice, when it is the URL test of the servers of all
+// the fallbacks; with the label of the source, when it is that of a fallback row of several servers
 function tierName(
   place: number,
   tag: string,
+  mode: string | undefined,
   rule: string,
   sources: Podkop.ConfigSource[],
   members: Podkop.ConfigMember[],
   tags?: Podkop.Tags,
 ): string {
   const name = _('Fallback %s').format(place);
+  if (tags?.rules?.[rule]?.pool === tag) return `${name} · ${modeName(mode)}`;
   const number = fallbackRow(tag, rule, tags);
   if (!number) return name;
   const row = members.filter(
@@ -136,16 +145,17 @@ export function ruleTiles(
   const autoTag = ruleTags.test;
   const test =
     autoTag && offered.includes(autoTag) ? proxies[autoTag] : undefined;
-  const balance = new Map(
-    (test?.balance ?? []).map((item) => [item.name, item.devices]),
-  );
+  // the servers of the balance of a tier, with the devices each carries
+  const balanceOf = (group?: ClashAPI.ProxyBase) =>
+    new Map((group?.balance ?? []).map((item) => [item.name, item.devices]));
+  const balances = new Map([[0, balanceOf(test)]]);
   const tile = (tag: string, tier: number): Podkop.Outbound => {
     const item = proxies[tag];
     let displayName = outboundName(tag, rule, sources, tags);
     if (tag === DIRECT_TAG) displayName = _('Directly');
     else if (tag === BLOCK_TAG && tier > 0) displayName = _('Block');
     const loss = lossOf(item?.loss);
-    const balanced = tier === 0 ? balance.get(tag) : undefined;
+    const balanced = balances.get(tier)?.get(tag);
     return {
       loss: loss.text,
       lossTitle: loss.title,
@@ -192,6 +202,7 @@ export function ruleTiles(
     const group = proxies[tag];
     if (group?.type === 'URLTest') {
       groups.set(index + 1, tag);
+      balances.set(index + 1, balanceOf(group));
       (group.all ?? []).forEach((server) =>
         outbounds.push(tile(server, index + 1)),
       );
@@ -211,7 +222,15 @@ export function ruleTiles(
     ? [
         _('Fastest'),
         ...fallbacks.map((tag, index) =>
-          tierName(index + 1, tag, rule, sources, members, tags),
+          tierName(
+            index + 1,
+            tag,
+            proxies[tag]?.mode,
+            rule,
+            sources,
+            members,
+            tags,
+          ),
         ),
       ]
     : [];
@@ -246,9 +265,9 @@ export function ruleTiles(
   if (mode === 'auto' && (test.mode === 'loss' || test.mode === 'balance')) {
     route.choice = test.mode;
   }
-  if (mode === 'auto' && !tier && balance.size) {
+  if (mode === 'auto' && balances.get(tier)?.size) {
     route.balance = outbounds
-      .filter((item) => item.balanced)
+      .filter((item) => item.balanced && item.tier === tier)
       .map((item) => item.displayName);
   }
   return { outbounds, tiers, auto: autoTag, route };
@@ -259,9 +278,7 @@ export function ruleTiles(
 export function routeLabel(route: Podkop.OutboundRoute): string {
   if (route.mode === 'single') return '';
   if (route.mode === 'manual') return _('Manual');
-  let first = _('Fastest');
-  if (route.choice === 'loss') first = _('Fastest, avoiding loss');
-  if (route.choice === 'balance') first = _('Balance');
+  const first = modeName(route.choice);
   return route.tier
     ? `${first} → ${_('Fallback %s').format(route.tier)}`
     : first;

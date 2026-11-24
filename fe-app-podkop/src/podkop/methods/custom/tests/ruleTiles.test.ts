@@ -109,6 +109,108 @@ describe('ruleTiles with the modes of the URL test', () => {
   });
 });
 
+describe('ruleTiles with a choice among the fallbacks', () => {
+  const tags = {
+    rules: {
+      main: {
+        name: 'Main',
+        selector: 'Main-out',
+        test: 'Main-urltest-out',
+        pool: 'Main-fallback-out',
+      },
+    },
+    outbounds: {},
+  };
+  // the servers of the rule, its pool in the mode, and direct
+  const tilesOf = (mode: string | undefined, now: string, extra = {}) =>
+    ruleTiles(
+      {
+        'Main-out': proxy('Main-out', {
+          type: 'Selector',
+          now: 'Main-urltest-out',
+          all: ['Main-urltest-out', 'a', 'b', 'c'],
+        }),
+        'Main-urltest-out': proxy('Main-urltest-out', {
+          type: 'URLTest',
+          now,
+          all: ['a', 'Main-fallback-out', 'direct-out'],
+          fallbacks: ['Main-fallback-out', 'direct-out'],
+        }),
+        'Main-fallback-out': proxy('Main-fallback-out', {
+          type: 'URLTest',
+          now: 'b',
+          all: ['b', 'c'],
+          mode,
+          ...extra,
+        }),
+        a: proxy('a'),
+        b: proxy('b'),
+        c: proxy('c'),
+        'direct-out': proxy('direct-out', { type: 'Direct' }),
+      },
+      'main',
+      [],
+      [],
+      new Set(),
+      tags,
+    );
+
+  it('names the tier by the choice', () => {
+    expect(tilesOf(undefined, 'a').tiers).toEqual([
+      'Fastest',
+      'Fallback 1 · Fastest',
+      'Fallback 2',
+    ]);
+    expect(tilesOf('loss', 'a').tiers[1]).toBe(
+      'Fallback 1 · Fastest, avoiding loss',
+    );
+    expect(tilesOf('balance', 'a').tiers[1]).toBe('Fallback 1 · Balance');
+  });
+
+  it('shows its servers, with its choice while its turn has not come', () => {
+    const { outbounds, route } = tilesOf('loss', 'a');
+    expect(
+      outbounds.map(({ code, tier, active, pick, selectable }) => [
+        code,
+        tier,
+        active,
+        pick,
+        selectable,
+      ]),
+    ).toEqual([
+      ['a', 0, true, false, true],
+      ['b', 1, false, true, true],
+      ['c', 1, false, false, true],
+      ['direct-out', 2, false, false, false],
+    ]);
+    expect(routeLabel(route!)).toBe('Fastest');
+  });
+
+  it('tells its balance, and the devices of its servers, as the route while it is in use', () => {
+    const balance = {
+      balance: [
+        { name: 'b', devices: 2 },
+        { name: 'c', devices: 1 },
+      ],
+    };
+    const used = tilesOf('balance', 'Main-fallback-out', balance);
+    expect(used.outbounds.map((item) => item.devices)).toEqual([
+      undefined,
+      2,
+      1,
+      undefined,
+    ]);
+    expect(used.route).toMatchObject({
+      mode: 'auto',
+      tier: 1,
+      balance: ['b', 'c'],
+    });
+    expect(routeLabel(used.route!)).toBe('Fastest → Fallback 1');
+    // the servers of the rule answer: the route is theirs
+    expect(tilesOf('balance', 'a', balance).route?.balance).toBeUndefined();
+  });
+});
+
 describe('the tone of the loss and the tags of a rule not running', () => {
   it('reads a loss as ok, warn or error', () => {
     expect(lossOf(windows([[1, 1000, 5]])).tone).toBe('ok');

@@ -209,7 +209,12 @@ export class FakeOption {
       this.subsection = new FakeSection(this.map);
   }
 
-  depends() {}
+  // what the option depends on, each alone enough, as LuCI keeps it
+  depends(field: string | Record<string, unknown>, value?: unknown) {
+    ((this.deps ??= []) as unknown[]).push(
+      typeof field === 'string' ? { [field]: value } : field,
+    );
+  }
 
   // a choice, as LuCI keeps it
   value(key: unknown, label?: unknown) {
@@ -302,11 +307,13 @@ export class FakeSection {
   }
 
   taboption(
-    _tab: string,
+    tab: string,
     cls: new (...args: unknown[]) => FakeOption,
     ...args: unknown[]
   ) {
-    return this.option(cls, ...args);
+    const created = this.option(cls, ...args);
+    created.tab = tab;
+    return created;
   }
 
   find(name: string): FakeOption | undefined {

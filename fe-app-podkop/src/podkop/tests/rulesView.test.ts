@@ -346,3 +346,82 @@ describe('the protocols of a row', () => {
     ).not.toContain('only');
   });
 });
+
+// How a rule chooses among its fallbacks: the field of the tab Fallback, the fields of the loss it
+// brings, and the line of the rule in the list
+describe('the choice among the fallbacks', () => {
+  function rule(features: string[], options: Row = {}) {
+    const view = loadView('rules.js', {
+      rule1: { '.type': 'section', ...options },
+      src1: { '.type': 'source', label: 'Lab', ...links(VLESS, HY2) },
+      row1: {
+        '.type': 'member',
+        section: 'rule1',
+        role: 'server',
+        source: 'src1',
+      },
+      row2: {
+        '.type': 'member',
+        section: 'rule1',
+        role: 'fallback',
+        source: 'src1',
+      },
+      row3: {
+        '.type': 'member',
+        section: 'rule1',
+        role: 'fallback',
+        source: 'block',
+      },
+    });
+    view.exports.createRulesContent(view.section, features, null, []);
+    return view;
+  }
+  const MODES = ['urltest.fallbacks', 'urltest.modes'];
+
+  it('is in order by default, or one of the modes of the engine', () => {
+    const view = rule(MODES);
+    const field = view.section.lookup('fallback_choice');
+    expect(field).toBeInstanceOf(view.form.ListValue);
+    expect(field.tab).toBe('fallback');
+    expect(field.keylist).toEqual(['order', 'fastest', 'loss', 'balance']);
+    expect(field.default).toBe('order');
+    // "order" is not written: the settings of a rule nobody touched stay as they are
+    expect(field.rmempty).toBe(true);
+  });
+
+  it('offers what the engine has', () => {
+    expect(
+      rule(['urltest.fallbacks']).section.lookup('fallback_choice').keylist,
+    ).toEqual(['order', 'fastest']);
+  });
+
+  it('brings the fields of the loss, as the server choice does', () => {
+    const { section } = rule(MODES);
+    expect(section.lookup('loss_check_interval').deps).toEqual([
+      { server_choice: 'loss' },
+      { server_choice: 'balance' },
+      { fallback_choice: 'loss' },
+      { fallback_choice: 'balance' },
+    ]);
+    expect(section.lookup('loss_threshold').deps).toEqual([
+      { server_choice: 'balance' },
+      { fallback_choice: 'balance' },
+    ]);
+  });
+
+  it('is told in the list of the rules', () => {
+    const told = (choice?: string) =>
+      (
+        rule(MODES, choice ? { fallback_choice: choice } : {})
+          .section.lookup('_rows')
+          .call('textvalue', 'rule1') as FakeNode
+      ).textContent;
+    const rows = 'Lab; Block';
+    expect(told()).toContain(`Fallback: ${rows}`);
+    expect(told('order')).toContain(`Fallback: ${rows}`);
+    expect(told('random')).toContain(`Fallback: ${rows}`);
+    expect(told('fastest')).toContain(`Fallback, the fastest: ${rows}`);
+    expect(told('loss')).toContain(`Fallback, avoiding loss: ${rows}`);
+    expect(told('balance')).toContain(`Fallback, balance: ${rows}`);
+  });
+});
