@@ -256,11 +256,12 @@ type PreviewServer struct {
 // as the settings saved it. Addresses are those of its subscriptions in the form, by name:
 // a subscription not saved yet has its address there only. Requests are the User-Agent and
 // the headers of its subscriptions as the page has them, by name; one not there is asked as
-// the settings that run ask it.
+// the settings that run ask it. Include, Exclude and Protocols are those of a row (model.Member).
 type GroupCheck struct {
 	Subscriptions []string               `json:"subscriptions"`
 	Include       []string               `json:"include"`
 	Exclude       []string               `json:"exclude"`
+	Protocols     []string               `json:"protocols,omitempty"`
 	Addresses     map[string]string      `json:"addresses,omitempty"`
 	Requests      map[string]ListRequest `json:"requests,omitempty"`
 }
