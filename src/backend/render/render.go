@@ -5,6 +5,7 @@ package render
 
 import (
 	"bytes"
+	"cmp"
 	"os"
 	"path/filepath"
 
@@ -91,7 +92,7 @@ func Run(request Request) (*Outcome, error) {
 			// the files of this run are under the root, the configuration names them
 			// where a router has them
 			again, err := plan.Build(config, request.Facts, plan.Options{
-				RuleSetDir: rooted(orDefault(request.RuleSetDir, plan.DefaultRuleSetDir)),
+				RuleSetDir: rooted(cmp.Or(request.RuleSetDir, plan.DefaultRuleSetDir)),
 				ReadFile:   func(path string) ([]byte, error) { return os.ReadFile(rooted(path)) },
 				CheckList:  engine.CheckRuleSet,
 				LocalPath:  rooted,
@@ -140,13 +141,6 @@ func Check(config []byte, uses []plan.Link) ([]string, error) {
 		}
 	}
 	return nil, E.Cause(err, "sing-box does not take the configuration")
-}
-
-func orDefault(value string, defaultValue string) string {
-	if value == "" {
-		return defaultValue
-	}
-	return value
 }
 
 // WriteFile puts a file in place whole: written beside it and renamed. A reader, sing-box

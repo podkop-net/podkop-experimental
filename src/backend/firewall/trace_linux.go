@@ -1,6 +1,7 @@
 package firewall
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -40,7 +41,7 @@ func ArmTrace(port uint16, label string) error {
 		return E.Cause(err, "open netlink")
 	}
 	table := &nftables.Table{Family: nftables.TableFamilyINet, Name: TraceTableFor(port)}
-	if names, _ := traceTables(conn); contains(names, table.Name) {
+	if names, _ := traceTables(conn); slices.Contains(names, table.Name) {
 		conn.DelTable(table)
 	}
 	conn.AddTable(table)
@@ -131,15 +132,6 @@ func traceTables(conn *nftables.Conn) ([]string, error) {
 		}
 	}
 	return names, nil
-}
-
-func contains(list []string, value string) bool {
-	for _, item := range list {
-		if item == value {
-			return true
-		}
-	}
-	return false
 }
 
 // ChainHooks names the hook of every base chain of the system, by "family table chain" as

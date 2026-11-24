@@ -12,6 +12,7 @@ package dnsmasq
 import (
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"github.com/podkop-net/podkop-experimental/src/backend/dataplane"
@@ -215,7 +216,7 @@ func TakeOver(system System) (bool, error) {
 	kept := current.keptServers
 	// taken over before, and given back by hand, or by the init script, since: what was kept
 	// is stale
-	stale := current.taken() && !contains(current.servers, address)
+	stale := current.taken() && !slices.Contains(current.servers, address)
 	if stale {
 		kept = nil
 	}
@@ -223,7 +224,7 @@ func TakeOver(system System) (bool, error) {
 	write := func(line string) { script.WriteString(line + "\n") }
 	var back []string
 	for _, server := range kept {
-		if !ForEveryName(server) && !contains(current.servers, server) && !contains(back, server) {
+		if !ForEveryName(server) && !slices.Contains(current.servers, server) && !slices.Contains(back, server) {
 			back = append(back, server)
 		}
 	}
@@ -261,11 +262,11 @@ func TakeOver(system System) (bool, error) {
 	}
 	var moved []string
 	for _, server := range current.servers {
-		if server == address || !ForEveryName(server) || contains(moved, server) {
+		if server == address || !ForEveryName(server) || slices.Contains(moved, server) {
 			continue
 		}
 		moved = append(moved, server)
-		if !contains(kept, server) {
+		if !slices.Contains(kept, server) {
 			write("add_list " + section + ".podkop_server=" + Quote(server))
 		}
 		write("del_list " + section + ".server=" + Quote(server))
@@ -278,7 +279,7 @@ func TakeOver(system System) (bool, error) {
 	if current.cacheSize != "" && !again {
 		write("set " + section + ".podkop_cachesize=" + Quote(current.cacheSize))
 	}
-	if !contains(current.servers, address) {
+	if !slices.Contains(current.servers, address) {
 		write("add_list " + section + ".server=" + Quote(address))
 	}
 	write("set " + section + ".noresolv='1'")
@@ -352,11 +353,11 @@ func Restore(system System) (bool, error) {
 			servers = append(servers, server)
 		}
 	}
-	if contains(current.servers, address) {
+	if slices.Contains(current.servers, address) {
 		script.WriteString("del_list " + section + ".server=" + Quote(address) + "\n")
 	}
 	for _, server := range current.keptServers {
-		if !contains(servers, server) {
+		if !slices.Contains(servers, server) {
 			servers = append(servers, server)
 			script.WriteString("add_list " + section + ".server=" + Quote(server) + "\n")
 		}
@@ -386,15 +387,6 @@ func Restore(system System) (bool, error) {
 func general(servers []string) bool {
 	for _, server := range servers {
 		if ForEveryName(server) {
-			return true
-		}
-	}
-	return false
-}
-
-func contains(list []string, value string) bool {
-	for _, item := range list {
-		if item == value {
 			return true
 		}
 	}

@@ -3,6 +3,7 @@ package diag
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -176,20 +177,13 @@ func (p *probe) upstream(ctx context.Context, serverType string, server string) 
 	}
 	switch serverType {
 	case "udp":
-		return p.plainReply(ctx, net.JoinHostPort(host, orDefault(port, "53")))
+		return p.plainReply(ctx, net.JoinHostPort(host, cmp.Or(port, "53")))
 	case "dot":
-		return p.overTLS(ctx, host, orDefault(port, "853"))
+		return p.overTLS(ctx, host, cmp.Or(port, "853"))
 	case "doh":
-		return p.overHTTPS(ctx, host, orDefault(port, "443"), orDefault(path, "/dns-query"))
+		return p.overHTTPS(ctx, host, cmp.Or(port, "443"), cmp.Or(path, "/dns-query"))
 	}
 	return noReply
-}
-
-func orDefault(value string, defaultValue string) string {
-	if value == "" {
-		return defaultValue
-	}
-	return value
 }
 
 func question() *mDNS.Msg {

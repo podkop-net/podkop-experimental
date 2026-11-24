@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -616,11 +617,11 @@ func (p *tracedPacket) outcome() string {
 	switch {
 	case p.dropped != "":
 		return "dropped by " + p.dropped
-	case contains(p.hooks, "forward") && p.oif != "":
+	case slices.Contains(p.hooks, "forward") && p.oif != "":
 		return "forwarded through the router, out on " + p.oif
-	case contains(p.hooks, "forward"):
+	case slices.Contains(p.hooks, "forward"):
 		return "forwarded through the router"
-	case contains(p.hooks, "input"):
+	case slices.Contains(p.hooks, "input"):
 		return "delivered to the router"
 	default:
 		return "lost after the routing: neither delivered to the router nor forwarded"
@@ -650,9 +651,9 @@ func TraceVerdict(lines []string, hooks map[string]string, questions bool, sourc
 		}
 		return nil
 	}
-	forwarded := func(p *tracedPacket) bool { return p.dropped == "" && contains(p.hooks, "forward") }
+	forwarded := func(p *tracedPacket) bool { return p.dropped == "" && slices.Contains(p.hooks, "forward") }
 	delivered := func(p *tracedPacket) bool {
-		return p.dropped == "" && contains(p.hooks, "input") && !contains(p.hooks, "forward")
+		return p.dropped == "" && slices.Contains(p.hooks, "input") && !slices.Contains(p.hooks, "forward")
 	}
 	if p := first(func(p *tracedPacket) bool { return p.dropped != "" }); p != nil {
 		return "a rule of the firewall drops them (" + p.dropped + ")"
@@ -680,7 +681,7 @@ func TraceVerdict(lines []string, hooks map[string]string, questions bool, sourc
 		return "a rule of another table replaces podkop's mark on them (" + p.markReplaced + ")"
 	}
 	if p := first(func(p *tracedPacket) bool { return !p.marked }); p != nil {
-		if p.iif != "" && len(sources) > 0 && !contains(sources, p.iif) {
+		if p.iif != "" && len(sources) > 0 && !slices.Contains(sources, p.iif) {
 			return "they come in on " + p.iif + ", which is not one of the interfaces podkop takes traffic from (" + strings.Join(sources, ", ") + ")"
 		}
 		return "podkop's rules do not mark them"
@@ -692,15 +693,6 @@ func TraceVerdict(lines []string, hooks map[string]string, questions bool, sourc
 		return "they pass through the router without podkop"
 	}
 	return "they reach the router, but not podkop"
-}
-
-func contains(list []string, value string) bool {
-	for _, item := range list {
-		if item == value {
-			return true
-		}
-	}
-	return false
 }
 
 // TraceStories tells what became of the packets of a trace, those of the connection of a
@@ -728,7 +720,7 @@ func TraceStories(lines []string, hooks map[string]string, questions bool) []str
 		if questions {
 			kind = packet.destination.String()
 		}
-		if !contains(entry.kinds, kind) {
+		if !slices.Contains(entry.kinds, kind) {
 			entry.kinds = append(entry.kinds, kind)
 		}
 	}
