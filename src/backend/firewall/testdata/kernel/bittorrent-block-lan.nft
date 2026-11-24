@@ -1,0 +1,280 @@
+table inet PodkopTable {
+	set localv4 {
+		type ipv4_addr
+		flags interval
+		auto-merge
+		elements = { 0.0.0.0/8, 10.0.0.0/8,
+			     127.0.0.0/8, 169.254.0.0/16,
+			     172.16.0.0/12, 192.0.0.0/24,
+			     192.0.2.0/24, 192.88.99.0/24,
+			     192.168.0.0/16, 198.51.100.0/24,
+			     203.0.113.0/24, 224.0.0.0/3 }
+	}
+
+	set podkop_subnets {
+		type ipv4_addr
+		flags interval
+		auto-merge
+		elements = { 91.108.4.0-91.108.19.255, 91.108.56.0/22,
+			     95.161.64.0/20, 149.154.160.0/20 }
+	}
+
+	set interfaces {
+		type ifname
+		flags interval
+		elements = { "br-lan" }
+	}
+
+	set bt_sockets {
+		type ipv4_addr . inet_service
+		size 4096
+		flags dynamic,timeout
+		timeout 30m
+	}
+
+	set bt_hosts {
+		type ipv4_addr
+		size 1024
+		flags dynamic,timeout
+		timeout 30m
+	}
+
+	set bt_peers {
+		type ipv4_addr . inet_service
+		size 32768
+		flags dynamic,timeout
+		timeout 30m
+	}
+
+	set bt_utp {
+		type ipv4_addr . inet_service
+		size 4096
+		flags dynamic,timeout
+		timeout 30m
+	}
+
+	set bt_learned {
+		type ipv4_addr . ipv4_addr . inet_service
+		size 32768
+		flags dynamic,timeout
+		timeout 30m
+	}
+
+	set bt_trackers {
+		type ipv4_addr . ipv4_addr . inet_service
+		size 1024
+		flags dynamic,timeout
+		timeout 2h
+	}
+
+	set bt_suspects {
+		type ipv4_addr
+		size 1024
+		flags dynamic,timeout
+		timeout 2m
+	}
+
+	set bt_fan_pairs {
+		type ipv4_addr . ipv4_addr
+		size 16384
+		flags dynamic,timeout
+		timeout 30m
+	}
+
+	set bt_fan {
+		type ipv4_addr
+		size 1024
+		flags dynamic,timeout
+		timeout 1m42s
+	}
+
+	set bt_ended {
+		type ipv4_addr
+		size 1024
+		flags dynamic,timeout
+		timeout 5m
+	}
+
+	chain mangle {
+		type filter hook prerouting priority mangle; policy accept;
+		ct direction reply return
+		ct status dnat return
+		iifname @interfaces ip daddr @podkop_subnets meta l4proto tcp meta mark set 0x00100000 counter packets 0 bytes 0
+		iifname @interfaces ip daddr @podkop_subnets meta l4proto udp meta mark set 0x00100000 counter packets 0 bytes 0
+		iifname @interfaces ip daddr 198.18.0.0/15 meta l4proto tcp meta mark set 0x00100000 counter packets 0 bytes 0
+		iifname @interfaces ip daddr 198.18.0.0/15 meta l4proto udp meta mark set 0x00100000 counter packets 0 bytes 0
+	}
+
+	chain mangle_output {
+		type route hook output priority mangle; policy accept;
+		ip daddr @localv4 return
+		meta mark & 0x00200000 == 0x00200000 counter packets 0 bytes 0 return
+		meta nfproto ipv4 meta skuid 4321 jump bt_router
+		meta nfproto ipv4 meta skuid 4322 jump bt_router
+		ip daddr != 198.18.0.0/15 udp dport 123 return
+		ip daddr @podkop_subnets meta l4proto tcp meta mark set 0x00400000 counter packets 0 bytes 0
+		ip daddr @podkop_subnets meta l4proto udp meta mark set 0x00400000 counter packets 0 bytes 0
+		ip daddr 198.18.0.0/15 meta l4proto tcp meta mark set 0x00400000 counter packets 0 bytes 0
+		ip daddr 198.18.0.0/15 meta l4proto udp meta mark set 0x00400000 counter packets 0 bytes 0
+	}
+
+	chain proxy {
+		type filter hook prerouting priority dstnat; policy accept;
+		ct mark & 0x0a000000 == 0x0a000000 ct mark & 0x00008000 == 0x00000000 meta mark & 0x00100000 == 0x00100000 meta l4proto tcp tproxy ip to 127.0.0.1:1607 counter packets 0 bytes 0 accept
+		ct mark & 0x08000000 != 0x00000000 ct mark & 0x00008000 != 0x00000000 meta mark & 0x00100000 == 0x00100000 meta l4proto tcp tproxy ip to 127.0.0.1:1606 counter packets 0 bytes 0 accept
+		ct mark & 0x08000000 != 0x00000000 ct mark & 0x00008000 != 0x00000000 meta mark & 0x00100000 == 0x00100000 meta l4proto udp tproxy ip to 127.0.0.1:1606 counter packets 0 bytes 0 accept
+		ct mark & 0x08000000 != 0x00000000 ct mark & 0x00008000 == 0x00000000 meta mark & 0x00100000 == 0x00100000 meta l4proto tcp tproxy ip to 127.0.0.1:1605 counter packets 0 bytes 0 accept
+		ct mark & 0x08000000 != 0x00000000 ct mark & 0x00008000 == 0x00000000 meta mark & 0x00100000 == 0x00100000 meta l4proto udp tproxy ip to 127.0.0.1:1605 counter packets 0 bytes 0 accept
+		meta mark & 0x00100000 == 0x00100000 meta l4proto tcp tproxy ip to 127.0.0.1:1602 counter packets 0 bytes 0
+		meta mark & 0x00100000 == 0x00100000 meta l4proto udp tproxy ip to 127.0.0.1:1602 counter packets 0 bytes 0
+		meta mark & 0x00400000 == 0x00400000 meta l4proto tcp tproxy ip to 127.0.0.1:1602 counter packets 0 bytes 0
+		meta mark & 0x00400000 == 0x00400000 meta l4proto udp tproxy ip to 127.0.0.1:1602 counter packets 0 bytes 0
+	}
+
+	chain bt_router {
+		fib daddr type local accept
+		meta l4proto udp counter packets 0 bytes 0 drop
+		counter packets 0 bytes 0 drop
+	}
+
+	chain bt_detect {
+		type filter hook prerouting priority mangle - 10; policy accept;
+		iifname != @interfaces return
+		meta nfproto != ipv4 return
+		fib daddr type local return
+		ct mark & 0x0f000000 != 0x00000000 goto bt_decided
+		fib saddr . iif check missing counter packets 0 bytes 0 return
+		meta l4proto udp goto bt_udp
+		meta l4proto tcp goto bt_tcp
+	}
+
+	chain bt_udp {
+		ip daddr 239.192.152.143 udp dport 6771 update @bt_hosts { ip saddr } counter packets 0 bytes 0 return
+		ip daddr @localv4 return
+		udp length 28 @ih,0,16 0x4100 @ih,64,32 0x0 @ih,144,16 0x0 update @bt_utp { ip saddr . udp sport } counter packets 0 bytes 0 goto bt_socket
+		udp length 38 @ih,0,16 0x4102 @ih,64,32 0x0 @ih,144,32 0x8 update @bt_utp { ip saddr . udp sport } counter packets 0 bytes 0 goto bt_socket
+		udp length 28 @ih,0,16 0x4100 @ih,64,32 0x0 @ih,144,16 0x0 jump bt_full_utp
+		udp length 38 @ih,0,16 0x4102 @ih,64,32 0x0 @ih,144,32 0x8 jump bt_full_utp
+		@ih,0,56 0x64313a6164323a counter packets 0 bytes 0 goto bt_discovery
+		@ih,0,56 0x64313a7264323a counter packets 0 bytes 0 goto bt_discovery
+		@ih,0,56 0x64323a6970363a counter packets 0 bytes 0 goto bt_discovery
+		@ih,0,48 0x64313a656c69 counter packets 0 bytes 0 goto bt_discovery
+		@ih,0,96 0x4172710198000000000 counter packets 0 bytes 0 goto bt_discovery
+		ip saddr . udp sport @bt_sockets goto bt_flow
+		ct mark set ct mark | 0x04000000
+	}
+
+	chain bt_discovery {
+		update @bt_sockets { ip saddr . udp sport }
+		update @bt_hosts { ip saddr }
+		ip saddr . udp sport @bt_utp goto bt_flow
+		ct mark set ct mark | 0x00004000 counter packets 0 bytes 0 goto bt_flow
+	}
+
+	chain bt_socket {
+		update @bt_sockets { ip saddr . udp sport }
+		update @bt_hosts { ip saddr }
+		goto bt_flow
+	}
+
+	chain bt_flow {
+		update @bt_peers { ip daddr . udp dport }
+		ct mark set ct mark | 0x01000000 counter packets 0 bytes 0
+		goto bt_decided
+	}
+
+	chain bt_tcp {
+		ip daddr @localv4 return
+		tcp flags & (syn | ack) == syn goto bt_syn
+		ip saddr . tcp sport @bt_sockets ct state new counter packets 0 bytes 0 goto bt_block
+		@ih,0,96 0x13426974546f7272656e7420 @ih,96,64 0x70726f746f636f6c counter packets 0 bytes 0 goto bt_handshake
+		@ih,0,112 0x474554202f616e6e6f756e63653f tcp dport != { 22, 25, 53, 80, 110, 123, 143, 443, 465, 587, 853, 993, 995, 3478, 5222, 5223, 5228, 8080, 8443 } update @bt_trackers { ip saddr . ip daddr . tcp dport }
+		@ih,0,112 0x474554202f616e6e6f756e63653f update @bt_hosts { ip saddr } ct mark set ct mark | 0x04000000 counter packets 0 bytes 0 return
+		@ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f tcp dport != { 22, 25, 53, 80, 110, 123, 143, 443, 465, 587, 853, 993, 995, 3478, 5222, 5223, 5228, 8080, 8443 } update @bt_trackers { ip saddr . ip daddr . tcp dport }
+		@ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f update @bt_hosts { ip saddr } ct mark set ct mark | 0x04000000 counter packets 0 bytes 0 return
+		ip saddr . ip daddr . tcp dport @bt_learned counter packets 0 bytes 0 goto bt_handshake
+		ip saddr @bt_hosts tcp dport >= 1024 tcp dport != { 22, 25, 53, 80, 110, 123, 143, 443, 465, 587, 853, 993, 995, 3478, 5222, 5223, 5228, 8080, 8443 } ip daddr . tcp dport @bt_peers counter packets 0 bytes 0 goto bt_handshake
+		ip saddr @bt_ended tcp dport >= 1024 tcp dport != { 22, 25, 53, 80, 110, 123, 143, 443, 465, 587, 853, 993, 995, 3478, 5222, 5223, 5228, 8080, 8443 } ct state new counter packets 0 bytes 0 reject with tcp reset
+		@ih,0,8 0x0-0xff ct mark set ct mark | 0x04000000
+	}
+
+	chain bt_syn {
+		ip saddr . ip daddr . tcp dport @bt_learned update @bt_learned { ip saddr . ip daddr . tcp dport } ct mark set ct mark | 0x01000000 counter packets 0 bytes 0 goto bt_decided
+		ip saddr . ip daddr . tcp dport @bt_trackers update @bt_trackers { ip saddr . ip daddr . tcp dport } update @bt_hosts { ip saddr } ct mark set ct mark | 0x01004000 counter packets 0 bytes 0 goto bt_decided
+		ip saddr @bt_hosts tcp dport >= 1024 tcp dport != { 22, 25, 53, 80, 110, 123, 143, 443, 465, 587, 853, 993, 995, 3478, 5222, 5223, 5228, 8080, 8443 } ip daddr . tcp dport @bt_peers ct mark set ct mark | 0x01000000 counter packets 0 bytes 0 goto bt_decided
+		ip saddr @bt_hosts ip daddr . tcp dport @bt_peers ct mark set ct mark | 0x08000000 counter packets 0 bytes 0 return
+		ip saddr @bt_hosts tcp dport != { 22, 25, 53, 80, 110, 123, 143, 443, 465, 587, 853, 993, 995, 3478, 5222, 5223, 5228, 8080, 8443 } ct mark set ct mark | 0x08000000 counter packets 0 bytes 0 return
+		ip saddr @bt_suspects tcp dport >= 1024 tcp dport != { 22, 25, 53, 80, 110, 123, 143, 443, 465, 587, 853, 993, 995, 3478, 5222, 5223, 5228, 8080, 8443 } ct mark set ct mark | 0x0a000000 counter packets 0 bytes 0 return
+		tcp dport >= 1024 tcp dport != { 22, 25, 53, 80, 110, 123, 143, 443, 465, 587, 853, 993, 995, 3478, 5222, 5223, 5228, 8080, 8443 } ip saddr . ip daddr @bt_fan_pairs update @bt_fan_pairs { ip saddr . ip daddr } return
+		tcp dport >= 1024 tcp dport != { 22, 25, 53, 80, 110, 123, 143, 443, 465, 587, 853, 993, 995, 3478, 5222, 5223, 5228, 8080, 8443 } add @bt_fan_pairs { ip saddr . ip daddr } update @bt_fan { ip saddr limit rate over 6/minute burst 5 packets } update @bt_suspects { ip saddr } ct mark set ct mark | 0x0a000000 counter packets 0 bytes 0 return
+	}
+
+	chain bt_handshake {
+		update @bt_hosts { ip saddr }
+		ct direction original update @bt_peers { ip daddr . tcp dport }
+		ct mark & 0x00008000 != 0x00000000 ct mark set ct mark | 0x02000000 counter packets 0 bytes 0 return
+		ct mark set ct mark | 0x01000000 counter packets 0 bytes 0 goto bt_decided
+	}
+
+	chain bt_decided {
+		ct mark & 0x09000000 != 0x00000000 @ih,0,112 0x474554202f616e6e6f756e63653f tcp dport != { 22, 25, 53, 80, 110, 123, 143, 443, 465, 587, 853, 993, 995, 3478, 5222, 5223, 5228, 8080, 8443 } update @bt_trackers { ip saddr . ip daddr . tcp dport }
+		ct mark & 0x09000000 != 0x00000000 @ih,0,96 0x474554202f616e6e6f756e63 @ih,96,48 0x652e7068703f tcp dport != { 22, 25, 53, 80, 110, 123, 143, 443, 465, 587, 853, 993, 995, 3478, 5222, 5223, 5228, 8080, 8443 } update @bt_trackers { ip saddr . ip daddr . tcp dport }
+		ct mark & 0x01000000 == 0x00000000 return
+		ip saddr != @bt_hosts jump bt_add_hosts
+		ip saddr . udp sport != @bt_sockets jump bt_add_sockets
+		ip daddr . udp dport != @bt_peers jump bt_add_peers
+		ct direction original ip daddr . tcp dport != @bt_peers jump bt_add_peers
+		goto bt_block
+	}
+
+	chain bt_add_hosts {
+		update @bt_hosts { ip saddr } return
+		counter packets 0 bytes 0
+	}
+
+	chain bt_add_sockets {
+		update @bt_sockets { ip saddr . udp sport } return
+		counter packets 0 bytes 0
+	}
+
+	chain bt_add_peers {
+		update @bt_peers { ip daddr . udp dport } return
+		update @bt_peers { ip daddr . tcp dport } return
+		counter packets 0 bytes 0
+	}
+
+	chain bt_full_utp {
+		counter packets 0 bytes 0
+	}
+
+	chain bt_act {
+		type filter hook prerouting priority mangle + 1; policy accept;
+		meta mark & 0x00100000 == 0x00000000 goto bt_free
+		ct mark & 0x0a000000 == 0x0a000000 ct mark set ct mark & 0xf5ffffff counter packets 0 bytes 0
+		ct mark & 0x00008000 == 0x00000000 ct mark set ct mark | 0x00008000
+		ct mark & 0x08000000 != 0x00000000 return
+		ct mark & 0x01000000 == 0x00000000 return
+		goto bt_block
+	}
+
+	chain bt_free {
+		iifname != @interfaces return
+		ct direction reply return
+		ct mark & 0x08000000 != 0x00000000 meta mark set meta mark | 0x00100000 counter packets 0 bytes 0 return
+		ct mark & 0x01000000 == 0x00000000 return
+	}
+
+	chain bt_block {
+		meta l4proto udp ct mark & 0x00004000 != 0x00000000 counter packets 0 bytes 0 drop
+		meta l4proto udp counter packets 0 bytes 0 drop
+		counter packets 0 bytes 0 drop
+	}
+
+	chain bt_incoming {
+		type filter hook forward priority filter - 1; policy accept;
+		ct state ! new return
+		iifname @interfaces return
+		ip daddr . tcp dport @bt_sockets counter packets 0 bytes 0 drop
+		ip daddr . udp dport @bt_sockets counter packets 0 bytes 0 drop
+	}
+}
