@@ -157,6 +157,11 @@ func (b *builder) fallbackTiers(section *model.Section, members []string, rule *
 		group := b.addURLTest(tag, servers, nil)
 		if kind == poolKind {
 			b.setChoice(group, section, section.FallbackChoice)
+			if section.FallbackChoice != model.ChoiceFastest {
+				// the probes stop this long after the last connection through the group: the
+				// least the engine takes, so that they end with the use of the fallbacks
+				group.set("idle_timeout", b.config.Settings.Check.Interval)
+			}
 		}
 		b.tags.Outbounds[tag] = owner
 		addTier(tag)

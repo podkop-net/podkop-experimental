@@ -226,7 +226,8 @@
       "tolerance": 50,
       "download_url": "https://speed.cloudflare.com/__down?bytes=65536",
       "mode": "loss",
-      "loss_url": "https://speed.cloudflare.com/__down?bytes=1048576"
+      "loss_url": "https://speed.cloudflare.com/__down?bytes=1048576",
+      "idle_timeout": "1m"
     },
     {
       "type": "urltest",

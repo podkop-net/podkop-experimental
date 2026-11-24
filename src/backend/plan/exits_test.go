@@ -363,6 +363,7 @@ type exitOutbound struct {
 	Outbounds      []string `json:"outbounds"`
 	Fallbacks      []string `json:"fallbacks"`
 	Interval       string   `json:"interval"`
+	IdleTimeout    string   `json:"idle_timeout"`
 	URLs           []string `json:"urls"`
 	Tolerance      int      `json:"tolerance"`
 	DownloadURL    *string  `json:"download_url"`

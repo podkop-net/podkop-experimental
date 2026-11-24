@@ -40,6 +40,13 @@ func TestFallbackChoice(t *testing.T) {
 		require.Empty(t, group.Fallbacks, testCase.name)
 		require.Equal(t, testCase.mode, group.Mode, testCase.name)
 		require.Equal(t, testCase.mode != "", group.LossURL != "", testCase.name)
+		// the probes end with the use of the fallbacks
+		idle := ""
+		if testCase.mode != "" {
+			idle = group.Interval
+		}
+		require.Equal(t, idle, group.IdleTimeout, testCase.name)
+		require.Empty(t, test.IdleTimeout, testCase.name)
 		for tag := range outbounds {
 			require.False(t, strings.HasPrefix(tag, "x-fallback-") && tag != "x-fallback-out", "%s: %s", testCase.name, tag)
 		}

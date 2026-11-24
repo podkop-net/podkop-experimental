@@ -365,7 +365,8 @@
       "download_url": "https://speed.cloudflare.com/__down?bytes=65536",
       "mode": "loss",
       "loss_url": "https://speed.cloudflare.com/__down?bytes=1048576",
-      "loss_interval": "60m"
+      "loss_interval": "60m",
+      "idle_timeout": "1m"
     },
     {
       "type": "urltest",
@@ -426,7 +427,8 @@
       "mode": "balance",
       "loss_url": "https://speed.cloudflare.com/__down?bytes=1048576",
       "loss_interval": "10m",
-      "loss_threshold": 2.5
+      "loss_threshold": 2.5,
+      "idle_timeout": "1m"
     },
     {
       "type": "urltest",
@@ -601,7 +603,8 @@
       "tolerance": 50,
       "download_url": "https://speed.cloudflare.com/__down?bytes=65536",
       "mode": "balance",
-      "loss_url": "https://speed.cloudflare.com/__down?bytes=1048576"
+      "loss_url": "https://speed.cloudflare.com/__down?bytes=1048576",
+      "idle_timeout": "1m"
     },
     {
       "type": "urltest",
