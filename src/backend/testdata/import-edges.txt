@@ -73,6 +73,7 @@ engine -> engine/bittorrent
 firewall -> dataplane
 lists -> engine             # noted: a small helper above the adapter of sing-box (lists/derive.go)
 lists -> firewall           # noted: a small helper above the adapter of nftables (lists/derive.go)
+migrate -> dataplane
 migrate -> uci
 model -> dataplane
 model -> migrate

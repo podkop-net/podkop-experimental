@@ -24,57 +24,10 @@ for service in podkop; do
 	fi
 done
 
-# The settings of podkop 0.7 (and of podkop-exp up to 0.8.7) are kept as they are, before this
-# script changes anything in them, as /etc/config/podkop.pre-0.8.8: the way back to podkop puts
-# that file in place (README "Back to podkop"), and podkop 0.7 needs its config_path and
-# cache_path, which are changed below. podkop migrate (further down) keeps a copy that is there
-# already; a copy of an earlier install is left as it is, as migrate leaves it. The format of
-# today is settings.config_version 2 (migrate.Version of the backend).
-if [ -f /etc/config/podkop ] && [ ! -e /etc/config/podkop.pre-0.8.8 ] &&
-	[ "$(uci -q get podkop.settings)" = settings ] && [ "$(uci -q get podkop.settings.config_version)" != 2 ]; then
-	cp -p /etc/config/podkop /etc/config/podkop.pre-0.8.8 &&
-		logger -t podkop "the settings of podkop as they were are kept as /etc/config/podkop.pre-0.8.8"
-fi
-
-# podkop 0.7 kept its files in the directories of the sing-box package: this package uses
-# none of them, nor the settings of sing-box (the backend has sing-box inside). config_path
-# named where the shell backend wrote its configuration: nothing is written there now. The
-# cache file of sing-box moves to the same name in the backend's own directories, so the
-# FakeIP addresses handed out before stay theirs.
-uci -q delete podkop.settings.config_path
-# the switches of the guard of 0.8.0-0.8.11, which is gone
-uci -q delete podkop.settings.guard
-uci -q delete podkop.settings.liveness
-cache=$(uci -q get podkop.settings.cache_path)
-case "$cache" in
-/tmp/sing-box/*) new=/var/run/podkop/${cache#/tmp/sing-box/} ;;
-/usr/share/sing-box/*) new=/usr/share/podkop/${cache#/usr/share/sing-box/} ;;
-*) new="" ;;
-esac
-if [ -n "$new" ]; then
-	uci -q set podkop.settings.cache_path="$new"
-	if [ -f "$cache" ] && [ ! -e "$new" ]; then
-		mkdir -p "${new%/*}" && mv -f "$cache" "$new" && logger -t podkop "the cache file moved from $cache to $new"
-	fi
-fi
-uci -q commit podkop
-
-# The settings of podkop 0.7 and of podkop-exp up to 0.8.7 take the format of 0.8.8: the servers
-# of a section move to the tab Servers (sources) and to the rows of the section (members).
-# The old file stays as /etc/config/podkop.pre-0.8.8. Settings of the format already are left alone.
+# What an older release left to change in the settings (package migrate of the backend lists it):
+# those of podkop 0.7 and of podkop-exp up to 0.8.7 are kept as /etc/config/podkop.pre-0.8.8 before
+# anything in them is changed, and take the format of 0.8.8; the cache file of podkop 0.7 moves to
+# the backend's own directories; options nothing reads are deleted. Settings that need nothing are
+# left alone. A binary that does not run changes nothing: the settings stay as they are.
 /usr/bin/podkop migrate 2>&1 | logger -t podkop
-
-# The server check of 0.8.10: five URLs of different operators taken in turn, a round every
-# minute. Settings that kept the defaults of an older release take the new ones, once: the URL
-# of Google alone and a round every 3 minutes (LuCI wrote both when its page was saved) are
-# removed, and the defaults of the backend apply. URLs and an interval set by hand stay.
-# podkop.settings.urltest_defaults tells that it was done.
-if [ "$(uci -q get podkop.settings)" = settings ] && [ -z "$(uci -q get podkop.settings.urltest_defaults)" ]; then
-	[ "$(uci -q get podkop.settings.urltest_testing_url)" = https://www.gstatic.com/generate_204 ] &&
-		uci -q delete podkop.settings.urltest_testing_url
-	[ "$(uci -q get podkop.settings.urltest_check_interval)" = 3m ] &&
-		uci -q delete podkop.settings.urltest_check_interval
-	uci -q set podkop.settings.urltest_defaults='0.8.10'
-	uci -q commit podkop
-fi
 exit 0

@@ -19,8 +19,8 @@ calls the same commands (`podkop get_status`, `podkop check_logs`, ...).
 | `cmd/podkop` | The program: `daemon`, `release`, `migrate`, `boot-dns`, `ctl <command>` (the commands of the page, also without `ctl`), and the object `podkop` the running backend publishes on ubus; with the tag `lab` also `render`, `check-dns`, `dnsmasq`, `nft`, `parse-list` |
 | `supervisor` | The running backend: start, apply of changed settings, stop, the state left for a restart; the downloads of the subscriptions and of the mask lists, the cures of the block detector |
 | `model` | The settings of the UCI file (format 2: settings, sources, rules and their rows) with the defaults and the reading of the shell backend, the names the tags are made of, the devices of a rule |
-| `uci` | UCI files read as libuci reads them, and written back, without the `uci` program |
-| `migrate` | The settings of podkop 0.7 and of podkop-exp before 0.8.8 converted to the format 2 |
+| `uci` | UCI files read as libuci reads them, without the `uci` program, and written under the lock it takes for a commit (`Edit`: the one way the backend writes its settings) |
+| `migrate` | The settings of podkop 0.7 and of podkop-exp before 0.8.8 converted to the format 2; what else an older release left to change in the settings, in named steps (`podkop migrate`, run by the uci-defaults script of the package) |
 | `plan` | The settings made into a sing-box configuration and its rule-set files, with what the firewall and the routing need around it |
 | `render` | The configuration and the rule-set files of a start written, with sing-box's check of them (`Check`, the supervisor's `Engine.Check`); the atomic write of a file |
 | `engine` | The way to sing-box: an instance built, checked, run and swapped; links decoded, rule sets read, servers probed through it |
@@ -47,7 +47,8 @@ calls the same commands (`podkop get_status`, `podkop check_logs`, ...).
 The tests of the layout, in the root package: `imports_test.go` holds the rule that only
 `engine`, `engine/bittorrent` and `cmd/podkop` import sing-box, so that a new version of sing-box
 is one package to port; `doors_test.go` lists the other ways to it (the Clash API, the switches
-of the engine's environment); `edges_test.go` holds the import edges between the packages to
+of the engine's environment); `settings_door_test.go` holds the rule that only `uci.Edit` writes the
+settings; `edges_test.go` holds the import edges between the packages to
 `testdata/import-edges.txt`.
 
 ## sing-box: podkop-engine as a module

@@ -684,22 +684,10 @@ const FormatVersion = migrate.Version
 // none: on flash, as in the package's settings, so that a reboot leaves the lists in place.
 const DefaultCachePath = dataplane.DataDir + "/cache.db"
 
-// movedDirs are the directories of the sing-box package that podkop 0.7 offered for the
-// cache file, and where the backend has it instead.
-var movedDirs = [][2]string{
-	{"/tmp/sing-box/", dataplane.RunDir + "/"},
-	{"/usr/share/sing-box/", dataplane.DataDir + "/"},
-}
-
 // CachePath is the cache file the settings name, a path in a directory of the sing-box
 // package taken to the same name in the backend's own: settings kept from podkop 0.7 name
-// those. The package moves the file there once (uci-defaults), so the FakeIP addresses
+// those. The package moves the file there once (podkop migrate), so the FakeIP addresses
 // handed out before stay.
 func CachePath(path string) string {
-	for _, moved := range movedDirs {
-		if rest, found := strings.CutPrefix(path, moved[0]); found {
-			return moved[1] + rest
-		}
-	}
-	return path
+	return migrate.CachePath(path)
 }
