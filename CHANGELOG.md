@@ -12,7 +12,8 @@ notes, with the measurements and the limits, are on the
 Engine r29. In the server choices that count loss (avoiding loss, balance) the loss checks run only
 while the servers are in use; an idle fallback downloads nothing for them (r28: 2 to 3 MB an hour for
 each rule at the defaults). A group that comes into use starts with checks of 1 MB, so loss decides
-in seconds after a switch instead of hours. A balance not in use keeps one choice and stops
+in seconds after a switch instead of hours, and a group that was idle checks its servers at its
+first connection again (the check was skipped until an interval later, in 0.8.22 as well). A balance not in use keeps one choice and stops
 rechecking its servers each round. An HTTP proxy connection kept alive across a restart no longer
 answers one "502 Bad Gateway".
 
