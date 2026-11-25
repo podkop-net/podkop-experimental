@@ -7,7 +7,7 @@ What changed in each release of podkop-exp, newest first. The engine is the sing
 notes, with the measurements and the limits, are on the
 [releases page](https://github.com/podkop-net/podkop-experimental/releases).
 
-## 0.8.23 — not released yet
+## 0.8.23 — 2026-11-25
 
 Engine r29. In the server choices that count loss (avoiding loss, balance) the loss checks run only
 while the servers are in use; an idle fallback downloads nothing for them (r28: 2 to 3 MB an hour for
