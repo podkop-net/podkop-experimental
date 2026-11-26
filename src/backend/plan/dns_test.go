@@ -1,6 +1,7 @@
 package plan
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -110,4 +111,27 @@ func TestDNSOfListEmptyRow(t *testing.T) {
 
 	_, err = buildRules(t, dnsRow("udp", "77.88.8.8")+dnsRow("doh", ""), nil)
 	require.Error(t, err)
+}
+
+// TestDNSOfServerVia sends a DNS server through the selector of a rule its "via" names, or
+// through the outbound of a source named by it; a name that is neither is left as a warning
+// and the server goes directly.
+func TestDNSOfServerVia(t *testing.T) {
+	t.Parallel()
+	base := "\nconfig source 'own'\n\toption type 'links'\n\tlist link 'vless://u@own.example:443?security=reality#Own'\n" +
+		ruleText("main", row("server", "own")) +
+		"\nconfig source 'if1'\n\toption type 'interface'\n\toption interface 'awg0'\n"
+	via := "\nconfig dns_server\n\toption type 'doh'\n\toption server 'dns.example/q'\n\toption via '%s'\n"
+
+	servers, _ := dnsServersOf(t, base+fmt.Sprintf(via, "main"))
+	require.Equal(t, "main-out", servers["dns-server"]["detour"])
+
+	servers, _ = dnsServersOf(t, base+fmt.Sprintf(via, "if1"))
+	require.Equal(t, "awg0", servers["dns-server"]["detour"])
+
+	result, err := buildRules(t, base+fmt.Sprintf(via, "nope"), nil)
+	require.NoError(t, err)
+	require.Contains(t, strings.Join(result.Warnings, "\n"), "no rule and no source")
+	servers, _ = dnsServersOf(t, base+fmt.Sprintf(via, "nope"))
+	require.Nil(t, servers["dns-server"]["detour"])
 }
