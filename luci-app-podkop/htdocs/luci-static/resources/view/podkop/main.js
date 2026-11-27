@@ -215,11 +215,11 @@ function addressBits(address) {
   if (!isIPv6(address)) return null;
   const halves = address.split("::");
   const groups = (text) => text === "" ? [] : text.split(":");
-  const head = groups(halves[0]);
+  const head2 = groups(halves[0]);
   const tail = halves.length === 2 ? groups(halves[1]) : [];
   const all = [
-    ...head,
-    ...Array(8 - head.length - tail.length).fill("0"),
+    ...head2,
+    ...Array(8 - head2.length - tail.length).fill("0"),
     ...tail
   ];
   const bits = all.reduce(
@@ -597,11 +597,11 @@ var VALIDATORS = {
 };
 var PROXY_LINK_SCHEMES = Object.keys(VALIDATORS);
 function validateProxyUrl(url) {
-  const lines = url.split("\n").map((line) => line.trim()).filter(Boolean);
-  if (lines.length > 1) {
+  const lines2 = url.split("\n").map((line) => line.trim()).filter(Boolean);
+  if (lines2.length > 1) {
     return { valid: false, message: _("One link per field") };
   }
-  const link = lines[0] ?? "";
+  const link = lines2[0] ?? "";
   const scheme = link.includes("://") ? link.slice(0, link.indexOf("://")).toLowerCase() : "";
   const validator = VALIDATORS[scheme];
   if (!validator) {
@@ -752,7 +752,7 @@ function headerLines(value) {
     (item) => String(item ?? "")
   );
 }
-function parseRequest(agent, lines) {
+function parseRequest(agent, lines2) {
   const problems = [];
   let userAgent = "";
   const text = trimmed(agent);
@@ -765,7 +765,7 @@ function parseRequest(agent, lines) {
   const headers = [];
   const seen = /* @__PURE__ */ new Set();
   let size = 0;
-  headerLines(lines).forEach((raw, index) => {
+  headerLines(lines2).forEach((raw, index) => {
     const item = trimmed(raw);
     if (!item) return;
     const line = index + 1;
@@ -856,8 +856,8 @@ function requestProblemLine(problem) {
   const where = problem.line > 0 ? _("Header %d").format(problem.line) : "User-Agent";
   return where + ": " + requestProblemText(problem);
 }
-function requestProblem(agent, lines) {
-  const first = parseRequest(agent, lines).problems[0];
+function requestProblem(agent, lines2) {
+  const first = parseRequest(agent, lines2).problems[0];
   return first ? requestProblemLine(first) : "";
 }
 function validateUserAgent(value) {
@@ -866,17 +866,17 @@ function validateUserAgent(value) {
 }
 function validateRequestHeader(value, added) {
   if (!trimmed(value)) return { valid: true, message: "" };
-  const lines = headerLines(added).concat(String(value));
-  const problem = parseRequest("", lines).problems.find(
-    (item) => item.line === lines.length
+  const lines2 = headerLines(added).concat(String(value));
+  const problem = parseRequest("", lines2).problems.find(
+    (item) => item.line === lines2.length
   );
   return problem ? { valid: false, message: requestProblemText(problem) } : { valid: true, message: "" };
 }
-function listRequest(agent, lines, preset) {
+function listRequest(agent, lines2, preset) {
   const request = {};
   const chosen = agentPreset(preset, agent);
   const userAgent = customAgent(preset, agent);
-  const headers = headerLines(lines);
+  const headers = headerLines(lines2);
   if (chosen === "custom") {
     if (userAgent) {
       request.user_agent_preset = chosen;
@@ -888,13 +888,13 @@ function listRequest(agent, lines, preset) {
   if (headers.some((line) => trimmed(line))) request.headers = headers;
   return request;
 }
-function sameRequest(agent, lines, otherAgent, otherLines, preset, otherPreset) {
+function sameRequest(agent, lines2, otherAgent, otherLines, preset, otherPreset) {
   const normal = (value) => headerLines(value).map(trimmed).filter(Boolean).join("\n");
   const asked = (chosen, text) => {
     const request = listRequest(text, [], chosen);
     return (request.user_agent_preset ?? "") + "\n" + (request.user_agent ?? "");
   };
-  return asked(preset, agent) === asked(otherPreset, otherAgent) && normal(lines) === normal(otherLines);
+  return asked(preset, agent) === asked(otherPreset, otherAgent) && normal(lines2) === normal(otherLines);
 }
 function loadArguments(address, request) {
   const asked = request?.user_agent_preset || request?.user_agent || request?.headers?.length;
@@ -1492,11 +1492,11 @@ function detectPasted(text) {
       )
     };
   }
-  const lines = trimmed2.split(/\s+/).filter(Boolean);
-  if (lines.length === 1 && /^https?:\/\//i.test(trimmed2)) {
+  const lines2 = trimmed2.split(/\s+/).filter(Boolean);
+  if (lines2.length === 1 && /^https?:\/\//i.test(trimmed2)) {
     if (isHttpProxy(trimmed2)) {
       return linksFound(
-        lines,
+        lines2,
         _("An HTTP proxy. If it is a subscription, choose the type by hand")
       );
     }
@@ -1506,12 +1506,12 @@ function detectPasted(text) {
       title: _("Subscription: %s").format(hostOf(trimmed2))
     };
   }
-  const links = lines.filter(isServerLink);
-  if (links.length && links.length === lines.length) {
+  const links = lines2.filter(isServerLink);
+  if (links.length && links.length === lines2.length) {
     return linksFound(links);
   }
   if (links.length) {
-    const other = lines.filter((line) => !isServerLink(line));
+    const other = lines2.filter((line) => !isServerLink(line));
     return {
       kind: "error",
       title: _("Not recognized"),
@@ -1552,21 +1552,21 @@ function validateRoutingMark(value) {
   return "";
 }
 function ruleExit(rule, sources, members) {
-  const rows = members.filter((row) => row.section === rule[".name"]);
-  const servers = rows.filter((row) => row.role !== "fallback");
-  const fallbacks = rows.filter((row) => row.role === "fallback");
+  const rows = members.filter((row2) => row2.section === rule[".name"]);
+  const servers = rows.filter((row2) => row2.role !== "fallback");
+  const fallbacks = rows.filter((row2) => row2.role === "fallback");
   if (servers.length && !fallbacks.length) {
     for (const only of [ROW_DIRECT, ROW_BLOCK]) {
-      if (servers.every((row) => row.source === only)) {
+      if (servers.every((row2) => row2.source === only)) {
         return only === ROW_DIRECT ? "direct" : "block";
       }
     }
   }
-  for (const row of [...servers, ...fallbacks]) {
-    if (row.source === ROW_DIRECT || row.source === ROW_BLOCK) {
+  for (const row2 of [...servers, ...fallbacks]) {
+    if (row2.source === ROW_DIRECT || row2.source === ROW_BLOCK) {
       return "servers";
     }
-    const source = sources.find((item) => item[".name"] === row.source);
+    const source = sources.find((item) => item[".name"] === row2.source);
     if (sourceFilled(source)) return "servers";
   }
   return "";
@@ -1579,16 +1579,16 @@ function ruleRowProblems(rules, sources, members) {
     if (ruleExit(rule, sources, members) !== "servers") continue;
     for (const role of ["server", "fallback"]) {
       const rows = members.filter(
-        (row) => row.section === rule[".name"] && row.role === "fallback" === (role === "fallback")
+        (row2) => row2.section === rule[".name"] && row2.role === "fallback" === (role === "fallback")
       );
-      rows.forEach((row, index) => {
-        const via = String(row.via ?? "").trim();
-        const source = find(row.source);
+      rows.forEach((row2, index) => {
+        const via = String(row2.via ?? "").trim();
+        const source = find(row2.source);
         if (!via || !source || !sourceFilled(source)) return;
         let error = "";
         if (sourceKind(source) === "interface") {
           error = _("An interface does not connect through another source");
-        } else if (via === row.source) {
+        } else if (via === row2.source) {
           error = _("The row connects through its own source");
         } else if (!find(via)) {
           error = _("The source %s to connect through is deleted").format(via);
@@ -1651,8 +1651,8 @@ function fallbackRow(tag, rule, tags) {
 function outboundName(code, rule, sources, tags) {
   if (code === ruleOutbounds(rule, tags).test) return _("Fastest");
   if (code === "block") return _("Refused: the rule has no server now");
-  const row = fallbackRow(code, rule, tags);
-  if (row) return _("Fallback %s").format(row);
+  const row2 = fallbackRow(code, rule, tags);
+  if (row2) return _("Fallback %s").format(row2);
   return serverDisplayName(code, sources, tags);
 }
 var DIRECT_TAG = "direct-out";
@@ -1667,10 +1667,10 @@ function tierName(place, tag, mode, rule, sources, members, tags) {
   if (tags?.rules?.[rule]?.pool === tag) return `${name} \xB7 ${modeName(mode)}`;
   const number = fallbackRow(tag, rule, tags);
   if (!number) return name;
-  const row = members.filter(
+  const row2 = members.filter(
     (item) => item.section === rule && item.role === "fallback"
   )[number - 1];
-  const source = sources.find((item) => item[".name"] === row?.source);
+  const source = sources.find((item) => item[".name"] === row2?.source);
   return source ? `${name} \xB7 ${sourceLabel(source)}` : name;
 }
 var LOSS_MIN_SEGMENTS = 700;
@@ -1678,18 +1678,18 @@ function lossOf(loss) {
   const windows = loss?.windows ?? [];
   const rate = (lost, segments) => `${(lost * 100 / segments).toFixed(1)}%`;
   const decided = windows.find((item) => item.segments >= LOSS_MIN_SEGMENTS);
-  const lines = windows.filter((item) => item.segments > 0).map(
+  const lines2 = windows.filter((item) => item.segments > 0).map(
     (item) => `${_("%dh").format(item.hours)}: ${rate(item.lost, item.segments)} (${_("%d probes").format(item.probes)})`
   );
-  if (loss?.not_counted) lines.push(_("The last probe could not count"));
+  if (loss?.not_counted) lines2.push(_("The last probe could not count"));
   const day = windows[windows.length - 1];
   const preliminary = !decided && !!day?.segments;
-  if (preliminary) lines.push(_("preliminary: too few probes yet"));
+  if (preliminary) lines2.push(_("preliminary: too few probes yet"));
   const shown = decided ?? (preliminary ? day : void 0);
   const percent = shown ? shown.lost * 100 / shown.segments : 0;
   return {
     text: shown ? rate(shown.lost, shown.segments) : void 0,
-    title: lines.length ? `${_("Loss")}: ${lines.join(", ")}` : void 0,
+    title: lines2.length ? `${_("Loss")}: ${lines2.join(", ")}` : void 0,
     preliminary: preliminary || void 0,
     tone: shown ? percent >= 5 ? "error" : percent >= 1 ? "warn" : "ok" : void 0
   };
@@ -1831,16 +1831,16 @@ function ruleDevices(rule) {
     devices: items.filter((item) => validateDevice(item).valid)
   };
 }
-function routedOutside(devices, fullyRouted) {
-  if (!devices.length) return [];
+function routedOutside(devices2, fullyRouted) {
+  if (!devices2.length) return [];
   return deviceItems(fullyRouted).filter(
-    (ip) => !devices.some((device) => subnetContains(device, ip))
+    (ip) => !devices2.some((device) => subnetContains(device, ip))
   );
 }
 function routedWhole(rule) {
-  const { limited, devices } = ruleDevices(rule);
+  const { limited, devices: devices2 } = ruleDevices(rule);
   return deviceItems(rule?.fully_routed_ips).filter(
-    (ip) => !limited || devices.some((device) => subnetContains(device, ip))
+    (ip) => !limited || devices2.some((device) => subnetContains(device, ip))
   );
 }
 function narrower(first, second) {
@@ -1917,7 +1917,7 @@ async function getDashboardSections() {
     const code = ruleOutbounds(name, tags).selector;
     const selector = proxies[code];
     const displayName = String(rule.label ?? "").trim() || name;
-    const devices = deviceItems(rule.only_devices);
+    const devices2 = deviceItems(rule.only_devices);
     if (!selector) {
       return {
         withTagSelect: false,
@@ -1925,7 +1925,7 @@ async function getDashboardSections() {
         code,
         displayName,
         outbounds: [],
-        ...devices.length ? { devices } : {}
+        ...devices2.length ? { devices: devices2 } : {}
       };
     }
     return {
@@ -1934,7 +1934,7 @@ async function getDashboardSections() {
       code,
       displayName,
       ...ruleTiles(proxies, name, sources, members, used, tags),
-      ...devices.length ? { devices } : {}
+      ...devices2.length ? { devices: devices2 } : {}
     };
   });
   return {
@@ -2740,22 +2740,22 @@ function toLine(value) {
     msg: line.msg
   };
 }
-function catchUp(lines, cursor) {
-  if (!lines.length) return { lines: [], cursor };
-  const newest = lines[lines.length - 1];
+function catchUp(lines2, cursor) {
+  if (!lines2.length) return { lines: [], cursor };
+  const newest = lines2[lines2.length - 1];
   if (cursor === void 0 || cursor > newest.id) {
     return {
-      lines: lines.filter((line) => newest.time - line.time < FIRST_WINDOW_MS),
+      lines: lines2.filter((line) => newest.time - line.time < FIRST_WINDOW_MS),
       cursor: newest.id
     };
   }
   return {
-    lines: lines.filter((line) => line.id > cursor),
+    lines: lines2.filter((line) => line.id > cursor),
     cursor: newest.id
   };
 }
-function missedSome(lines, cursor) {
-  return cursor !== void 0 && lines.length > 0 && lines[0].id > cursor + 1 && lines[lines.length - 1].id >= cursor;
+function missedSome(lines2, cursor) {
+  return cursor !== void 0 && lines2.length > 0 && lines2[0].id > cursor + 1 && lines2[lines2.length - 1].id >= cursor;
 }
 function isPodkopError(line) {
   if (!/^podkop(\[\d+\])?:/.test(line.msg)) return false;
@@ -2794,15 +2794,15 @@ function watchLog(onLine) {
     if (busy || document.hidden) return;
     busy = true;
     try {
-      let lines = await lastLines(first ? MANY_LINES : FEW_LINES);
-      if (missedSome(lines, cursor)) lines = await lastLines(MANY_LINES);
+      let lines2 = await lastLines(first ? MANY_LINES : FEW_LINES);
+      if (missedSome(lines2, cursor)) lines2 = await lastLines(MANY_LINES);
       first = false;
-      const fresh = catchUp(lines, cursor);
-      if (fresh.cursor !== void 0 && fresh.cursor !== cursor) {
-        cursor = fresh.cursor;
-        writeCursor(fresh.cursor);
+      const fresh2 = catchUp(lines2, cursor);
+      if (fresh2.cursor !== void 0 && fresh2.cursor !== cursor) {
+        cursor = fresh2.cursor;
+        writeCursor(fresh2.cursor);
       }
-      fresh.lines.forEach(onLine);
+      fresh2.lines.forEach(onLine);
     } catch (err) {
       logger.warn("[LOG]", "the system log is not read:", err);
     } finally {
@@ -2947,33 +2947,33 @@ function helloDropLine(notes, relays) {
 function verdictLines(verdict) {
   const notes = verdict.notes ?? [];
   const active = verdict.source === "active";
-  const lines = [];
+  const lines2 = [];
   switch (verdict.block) {
     case "none":
       if (active) {
-        lines.push(_("The test download went through in full."));
+        lines2.push(_("The test download went through in full."));
       }
       break;
     case "limit":
       if (active && notes.includes("no_mask")) {
-        lines.push(
+        lines2.push(
           _(
             "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. A disguise as a whitelisted site cannot act on this server: its protocol has no TLS handshake over TCP. Another server, one with TLS (VLESS, Trojan), may help."
           ).format(verdict.kb ?? 0)
         );
         break;
       }
-      lines.push(
+      lines2.push(
         active ? _(
           "Connections are cut at about %d KB: this is the DPI limit. Sites open partly. Another server or a disguise as a whitelisted site may help; where the network also limits by address, the disguise will not."
         ).format(verdict.kb ?? 0) : passiveLimitLine(notes, verdict.kb ?? 0)
       );
       break;
     case "freeze":
-      lines.push(freezeLine(notes, verdict.fp ?? ""));
+      lines2.push(freezeLine(notes, verdict.fp ?? ""));
       break;
     case "wrongparams":
-      lines.push(
+      lines2.push(
         notes.includes("tls_cert") ? _(
           "The server answered, but its certificate did not pass the check: expired, for another name, or from an unknown issuer."
         ) : _(
@@ -2982,18 +2982,18 @@ function verdictLines(verdict) {
       );
       break;
     case "rejected":
-      lines.push(
+      lines2.push(
         _(
           "The server closed the requests without an answer. The usual reason is a user or password it does not know; a server with no way out looks the same from here."
         )
       );
       break;
     case "hellodrop":
-      lines.push(helloDropLine(notes, verdict.n ?? 0));
-      if (notes.includes("relay_silent")) lines.push(relayNotice());
+      lines2.push(helloDropLine(notes, verdict.n ?? 0));
+      if (notes.includes("relay_silent")) lines2.push(relayNotice());
       break;
     case "pathblock":
-      lines.push(
+      lines2.push(
         _(
           "It does not connect from here, but the handshake passes through another server of yours. The server is on; the provider cuts the path or the server does not accept your network."
         ),
@@ -3001,7 +3001,7 @@ function verdictLines(verdict) {
       );
       break;
     case "dead":
-      lines.push(
+      lines2.push(
         _(
           "The server does not answer from here or through your other servers (%d). It may be off, or its address may be closed to these networks; from another network it may work."
         ).format(verdict.n ?? 0),
@@ -3010,13 +3010,13 @@ function verdictLines(verdict) {
       break;
     case "unreachable":
       if (!active) {
-        lines.push(
+        lines2.push(
           _(
             "The URL test of this server failed, and no connection opened since then has received data. Press \u201CCheck server\u201D to learn why."
           )
         );
       } else if (notes.includes("relay_silent")) {
-        lines.push(
+        lines2.push(
           _(
             "The server does not answer from here or through another server of yours, which may itself be unstable. The cause cannot be told from this one try."
           ),
@@ -3026,7 +3026,7 @@ function verdictLines(verdict) {
         // these two know the cause
         !notes.includes("uplink_down") && !notes.includes("dns_failed")
       ) {
-        lines.push(
+        lines2.push(
           _(
             "The port of the server does not answer from this router. The cause cannot be told from here."
           )
@@ -3038,9 +3038,9 @@ function verdictLines(verdict) {
   }
   notes.forEach((note) => {
     const line = noteLine(note, verdict);
-    if (line) lines.push(line);
+    if (line) lines2.push(line);
   });
-  return lines;
+  return lines2;
 }
 function noteLine(note, verdict) {
   switch (note) {
@@ -3640,11 +3640,11 @@ function renderDefaultState({
     ];
   }
   function renderDevices() {
-    const devices = section.devices ?? [];
-    if (!devices.length) return [];
+    const devices2 = section.devices ?? [];
+    if (!devices2.length) return [];
     return [
       E("div", { class: "pdk_dashboard-page__outbound-section__devices" }, [
-        _("Only for: %s").format(devices.join(", "))
+        _("Only for: %s").format(devices2.join(", "))
       ])
     ];
   }
@@ -3832,22 +3832,22 @@ function renderWidget(props) {
 }
 
 // src/podkop/tabs/dashboard/partials/renderBitTorrent.ts
-function renderRow(row, modifier) {
+function renderRow(row2, modifier) {
   const cell = (name, children) => E("div", { class: name, role: "cell" }, [...children]);
   return E(
     "div",
     {
       class: `pdk_dashboard-page__bittorrent__row${modifier}`,
       role: "row",
-      title: row.packets
+      title: row2.packets
     },
     [
       E(
         "div",
         { class: "pdk_dashboard-page__bittorrent__what", role: "presentation" },
         [
-          cell("pdk_dashboard-page__bittorrent__kind", [row.kind]),
-          cell("pdk_dashboard-page__bittorrent__way", [row.way])
+          cell("pdk_dashboard-page__bittorrent__kind", [row2.kind]),
+          cell("pdk_dashboard-page__bittorrent__way", [row2.way])
         ]
       ),
       E(
@@ -3857,12 +3857,12 @@ function renderRow(row, modifier) {
           role: "presentation"
         },
         [
-          cell("pdk_dashboard-page__bittorrent__number", [row.sent]),
-          cell("pdk_dashboard-page__bittorrent__number", [row.received]),
+          cell("pdk_dashboard-page__bittorrent__number", [row2.sent]),
+          cell("pdk_dashboard-page__bittorrent__number", [row2.received]),
           cell("pdk_dashboard-page__bittorrent__number", [
-            row.connections,
+            row2.connections,
             E("div", { class: "pdk_dashboard-page__bittorrent__open" }, [
-              _("%s open").format(row.open)
+              _("%s open").format(row2.open)
             ])
           ])
         ]
@@ -3929,7 +3929,7 @@ function renderBitTorrent(table, onReset) {
       },
       [
         renderHead(),
-        ...table.rows.map((row) => renderRow(row, "")),
+        ...table.rows.map((row2) => renderRow(row2, "")),
         ...table.total ? [
           renderRow(
             table.total,
@@ -3978,8 +3978,3579 @@ function renderBitTorrent(table, onReset) {
   ]);
 }
 
+// src/podkop/wizard/importer.ts
+function defaultSettings() {
+  return {
+    label: "",
+    skipDownloads: false,
+    updateInterval: "auto",
+    agentPreset: "podkop",
+    userAgent: "",
+    headers: "",
+    udpOverTcp: false,
+    routingMark: "",
+    resolver: false,
+    dnsType: "udp",
+    dnsServer: "1.1.1.1"
+  };
+}
+function listedServers(preview) {
+  return (preview?.servers ?? []).map((item) => ({
+    name: item.name,
+    scheme: item.scheme,
+    address: item.address ?? "",
+    reason: item.reason ?? ""
+  }));
+}
+function hostOf2(address) {
+  try {
+    return new URL(address).hostname;
+  } catch (_e) {
+    return address;
+  }
+}
+function describe(source) {
+  const label = source.settings.label.trim();
+  switch (source.kind) {
+    case "subscription": {
+      const host = hostOf2(source.url ?? "");
+      const parts = ["\u041F\u043E\u0434\u043F\u0438\u0441\u043A\u0430", host];
+      if (source.servers) parts.push(serversText(source.servers));
+      if (source.settings.agentPreset !== "podkop") {
+        parts.push(
+          "\u0437\u0430\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u0442\u0441\u044F \u043A\u0430\u043A " + presetName(source.settings.agentPreset)
+        );
+      }
+      return {
+        title: label || source.provider || host,
+        subtitle: parts.join(" \xB7 ")
+      };
+    }
+    case "links": {
+      const links = source.links ?? [];
+      const names = links.map(
+        (link, index) => linkName(link) || "\u0441\u0435\u0440\u0432\u0435\u0440 " + (index + 1)
+      );
+      const parts = [serversText(links.length), names.join(", ")];
+      if (source.settings.udpOverTcp) parts.push("UDP \u0447\u0435\u0440\u0435\u0437 TCP");
+      return {
+        title: label || "\u0421\u0441\u044B\u043B\u043A\u0438 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u044B",
+        subtitle: parts.join(" \xB7 ")
+      };
+    }
+    case "json": {
+      const found = detectPasted(source.json ?? "");
+      return {
+        title: label || "Outbound JSON",
+        subtitle: found.title.replace(/^[^:]*:\s*/, "")
+      };
+    }
+    case "interface": {
+      const name = source.iface || "\u043E\u0441\u043D\u043E\u0432\u043D\u043E\u0439 \u043C\u0430\u0440\u0448\u0440\u0443\u0442";
+      const parts = ["\u0418\u043D\u0442\u0435\u0440\u0444\u0435\u0439\u0441", name];
+      if (source.settings.resolver) {
+        parts.push("\u0440\u0435\u0437\u043E\u043B\u0432\u0435\u0440 " + source.settings.dnsServer);
+      }
+      return { title: label || name, subtitle: parts.join(" \xB7 ") };
+    }
+  }
+}
+function head(text) {
+  const line = text.trim().split(/\s+/)[0] ?? "";
+  const scheme = line.includes("://") ? line.slice(0, line.indexOf("://") + 3) : line.slice(0, 16);
+  return scheme + "\u2026";
+}
+function unsupported(text) {
+  return {
+    tone: "bad",
+    title: "\u041D\u0435\u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u043C\u0430\u044F \u0441\u0441\u044B\u043B\u043A\u0430",
+    detail: head(text) + " \u043D\u0435 \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u0430."
+  };
+}
+function plural(count, one, few, many) {
+  const tens = count % 100;
+  const units = count % 10;
+  if (tens > 10 && tens < 20) return many;
+  if (units === 1) return one;
+  if (units > 1 && units < 5) return few;
+  return many;
+}
+function serversText(count) {
+  return count + " " + plural(count, "\u0441\u0435\u0440\u0432\u0435\u0440", "\u0441\u0435\u0440\u0432\u0435\u0440\u0430", "\u0441\u0435\u0440\u0432\u0435\u0440\u043E\u0432");
+}
+async function importPasted(text, existing, deps2) {
+  const found = detectPasted(text);
+  if (!found.kind) return null;
+  if (found.kind === "error") return unsupported(text);
+  if (found.kind === "subscription") {
+    const url = String(found.url ?? "");
+    const host = hostOf2(url);
+    if (existing.some((item) => item.url === url)) {
+      return { tone: "warn", title: "\u0423\u0436\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E", detail: host };
+    }
+    const preview = await deps2.loadSubscription(url);
+    const servers = (preview?.servers ?? []).filter((item) => !item.reason);
+    if (!servers.length) {
+      return {
+        tone: "bad",
+        title: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0443",
+        detail: host,
+        setup: { url, preview }
+      };
+    }
+    const source2 = {
+      kind: "subscription",
+      url,
+      settings: defaultSettings(),
+      provider: preview?.provider?.title?.trim() || "",
+      servers: servers.length,
+      list: listedServers(preview)
+    };
+    return {
+      tone: "ok",
+      title: "\u0418\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u0430 \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0430",
+      detail: describe(source2).title + " \xB7 " + serversText(servers.length),
+      source: source2
+    };
+  }
+  if (found.kind === "json") {
+    const json = String(found.json ?? "");
+    if (existing.some((item) => item.json === json)) {
+      return { tone: "warn", title: "\u0423\u0436\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E", detail: found.title };
+    }
+    return {
+      tone: "ok",
+      title: "\u0418\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D outbound JSON",
+      source: { kind: "json", json, settings: defaultSettings() }
+    };
+  }
+  const links = found.links ?? [];
+  const checks = await deps2.checkLinks(links);
+  const good = links.filter((_link, index) => !checks || checks[index]?.ok);
+  if (!good.length) return unsupported(text);
+  const known = new Set(existing.flatMap((item) => item.links ?? []));
+  const fresh2 = good.filter((link) => !known.has(link));
+  if (!fresh2.length) {
+    return {
+      tone: "warn",
+      title: "\u0423\u0436\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E",
+      detail: good.map((link) => linkName(link) || head(link)).join(", ")
+    };
+  }
+  const names = fresh2.map(
+    (link, index) => linkName(link) || "\u0441\u0435\u0440\u0432\u0435\u0440 " + (index + 1)
+  );
+  const source = {
+    kind: "links",
+    links: fresh2,
+    settings: defaultSettings()
+  };
+  if (good.length < links.length) {
+    const skipped = links.map((_link, index) => index).filter((index) => checks && !checks[index]?.ok).map((index) => index + 1);
+    return {
+      tone: "warn",
+      title: "\u0418\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u043E " + good.length + " \u0438\u0437 " + links.length,
+      detail: (skipped.length === 1 ? "\u0421\u0442\u0440\u043E\u043A\u0430 " : "\u0421\u0442\u0440\u043E\u043A\u0438 ") + skipped.join(", ") + (skipped.length === 1 ? " \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u0430." : " \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u044B."),
+      source
+    };
+  }
+  return {
+    tone: "ok",
+    title: fresh2.length === 1 ? "\u0418\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u0430 \u0441\u0441\u044B\u043B\u043A\u0430 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440" : "\u0418\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u044B \u0441\u0441\u044B\u043B\u043A\u0438 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u044B: " + fresh2.length,
+    detail: names.join(", "),
+    source
+  };
+}
+
+// src/podkop/wizard/routing.ts
+var LABELS = DOMAIN_LIST_OPTIONS;
+var DEFAULT_LISTS = [
+  "geoblock",
+  "block",
+  "porn",
+  "news",
+  "anime",
+  "youtube",
+  "hdrezka",
+  "tiktok",
+  "meta",
+  "twitter",
+  "discord",
+  "telegram"
+];
+var ASN_LISTS = ["hetzner", "ovh", "digitalocean", "cloudfront"];
+var SITE_LISTS = [
+  ...DEFAULT_LISTS,
+  ...Object.keys(LABELS).filter(
+    (id) => !DEFAULT_LISTS.includes(id) && !ASN_LISTS.includes(id) && !REGIONAL_OPTIONS.includes(id)
+  )
+];
+var MODES = [
+  ["servers", "\u041F\u0440\u043E\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u0442\u044C", "\u0427\u0435\u0440\u0435\u0437 \u0441\u0435\u0440\u0432\u0435\u0440\u044B"],
+  ["direct", "\u041D\u0430\u043F\u0440\u044F\u043C\u0443\u044E", "\u041C\u0438\u043C\u043E \u0441\u0435\u0440\u0432\u0435\u0440\u043E\u0432"],
+  ["block", "\u0411\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u0442\u044C", "\u041D\u0435 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u044C"]
+];
+var LISTS_SHOWN = 4;
+function createRouting(kit) {
+  const { h: h2, icon: icon2 } = kit;
+  let rules = [];
+  let nextId = 1;
+  let focusKey = "";
+  let notice = "";
+  let started3 = false;
+  let sheetScroll = 0;
+  function serversOf(source) {
+    if (source.kind === "subscription") {
+      return (source.list ?? []).filter((item) => !item.reason).map((item) => ({ name: item.name, scheme: item.scheme }));
+    }
+    if (source.kind === "links") {
+      return (source.links ?? []).map((link, index) => ({
+        name: linkName(link) || "\u0441\u0435\u0440\u0432\u0435\u0440 " + (index + 1),
+        scheme: link.slice(0, Math.max(0, link.indexOf("://")))
+      }));
+    }
+    return [];
+  }
+  function filtered(source) {
+    return source.kind === "subscription" || serversOf(source).length > 1;
+  }
+  function taken(source, row2) {
+    return serversOf(source).filter(
+      (server) => rowTakes(server.name, row2.include, row2.exclude) && (!row2.protocols.length || row2.protocols.includes(server.scheme))
+    );
+  }
+  function gives(source, row2) {
+    if (!row2.on) return 0;
+    return filtered(source) ? taken(source, row2).length : 1;
+  }
+  function newRow(sourceId, on) {
+    return {
+      sourceId,
+      on,
+      include: [],
+      exclude: [],
+      protocols: [],
+      open: false
+    };
+  }
+  function sync() {
+    const sources = kit.sources();
+    if (!started3) {
+      started3 = true;
+      rules = [
+        {
+          id: nextId++,
+          title: "\u041E\u0441\u043D\u043E\u0432\u043D\u043E\u0435 \u043F\u0440\u0430\u0432\u0438\u043B\u043E",
+          enabled: true,
+          lists: [...DEFAULT_LISTS],
+          mode: "servers",
+          rows: sources.map((source) => newRow(source.id, true)),
+          open: true,
+          picker: false,
+          search: "",
+          replaced: []
+        }
+      ];
+    }
+    for (const rule of rules) {
+      rule.rows = sources.map(
+        (source) => rule.rows.find((row2) => row2.sourceId === source.id) ?? newRow(source.id, false)
+      );
+    }
+  }
+  function addRule() {
+    const sources = kit.sources();
+    for (const rule of rules) rule.open = false;
+    rules.unshift({
+      id: nextId++,
+      title: "\u041D\u043E\u0432\u043E\u0435 \u043F\u0440\u0430\u0432\u0438\u043B\u043E",
+      enabled: true,
+      lists: [],
+      mode: "servers",
+      // as the package does for a new rule: one row, with the first source
+      rows: sources.map((source, index) => newRow(source.id, index === 0)),
+      open: true,
+      picker: true,
+      search: "",
+      replaced: []
+    });
+    kit.draw();
+  }
+  function toggleList(rule, id) {
+    if (rule.lists.includes(id)) {
+      rule.lists = rule.lists.filter((item) => item !== id);
+      if (id === "russia_inside") {
+        rule.lists.unshift(...rule.replaced);
+        rule.replaced = [];
+      }
+      return;
+    }
+    if (REGIONAL_OPTIONS.includes(id)) {
+      rule.lists = rule.lists.filter(
+        (item) => !REGIONAL_OPTIONS.includes(item)
+      );
+    }
+    rule.lists.push(id);
+    if (rule.lists.includes("russia_inside")) {
+      const out = rule.lists.filter(
+        (item) => !ALLOWED_WITH_RUSSIA_INSIDE.includes(item)
+      );
+      if (out.length) rule.replaced = out;
+      rule.lists = rule.lists.filter(
+        (item) => ALLOWED_WITH_RUSSIA_INSIDE.includes(item)
+      );
+    }
+  }
+  function barred(rule, id) {
+    return rule.lists.includes("russia_inside") && !ALLOWED_WITH_RUSSIA_INSIDE.includes(id);
+  }
+  function summary(rule) {
+    const names = rule.lists.map((id) => LABELS[id] ?? id);
+    const text = !names.length ? "\u0421\u043F\u0438\u0441\u043A\u0438 \u043D\u0435 \u0432\u044B\u0431\u0440\u0430\u043D\u044B" : names.length <= LISTS_SHOWN ? names.join(", ") : names.slice(0, LISTS_SHOWN).join(", ") + " \u0438 \u0435\u0449\u0451 " + (names.length - LISTS_SHOWN);
+    return rule.enabled ? text : "\u0412\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u043E \xB7 " + text;
+  }
+  function problem() {
+    const sources = kit.sources();
+    if (!rules.some((rule) => rule.enabled)) return "\u041D\u0435\u0442 \u0432\u043A\u043B\u044E\u0447\u0451\u043D\u043D\u044B\u0445 \u043F\u0440\u0430\u0432\u0438\u043B.";
+    for (const [index, rule] of rules.entries()) {
+      if (!rule.enabled) continue;
+      if (!rule.lists.length) {
+        return "\u0412 \u043F\u0440\u0430\u0432\u0438\u043B\u0435 " + (index + 1) + " \u043D\u0435 \u0432\u044B\u0431\u0440\u0430\u043D\u044B \u0441\u043F\u0438\u0441\u043A\u0438 \u0440\u0435\u0441\u0443\u0440\u0441\u043E\u0432.";
+      }
+      if (rule.mode !== "servers") continue;
+      const servers = rule.rows.reduce((sum, row2) => {
+        const source = sources.find((item) => item.id === row2.sourceId);
+        return sum + (source ? gives(source, row2) : 0);
+      }, 0);
+      if (!servers) {
+        return "\u0412 \u043F\u0440\u0430\u0432\u0438\u043B\u0435 " + (index + 1) + " \u043D\u0435 \u0432\u044B\u0431\u0440\u0430\u043D \u043D\u0438 \u043E\u0434\u0438\u043D \u0441\u0435\u0440\u0432\u0435\u0440.";
+      }
+    }
+    return "";
+  }
+  function button(className, children, onClick, attrs = {}) {
+    const el = h2(
+      "button",
+      { class: className, type: "button", ...attrs },
+      children
+    );
+    el.addEventListener("click", (event) => {
+      event.stopPropagation();
+      onClick(event);
+    });
+    return el;
+  }
+  function step(number, text) {
+    return h2("div", { class: "pdk-route__step" }, [
+      h2("span", { class: "pdk-route__step-number" }, [number + "."]),
+      text
+    ]);
+  }
+  function label(text) {
+    return h2("div", { class: "pdk-wizard__control-label" }, [text]);
+  }
+  function words(title, list, placeholder, key) {
+    const input = h2("input", {
+      type: "text",
+      "data-focus": key,
+      placeholder: list.length ? "" : placeholder,
+      autocomplete: "off",
+      spellcheck: "false"
+    });
+    const commit = () => {
+      const added = input.value.split(",").map((word) => word.trim()).filter((word) => word && !list.includes(word));
+      input.value = "";
+      list.push(...added);
+      return added.length > 0;
+    };
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === ",") {
+        event.preventDefault();
+        commit();
+        focusKey = key;
+        kit.draw();
+      } else if (event.key === "Backspace" && !input.value && list.length) {
+        list.pop();
+        focusKey = key;
+        kit.draw();
+      }
+    });
+    input.addEventListener("blur", () => {
+      if (commit()) setTimeout(kit.draw, 200);
+    });
+    const box = h2("div", { class: "pdk-route__words" }, [
+      ...list.map(
+        (word) => h2("span", { class: "pdk-route__word" }, [
+          word,
+          button(
+            "pdk-route__word-x",
+            [icon2("x", 12)],
+            () => {
+              list.splice(list.indexOf(word), 1);
+              kit.draw();
+            },
+            { title: "\u0423\u0431\u0440\u0430\u0442\u044C", "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C " + word }
+          )
+        ])
+      ),
+      input
+    ]);
+    box.addEventListener("click", () => input.focus());
+    return h2("div", { class: "pdk-wizard__control" }, [label(title), box]);
+  }
+  function renderFilter(source, row2) {
+    const all = serversOf(source);
+    const got = new Set(taken(source, row2).map((server) => server.name));
+    const narrowed = got.size < all.length;
+    const schemes = [...new Set(all.map((server) => server.scheme))].filter(
+      Boolean
+    );
+    const key = "row-" + row2.sourceId + "-";
+    return h2("div", { class: "pdk-route__filter" }, [
+      h2("div", { class: "pdk-route__filter-fields" }, [
+        words("\u0418\u043C\u044F \u0441\u0435\u0440\u0432\u0435\u0440\u0430 \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442", row2.include, "\u0432\u0441\u0435", key + "include"),
+        words(
+          "\u0418\u043C\u044F \u0441\u0435\u0440\u0432\u0435\u0440\u0430 \u043D\u0435 \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442",
+          row2.exclude,
+          "\u043D\u0438\u0447\u0435\u0433\u043E",
+          key + "exclude"
+        )
+      ]),
+      schemes.length > 1 ? h2("div", { class: "pdk-wizard__control" }, [
+        label("\u041F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B"),
+        h2(
+          "div",
+          { class: "pdk-route__tags" },
+          schemes.map((scheme) => {
+            const on = row2.protocols.includes(scheme);
+            return button(
+              "pdk-route__pick" + (on ? " pdk-route__pick--on" : ""),
+              [on ? icon2("check", 11) : null, scheme],
+              () => {
+                row2.protocols = on ? row2.protocols.filter((item) => item !== scheme) : [...row2.protocols, scheme];
+                kit.draw();
+              },
+              { "aria-pressed": String(on) }
+            );
+          })
+        )
+      ]) : null,
+      h2(
+        "div",
+        { class: "pdk-route__tags" },
+        all.map((server) => {
+          const on = narrowed && got.has(server.name);
+          const off = !got.has(server.name);
+          return button(
+            "pdk-route__pick" + (on ? " pdk-route__pick--on" : "") + (off ? " pdk-route__pick--off" : ""),
+            [on ? icon2("check", 11) : null, server.name],
+            () => {
+              row2.include = row2.include.includes(server.name) ? row2.include.filter((word) => word !== server.name) : [...row2.include, server.name];
+              kit.draw();
+            },
+            { title: server.scheme }
+          );
+        })
+      )
+    ]);
+  }
+  function renderRow2(source, row2) {
+    const text = describe(source);
+    const all = serversOf(source);
+    const canFilter = row2.on && filtered(source);
+    const count = canFilter ? taken(source, row2).length : 0;
+    const open = canFilter && row2.open;
+    const box = h2(
+      "span",
+      { class: "pdk-route__box" + (row2.on ? " pdk-route__box--on" : "") },
+      [row2.on ? icon2("check", 13) : null]
+    );
+    const line = h2(
+      "div",
+      {
+        class: "pdk-route__source-row",
+        role: "checkbox",
+        "aria-checked": String(row2.on),
+        tabindex: "0"
+      },
+      [
+        box,
+        h2(
+          "span",
+          {
+            class: "pdk-wizard__source-kind" + (row2.on ? " pdk-wizard__source-kind--" + source.kind : "")
+          },
+          [icon2(kit.kindIcon[source.kind], 16)]
+        ),
+        h2("div", { class: "pdk-wizard__source-text" }, [
+          h2("div", { class: "pdk-wizard__source-title" }, [text.title]),
+          h2("div", { class: "pdk-wizard__source-subtitle" }, [text.subtitle])
+        ]),
+        canFilter ? button(
+          "pdk-route__count" + (count ? "" : " pdk-route__count--zero") + (open ? " pdk-route__count--open" : ""),
+          [
+            count === all.length ? "\u0412\u0441\u0435 " + all.length : count + " \u0438\u0437 " + all.length,
+            icon2("chevron", 14)
+          ],
+          () => {
+            row2.open = !row2.open;
+            kit.draw();
+          },
+          { "aria-expanded": String(open), title: "\u0412\u044B\u0431\u0440\u0430\u0442\u044C \u0441\u0435\u0440\u0432\u0435\u0440\u044B" }
+        ) : null
+      ]
+    );
+    const flip = () => {
+      row2.on = !row2.on;
+      kit.draw();
+    };
+    line.addEventListener("click", flip);
+    line.addEventListener("keydown", (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      if (event.target !== line) return;
+      event.preventDefault();
+      flip();
+    });
+    return h2(
+      "div",
+      {
+        class: "pdk-route__source" + (row2.on ? "" : " pdk-route__source--off") + (open ? " pdk-route__source--open" : "")
+      },
+      [line, open ? renderFilter(source, row2) : null]
+    );
+  }
+  function renderPicker(rule) {
+    const search = h2("input", {
+      class: "pdk-wizard__text",
+      type: "text",
+      placeholder: "\u041D\u0430\u0439\u0442\u0438 \u0441\u043F\u0438\u0441\u043E\u043A",
+      "data-focus": "search-" + rule.id,
+      autocomplete: "off"
+    });
+    search.value = rule.search;
+    search.addEventListener("input", () => {
+      rule.search = search.value;
+      focusKey = "search-" + rule.id;
+      kit.draw();
+    });
+    const query = rule.search.trim().toLowerCase();
+    const group = (title, note, ids) => {
+      const shown = ids.filter(
+        (id) => (LABELS[id] ?? id).toLowerCase().includes(query)
+      );
+      if (!shown.length) return null;
+      return h2("div", { class: "pdk-route__group" }, [
+        h2("div", {}, [
+          label(title),
+          note ? h2("div", { class: "pdk-wizard__control-help" }, [note]) : null
+        ]),
+        h2(
+          "div",
+          { class: "pdk-route__tags" },
+          shown.map((id) => {
+            const on = rule.lists.includes(id);
+            const el = button(
+              "pdk-route__pick" + (on ? " pdk-route__pick--on" : ""),
+              [on ? icon2("check", 11) : null, LABELS[id] ?? id],
+              () => {
+                toggleList(rule, id);
+                kit.draw();
+              },
+              { "aria-pressed": String(on) }
+            );
+            if (barred(rule, id)) {
+              el.disabled = true;
+              el.title = "\u0423\u0436\u0435 \u0432\u0445\u043E\u0434\u0438\u0442 \u0432 Russia inside";
+            }
+            return el;
+          })
+        )
+      ]);
+    };
+    const close = () => {
+      rule.picker = false;
+      rule.search = "";
+      kit.draw();
+    };
+    const body = h2("div", { class: "pdk-route__sheet-body" }, [
+      group("\u0421\u043F\u0438\u0441\u043A\u0438 \u0440\u0435\u0441\u0443\u0440\u0441\u043E\u0432", "", SITE_LISTS),
+      group(
+        "\u0420\u0435\u0433\u0438\u043E\u043D \u0446\u0435\u043B\u0438\u043A\u043E\u043C \u2014 \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u0434\u0438\u043D",
+        "Russia inside \u0443\u0436\u0435 \u0432\u043A\u043B\u044E\u0447\u0430\u0435\u0442 \u043F\u0435\u0440\u0432\u044B\u0435 \u043E\u0434\u0438\u043D\u043D\u0430\u0434\u0446\u0430\u0442\u044C \u0441\u043F\u0438\u0441\u043A\u043E\u0432, \u043A\u0440\u043E\u043C\u0435 Telegram.",
+        REGIONAL_OPTIONS
+      ),
+      group(
+        "ASN \u2014 \u0441\u0435\u0442\u0438 \u0445\u043E\u0441\u0442\u0438\u043D\u0433\u043E\u0432 \u0446\u0435\u043B\u0438\u043A\u043E\u043C",
+        "\u0427\u0435\u0440\u0435\u0437 \u0441\u0435\u0440\u0432\u0435\u0440\u044B \u043F\u043E\u0439\u0434\u0451\u0442 \u0432\u0441\u0451, \u0447\u0442\u043E \u0440\u0430\u0437\u043C\u0435\u0449\u0435\u043D\u043E \u0443 \u044D\u0442\u043E\u0433\u043E \u0445\u043E\u0441\u0442\u0438\u043D\u0433\u0430, \u0430 \u043D\u0435 \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u044B\u0435 \u0440\u0435\u0441\u0443\u0440\u0441\u044B. \u0412\u044B\u0431\u0438\u0440\u0430\u0439\u0442\u0435, \u0442\u043E\u043B\u044C\u043A\u043E \u0435\u0441\u043B\u0438 \u0437\u043D\u0430\u0435\u0442\u0435, \u0437\u0430\u0447\u0435\u043C.",
+        ASN_LISTS
+      )
+    ]);
+    if (!body.childElementCount) {
+      body.append(
+        h2("div", { class: "pdk-wizard__control-help" }, ["\u0422\u0430\u043A\u043E\u0433\u043E \u0441\u043F\u0438\u0441\u043A\u0430 \u043D\u0435\u0442."])
+      );
+    }
+    body.addEventListener("scroll", () => {
+      sheetScroll = body.scrollTop;
+    });
+    const sheet = h2(
+      "div",
+      {
+        class: "pdk-route__sheet",
+        role: "dialog",
+        "aria-modal": "true",
+        "aria-label": "\u0421\u043F\u0438\u0441\u043A\u0438 \u0440\u0435\u0441\u0443\u0440\u0441\u043E\u0432"
+      },
+      [
+        h2("div", { class: "pdk-route__sheet-head" }, [
+          h2("div", { class: "pdk-route__sheet-title" }, [
+            "\u0421\u043F\u0438\u0441\u043A\u0438 \u0440\u0435\u0441\u0443\u0440\u0441\u043E\u0432",
+            h2("span", { class: "pdk-wizard__count" }, [
+              String(rule.lists.length)
+            ])
+          ]),
+          button("pdk-wizard__close", [icon2("x", 18)], close, {
+            title: "\u0417\u0430\u043A\u0440\u044B\u0442\u044C",
+            "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C"
+          })
+        ]),
+        h2("div", { class: "pdk-route__sheet-search" }, [search]),
+        body,
+        h2("div", { class: "pdk-route__sheet-foot" }, [
+          button("pdk-wizard__next", ["\u0413\u043E\u0442\u043E\u0432\u043E"], close)
+        ])
+      ]
+    );
+    sheet.addEventListener("click", (event) => event.stopPropagation());
+    const shade = h2("div", { class: "pdk-route__shade" }, [sheet]);
+    shade.addEventListener("click", (event) => {
+      event.stopPropagation();
+      close();
+    });
+    return shade;
+  }
+  function renderBody(rule) {
+    const sources = kit.sources();
+    const name = h2("input", {
+      class: "pdk-wizard__text",
+      type: "text",
+      "aria-label": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043F\u0440\u0430\u0432\u0438\u043B\u0430"
+    });
+    name.value = rule.title;
+    name.addEventListener("change", () => {
+      rule.title = name.value.trim() || rule.title;
+      kit.draw();
+    });
+    return h2("div", { class: "pdk-route__body" }, [
+      h2("div", { class: "pdk-wizard__control" }, [label("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435"), name]),
+      h2("div", { class: "pdk-route__group" }, [
+        step(1, "\u041A\u0430\u043A\u0438\u0435 \u0440\u0435\u0441\u0443\u0440\u0441\u044B"),
+        h2("div", { class: "pdk-route__tags" }, [
+          ...rule.lists.map(
+            (id) => h2("span", { class: "pdk-route__tag" }, [
+              LABELS[id] ?? id,
+              button(
+                "pdk-route__tag-x",
+                [icon2("x", 13)],
+                () => {
+                  toggleList(rule, id);
+                  kit.draw();
+                },
+                {
+                  title: "\u0423\u0431\u0440\u0430\u0442\u044C",
+                  "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C " + (LABELS[id] ?? id)
+                }
+              )
+            ])
+          ),
+          button(
+            "pdk-route__pick pdk-route__pick--add" + (rule.picker ? " pdk-route__pick--on" : ""),
+            ["+ \u0421\u043F\u0438\u0441\u043E\u043A"],
+            () => {
+              rule.picker = !rule.picker;
+              rule.search = "";
+              sheetScroll = 0;
+              focusKey = rule.picker && window.matchMedia("(pointer: fine)").matches ? "search-" + rule.id : "";
+              kit.draw();
+            },
+            { "aria-expanded": String(rule.picker) }
+          )
+        ]),
+        rule.picker ? renderPicker(rule) : null
+      ]),
+      h2("div", { class: "pdk-route__group" }, [
+        step(2, "\u0427\u0442\u043E \u0441 \u043D\u0438\u043C\u0438 \u0434\u0435\u043B\u0430\u0442\u044C"),
+        h2(
+          "div",
+          { class: "pdk-route__modes", role: "radiogroup" },
+          MODES.map(
+            ([id, text, note]) => button(
+              "pdk-route__mode",
+              [
+                h2("span", { class: "pdk-route__radio" }),
+                h2("span", { class: "pdk-route__mode-text" }, [
+                  h2("span", { class: "pdk-route__mode-name" }, [text]),
+                  h2("span", { class: "pdk-route__mode-note" }, [note])
+                ])
+              ],
+              () => {
+                rule.mode = id;
+                kit.draw();
+              },
+              { role: "radio", "aria-checked": String(rule.mode === id) }
+            )
+          )
+        )
+      ]),
+      // the servers are asked for only when the rule proxies
+      rule.mode === "servers" ? h2("div", { class: "pdk-route__group" }, [
+        step(3, "\u0427\u0435\u0440\u0435\u0437 \u043A\u0430\u043A\u0438\u0435 \u0441\u0435\u0440\u0432\u0435\u0440\u044B"),
+        ...rule.rows.map((row2) => {
+          const source = sources.find((item) => item.id === row2.sourceId);
+          return source ? renderRow2(source, row2) : null;
+        }),
+        h2("div", { class: "pdk-route__note" }, [
+          "\u0415\u0441\u043B\u0438 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u043E \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E, podkop \u0441\u0430\u043C \u0432\u044B\u0431\u0438\u0440\u0430\u0435\u0442 \u0441\u0430\u043C\u044B\u0439 \u0431\u044B\u0441\u0442\u0440\u044B\u0439."
+        ])
+      ]) : null
+    ]);
+  }
+  function move(id, to) {
+    const from = rules.findIndex((rule2) => rule2.id === id);
+    if (from < 0) return;
+    const [rule] = rules.splice(from, 1);
+    rules.splice(from < to ? to - 1 : to, 0, rule);
+  }
+  function renderRule(rule, index) {
+    const grip = h2(
+      "span",
+      {
+        class: "pdk-route__grip",
+        title: "\u041F\u0435\u0440\u0435\u0442\u0430\u0449\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0440\u044F\u0434\u043E\u043A",
+        role: "button",
+        tabindex: "0",
+        "aria-label": "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0440\u044F\u0434\u043E\u043A: \u0441\u0442\u0440\u0435\u043B\u043A\u0438 \u0432\u0432\u0435\u0440\u0445 \u0438 \u0432\u043D\u0438\u0437",
+        "data-focus": "grip-" + rule.id
+      },
+      [icon2("grip", 16)]
+    );
+    const head2 = h2("div", { class: "pdk-route__head" }, [
+      grip,
+      h2("span", { class: "pdk-route__number" }, [String(index + 1)]),
+      h2("div", { class: "pdk-route__text" }, [
+        h2("div", { class: "pdk-route__title" }, [rule.title]),
+        h2("div", { class: "pdk-route__subtitle" }, [summary(rule)])
+      ]),
+      button(
+        "pdk-route__switch",
+        [],
+        () => {
+          rule.enabled = !rule.enabled;
+          kit.draw();
+        },
+        {
+          role: "switch",
+          "aria-checked": String(rule.enabled),
+          title: rule.enabled ? "\u0412\u044B\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u043F\u0440\u0430\u0432\u0438\u043B\u043E" : "\u0412\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u043F\u0440\u0430\u0432\u0438\u043B\u043E"
+        }
+      ),
+      button(
+        "pdk-wizard__icon-button",
+        [icon2("trash", 16)],
+        () => {
+          rules = rules.filter((item) => item.id !== rule.id);
+          kit.draw();
+        },
+        { title: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u0440\u0430\u0432\u0438\u043B\u043E", "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u0440\u0430\u0432\u0438\u043B\u043E" }
+      ),
+      button(
+        "pdk-wizard__icon-button pdk-route__fold",
+        [icon2("chevron", 16)],
+        () => {
+          rule.open = !rule.open;
+          kit.draw();
+        },
+        {
+          "aria-expanded": String(rule.open),
+          title: rule.open ? "\u0421\u0432\u0435\u0440\u043D\u0443\u0442\u044C" : "\u0420\u0430\u0441\u043A\u0440\u044B\u0442\u044C"
+        }
+      )
+    ]);
+    head2.addEventListener("click", () => {
+      rule.open = !rule.open;
+      kit.draw();
+    });
+    const card = h2(
+      "div",
+      {
+        class: "pdk-route__rule" + (rule.enabled ? "" : " pdk-route__rule--off")
+      },
+      [head2, rule.open ? renderBody(rule) : null]
+    );
+    grip.addEventListener("click", (event) => event.stopPropagation());
+    grip.addEventListener("keydown", (event) => {
+      const step2 = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+      const at = rules.findIndex((item) => item.id === rule.id);
+      if (!step2 || at + step2 < 0 || at + step2 >= rules.length) return;
+      event.preventDefault();
+      move(rule.id, step2 < 0 ? at - 1 : at + 2);
+      focusKey = "grip-" + rule.id;
+      kit.draw();
+    });
+    grip.addEventListener("pointerdown", (event) => {
+      const list = card.parentElement;
+      if (event.button || !list) return;
+      event.preventDefault();
+      const cards = Array.from(
+        list.querySelectorAll(".pdk-route__rule")
+      );
+      const from = cards.indexOf(card);
+      const startY = event.clientY;
+      let to = -1;
+      grip.setPointerCapture(event.pointerId);
+      card.classList.add("pdk-route__rule--dragging");
+      const onMove = (moved) => {
+        card.style.transform = "translateY(" + (moved.clientY - startY) + "px)";
+        for (const other of cards) {
+          other.classList.remove(
+            "pdk-route__rule--before",
+            "pdk-route__rule--after"
+          );
+        }
+        to = cards.length;
+        for (const [index2, other] of cards.entries()) {
+          if (other === card) continue;
+          const rect = other.getBoundingClientRect();
+          if (moved.clientY < rect.top + rect.height / 2) {
+            to = index2;
+            break;
+          }
+        }
+        if (to === from || to === from + 1) {
+          to = -1;
+        } else if (to < cards.length) {
+          cards[to].classList.add("pdk-route__rule--before");
+        } else {
+          cards[cards.length - 1].classList.add("pdk-route__rule--after");
+        }
+      };
+      const onUp = () => {
+        grip.removeEventListener("pointermove", onMove);
+        if (to >= 0) move(rule.id, to);
+        kit.draw();
+      };
+      grip.addEventListener("pointermove", onMove);
+      grip.addEventListener("pointerup", onUp, { once: true });
+      grip.addEventListener("pointercancel", onUp, { once: true });
+    });
+    return card;
+  }
+  function render3() {
+    sync();
+    const stop = problem();
+    return h2("div", { class: "pdk-wizard__body" }, [
+      // the way back stands where the manual form of step 1 has it
+      button("pdk-wizard__back", [icon2("back", 14), "\u041A \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0430\u043C"], kit.back),
+      h2("div", { class: "pdk-wizard__intro" }, [
+        h2("div", { class: "pdk-wizard__heading" }, ["\u041C\u0430\u0440\u0448\u0440\u0443\u0442\u0438\u0437\u0430\u0446\u0438\u044F"]),
+        h2("div", { class: "pdk-wizard__lead" }, [
+          "\u041F\u0440\u0430\u0432\u0438\u043B\u0430 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F \u0441\u0432\u0435\u0440\u0445\u0443 \u0432\u043D\u0438\u0437: \u0441\u0440\u0430\u0431\u0430\u0442\u044B\u0432\u0430\u0435\u0442 \u043F\u0435\u0440\u0432\u043E\u0435, \u0432 \u043A\u043E\u0442\u043E\u0440\u043E\u043C \u043D\u0430\u0448\u0451\u043B\u0441\u044F \u0440\u0435\u0441\u0443\u0440\u0441. \u0412\u0441\u0451, \u0447\u0435\u0433\u043E \u043D\u0435\u0442 \u0432 \u043F\u0440\u0430\u0432\u0438\u043B\u0430\u0445, \u0438\u0434\u0451\u0442 \u043D\u0430\u043F\u0440\u044F\u043C\u0443\u044E."
+        ])
+      ]),
+      h2("div", { class: "pdk-route" }, [
+        h2("div", { class: "pdk-wizard__list-head" }, [
+          h2("div", { class: "pdk-wizard__list-title" }, [
+            "\u041F\u0440\u0430\u0432\u0438\u043B\u0430",
+            h2("span", { class: "pdk-wizard__count" }, [String(rules.length)])
+          ]),
+          button(
+            "pdk-wizard__ghost-button",
+            [icon2("plus", 14), "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0440\u0430\u0432\u0438\u043B\u043E"],
+            addRule
+          )
+        ]),
+        ...rules.map(renderRule),
+        !rules.length ? h2("div", { class: "pdk-wizard__empty" }, [
+          icon2("inbox", 24),
+          h2("div", {}, ["\u041F\u0440\u0430\u0432\u0438\u043B \u043D\u0435\u0442: \u0432\u0441\u0451 \u0438\u0434\u0451\u0442 \u043D\u0430\u043F\u0440\u044F\u043C\u0443\u044E."])
+        ]) : null
+      ]),
+      stop || notice ? h2(
+        "div",
+        {
+          class: "pdk-wizard__alert pdk-wizard__alert--warn",
+          role: "status"
+        },
+        [
+          icon2("warn", 18),
+          h2("div", { class: "pdk-wizard__alert-text" }, [stop || notice])
+        ]
+      ) : null
+    ]);
+  }
+  return {
+    render: render3,
+    ready: () => !problem(),
+    // what the rules are, for the config that is written
+    rules() {
+      sync();
+      return rules.map((rule) => ({
+        title: rule.title,
+        enabled: rule.enabled,
+        lists: [...rule.lists],
+        mode: rule.mode,
+        rows: rule.rows.filter((row2) => row2.on).map((row2) => ({
+          sourceId: row2.sourceId,
+          include: [...row2.include],
+          exclude: [...row2.exclude],
+          protocols: [...row2.protocols]
+        }))
+      }));
+    },
+    say(text) {
+      notice = text;
+    },
+    // the field that was typed in keeps the focus over a redraw
+    // Escape closes the window of lists, if one is open
+    escape() {
+      const rule = rules.find((item) => item.picker);
+      if (!rule) return false;
+      rule.picker = false;
+      rule.search = "";
+      kit.draw();
+      return true;
+    },
+    afterDraw(root2) {
+      const body = root2.querySelector(".pdk-route__sheet-body");
+      if (body) body.scrollTop = sheetScroll;
+      if (!focusKey) return;
+      const el = root2.querySelector(
+        '[data-focus="' + focusKey + '"]'
+      );
+      focusKey = "";
+      if (!el) return;
+      el.focus();
+      if (el instanceof HTMLInputElement) {
+        el.setSelectionRange(el.value.length, el.value.length);
+      }
+    }
+  };
+}
+
+// src/podkop/wizard/dns.ts
+var TYPES = [
+  ["doh", "DNS over HTTPS (DoH)"],
+  ["dot", "DNS over TLS (DoT)"],
+  ["udp", "UDP (\u043D\u0435\u0437\u0430\u0449\u0438\u0449\u0451\u043D\u043D\u044B\u0439 DNS)"],
+  ["provider", "DNS \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u0430"]
+];
+var ADDRESSES = [
+  ["prefer_ipv4", "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 IPv4, IPv6 \u2014 \u0435\u0441\u043B\u0438 IPv4 \u043D\u0435\u0442"],
+  ["ipv4_only", "\u0422\u043E\u043B\u044C\u043A\u043E IPv4"],
+  ["both", "IPv4 \u0438 IPv6: \u0432\u044B\u0431\u0438\u0440\u0430\u0435\u0442 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u043E"]
+];
+var MODES2 = [
+  ["order", "\u041F\u043E \u043F\u043E\u0440\u044F\u0434\u043A\u0443"],
+  ["fastest", "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0441\u0430\u043C\u044B\u0439 \u0431\u044B\u0441\u0442\u0440\u044B\u0439"]
+];
+function createDns(kit) {
+  const { h: h2, icon: icon2 } = kit;
+  let bootstrap = "77.88.8.8";
+  let servers = [{ id: 1, type: "udp", server: "77.88.8.8" }];
+  let nextId = 2;
+  let mode = "order";
+  let addresses = "prefer_ipv4";
+  let ttl = "60";
+  let more = false;
+  let notice = "";
+  let provider = null;
+  let asked = false;
+  function button(className, children, onClick, attrs = {}) {
+    const el = h2(
+      "button",
+      { class: className, type: "button", ...attrs },
+      children
+    );
+    el.addEventListener("click", onClick);
+    return el;
+  }
+  function select2(value, options, onChange, name) {
+    const el = h2("select", {
+      class: "pdk-wizard__text",
+      "aria-label": name
+    });
+    for (const [key, text] of options) {
+      const option = h2("option", { value: key }, [text]);
+      option.selected = key === value;
+      el.append(option);
+    }
+    el.addEventListener("change", () => onChange(el.value));
+    return h2("span", { class: "pdk-wizard__select" }, [
+      el,
+      icon2("chevron", 16)
+    ]);
+  }
+  function address(value, known, onChange, name, listId) {
+    const input = h2("input", {
+      class: "pdk-wizard__text",
+      type: "text",
+      list: listId,
+      "aria-label": name,
+      placeholder: "\u0410\u0434\u0440\u0435\u0441 \u0441\u0435\u0440\u0432\u0435\u0440\u0430",
+      autocomplete: "off",
+      spellcheck: "false"
+    });
+    input.value = value;
+    input.addEventListener("input", () => onChange(input.value.trim()));
+    return h2("span", { class: "pdk-dns__address" }, [
+      input,
+      h2(
+        "datalist",
+        { id: listId },
+        Object.entries(known).map(
+          ([key, text]) => h2("option", { value: key }, [text])
+        )
+      )
+    ]);
+  }
+  function step(number, text, extra) {
+    return h2("div", { class: "pdk-route__step" }, [
+      h2("span", { class: "pdk-route__step-number" }, [number + "."]),
+      text,
+      extra
+    ]);
+  }
+  function note(text) {
+    return h2("div", { class: "pdk-route__note" }, [text]);
+  }
+  function askProvider() {
+    if (asked || !kit.providerDns) return;
+    asked = true;
+    kit.providerDns().then((list) => {
+      provider = list;
+      kit.draw();
+    }).catch(() => {
+      provider = [];
+      kit.draw();
+    });
+  }
+  function move(id, to) {
+    const from = servers.findIndex((item2) => item2.id === id);
+    if (from < 0) return;
+    const [item] = servers.splice(from, 1);
+    servers.splice(from < to ? to - 1 : to, 0, item);
+  }
+  function renderServer(server, index) {
+    const grip = h2(
+      "span",
+      {
+        class: "pdk-route__grip",
+        title: "\u041F\u0435\u0440\u0435\u0442\u0430\u0449\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0440\u044F\u0434\u043E\u043A",
+        role: "button",
+        tabindex: "0",
+        "aria-label": "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0440\u044F\u0434\u043E\u043A: \u0441\u0442\u0440\u0435\u043B\u043A\u0438 \u0432\u0432\u0435\u0440\u0445 \u0438 \u0432\u043D\u0438\u0437"
+      },
+      [icon2("grip", 16)]
+    );
+    let value;
+    if (server.type === "provider") {
+      askProvider();
+      value = h2("span", { class: "pdk-dns__provider" }, [
+        provider === null ? "\u0410\u0434\u0440\u0435\u0441\u0430 \u0431\u0435\u0440\u0443\u0442\u0441\u044F \u0443 \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u0430." : provider.length ? "\u0421\u0435\u0439\u0447\u0430\u0441 \u0443 \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u0430: " + provider.join(", ") : "\u0420\u043E\u0443\u0442\u0435\u0440 \u0441\u0435\u0439\u0447\u0430\u0441 \u043D\u0435 \u0437\u043D\u0430\u0435\u0442 DNS-\u0441\u0435\u0440\u0432\u0435\u0440\u043E\u0432 \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u0430."
+      ]);
+    } else {
+      value = address(
+        server.server,
+        DNS_SERVER_OPTIONS,
+        (next) => {
+          server.server = next;
+        },
+        "\u0410\u0434\u0440\u0435\u0441 DNS-\u0441\u0435\u0440\u0432\u0435\u0440\u0430 " + (index + 1),
+        "pdk-dns-list-" + server.id
+      );
+    }
+    const del = button(
+      "pdk-wizard__icon-button",
+      [icon2("trash", 16)],
+      () => {
+        servers = servers.filter((item) => item.id !== server.id);
+        notice = "";
+        kit.draw();
+      },
+      { title: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0441\u0435\u0440\u0432\u0435\u0440", "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0441\u0435\u0440\u0432\u0435\u0440" }
+    );
+    del.disabled = servers.length < 2;
+    const card = h2("div", { class: "pdk-dns__server" }, [
+      grip,
+      h2("span", { class: "pdk-route__number" }, [String(index + 1)]),
+      h2("span", { class: "pdk-dns__type" }, [
+        select2(
+          server.type,
+          TYPES,
+          (next) => {
+            server.type = next;
+            notice = "";
+            kit.draw();
+          },
+          "\u0422\u0438\u043F DNS-\u0441\u0435\u0440\u0432\u0435\u0440\u0430 " + (index + 1)
+        )
+      ]),
+      value,
+      del
+    ]);
+    grip.addEventListener("keydown", (event) => {
+      const by = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+      const at = servers.findIndex((item) => item.id === server.id);
+      if (!by || at + by < 0 || at + by >= servers.length) return;
+      event.preventDefault();
+      move(server.id, by < 0 ? at - 1 : at + 2);
+      kit.draw();
+    });
+    grip.addEventListener("pointerdown", (event) => {
+      const list = card.parentElement;
+      if (event.button || !list) return;
+      event.preventDefault();
+      const cards = Array.from(
+        list.querySelectorAll(".pdk-dns__server")
+      );
+      const from = cards.indexOf(card);
+      const startY = event.clientY;
+      let to = -1;
+      grip.setPointerCapture(event.pointerId);
+      card.classList.add("pdk-route__rule--dragging");
+      const onMove = (moved) => {
+        card.style.transform = "translateY(" + (moved.clientY - startY) + "px)";
+        for (const other of cards) {
+          other.classList.remove(
+            "pdk-route__rule--before",
+            "pdk-route__rule--after"
+          );
+        }
+        to = cards.length;
+        for (const [at, other] of cards.entries()) {
+          if (other === card) continue;
+          const rect = other.getBoundingClientRect();
+          if (moved.clientY < rect.top + rect.height / 2) {
+            to = at;
+            break;
+          }
+        }
+        if (to === from || to === from + 1) {
+          to = -1;
+        } else if (to < cards.length) {
+          cards[to].classList.add("pdk-route__rule--before");
+        } else {
+          cards[cards.length - 1].classList.add("pdk-route__rule--after");
+        }
+      };
+      const onUp = () => {
+        grip.removeEventListener("pointermove", onMove);
+        if (to >= 0) move(server.id, to);
+        kit.draw();
+      };
+      grip.addEventListener("pointermove", onMove);
+      grip.addEventListener("pointerup", onUp, { once: true });
+      grip.addEventListener("pointercancel", onUp, { once: true });
+    });
+    return card;
+  }
+  function problem() {
+    if (!validateDNS(bootstrap.trim()).valid) {
+      return "\u0410\u0434\u0440\u0435\u0441 Bootstrap DNS \u0443\u043A\u0430\u0437\u0430\u043D \u043D\u0435\u0432\u0435\u0440\u043D\u043E.";
+    }
+    for (const [index, server] of servers.entries()) {
+      if (server.type === "provider") continue;
+      if (!validateDNS(server.server.trim()).valid) {
+        return "\u0410\u0434\u0440\u0435\u0441 DNS-\u0441\u0435\u0440\u0432\u0435\u0440\u0430 " + (index + 1) + " \u0443\u043A\u0430\u0437\u0430\u043D \u043D\u0435\u0432\u0435\u0440\u043D\u043E.";
+      }
+    }
+    if (!/^\d+$/.test(ttl.trim()) || Number(ttl) < 1) {
+      return "\u0412\u0440\u0435\u043C\u044F \u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F \u043E\u0442\u0432\u0435\u0442\u043E\u0432 \u2014 \u0446\u0435\u043B\u043E\u0435 \u0447\u0438\u0441\u043B\u043E \u0441\u0435\u043A\u0443\u043D\u0434, \u043D\u0435 \u043C\u0435\u043D\u044C\u0448\u0435 1.";
+    }
+    return "";
+  }
+  function render3() {
+    const ttlInput = h2("input", {
+      class: "pdk-wizard__text",
+      type: "text",
+      inputmode: "numeric",
+      "aria-label": "\u0425\u0440\u0430\u043D\u0438\u0442\u044C \u043E\u0442\u0432\u0435\u0442\u044B, \u0441\u0435\u043A\u0443\u043D\u0434"
+    });
+    ttlInput.value = ttl;
+    ttlInput.addEventListener("input", () => {
+      ttl = ttlInput.value;
+    });
+    return h2("div", { class: "pdk-wizard__body" }, [
+      button(
+        "pdk-wizard__back",
+        [icon2("back", 14), "\u041A \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0438\u0437\u0430\u0446\u0438\u0438"],
+        kit.back
+      ),
+      h2("div", { class: "pdk-wizard__intro" }, [
+        h2("div", { class: "pdk-wizard__heading" }, ["DNS"]),
+        h2("div", { class: "pdk-wizard__lead" }, [
+          "\u0423\u0436\u0435 \u0437\u0430\u043F\u043E\u043B\u043D\u0435\u043D\u043E \u2014 \u043C\u043E\u0436\u043D\u043E \u043D\u0435 \u043C\u0435\u043D\u044F\u0442\u044C."
+        ])
+      ]),
+      h2("div", { class: "pdk-route__group" }, [
+        step(1, "Bootstrap DNS"),
+        note(
+          "\u0415\u0433\u043E \u0440\u043E\u0443\u0442\u0435\u0440 \u0441\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u0442 \u043F\u0435\u0440\u0432\u044B\u043C: \u043F\u043E \u043D\u0435\u043C\u0443 \u043E\u043D \u043D\u0430\u0445\u043E\u0434\u0438\u0442 \u0430\u0434\u0440\u0435\u0441\u0430 DNS-\u0441\u0435\u0440\u0432\u0435\u0440\u043E\u0432 \u043D\u0438\u0436\u0435, \u043A\u043E\u0433\u0434\u0430 \u043E\u043D\u0438 \u0437\u0430\u0434\u0430\u043D\u044B \u0438\u043C\u0435\u043D\u0435\u043C, \u043D\u0430\u043F\u0440\u0438\u043C\u0435\u0440 dns.adguard-dns.com. \u0411\u0435\u0437 \u043D\u0435\u0433\u043E \u0442\u0430\u043A\u0438\u0435 \u0441\u0435\u0440\u0432\u0435\u0440\u044B \u043D\u0435 \u0437\u0430\u0440\u0430\u0431\u043E\u0442\u0430\u044E\u0442."
+        ),
+        h2("div", { class: "pdk-dns__bootstrap" }, [
+          address(
+            bootstrap,
+            BOOTSTRAP_DNS_SERVER_OPTIONS,
+            (next) => {
+              bootstrap = next;
+            },
+            "Bootstrap DNS-\u0441\u0435\u0440\u0432\u0435\u0440",
+            "pdk-dns-list-bootstrap"
+          )
+        ])
+      ]),
+      h2("div", { class: "pdk-route__group" }, [
+        h2("div", { class: "pdk-wizard__list-head" }, [
+          step(
+            2,
+            "DNS-\u0441\u0435\u0440\u0432\u0435\u0440\u044B",
+            h2("span", { class: "pdk-wizard__count pdk-dns__count" }, [
+              String(servers.length)
+            ])
+          ),
+          button("pdk-wizard__ghost-button", ["+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0441\u0435\u0440\u0432\u0435\u0440"], () => {
+            servers.push({
+              id: nextId++,
+              type: "doh",
+              server: Object.keys(DNS_SERVER_OPTIONS)[0] ?? "1.1.1.1"
+            });
+            notice = "";
+            kit.draw();
+          })
+        ]),
+        note(
+          "\u0427\u0435\u0440\u0435\u0437 \u043D\u0438\u0445 \u0438\u0434\u0443\u0442 DNS-\u0437\u0430\u043F\u0440\u043E\u0441\u044B \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432 \u0441\u0435\u0442\u0438 \u0438 \u0441\u0430\u043C\u043E\u0433\u043E \u0440\u043E\u0443\u0442\u0435\u0440\u0430 \u2014 \u0434\u043B\u044F \u0440\u0435\u0441\u0443\u0440\u0441\u043E\u0432, \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043D\u0435\u0442 \u0432 \u043F\u0440\u0430\u0432\u0438\u043B\u0430\u0445. \u0420\u0435\u0441\u0443\u0440\u0441\u0430\u043C \u0438\u0437 \u043F\u0440\u0430\u0432\u0438\u043B \u0430\u0434\u0440\u0435\u0441 \u0432\u044B\u0434\u0430\u0451\u0442 \u0441\u0430\u043C podkop."
+        ),
+        ...servers.map(renderServer),
+        servers.length > 1 ? h2("div", { class: "pdk-dns__mode" }, [
+          h2("span", { class: "pdk-dns__mode-label" }, ["\u041A\u0430\u043A \u043E\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0442\u044C"]),
+          h2(
+            "span",
+            { class: "pdk-dns__switch", role: "radiogroup" },
+            MODES2.map(
+              ([id, text]) => button(
+                "",
+                [text],
+                () => {
+                  mode = id;
+                  kit.draw();
+                },
+                { role: "radio", "aria-checked": String(mode === id) }
+              )
+            )
+          )
+        ]) : null,
+        servers.length > 1 ? note(
+          mode === "order" ? "\u041F\u043E \u043F\u043E\u0440\u044F\u0434\u043A\u0443: \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0441\u0435\u0440\u0432\u0435\u0440 \u0441\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u044E\u0442, \u0442\u043E\u043B\u044C\u043A\u043E \u0435\u0441\u043B\u0438 \u0432\u0435\u0440\u0445\u043D\u0438\u0439 \u043D\u0435 \u043E\u0442\u0432\u0435\u0442\u0438\u043B." : "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0441\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u044E\u0442 \u0441\u0435\u0440\u0432\u0435\u0440, \u043A\u043E\u0442\u043E\u0440\u044B\u0439 \u043E\u0442\u0432\u0435\u0447\u0430\u043B \u0431\u044B\u0441\u0442\u0440\u0435\u0435 \u0432\u0441\u0435\u0445; \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u2014 \u0435\u0441\u043B\u0438 \u043E\u043D \u043D\u0435 \u043E\u0442\u0432\u0435\u0442\u0438\u043B."
+        ) : null
+      ]),
+      h2("div", { class: "pdk-route__group" }, [
+        button(
+          "pdk-wizard__back",
+          [icon2("chevron", 14), "\u0415\u0449\u0451 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438"],
+          () => {
+            more = !more;
+            kit.draw();
+          },
+          {
+            "aria-expanded": String(more),
+            class: "pdk-wizard__back pdk-dns__more"
+          }
+        ),
+        more ? h2("div", { class: "pdk-dns__fields" }, [
+          h2("label", { class: "pdk-wizard__control" }, [
+            h2("span", { class: "pdk-wizard__control-label" }, [
+              "\u0410\u0434\u0440\u0435\u0441\u0430 \u0432 \u043E\u0442\u0432\u0435\u0442\u0430\u0445 DNS"
+            ]),
+            select2(
+              addresses,
+              ADDRESSES,
+              (next) => {
+                addresses = next;
+              },
+              "\u0410\u0434\u0440\u0435\u0441\u0430 \u0432 \u043E\u0442\u0432\u0435\u0442\u0430\u0445 DNS"
+            )
+          ]),
+          h2("label", { class: "pdk-wizard__control" }, [
+            h2("span", { class: "pdk-wizard__control-label" }, [
+              "\u0425\u0440\u0430\u043D\u0438\u0442\u044C \u043E\u0442\u0432\u0435\u0442\u044B, \u0441\u0435\u043A\u0443\u043D\u0434"
+            ]),
+            ttlInput
+          ])
+        ]) : null
+      ]),
+      notice ? h2(
+        "div",
+        {
+          class: "pdk-wizard__alert pdk-wizard__alert--warn",
+          role: "status"
+        },
+        [
+          icon2("warn", 18),
+          h2("div", { class: "pdk-wizard__alert-text" }, [notice])
+        ]
+      ) : null
+    ]);
+  }
+  return {
+    render: render3,
+    problem,
+    say(text) {
+      notice = text;
+    },
+    value() {
+      return {
+        bootstrap,
+        servers: servers.map((item) => ({
+          type: item.type,
+          server: item.server
+        })),
+        mode,
+        addresses,
+        ttl
+      };
+    }
+  };
+}
+
+// src/podkop/wizard/config.ts
+var RESERVED = ["direct", "block", "settings"];
+function lines(text) {
+  return text.split("\n").map((line) => line.trim()).filter(Boolean);
+}
+function sourceOptions(source) {
+  const settings = source.settings;
+  const options = { type: source.kind };
+  if (settings.label.trim()) options.label = settings.label.trim();
+  if (settings.skipDownloads) options.skip_downloads = "1";
+  if (source.kind === "subscription") {
+    options.url = source.url ?? "";
+    if (settings.updateInterval && settings.updateInterval !== "auto") {
+      options.update_interval = settings.updateInterval;
+    }
+    const request = listRequest(
+      settings.userAgent,
+      lines(settings.headers),
+      settings.agentPreset
+    );
+    if (request.user_agent_preset) {
+      options.user_agent_preset = request.user_agent_preset;
+    }
+    if (request.user_agent) options.user_agent = request.user_agent;
+    if (request.headers?.length) options.header = request.headers;
+  } else if (source.kind === "links") {
+    options.link = [...source.links ?? []];
+    if (settings.udpOverTcp) options.udp_over_tcp = "1";
+  } else if (source.kind === "json") {
+    options.outbound_json = source.json ?? "";
+  } else {
+    if (source.iface) options.interface = source.iface;
+    if (settings.routingMark.trim()) {
+      options.routing_mark = settings.routingMark.trim();
+    }
+    if (settings.resolver) {
+      options.domain_resolver_enabled = "1";
+      options.domain_resolver_dns_type = settings.dnsType;
+      options.domain_resolver_dns_server = settings.dnsServer;
+    }
+  }
+  return options;
+}
+function buildConfig(sources, rules, dns2, taken = []) {
+  const used = /* @__PURE__ */ new Set([...taken, ...RESERVED]);
+  const free = (prefix) => {
+    for (let index = 1; ; index++) {
+      const name = prefix + index;
+      if (!used.has(name)) {
+        used.add(name);
+        return name;
+      }
+    }
+  };
+  const sections = [];
+  const names = /* @__PURE__ */ new Map();
+  for (const source of sources) {
+    const name = free("src");
+    names.set(source.id, name);
+    sections.push({ type: "source", name, options: sourceOptions(source) });
+  }
+  for (const rule of rules) {
+    const name = free("rule");
+    const options = {};
+    if (rule.title.trim()) options.label = rule.title.trim();
+    if (!rule.enabled) options.enabled = "0";
+    if (rule.lists.length) options.community_lists = [...rule.lists];
+    sections.push({ type: "section", name, options });
+    if (rule.mode !== "servers") {
+      sections.push({
+        type: "member",
+        options: { section: name, role: "server", source: rule.mode }
+      });
+      continue;
+    }
+    for (const row2 of rule.rows) {
+      const source = names.get(row2.sourceId);
+      if (!source) continue;
+      const member = {
+        section: name,
+        role: "server",
+        source
+      };
+      if (row2.include.length) member.include = [...row2.include];
+      if (row2.exclude.length) member.exclude = [...row2.exclude];
+      if (row2.protocols.length) member.protocols = [...row2.protocols];
+      sections.push({ type: "member", options: member });
+    }
+  }
+  for (const server of dns2.servers) {
+    const options = { type: server.type };
+    if (server.type !== "provider") options.server = server.server.trim();
+    sections.push({ type: "dns_server", options });
+  }
+  return {
+    sections,
+    settings: {
+      bootstrap_dns_server: dns2.bootstrap.trim(),
+      dns_mode: dns2.mode,
+      dns_addresses: dns2.addresses,
+      dns_rewrite_ttl: dns2.ttl.trim()
+    }
+  };
+}
+
+// src/podkop/wizard/styles.ts
+var styles = `
+/* The setup wizard: a window of its own, with its own layout. Every colour is one of LuCI's theme
+   (the variables of luci-theme-bootstrap, which differ between its light and its dark mode), so
+   the window follows the mode of the page. The value after the comma is the light one, for a theme
+   without these variables. A tint is the colour of the theme mixed into the surface. */
+body.pdk-wizard-open { overflow: hidden; }
+
+.pdk-wizard {
+    --pdk-surface: var(--background-color-high, #fff);
+    --pdk-surface-low: var(--background-color-low, #f5f5f5);
+    --pdk-ink: var(--text-color-high, #404040);
+    --pdk-mute: var(--text-color-medium, #808080);
+    --pdk-faint: var(--text-color-low, #bfbfbf);
+    --pdk-line: var(--border-color-medium, #ddd);
+    --pdk-line-soft: var(--border-color-low, #eee);
+    --pdk-line-strong: var(--border-color-high, #ccc);
+    --pdk-primary: var(--primary-color-medium, #1564c0);
+    --pdk-primary-strong: var(--primary-color-low, #0d46a1);
+    --pdk-primary-light: var(--primary-color-high, #1976d2);
+    --pdk-on-primary: var(--on-primary-color, #fff);
+    --pdk-ok: var(--success-color-medium, #009a4c);
+    --pdk-warn: var(--warn-color-high, #efbd0b);
+    --pdk-bad: var(--error-color-medium, #e8210d);
+    --pdk-primary-tint: color-mix(in srgb, var(--pdk-primary-light) 14%, var(--pdk-surface));
+    --pdk-ok-tint: color-mix(in srgb, var(--pdk-ok) 14%, var(--pdk-surface));
+    --pdk-warn-tint: color-mix(in srgb, var(--pdk-warn) 20%, var(--pdk-surface));
+    --pdk-bad-tint: color-mix(in srgb, var(--pdk-bad) 13%, var(--pdk-surface));
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 64px 16px 32px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, .6);
+    box-sizing: border-box;
+    color: var(--pdk-ink);
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: left;
+}
+.pdk-wizard *, .pdk-wizard *::before, .pdk-wizard *::after { box-sizing: border-box; }
+
+.pdk-wizard__window {
+    width: 100%;
+    max-width: 760px;
+    background: var(--pdk-surface);
+    border: 1px solid var(--pdk-line-soft);
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+    overflow: hidden;
+}
+
+.pdk-wizard__icon { display: inline-flex; flex: none; }
+.pdk-wizard__icon svg { display: block; }
+.pdk-wizard__icon--loader svg { animation: pdk-wizard-spin .9s linear infinite; }
+@keyframes pdk-wizard-spin { to { transform: rotate(360deg); } }
+
+.pdk-wizard__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px 16px;
+}
+.pdk-wizard__title { font-size: 18px; font-weight: 700; }
+
+.pdk-wizard button {
+    font: inherit;
+    margin: 0;
+    background-image: none;
+    box-shadow: none;
+    text-shadow: none;
+    cursor: pointer;
+}
+.pdk-wizard .pdk-wizard__close {
+    display: inline-flex;
+    padding: 4px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--pdk-mute);
+}
+.pdk-wizard .pdk-wizard__close:hover { background: var(--pdk-surface-low); color: var(--pdk-ink); }
+
+.pdk-wizard__steps {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 24px 18px;
+    border-bottom: 1px solid var(--pdk-line-soft);
+}
+.pdk-wizard__steps-line { flex: 1; height: 1px; background: var(--pdk-line); }
+.pdk-wizard__step { display: flex; align-items: center; gap: 8px; color: var(--pdk-mute); }
+.pdk-wizard__step-number {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--pdk-line-strong);
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--pdk-mute);
+}
+.pdk-wizard__step--active { color: var(--pdk-ink); font-weight: 700; }
+.pdk-wizard__step--active .pdk-wizard__step-number {
+    border-color: var(--pdk-primary);
+    background: var(--pdk-primary);
+    color: var(--pdk-on-primary);
+}
+
+.pdk-wizard__body { display: flex; flex-direction: column; gap: 16px; padding: 22px 24px; }
+.pdk-wizard__heading { font-size: 20px; font-weight: 700; line-height: 1.25; }
+.pdk-wizard__lead { margin-top: 4px; color: var(--pdk-mute); }
+
+.pdk-wizard__import { display: flex; flex-direction: column; gap: 10px; }
+.pdk-wizard__field {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 56px;
+    margin: 0;
+    padding: 0 16px 0 14px;
+    border: 1.5px solid var(--pdk-primary-light);
+    border-radius: 10px;
+    background: var(--pdk-surface);
+    box-shadow: 0 0 0 3px var(--pdk-primary-tint);
+    cursor: text;
+}
+.pdk-wizard__field:focus-within { border-color: var(--pdk-primary); }
+.pdk-wizard__field--busy {
+    border-color: var(--pdk-line-strong);
+    box-shadow: none;
+    background: var(--pdk-surface-low);
+}
+.pdk-wizard__field-icon {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--pdk-primary-tint);
+    color: var(--pdk-primary-light);
+}
+.pdk-wizard .pdk-wizard__input {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    outline: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--pdk-ink);
+    font: inherit;
+    font-size: 15px;
+}
+.pdk-wizard .pdk-wizard__input::placeholder { color: var(--pdk-mute); opacity: 1; }
+
+.pdk-wizard__schemes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 2px; }
+.pdk-wizard__schemes-label { font-size: 12px; color: var(--pdk-mute); }
+.pdk-wizard__scheme {
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: var(--pdk-surface-low);
+    color: var(--pdk-mute);
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+    font-size: 11px;
+}
+
+.pdk-wizard__alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    color: var(--pdk-ink);
+}
+.pdk-wizard__alert-text { flex: 1; min-width: 0; }
+.pdk-wizard__alert-title { font-weight: 700; }
+.pdk-wizard__alert-detail { overflow-wrap: anywhere; }
+.pdk-wizard__alert--ok { background: var(--pdk-ok-tint); }
+.pdk-wizard__alert--ok .pdk-wizard__icon { color: var(--pdk-ok); }
+.pdk-wizard__alert--warn { background: var(--pdk-warn-tint); }
+.pdk-wizard__alert--warn .pdk-wizard__icon { color: var(--pdk-warn); }
+.pdk-wizard__alert--bad { background: var(--pdk-bad-tint); }
+.pdk-wizard__alert--bad .pdk-wizard__icon,
+.pdk-wizard__alert--bad .pdk-wizard__alert-title { color: var(--pdk-bad); }
+.pdk-wizard .pdk-wizard__alert-button {
+    flex: none;
+    height: 32px;
+    padding: 0 14px;
+    border: 1px solid var(--pdk-bad);
+    border-radius: 6px;
+    background: var(--pdk-surface);
+    color: var(--pdk-bad);
+    font-weight: 700;
+}
+
+.pdk-wizard__sources { display: flex; flex-direction: column; gap: 8px; }
+.pdk-wizard__list-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 4px;
+    margin-bottom: 4px;
+}
+.pdk-wizard__list-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
+.pdk-wizard__count {
+    padding: 1px 8px;
+    border-radius: 9px;
+    background: var(--pdk-surface-low);
+    color: var(--pdk-mute);
+    font-size: 12px;
+}
+.pdk-wizard .pdk-wizard__ghost-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--pdk-line-strong);
+    border-radius: 6px;
+    background: var(--pdk-surface);
+    color: var(--pdk-primary-light);
+    font-weight: 700;
+}
+.pdk-wizard .pdk-wizard__ghost-button:hover {
+    border-color: var(--pdk-primary-light);
+    background: var(--pdk-primary-tint);
+}
+
+.pdk-wizard__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 26px 14px;
+    border: 1px solid var(--pdk-line);
+    border-radius: 8px;
+    color: var(--pdk-mute);
+    text-align: center;
+}
+.pdk-wizard__empty .pdk-wizard__icon { color: var(--pdk-faint); }
+
+.pdk-wizard__source {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 10px 11px 14px;
+    border: 1px solid var(--pdk-line);
+    border-radius: 8px;
+    background: var(--pdk-surface);
+}
+.pdk-wizard__source-kind {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: var(--pdk-surface-low);
+    color: var(--pdk-mute);
+}
+.pdk-wizard__source-kind--subscription {
+    background: var(--pdk-primary-tint);
+    color: var(--pdk-primary-light);
+}
+.pdk-wizard__source-text { flex: 1; min-width: 0; }
+.pdk-wizard__source-title { font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+.pdk-wizard__source-subtitle {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--pdk-mute);
+    overflow-wrap: anywhere;
+}
+.pdk-wizard .pdk-wizard__icon-button {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    flex: none;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--pdk-mute);
+}
+.pdk-wizard .pdk-wizard__icon-button:hover { background: var(--pdk-surface-low); color: var(--pdk-ink); }
+
+.pdk-wizard__foot {
+    display: flex;
+    justify-content: flex-end;
+    padding: 14px 24px;
+    border-top: 1px solid var(--pdk-line-soft);
+}
+.pdk-wizard .pdk-wizard__next {
+    height: 36px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--pdk-primary);
+    color: var(--pdk-on-primary);
+    font-size: 14px;
+    font-weight: 700;
+}
+.pdk-wizard .pdk-wizard__next:hover { background: var(--pdk-primary-strong); }
+.pdk-wizard .pdk-wizard__next:disabled {
+    background: var(--pdk-surface-low);
+    color: var(--pdk-mute);
+    cursor: default;
+}
+
+.pdk-wizard button:focus-visible { outline: 2px solid var(--pdk-primary-light); outline-offset: 2px; }
+
+/* The manual form */
+.pdk-wizard .pdk-wizard__back {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--pdk-primary-light);
+}
+.pdk-wizard .pdk-wizard__back:hover { text-decoration: underline; }
+
+.pdk-wizard__kinds { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pdk-wizard .pdk-wizard__kind {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 12px;
+    border: 1px solid var(--pdk-line);
+    border-radius: 8px;
+    background: var(--pdk-surface);
+    color: var(--pdk-mute);
+    text-align: left;
+}
+.pdk-wizard .pdk-wizard__kind:hover { border-color: var(--pdk-line-strong); }
+.pdk-wizard .pdk-wizard__kind--active {
+    border-color: var(--pdk-primary-light);
+    box-shadow: inset 0 0 0 1px var(--pdk-primary-light);
+    background: var(--pdk-primary-tint);
+    color: var(--pdk-primary-light);
+}
+.pdk-wizard__kind-label { color: var(--pdk-ink); font-weight: 700; }
+.pdk-wizard__kind-note { color: var(--pdk-mute); font-size: 12px; }
+
+.pdk-wizard__row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.pdk-wizard__control { display: flex; flex-direction: column; gap: 6px; margin: 0; min-width: 0; }
+.pdk-wizard__control-label { color: var(--pdk-mute); font-size: 12px; font-weight: 700; }
+.pdk-wizard__control-help { color: var(--pdk-mute); font-size: 12px; font-weight: 400; }
+.pdk-wizard .pdk-wizard__text {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: 36px;
+    margin: 0;
+    padding: 0 12px;
+    border: 1px solid var(--pdk-line-strong);
+    border-radius: 6px;
+    outline: 0;
+    background: var(--pdk-surface);
+    box-shadow: none;
+    color: var(--pdk-ink);
+    font: inherit;
+}
+.pdk-wizard .pdk-wizard__text--area {
+    height: auto;
+    padding: 8px 12px;
+    resize: vertical;
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+    font-size: 12px;
+    line-height: 1.5;
+}
+.pdk-wizard .pdk-wizard__text:focus {
+    border-color: var(--pdk-primary-light);
+    box-shadow: 0 0 0 3px var(--pdk-primary-tint);
+}
+.pdk-wizard .pdk-wizard__text::placeholder { color: var(--pdk-mute); opacity: .8; }
+
+.pdk-wizard__secret { position: relative; display: block; }
+.pdk-wizard .pdk-wizard__secret .pdk-wizard__text { padding-right: 40px; }
+.pdk-wizard .pdk-wizard__eye {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 5px;
+    background: none;
+    color: var(--pdk-mute);
+}
+.pdk-wizard .pdk-wizard__eye:hover { background: var(--pdk-surface-low); color: var(--pdk-ink); }
+
+.pdk-wizard__select { position: relative; display: block; }
+.pdk-wizard .pdk-wizard__select select {
+    -webkit-appearance: none;
+    appearance: none;
+    padding-right: 36px;
+    background-image: none;
+    line-height: 34px;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+.pdk-wizard .pdk-wizard__select option { background: var(--pdk-surface); color: var(--pdk-ink); }
+.pdk-wizard__select .pdk-wizard__icon {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    color: var(--pdk-mute);
+    pointer-events: none;
+}
+
+.pdk-wizard__check { display: flex; align-items: flex-start; gap: 10px; margin: 0; cursor: pointer; }
+.pdk-wizard .pdk-wizard__check input { flex: none; margin: 2px 0 0; }
+.pdk-wizard__check-text { display: flex; flex-direction: column; gap: 2px; }
+.pdk-wizard__check-label { font-weight: 700; }
+
+.pdk-wizard__preview { display: flex; flex-direction: column; gap: 12px; }
+.pdk-wizard__preview:empty { display: none; }
+.pdk-wizard__preview--loading .pdk-wizard__servers { opacity: .45; }
+.pdk-wizard__loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--pdk-primary-tint);
+}
+.pdk-wizard__loading .pdk-wizard__icon { color: var(--pdk-primary-light); }
+
+.pdk-wizard__servers { display: flex; flex-direction: column; gap: 8px; }
+.pdk-wizard__servers-head { display: flex; align-items: center; gap: 8px; }
+.pdk-wizard__servers-title { font-size: 14px; font-weight: 700; }
+.pdk-wizard__servers-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.pdk-wizard__server {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+    padding: 5px 6px 5px 10px;
+    border: 1px solid var(--pdk-line);
+    border-radius: 14px;
+    background: var(--pdk-surface);
+}
+.pdk-wizard__server-name { overflow-wrap: anywhere; }
+.pdk-wizard__server-scheme {
+    padding: 1px 7px;
+    border-radius: 9px;
+    background: var(--pdk-surface-low);
+    color: var(--pdk-mute);
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+    font-size: 11px;
+}
+.pdk-wizard__server--off { border-style: dashed; }
+.pdk-wizard__server--off .pdk-wizard__server-name {
+    color: var(--pdk-mute);
+    text-decoration: line-through;
+}
+.pdk-wizard .pdk-wizard__server-more {
+    padding: 5px 12px;
+    border: 1px solid var(--pdk-line-strong);
+    border-radius: 14px;
+    background: var(--pdk-surface);
+    color: var(--pdk-primary-light);
+    font-weight: 700;
+}
+.pdk-wizard .pdk-wizard__server-more:hover {
+    border-color: var(--pdk-primary-light);
+    background: var(--pdk-primary-tint);
+}
+
+.pdk-wizard__divider { height: 1px; background: var(--pdk-line-soft); }
+
+.pdk-wizard__alert:has(.pdk-wizard__details) { align-items: flex-start; }
+.pdk-wizard__details {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 2px 12px;
+    margin: 6px 0 0;
+    padding: 0;
+}
+.pdk-wizard__details dt { margin: 0; color: var(--pdk-mute); font-weight: 400; }
+.pdk-wizard__details dd { margin: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 600px) {
+    .pdk-wizard__kinds { grid-template-columns: 1fr 1fr; }
+    .pdk-wizard__row { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+    .pdk-wizard { padding: 12px 8px; }
+    .pdk-wizard__body { padding: 18px 16px; }
+    .pdk-wizard__head { padding: 16px 16px 12px; }
+    .pdk-wizard__steps { padding: 0 16px 14px; }
+    .pdk-wizard__step-label { display: none; }
+    .pdk-wizard__step--active .pdk-wizard__step-label { display: inline; }
+    .pdk-wizard__foot { padding: 12px 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pdk-wizard__icon--loader svg { animation: none; }
+}
+
+/* The dashboard of a router that is not set up yet: one block, one button */
+/* Step 2: the rules */
+.pdk-wizard__step--done { color: var(--pdk-ink); }
+.pdk-wizard__step--done .pdk-wizard__step-number {
+    border-color: var(--pdk-ok);
+    background: var(--pdk-ok);
+    color: var(--pdk-on-primary);
+}
+
+.pdk-route { display: flex; flex-direction: column; gap: 8px; }
+.pdk-route__rule {
+    border: 1px solid var(--pdk-line);
+    border-radius: 8px;
+    background: var(--pdk-surface);
+}
+.pdk-route__rule--dragging {
+    position: relative;
+    z-index: 2;
+    border-color: var(--pdk-primary-light);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+}
+.pdk-route__rule--before { box-shadow: 0 -3px 0 0 var(--pdk-primary-light); }
+.pdk-route__rule--after { box-shadow: 0 3px 0 0 var(--pdk-primary-light); }
+.pdk-route__head { display: flex; align-items: center; gap: 10px; padding: 11px 10px; cursor: pointer; }
+.pdk-route__grip {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    flex: none;
+    width: 20px;
+    height: 32px;
+    border-radius: 4px;
+    color: var(--pdk-faint);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+.pdk-route__grip:focus-visible { outline: 2px solid var(--pdk-primary-light); }
+.pdk-route__grip:hover { color: var(--pdk-mute); }
+.pdk-route__number {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--pdk-primary-tint);
+    color: var(--pdk-primary-light);
+    font-size: 14px;
+    font-weight: 700;
+}
+.pdk-route__text { flex: 1; min-width: 0; }
+.pdk-route__title { font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+.pdk-route__subtitle {
+    margin-top: 2px;
+    overflow: hidden;
+    color: var(--pdk-mute);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pdk-route__rule--off .pdk-route__number { background: var(--pdk-surface-low); color: var(--pdk-mute); }
+.pdk-route__rule--off .pdk-route__title { color: var(--pdk-mute); }
+.pdk-wizard .pdk-route__switch {
+    flex: none;
+    width: 34px;
+    height: 20px;
+    padding: 2px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--pdk-line-strong);
+    transition: background .15s;
+}
+.pdk-route__switch::after {
+    content: '';
+    display: block;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--pdk-on-primary);
+    transition: transform .15s;
+}
+.pdk-wizard .pdk-route__switch[aria-checked="true"] { background: var(--pdk-primary); }
+.pdk-route__switch[aria-checked="true"]::after { transform: translateX(14px); }
+.pdk-route__fold[aria-expanded="true"] .pdk-wizard__icon,
+.pdk-route__count--open .pdk-wizard__icon { transform: rotate(180deg); }
+.pdk-route__body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 16px;
+    border-top: 1px solid var(--pdk-line-soft);
+}
+.pdk-route__group { display: flex; flex-direction: column; gap: 10px; }
+.pdk-route__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pdk-route__tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    height: 28px;
+    padding: 0 3px 0 11px;
+    border: 1px solid color-mix(in srgb, var(--pdk-primary-light) 55%, var(--pdk-surface));
+    border-radius: 14px;
+    background: var(--pdk-primary-tint);
+    font-weight: 700;
+}
+.pdk-wizard .pdk-route__tag-x,
+.pdk-wizard .pdk-route__word-x {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--pdk-mute);
+}
+.pdk-wizard .pdk-route__tag-x:hover { background: var(--pdk-line); color: var(--pdk-ink); }
+.pdk-wizard .pdk-route__pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 11px;
+    border: 1px solid var(--pdk-line-strong);
+    border-radius: 14px;
+    background: var(--pdk-surface);
+    color: var(--pdk-ink);
+    font-size: 12px;
+}
+.pdk-wizard .pdk-route__pick:hover { border-color: var(--pdk-primary-light); }
+.pdk-wizard .pdk-route__pick--on { border-color: var(--pdk-primary); background: var(--pdk-primary); color: var(--pdk-on-primary); font-weight: 700; }
+.pdk-wizard .pdk-route__pick--on .pdk-wizard__icon { color: inherit; }
+.pdk-wizard .pdk-route__pick--off { border-style: dashed; border-color: var(--pdk-line); color: var(--pdk-mute); }
+.pdk-wizard .pdk-route__pick--add, .pdk-wizard .pdk-route__pick--add.pdk-route__pick--on { background: var(--pdk-surface); border-color: var(--pdk-line-strong); }
+.pdk-wizard .pdk-route__pick--add.pdk-route__pick--on { border-color: var(--pdk-primary-light); }
+.pdk-wizard .pdk-route__pick--add { color: var(--pdk-primary-light); font-size: 13px; font-weight: 700; }
+.pdk-wizard .pdk-route__pick:disabled { opacity: .45; cursor: default; border-color: var(--pdk-line); }
+/* The lists of a rule are chosen in a window of their own, over the wizard: its height is that
+   of the screen at most, and the lists scroll inside it. */
+.pdk-route__shade {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 24px 16px;
+    background: rgba(0, 0, 0, .55);
+    cursor: default;
+}
+.pdk-route__sheet {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 560px;
+    max-height: 100%;
+    border: 1px solid var(--pdk-line-soft);
+    border-radius: 12px;
+    background: var(--pdk-surface);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
+}
+.pdk-route__sheet-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 16px 12px 20px;
+}
+.pdk-route__sheet-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; }
+.pdk-route__sheet-search { padding: 0 20px 14px; }
+.pdk-route__sheet-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 0;
+    padding: 2px 20px 18px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.pdk-route__sheet-foot {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 20px;
+    border-top: 1px solid var(--pdk-line-soft);
+}
+.pdk-route__step { font-size: 14px; font-weight: 700; }
+.pdk-route__step-number { margin-right: 6px; color: var(--pdk-mute); }
+.pdk-route__note { color: var(--pdk-mute); }
+.pdk-route__modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.pdk-wizard .pdk-route__mode {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px;
+    border: 1px solid var(--pdk-line);
+    border-radius: 8px;
+    background: var(--pdk-surface);
+    color: var(--pdk-ink);
+    text-align: left;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: normal;
+}
+.pdk-wizard .pdk-route__mode:hover { border-color: var(--pdk-line-strong); }
+.pdk-wizard .pdk-route__mode[aria-checked="true"] {
+    border-color: var(--pdk-primary-light);
+    background: var(--pdk-primary-tint);
+    box-shadow: inset 0 0 0 1px var(--pdk-primary-light);
+}
+.pdk-route__radio {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    border: 1px solid var(--pdk-line-strong);
+    border-radius: 50%;
+    background: var(--pdk-surface);
+}
+.pdk-route__mode[aria-checked="true"] .pdk-route__radio {
+    border: 5px solid var(--pdk-primary-light);
+    background: var(--pdk-on-primary);
+}
+.pdk-route__mode-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pdk-route__mode-name { font-size: 14px; font-weight: 700; }
+.pdk-route__mode-note { color: var(--pdk-mute); }
+.pdk-route__source {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 9px 10px 9px 12px;
+    border: 1px solid var(--pdk-line);
+    border-radius: 8px;
+    background: var(--pdk-surface);
+}
+.pdk-route__source--open { border-color: var(--pdk-primary-light); }
+.pdk-route__source-row { display: flex; align-items: center; gap: 10px; cursor: pointer; outline: 0; }
+.pdk-route__source-row:focus-visible .pdk-route__box { outline: 2px solid var(--pdk-primary-light); outline-offset: 2px; }
+.pdk-route__source--off .pdk-wizard__source-title { color: var(--pdk-mute); font-weight: 400; }
+.pdk-route__source .pdk-wizard__source-kind { width: 32px; height: 32px; }
+.pdk-route__box {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    flex: none;
+    width: 18px;
+    height: 18px;
+    border: 1px solid var(--pdk-line-strong);
+    border-radius: 4px;
+    background: var(--pdk-surface);
+    color: var(--pdk-on-primary);
+}
+.pdk-route__box--on { border-color: var(--pdk-primary); background: var(--pdk-primary); }
+.pdk-wizard .pdk-route__count {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    gap: 4px;
+    height: 28px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--pdk-primary-light);
+    font-size: 12px;
+    font-weight: 700;
+}
+.pdk-wizard .pdk-route__count:hover,
+.pdk-wizard .pdk-route__count--open { background: var(--pdk-primary-tint); }
+.pdk-wizard .pdk-route__count--zero { color: var(--pdk-bad); }
+.pdk-route__filter { display: flex; flex-direction: column; gap: 12px; }
+.pdk-route__filter-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pdk-route__words {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 5px 8px;
+    border: 1px solid var(--pdk-line-strong);
+    border-radius: 6px;
+    background: var(--pdk-surface);
+    cursor: text;
+}
+.pdk-route__words:focus-within { border-color: var(--pdk-primary); }
+.pdk-route__word {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 1px 0 8px;
+    border-radius: 5px;
+    background: var(--pdk-primary-tint);
+    color: var(--pdk-primary-light);
+    font-weight: 700;
+}
+.pdk-wizard .pdk-route__word-x { color: inherit; }
+.pdk-wizard .pdk-route__words input {
+    flex: 1;
+    width: auto;
+    min-width: 60px;
+    height: 24px;
+    margin: 0;
+    padding: 0 4px;
+    border: 0;
+    outline: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--pdk-ink);
+    font: inherit;
+}
+.pdk-wizard .pdk-route__words input::placeholder { color: var(--pdk-mute); opacity: .8; }
+@media (max-width: 600px) {
+    .pdk-route__filter-fields { grid-template-columns: 1fr; }
+    .pdk-route__modes { grid-template-columns: 1fr; }
+    .pdk-route__head { gap: 8px; }
+}
+/* Step 3: the DNS */
+.pdk-wizard__list-head .pdk-route__step { display: flex; align-items: center; }
+.pdk-dns__count { margin-left: 8px; font-weight: 400; }
+.pdk-dns__bootstrap { max-width: 360px; }
+.pdk-dns__address { display: block; flex: 1; min-width: 0; }
+.pdk-dns__server {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--pdk-line);
+    border-radius: 8px;
+    background: var(--pdk-surface);
+}
+.pdk-dns__type { flex: none; width: 230px; }
+.pdk-dns__provider { flex: 1; min-width: 0; color: var(--pdk-mute); }
+.pdk-wizard .pdk-wizard__icon-button:disabled { opacity: .35; cursor: default; }
+.pdk-dns__mode { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-top: 4px; }
+.pdk-dns__mode-label { font-weight: 700; }
+.pdk-dns__switch { display: inline-flex; gap: 2px; padding: 3px; border-radius: 8px; background: var(--pdk-surface-low); }
+.pdk-wizard .pdk-dns__switch button {
+    height: 28px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--pdk-mute);
+    white-space: nowrap;
+}
+.pdk-wizard .pdk-dns__switch button[aria-checked="true"] {
+    background: var(--pdk-surface);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .2);
+    color: var(--pdk-ink);
+    font-weight: 700;
+}
+.pdk-wizard .pdk-dns__more { font-weight: 700; }
+.pdk-dns__more[aria-expanded="true"] .pdk-wizard__icon { transform: rotate(180deg); }
+.pdk-dns__fields { display: grid; grid-template-columns: 1fr 200px; gap: 16px; }
+@media (max-width: 600px) {
+    .pdk-dns__server { flex-wrap: wrap; }
+    .pdk-dns__type { flex: 1; width: auto; }
+    .pdk-dns__address, .pdk-dns__provider { flex: 1 1 100%; order: 5; }
+    .pdk-dns__bootstrap { max-width: none; }
+    .pdk-dns__fields { grid-template-columns: 1fr; }
+    .pdk-wizard .pdk-dns__switch button { height: 38px; }
+}
+
+/* A phone, or any screen that is touched: what is pressed is at least 40px, a field does not make
+   the browser zoom (16px), and the way out of the step stays at the bottom of the screen. */
+@media (pointer: coarse), (max-width: 600px) {
+    .pdk-route__grip { width: 32px; height: 44px; margin: 0 -6px 0 -8px; }
+    .pdk-route__head { padding: 10px 8px; }
+    .pdk-wizard .pdk-wizard__icon-button { width: 40px; height: 40px; }
+    .pdk-wizard .pdk-route__switch { width: 44px; height: 26px; padding: 3px; border-radius: 13px; }
+    .pdk-route__switch::after { width: 20px; height: 20px; }
+    .pdk-route__switch[aria-checked="true"]::after { transform: translateX(18px); }
+    .pdk-route__tags { gap: 8px; }
+    .pdk-route__tag { height: 38px; padding: 0 4px 0 13px; border-radius: 19px; }
+    .pdk-wizard .pdk-route__tag-x { width: 32px; height: 32px; }
+    .pdk-wizard .pdk-route__pick { height: 38px; padding: 0 14px; border-radius: 19px; font-size: 14px; }
+    .pdk-route__words { min-height: 44px; }
+    .pdk-route__word { height: 32px; }
+    .pdk-wizard .pdk-route__word-x { width: 30px; height: 30px; }
+    .pdk-wizard .pdk-route__words input { height: 32px; font-size: 16px; }
+    .pdk-wizard .pdk-wizard__text { height: 44px; font-size: 16px; }
+    .pdk-wizard .pdk-route__count { height: 40px; padding: 0 10px; font-size: 13px; }
+    .pdk-route__box { width: 22px; height: 22px; }
+    .pdk-route__source { padding: 12px; }
+    .pdk-wizard .pdk-wizard__ghost-button { height: 40px; }
+    .pdk-wizard .pdk-wizard__next { height: 44px; }
+}
+@media (max-width: 600px) {
+    .pdk-route__body { padding: 12px; }
+    .pdk-route__shade { align-items: flex-end; padding: 40px 0 0; }
+    .pdk-route__sheet { max-width: none; border-width: 1px 0 0; border-radius: 16px 16px 0 0; }
+    .pdk-route__sheet-foot .pdk-wizard__next { width: 100%; }
+    .pdk-wizard__window { overflow: clip; }
+    .pdk-wizard__foot {
+        position: sticky;
+        bottom: 0;
+        z-index: 3;
+        border-radius: 0 0 12px 12px;
+        background: var(--pdk-surface);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .pdk-route__switch, .pdk-route__switch::after { transition: none; }
+}
+
+.pdk-dashboard-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 56px 20px;
+    border: 1px solid var(--border-color-medium, #ddd);
+    border-radius: 4px;
+    text-align: center;
+}
+.pdk-dashboard-empty__title { font-size: 18px; font-weight: 700; }
+.pdk-dashboard-empty__text { max-width: 560px; }
+`;
+
+// src/podkop/wizard/index.ts
+var ICONS = {
+  paste: '<path d="M11 14h10"/><path d="M16 4h2a2 2 0 0 1 2 2v1.344"/><path d="m17 18 4-4-4-4"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 1.793-1.113"/><rect x="8" y="2" width="8" height="4" rx="1"/>',
+  rss: '<path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>',
+  link: '<path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/>',
+  braces: '<path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>',
+  trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+  settings: '<path d="M14 17H5"/><path d="M19 7h-9"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  ok: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  warn: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  bad: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+  loader: '<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
+  eye: '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+  eyeOff: '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>',
+  back: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  network: '<rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  grip: '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
+  inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'
+};
+function icon(name, size = 16) {
+  const span = document.createElement("span");
+  span.className = "pdk-wizard__icon pdk-wizard__icon--" + name;
+  span.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + ICONS[name] + "</svg>";
+  return span;
+}
+function h(tag, attrs = {}, children = []) {
+  const el = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+  for (const child of children) {
+    if (child === null || child === void 0 || child === false) continue;
+    el.append(child);
+  }
+  return el;
+}
+var SCHEMES = [
+  "https:// \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0430",
+  "vless://",
+  "ss://",
+  "trojan://",
+  "hy2://",
+  "tuic://",
+  "socks://"
+];
+var STEPS = ["\u0418\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0438", "\u041C\u0430\u0440\u0448\u0440\u0443\u0442\u0438\u0437\u0430\u0446\u0438\u044F", "DNS"];
+var env = {};
+var devices = [];
+function setWizardEnv(next) {
+  env = next;
+}
+var state = {
+  sources: [],
+  outcome: null,
+  busy: false,
+  pending: "",
+  nextId: 1,
+  manual: null,
+  step: 1,
+  saving: false,
+  started: false
+};
+var root = null;
+var LOAD_BUDGET_MS = 6e4;
+var LOAD_POLL_MS = 700;
+var deps = {
+  async checkLinks(links) {
+    const answer = await PodkopShellMethods.checkLinks(links);
+    return answer.success && Array.isArray(answer.data) ? answer.data : null;
+  },
+  // the list as the router gets it, by the job it runs: start, then ask until it ends
+  async loadSubscription(url, request, control) {
+    const started3 = await PodkopShellMethods.subscriptionLoadStart(
+      url,
+      request
+    );
+    if (!started3.success || !started3.data?.id) return null;
+    let job = started3.data;
+    const until = Date.now() + LOAD_BUDGET_MS;
+    while (job.state === "running" && Date.now() < until) {
+      if (control?.cancelled) {
+        PodkopShellMethods.subscriptionLoadCancel(job.id);
+        return null;
+      }
+      await new Promise((resolve) => setTimeout(resolve, LOAD_POLL_MS));
+      const next = await PodkopShellMethods.subscriptionLoadState(job.id);
+      if (!next.success || !next.data) return null;
+      job = next.data;
+    }
+    if (job.state === "running") {
+      PodkopShellMethods.subscriptionLoadCancel(job.id);
+      return null;
+    }
+    return job.preview ?? null;
+  }
+};
+async function take(text) {
+  if (state.busy || !text.trim()) return;
+  state.busy = true;
+  state.pending = text.trim().split(/\s+/)[0].slice(0, 60);
+  state.outcome = null;
+  draw();
+  let outcome = null;
+  try {
+    outcome = await importPasted(text, state.sources, deps);
+  } catch (_e) {
+    outcome = {
+      tone: "bad",
+      title: "\u0420\u043E\u0443\u0442\u0435\u0440 \u043D\u0435 \u043E\u0442\u0432\u0435\u0442\u0438\u043B",
+      detail: "\u041D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u043E."
+    };
+  }
+  state.busy = false;
+  state.pending = "";
+  state.outcome = outcome;
+  if (outcome?.source) {
+    state.sources.push({ ...outcome.source, id: state.nextId++ });
+  }
+  draw();
+}
+function remove(id) {
+  state.sources = state.sources.filter((item) => item.id !== id);
+  state.outcome = null;
+  draw();
+}
+function renderSteps() {
+  const row2 = h("div", { class: "pdk-wizard__steps" });
+  STEPS.forEach((label, index) => {
+    if (index) row2.append(h("div", { class: "pdk-wizard__steps-line" }));
+    row2.append(
+      h(
+        "div",
+        {
+          class: "pdk-wizard__step" + (index === state.step - 1 ? " pdk-wizard__step--active" : "") + (index < state.step - 1 ? " pdk-wizard__step--done" : "")
+        },
+        [
+          h("span", { class: "pdk-wizard__step-number" }, [
+            index < state.step - 1 ? icon("check", 14) : String(index + 1)
+          ]),
+          h("span", { class: "pdk-wizard__step-label" }, [label])
+        ]
+      )
+    );
+  });
+  return row2;
+}
+function renderField() {
+  const input = h("input", {
+    class: "pdk-wizard__input",
+    type: "text",
+    placeholder: state.busy ? "\u0418\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u0443\u0435\u043C " + state.pending + "\u2026" : "\u0412\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0443 \u0438\u043B\u0438 \u0441\u0441\u044B\u043B\u043A\u0438 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u044B",
+    autocomplete: "off",
+    spellcheck: "false",
+    "aria-label": "\u041F\u043E\u0434\u043F\u0438\u0441\u043A\u0430 \u0438\u043B\u0438 \u0441\u0441\u044B\u043B\u043A\u0438 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u044B"
+  });
+  input.disabled = state.busy;
+  input.addEventListener("paste", (event) => {
+    event.preventDefault();
+    take(event.clipboardData?.getData("text") ?? "");
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    const value = input.value;
+    input.value = "";
+    take(value);
+  });
+  return h("div", { class: "pdk-wizard__import" }, [
+    h(
+      "label",
+      {
+        class: "pdk-wizard__field" + (state.busy ? " pdk-wizard__field--busy" : "")
+      },
+      [
+        h("span", { class: "pdk-wizard__field-icon" }, [
+          icon(state.busy ? "loader" : "paste", 17)
+        ]),
+        input
+      ]
+    ),
+    h("div", { class: "pdk-wizard__schemes" }, [
+      h("span", { class: "pdk-wizard__schemes-label" }, ["\u041F\u043E\u0434\u0445\u043E\u0434\u0438\u0442"]),
+      ...SCHEMES.map(
+        (item) => h("span", { class: "pdk-wizard__scheme" }, [item])
+      )
+    ])
+  ]);
+}
+function renderOutcome() {
+  const outcome = state.outcome;
+  if (!outcome) return null;
+  const setup = outcome.setup ? h("button", { class: "pdk-wizard__alert-button", type: "button" }, [
+    "\u041D\u0430\u0441\u0442\u0440\u043E\u0438\u0442\u044C \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0443"
+  ]) : null;
+  setup?.addEventListener("click", () => {
+    const failed = outcome.setup;
+    if (!failed) return;
+    const form = newForm("subscription");
+    form.url = failed.url;
+    form.showUrl = false;
+    form.loadedKey = subscriptionAsk(form)?.key ?? "";
+    form.error = "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0443";
+    openManual(form);
+  });
+  return h(
+    "div",
+    {
+      class: "pdk-wizard__alert pdk-wizard__alert--" + outcome.tone,
+      role: "status"
+    },
+    [
+      icon(outcome.tone, 16),
+      h("div", { class: "pdk-wizard__alert-text" }, [
+        h("div", { class: "pdk-wizard__alert-title" }, [outcome.title]),
+        outcome.detail ? h("div", { class: "pdk-wizard__alert-detail" }, [outcome.detail]) : null
+      ]),
+      setup
+    ]
+  );
+}
+function renderList() {
+  const manual = h(
+    "button",
+    { class: "pdk-wizard__ghost-button", type: "button" },
+    [icon("plus", 14), "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432\u0440\u0443\u0447\u043D\u0443\u044E"]
+  );
+  manual.addEventListener("click", () => openManual(newForm("subscription")));
+  const head2 = h("div", { class: "pdk-wizard__list-head" }, [
+    h("div", { class: "pdk-wizard__list-title" }, [
+      "\u0414\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E",
+      state.sources.length ? h("span", { class: "pdk-wizard__count" }, [
+        String(state.sources.length)
+      ]) : null
+    ]),
+    manual
+  ]);
+  if (!state.sources.length) {
+    return h("div", { class: "pdk-wizard__sources" }, [
+      head2,
+      h("div", { class: "pdk-wizard__empty" }, [
+        icon("inbox", 24),
+        h("div", {}, [
+          "\u041F\u043E\u043A\u0430 \u043F\u0443\u0441\u0442\u043E. \u0412\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u0441\u0441\u044B\u043B\u043A\u0443 \u0432 \u043F\u043E\u043B\u0435 \u0432\u044B\u0448\u0435 \u0438\u043B\u0438 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A \u0432\u0440\u0443\u0447\u043D\u0443\u044E"
+        ])
+      ])
+    ]);
+  }
+  const rows = state.sources.map((item) => {
+    const setup = h(
+      "button",
+      {
+        class: "pdk-wizard__icon-button",
+        type: "button",
+        title: "\u041D\u0430\u0441\u0442\u0440\u043E\u0438\u0442\u044C",
+        "aria-label": "\u041D\u0430\u0441\u0442\u0440\u043E\u0438\u0442\u044C"
+      },
+      [icon("settings", 16)]
+    );
+    setup.addEventListener("click", () => openManual(formOf(item)));
+    const del = h(
+      "button",
+      {
+        class: "pdk-wizard__icon-button",
+        type: "button",
+        title: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C",
+        "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C"
+      },
+      [icon("trash", 16)]
+    );
+    del.addEventListener("click", () => remove(item.id));
+    const kindIcon = KIND_ICON[item.kind];
+    const text = describe(item);
+    return h("div", { class: "pdk-wizard__source" }, [
+      h(
+        "span",
+        {
+          class: "pdk-wizard__source-kind pdk-wizard__source-kind--" + item.kind
+        },
+        [icon(kindIcon, 18)]
+      ),
+      h("div", { class: "pdk-wizard__source-text" }, [
+        h("div", { class: "pdk-wizard__source-title" }, [text.title]),
+        h("div", { class: "pdk-wizard__source-subtitle" }, [text.subtitle])
+      ]),
+      setup,
+      del
+    ]);
+  });
+  return h("div", { class: "pdk-wizard__sources" }, [head2, ...rows]);
+}
+var KIND_ICON = {
+  subscription: "rss",
+  links: "link",
+  json: "braces",
+  interface: "network"
+};
+var KINDS = [
+  ["subscription", "\u041F\u043E\u0434\u043F\u0438\u0441\u043A\u0430", "\u0410\u0434\u0440\u0435\u0441 \u043E\u0442 \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u0430"],
+  ["links", "\u0421\u0441\u044B\u043B\u043A\u0438", "vless://, ss://, trojan://\u2026"],
+  ["json", "Outbound JSON", "\u041A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044F sing-box"],
+  ["interface", "\u0418\u043D\u0442\u0435\u0440\u0444\u0435\u0439\u0441", "\u0422\u0443\u043D\u043D\u0435\u043B\u044C, \u0432\u0442\u043E\u0440\u043E\u0439 WAN"]
+];
+var INTERVALS = [
+  ["auto", "\u0410\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438"],
+  ["20m", "\u041A\u0430\u0436\u0434\u044B\u0435 20 \u043C\u0438\u043D\u0443\u0442"],
+  ["1h", "\u041A\u0430\u0436\u0434\u044B\u0439 \u0447\u0430\u0441"],
+  ["3h", "\u041A\u0430\u0436\u0434\u044B\u0435 3 \u0447\u0430\u0441\u0430"],
+  ["6h", "\u041A\u0430\u0436\u0434\u044B\u0435 6 \u0447\u0430\u0441\u043E\u0432"],
+  ["9h", "\u041A\u0430\u0436\u0434\u044B\u0435 9 \u0447\u0430\u0441\u043E\u0432"],
+  ["12h", "\u041A\u0430\u0436\u0434\u044B\u0435 12 \u0447\u0430\u0441\u043E\u0432"],
+  ["1d", "\u0420\u0430\u0437 \u0432 \u0441\u0443\u0442\u043A\u0438"]
+];
+var DNS_TYPES = [
+  ["udp", "UDP (\u043D\u0435\u0437\u0430\u0449\u0438\u0449\u0451\u043D\u043D\u044B\u0439 DNS)"],
+  ["dot", "DNS \u0447\u0435\u0440\u0435\u0437 TLS (DoT)"],
+  ["doh", "DNS \u0447\u0435\u0440\u0435\u0437 HTTPS (DoH)"]
+];
+function newForm(kind) {
+  return {
+    kind,
+    editId: null,
+    url: "",
+    showUrl: true,
+    links: "",
+    json: "",
+    iface: "",
+    settings: defaultSettings(),
+    list: [],
+    listOpen: false,
+    provider: "",
+    usable: 0,
+    loadedKey: "",
+    loadedOk: false,
+    loading: false,
+    busy: false,
+    error: "",
+    details: []
+  };
+}
+function formOf(source) {
+  const form = formFrom(source);
+  if (source.kind === "subscription") {
+    form.provider = source.provider ?? "";
+    form.usable = source.servers ?? 0;
+    form.loadedKey = subscriptionAsk(form)?.key ?? "";
+    form.loadedOk = form.usable > 0;
+  }
+  return form;
+}
+function formFrom(source) {
+  return {
+    ...newForm(source.kind),
+    editId: source.id,
+    url: source.url ?? "",
+    showUrl: false,
+    links: (source.links ?? []).join("\n"),
+    json: source.json ?? "",
+    iface: source.iface ?? "",
+    settings: { ...source.settings },
+    list: source.list ?? []
+  };
+}
+function subscriptionAsk(form) {
+  const typed = form.url.trim();
+  const url = unwrapSubscription(typed)?.url ?? typed;
+  if (!/^https?:\/\/\S+$/i.test(url)) return null;
+  if (form.settings.agentPreset === "custom" && !form.settings.userAgent.trim()) {
+    return null;
+  }
+  const request = listRequest(
+    form.settings.userAgent,
+    form.settings.headers,
+    form.settings.agentPreset
+  );
+  return { url, request, key: JSON.stringify([url, request]) };
+}
+function fresh(form) {
+  const ask2 = subscriptionAsk(form);
+  return !!ask2 && form.loadedOk && ask2.key === form.loadedKey;
+}
+function applyPreview(form, key, preview) {
+  form.list = listedServers(preview);
+  form.usable = form.list.filter((item) => !item.reason).length;
+  form.provider = preview?.provider?.title?.trim() || "";
+  form.loadedKey = key;
+  form.loadedOk = form.usable > 0;
+  form.listOpen = false;
+  if (form.loadedOk) {
+    form.error = "";
+    form.details = [];
+  } else {
+    form.error = "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0443";
+    form.details = [];
+  }
+}
+var loadControl = null;
+async function refreshServers(form) {
+  if (form.kind !== "subscription" || form.busy) return;
+  const ask2 = subscriptionAsk(form);
+  if (!ask2 || ask2.key === form.loadedKey) return;
+  if (loadControl) loadControl.cancelled = true;
+  const control = { cancelled: false };
+  loadControl = control;
+  form.loading = true;
+  form.error = "";
+  form.details = [];
+  patchPreview(form);
+  let preview = null;
+  try {
+    preview = await deps.loadSubscription(ask2.url, ask2.request, control);
+  } catch (_e) {
+    preview = null;
+  }
+  if (control.cancelled || state.manual !== form) return;
+  form.loading = false;
+  applyPreview(form, ask2.key, preview);
+  patchPreview(form);
+}
+function syncAction(form) {
+  const next = root?.querySelector(".pdk-wizard__next");
+  if (!next) return;
+  next.textContent = manualAction(form);
+  next.disabled = form.busy;
+}
+function patchPreview(form) {
+  root?.querySelector(".pdk-wizard__preview")?.replaceWith(renderPreview(form));
+  syncAction(form);
+}
+function openManual(form) {
+  state.manual = form;
+  state.outcome = null;
+  draw();
+  if (form.kind === "interface") loadDevices();
+}
+function closeManual() {
+  if (loadControl) loadControl.cancelled = true;
+  state.manual = null;
+  draw();
+}
+async function loadDevices() {
+  if (!env.outDevices) return;
+  try {
+    devices = await env.outDevices();
+  } catch (_e) {
+    devices = [];
+  }
+  if (state.manual?.kind === "interface") draw();
+}
+function splitLines(text) {
+  return text.split(/\s+/).map((line) => line.trim()).filter(Boolean);
+}
+function keep(form, source, ok2) {
+  if (form.editId !== null) {
+    state.sources = state.sources.map(
+      (item) => item.id === form.editId ? { ...source, id: item.id } : item
+    );
+  } else {
+    state.sources.push({ ...source, id: state.nextId++ });
+  }
+  state.manual = null;
+  state.outcome = { tone: "ok", title: ok2, detail: describe(source).title };
+  draw();
+}
+async function submitManual() {
+  const form = state.manual;
+  if (!form || form.busy) return;
+  form.error = "";
+  form.details = [];
+  const done = form.editId !== null ? "\u0418\u0441\u0442\u043E\u0447\u043D\u0438\u043A \u0438\u0437\u043C\u0435\u043D\u0451\u043D" : "\u0418\u0441\u0442\u043E\u0447\u043D\u0438\u043A \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D";
+  if (form.kind === "subscription") {
+    const typed = form.url.trim();
+    const url = unwrapSubscription(typed)?.url ?? typed;
+    if (!/^https?:\/\/\S+$/i.test(url)) {
+      form.error = "\u041D\u0443\u0436\u0435\u043D \u0430\u0434\u0440\u0435\u0441 \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0438: https://\u2026";
+      return draw();
+    }
+    const ask2 = subscriptionAsk(form);
+    if (!ask2) {
+      form.error = "\u0414\u043B\u044F \xAB\u0414\u0440\u0443\u0433\u043E\u0439 User-Agent\xBB \u0432\u043F\u0438\u0448\u0438\u0442\u0435 \u0435\u0433\u043E \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435.";
+      return draw();
+    }
+    if (!fresh(form)) {
+      if (loadControl) loadControl.cancelled = true;
+      form.loading = false;
+      form.busy = true;
+      draw();
+      let preview = null;
+      try {
+        preview = await deps.loadSubscription(ask2.url, ask2.request);
+      } catch (_e) {
+        preview = null;
+      }
+      form.busy = false;
+      applyPreview(form, ask2.key, preview);
+      if (!form.loadedOk) {
+        return draw();
+      }
+    }
+    return keep(
+      form,
+      {
+        kind: "subscription",
+        url: ask2.url,
+        settings: { ...form.settings },
+        provider: form.provider,
+        servers: form.usable,
+        list: form.list
+      },
+      done
+    );
+  }
+  if (form.kind === "links") {
+    const links = splitLines(form.links);
+    if (!links.length) {
+      form.error = "\u0412\u043F\u0438\u0448\u0438\u0442\u0435 \u0445\u043E\u0442\u044F \u0431\u044B \u043E\u0434\u043D\u0443 \u0441\u0441\u044B\u043B\u043A\u0443 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440.";
+      return draw();
+    }
+    form.busy = true;
+    draw();
+    const checks = await deps.checkLinks(links);
+    form.busy = false;
+    const problems = [];
+    links.forEach((link, index) => {
+      const local = validateProxyUrl(link);
+      const remote = checks ? checks[index] : { ok: true };
+      if (local.valid && remote?.ok) return;
+      problems.push([
+        "\u0421\u0442\u0440\u043E\u043A\u0430 " + (index + 1),
+        !local.valid ? local.message : remote?.error ?? "\u043D\u0435 \u043F\u043E\u0434\u0445\u043E\u0434\u0438\u0442"
+      ]);
+    });
+    if (problems.length) {
+      form.error = "\u041D\u0435 \u0432\u0441\u0435 \u0441\u0441\u044B\u043B\u043A\u0438 \u043F\u043E\u0434\u0445\u043E\u0434\u044F\u0442. \u0418\u0441\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0438\u043B\u0438 \u0443\u0431\u0435\u0440\u0438\u0442\u0435 \u044D\u0442\u0438 \u0441\u0442\u0440\u043E\u043A\u0438.";
+      form.details = problems;
+      return draw();
+    }
+    return keep(
+      form,
+      { kind: "links", links, settings: { ...form.settings } },
+      done
+    );
+  }
+  if (form.kind === "json") {
+    const found = detectPasted(form.json);
+    if (found.kind !== "json") {
+      form.error = found.kind === "error" ? [found.title, found.note].filter(Boolean).join(". ") : '\u041E\u0436\u0438\u0434\u0430\u0435\u0442\u0441\u044F \u043E\u0434\u0438\u043D outbound sing-box: {"type": "vless", \u2026}';
+      return draw();
+    }
+    return keep(
+      form,
+      { kind: "json", json: form.json.trim(), settings: { ...form.settings } },
+      done
+    );
+  }
+  if (form.settings.resolver && !form.settings.dnsServer.trim()) {
+    form.error = "\u0414\u043B\u044F \u0440\u0435\u0437\u043E\u043B\u0432\u0435\u0440\u0430 \u0434\u043E\u043C\u0435\u043D\u043E\u0432 \u043D\u0443\u0436\u0435\u043D \u0430\u0434\u0440\u0435\u0441 DNS-\u0441\u0435\u0440\u0432\u0435\u0440\u0430.";
+    return draw();
+  }
+  return keep(
+    form,
+    {
+      kind: "interface",
+      iface: form.iface.trim(),
+      settings: { ...form.settings }
+    },
+    done
+  );
+}
+function field(label, control, help) {
+  return h("label", { class: "pdk-wizard__control" }, [
+    h("span", { class: "pdk-wizard__control-label" }, [label]),
+    control,
+    help ? h("span", { class: "pdk-wizard__control-help" }, [help]) : null
+  ]);
+}
+function textInput(value, onInput, attrs = {}) {
+  const input = h("input", {
+    class: "pdk-wizard__text",
+    type: "text",
+    autocomplete: "off",
+    spellcheck: "false",
+    ...attrs
+  });
+  input.value = value;
+  input.addEventListener("input", () => onInput(input.value));
+  return input;
+}
+function textArea(value, onInput, attrs = {}) {
+  const area = h("textarea", {
+    class: "pdk-wizard__text pdk-wizard__text--area",
+    spellcheck: "false",
+    ...attrs
+  });
+  area.value = value;
+  area.addEventListener("input", () => onInput(area.value));
+  return area;
+}
+function secretInput(value, shown, onInput, onToggle, attrs = {}) {
+  const input = textInput(value, onInput, {
+    autocomplete: "new-password",
+    ...attrs
+  });
+  const eye = h("button", { class: "pdk-wizard__eye", type: "button" });
+  let visible = shown;
+  const apply = () => {
+    input.type = visible ? "text" : "password";
+    const label = visible ? "\u0421\u043A\u0440\u044B\u0442\u044C \u0430\u0434\u0440\u0435\u0441" : "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0430\u0434\u0440\u0435\u0441";
+    eye.title = label;
+    eye.setAttribute("aria-label", label);
+    eye.setAttribute("aria-pressed", String(visible));
+    eye.replaceChildren(icon(visible ? "eyeOff" : "eye", 16));
+  };
+  eye.addEventListener("click", () => {
+    visible = !visible;
+    onToggle(visible);
+    apply();
+    input.focus();
+  });
+  apply();
+  return h("span", { class: "pdk-wizard__secret" }, [input, eye]);
+}
+function select(value, options, onChange) {
+  const el = h("select", { class: "pdk-wizard__text" });
+  for (const [key, label] of options) {
+    const option = h("option", { value: key }, [label]);
+    option.selected = key === value;
+    el.append(option);
+  }
+  el.addEventListener("change", () => onChange(el.value));
+  return h("span", { class: "pdk-wizard__select" }, [el, icon("chevron", 16)]);
+}
+function checkbox(checked, label, help, onChange) {
+  const box = h("input", { type: "checkbox" });
+  box.checked = checked;
+  box.addEventListener("change", () => onChange(box.checked));
+  return h("label", { class: "pdk-wizard__check" }, [
+    box,
+    h("span", { class: "pdk-wizard__check-text" }, [
+      h("span", { class: "pdk-wizard__check-label" }, [label]),
+      help ? h("span", { class: "pdk-wizard__control-help" }, [help]) : null
+    ])
+  ]);
+}
+function row(children) {
+  return h("div", { class: "pdk-wizard__row" }, children);
+}
+function again(control, form) {
+  const input = control.matches("input, textarea") ? control : control.querySelector("input, textarea");
+  input?.addEventListener("change", () => refreshServers(form));
+  return control;
+}
+function renderKindFields(form) {
+  const set = form.settings;
+  switch (form.kind) {
+    case "subscription": {
+      const presets = AGENT_PRESETS.map((preset) => [
+        preset,
+        preset === "custom" ? "\u0414\u0440\u0443\u0433\u043E\u0439 User-Agent" : presetName(preset)
+      ]);
+      return [
+        field(
+          "\u0410\u0434\u0440\u0435\u0441 \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0438",
+          again(
+            secretInput(
+              form.url,
+              form.showUrl,
+              (value) => {
+                form.url = value;
+                syncAction(form);
+              },
+              (shown) => form.showUrl = shown,
+              { placeholder: "https://\u2026" }
+            ),
+            form
+          ),
+          "\u0410\u0434\u0440\u0435\u0441, \u043A\u043E\u0442\u043E\u0440\u044B\u0439 \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440 \u0434\u0430\u043B \u0434\u043B\u044F \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0439 (\u0447\u0430\u0441\u0442\u043E /sub/\u2026 \u0438\u043B\u0438 /api/sub/\u2026). \u042D\u0442\u043E \u0441\u0435\u043A\u0440\u0435\u0442: podkop \u0441\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u0435\u0433\u043E \u0442\u0430\u043C, \u0433\u0434\u0435 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438."
+        ),
+        row([
+          field(
+            "\u0417\u0430\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0442\u044C \u043A\u0430\u043A",
+            select(set.agentPreset, presets, (value) => {
+              set.agentPreset = value;
+              draw();
+              refreshServers(form);
+            }),
+            "\u041D\u0435\u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u044B \u043E\u0442\u0434\u0430\u044E\u0442 \u0441\u0435\u0440\u0432\u0435\u0440\u044B \u0442\u043E\u043B\u044C\u043A\u043E \u043D\u0430\u0437\u0432\u0430\u043D\u043D\u044B\u043C \u0438\u043C\u0438 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F\u043C. HWID \u0440\u043E\u0443\u0442\u0435\u0440\u0430 \u043E\u0441\u0442\u0430\u0451\u0442\u0441\u044F \u0435\u0433\u043E \u0441\u043E\u0431\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u043C."
+          ),
+          field(
+            "\u0418\u043D\u0442\u0435\u0440\u0432\u0430\u043B \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F",
+            select(set.updateInterval, INTERVALS, (value) => {
+              set.updateInterval = value;
+            }),
+            "\u0410\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438: \u043A\u0430\u043A \u0441\u043E\u0432\u0435\u0442\u0443\u0435\u0442 \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440, \u0438\u043D\u0430\u0447\u0435 \u0440\u0430\u0437 \u0432 \u0434\u0435\u043D\u044C."
+          )
+        ]),
+        set.agentPreset === "custom" ? field(
+          "User-Agent",
+          again(
+            textInput(
+              set.userAgent,
+              (value) => {
+                set.userAgent = value;
+                syncAction(form);
+              },
+              { placeholder: "v2rayNG" }
+            ),
+            form
+          ),
+          "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F \u0442\u0430\u043A, \u043A\u0430\u043A \u0435\u0433\u043E \u043D\u0430\u0437\u044B\u0432\u0430\u0435\u0442 \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440. \u0427\u0430\u0441\u0442\u043E \u0445\u0432\u0430\u0442\u0430\u0435\u0442 \u043E\u0434\u043D\u043E\u0433\u043E \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044F, \u0431\u0435\u0437 \u0432\u0435\u0440\u0441\u0438\u0438."
+        ) : null,
+        field(
+          "\u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043A\u0438",
+          again(
+            textArea(
+              set.headers,
+              (value) => {
+                set.headers = value;
+                syncAction(form);
+              },
+              { placeholder: "Authorization: Bearer \u2026", rows: "2" }
+            ),
+            form
+          ),
+          "\u0422\u043E\u043B\u044C\u043A\u043E \u0435\u0441\u043B\u0438 \u0438\u0445 \u0442\u0440\u0435\u0431\u0443\u0435\u0442 \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440: \u043F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u0432 \u0441\u0442\u0440\u043E\u043A\u0435, \u0432 \u0432\u0438\u0434\u0435 \u0418\u043C\u044F: \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435."
+        )
+      ].filter(Boolean);
+    }
+    case "links":
+      return [
+        field(
+          "\u0421\u0441\u044B\u043B\u043A\u0438 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u044B",
+          textArea(form.links, (value) => form.links = value, {
+            placeholder: "vless://\u2026",
+            rows: "5"
+          }),
+          "\u041F\u043E \u043E\u0434\u043D\u043E\u0439 \u0432 \u0441\u0442\u0440\u043E\u043A\u0435: vless, trojan, ss, socks, http(s), hysteria2, tuic."
+        ),
+        checkbox(
+          set.udpOverTcp,
+          "UDP \u0447\u0435\u0440\u0435\u0437 TCP",
+          "\u041F\u0440\u0438\u043C\u0435\u043D\u0438\u043C\u043E \u0434\u043B\u044F SOCKS \u0438 Shadowsocks \u043F\u0440\u043E\u043A\u0441\u0438.",
+          (value) => set.udpOverTcp = value
+        )
+      ];
+    case "json":
+      return [
+        field(
+          "\u041A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044F \u0438\u0441\u0445\u043E\u0434\u044F\u0449\u0435\u0433\u043E \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u044F",
+          textArea(form.json, (value) => form.json = value, {
+            placeholder: '{"type": "vless", "server": "\u2026", \u2026}',
+            rows: "9"
+          }),
+          "\u041E\u0434\u0438\u043D outbound sing-box \u0446\u0435\u043B\u0438\u043A\u043E\u043C. \u0421\u043F\u0438\u0441\u043E\u043A outbound-\u043E\u0432 \u0438 \u0432\u0441\u044F \u043A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044F sing-box \u043D\u0435 \u043F\u043E\u0434\u0445\u043E\u0434\u044F\u0442."
+        )
+      ];
+    case "interface": {
+      const list = h(
+        "datalist",
+        { id: "pdk-wizard-devices" },
+        devices.map(
+          (device) => h("option", { value: device.name }, [
+            device.ipv4 ? "" : "\u043D\u0435\u0442 IPv4-\u0430\u0434\u0440\u0435\u0441\u0430 \u0441\u0435\u0439\u0447\u0430\u0441"
+          ])
+        )
+      );
+      const dns2 = h(
+        "datalist",
+        { id: "pdk-wizard-dns" },
+        Object.entries(DNS_SERVER_OPTIONS).map(
+          ([key, label]) => h("option", { value: key }, [label])
+        )
+      );
+      return [
+        row([
+          field(
+            "\u0421\u0435\u0442\u0435\u0432\u043E\u0439 \u0438\u043D\u0442\u0435\u0440\u0444\u0435\u0439\u0441",
+            h("span", {}, [
+              textInput(form.iface, (value) => form.iface = value, {
+                list: "pdk-wizard-devices",
+                placeholder: devices.length ? devices.map((device) => device.name).join(", ") : "awg0"
+              }),
+              list
+            ]),
+            "\u0422\u0443\u043D\u043D\u0435\u043B\u044C, \u043C\u043E\u0434\u0435\u043C \u0438\u043B\u0438 \u0432\u0442\u043E\u0440\u043E\u0439 WAN. \u0422\u0443\u043D\u043D\u0435\u043B\u044F, \u043A\u043E\u0442\u043E\u0440\u044B\u0439 \u0441\u0435\u0439\u0447\u0430\u0441 \u043D\u0435 \u043F\u043E\u0434\u043D\u044F\u0442, \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u043D\u0435\u0442: \u0432\u043F\u0438\u0448\u0438\u0442\u0435 \u0435\u0433\u043E \u0438\u043C\u044F. \u041F\u0443\u0441\u0442\u043E: \u043E\u0441\u043D\u043E\u0432\u043D\u043E\u0439 \u043C\u0430\u0440\u0448\u0440\u0443\u0442."
+          ),
+          field(
+            "\u041C\u0435\u0442\u043A\u0430 \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0438\u0437\u0430\u0446\u0438\u0438",
+            textInput(set.routingMark, (value) => set.routingMark = value, {
+              placeholder: "0x10000"
+            }),
+            "\u041E\u0431\u044B\u0447\u043D\u043E \u043D\u0435 \u043D\u0443\u0436\u043D\u0430."
+          )
+        ]),
+        checkbox(
+          set.resolver,
+          "\u0420\u0435\u0437\u043E\u043B\u0432\u0435\u0440 \u0434\u043E\u043C\u0435\u043D\u043E\u0432",
+          "\u041D\u0430\u0441\u0442\u043E\u044F\u0449\u0438\u0439 IP \u0441\u0430\u0439\u0442\u0430 \u0443\u0437\u043D\u0430\u0451\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 DNS-\u0441\u0435\u0440\u0432\u0435\u0440 \u043F\u043E \u044D\u0442\u043E\u043C\u0443 \u0438\u043D\u0442\u0435\u0440\u0444\u0435\u0439\u0441\u0443.",
+          (value) => {
+            set.resolver = value;
+            draw();
+          }
+        ),
+        set.resolver ? row([
+          field(
+            "\u0422\u0438\u043F \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u0430 DNS",
+            select(
+              set.dnsType,
+              DNS_TYPES,
+              (value) => set.dnsType = value
+            )
+          ),
+          field(
+            "DNS-\u0441\u0435\u0440\u0432\u0435\u0440",
+            h("span", {}, [
+              textInput(set.dnsServer, (value) => set.dnsServer = value, {
+                list: "pdk-wizard-dns",
+                placeholder: "1.1.1.1"
+              }),
+              dns2
+            ])
+          )
+        ]) : null
+      ].filter(Boolean);
+    }
+  }
+}
+var SERVERS_SHOWN = 24;
+function renderServers(form) {
+  const list = form.list;
+  const usable = list.filter((item) => !item.reason).length;
+  const shown = form.listOpen ? list : list.slice(0, SERVERS_SHOWN);
+  const more = list.length > shown.length ? h("button", { class: "pdk-wizard__server-more", type: "button" }, [
+    "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0435\u0449\u0451 " + (list.length - shown.length)
+  ]) : null;
+  more?.addEventListener("click", () => {
+    form.listOpen = true;
+    draw();
+  });
+  return h("div", { class: "pdk-wizard__servers" }, [
+    h("div", { class: "pdk-wizard__servers-head" }, [
+      h("span", { class: "pdk-wizard__servers-title" }, ["\u0421\u0435\u0440\u0432\u0435\u0440\u044B \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0438"]),
+      h("span", { class: "pdk-wizard__count" }, [String(usable)]),
+      usable < list.length ? h("span", { class: "pdk-wizard__control-help" }, [
+        "\u0435\u0449\u0451 " + (list.length - usable) + " \u043D\u0435 \u043F\u043E\u0434\u0445\u043E\u0434\u044F\u0442 \u044D\u0442\u043E\u0439 \u0441\u0431\u043E\u0440\u043A\u0435"
+      ]) : null
+    ]),
+    h("div", { class: "pdk-wizard__servers-list" }, [
+      ...shown.map(
+        (item) => h(
+          "span",
+          {
+            class: "pdk-wizard__server" + (item.reason ? " pdk-wizard__server--off" : ""),
+            title: item.reason || item.address
+          },
+          [
+            h("span", { class: "pdk-wizard__server-name" }, [item.name]),
+            h("span", { class: "pdk-wizard__server-scheme" }, [item.scheme])
+          ]
+        )
+      ),
+      more
+    ])
+  ]);
+}
+function renderPreview(form) {
+  const problem = form.error ? h(
+    "div",
+    { class: "pdk-wizard__alert pdk-wizard__alert--bad", role: "alert" },
+    [
+      icon("bad", 16),
+      h("div", { class: "pdk-wizard__alert-text" }, [
+        h("div", { class: "pdk-wizard__alert-title" }, [form.error]),
+        form.details.length ? h(
+          "dl",
+          { class: "pdk-wizard__details" },
+          form.details.flatMap(([key, value]) => [
+            h("dt", {}, [key]),
+            h("dd", {}, [value])
+          ])
+        ) : null
+      ])
+    ]
+  ) : null;
+  const loading = form.loading ? h("div", { class: "pdk-wizard__loading", role: "status" }, [
+    icon("loader", 16),
+    "\u0417\u0430\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u043C \u0441\u043F\u0438\u0441\u043E\u043A \u0441\u0435\u0440\u0432\u0435\u0440\u043E\u0432 \u043A\u0430\u043A " + presetName(form.settings.agentPreset) + "\u2026"
+  ]) : null;
+  const servers = form.kind === "subscription" && form.list.length ? renderServers(form) : null;
+  return h(
+    "div",
+    {
+      class: "pdk-wizard__preview" + (form.loading ? " pdk-wizard__preview--loading" : "")
+    },
+    [problem, loading, servers]
+  );
+}
+function renderManual(form) {
+  const back = h("button", { class: "pdk-wizard__back", type: "button" }, [
+    icon("back", 14),
+    "\u041A \u0441\u043F\u0438\u0441\u043A\u0443 \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u043E\u0432"
+  ]);
+  back.addEventListener("click", closeManual);
+  const editing = form.editId !== null;
+  const kinds = h(
+    "div",
+    {
+      class: "pdk-wizard__kinds",
+      role: "radiogroup",
+      "aria-label": "\u0422\u0438\u043F \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0430"
+    },
+    KINDS.map(([kind, label, note]) => {
+      const tile = h(
+        "button",
+        {
+          class: "pdk-wizard__kind" + (kind === form.kind ? " pdk-wizard__kind--active" : ""),
+          type: "button",
+          role: "radio",
+          "aria-checked": String(kind === form.kind)
+        },
+        [
+          icon(KIND_ICON[kind], 18),
+          h("span", { class: "pdk-wizard__kind-label" }, [label]),
+          h("span", { class: "pdk-wizard__kind-note" }, [note])
+        ]
+      );
+      tile.addEventListener("click", () => {
+        if (form.kind === kind) return;
+        form.kind = kind;
+        form.error = "";
+        form.details = [];
+        draw();
+        if (kind === "interface") loadDevices();
+      });
+      return tile;
+    })
+  );
+  const title = editing ? describe({
+    kind: form.kind,
+    url: form.url,
+    links: splitLines(form.links),
+    json: form.json,
+    iface: form.iface,
+    settings: form.settings
+  }).title : "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432\u0440\u0443\u0447\u043D\u0443\u044E";
+  return h("div", { class: "pdk-wizard__body" }, [
+    back,
+    h("div", { class: "pdk-wizard__intro" }, [
+      h("div", { class: "pdk-wizard__heading" }, [title]),
+      h("div", { class: "pdk-wizard__lead" }, [
+        editing ? "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u044D\u0442\u043E\u0433\u043E \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0430 \u2014 \u0442\u0435 \u0436\u0435, \u0447\u0442\u043E \u043D\u0430 \u0432\u043A\u043B\u0430\u0434\u043A\u0435 \xAB\u0421\u0435\u0440\u0432\u0435\u0440\u044B\xBB." : "\u0414\u043B\u044F \u0441\u043B\u0443\u0447\u0430\u0435\u0432, \u043A\u043E\u0433\u0434\u0430 \u0432\u0441\u0442\u0430\u0432\u043A\u0438 \u043C\u0430\u043B\u043E: \u043E\u0441\u043E\u0431\u044B\u0439 \u0437\u0430\u043F\u0440\u043E\u0441 \u043A \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u0443, \u0438\u043D\u0442\u0435\u0440\u0444\u0435\u0439\u0441 \u0440\u043E\u0443\u0442\u0435\u0440\u0430, \u0433\u043E\u0442\u043E\u0432\u0430\u044F \u043A\u043E\u043D\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044F."
+      ])
+    ]),
+    editing ? null : kinds,
+    renderPreview(form),
+    ...renderKindFields(form),
+    h("div", { class: "pdk-wizard__divider" }),
+    field(
+      "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435",
+      textInput(form.settings.label, (value) => form.settings.label = value, {
+        placeholder: "\u0432\u043E\u0437\u044C\u043C\u0451\u0442\u0441\u044F \u0438\u0437 \u0430\u0434\u0440\u0435\u0441\u0430, \u0441\u0441\u044B\u043B\u043A\u0438 \u0438\u043B\u0438 \u0438\u043D\u0442\u0435\u0440\u0444\u0435\u0439\u0441\u0430"
+      })
+    ),
+    checkbox(
+      form.settings.skipDownloads,
+      "\u041D\u0435 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C \u0434\u043B\u044F \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0441\u043F\u0438\u0441\u043A\u043E\u0432 \u0438 \u043F\u043E\u0434\u043F\u0438\u0441\u043E\u043A",
+      "\u041E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A \u0441 \u043C\u0430\u043B\u044B\u043C \u043B\u0438\u043C\u0438\u0442\u043E\u043C \u0442\u0440\u0430\u0444\u0438\u043A\u0430, \u0442\u0435\u0441\u0442\u043E\u0432\u0443\u044E \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0443, \u0442\u0443\u043D\u043D\u0435\u043B\u044C \u0432 \u0437\u0430\u043A\u0440\u044B\u0442\u0443\u044E \u0441\u0435\u0442\u044C.",
+      (value) => form.settings.skipDownloads = value
+    )
+  ]);
+}
+function manualAction(form) {
+  if (form.busy) {
+    return form.kind === "subscription" ? "\u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043C \u0441\u043F\u0438\u0441\u043E\u043A\u2026" : "\u041F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u043C\u2026";
+  }
+  if (form.kind === "subscription" && !fresh(form)) {
+    return form.editId !== null ? "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" : "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0438 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C";
+  }
+  return form.editId !== null ? "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" : "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432 \u0441\u043F\u0438\u0441\u043E\u043A";
+}
+var dns = createDns({
+  h,
+  icon,
+  draw: () => draw(),
+  back: () => {
+    state.step = 2;
+    draw();
+  },
+  providerDns: () => env.providerDns ? env.providerDns() : Promise.resolve([])
+});
+var START_BUDGET_MS = 9e4;
+var START_POLL_MS = 1500;
+async function save() {
+  const stop = dns.problem();
+  if (stop || !env.save) {
+    dns.say(stop || "\u0421\u0442\u0440\u0430\u043D\u0438\u0446\u0430 \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0437\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438: \u043E\u0431\u043D\u043E\u0432\u0438\u0442\u0435 \u0435\u0451.");
+    draw();
+    return;
+  }
+  state.saving = true;
+  dns.say("");
+  draw();
+  try {
+    await env.save(
+      (taken) => buildConfig(state.sources, routing.rules(), dns.value(), taken)
+    );
+  } catch (_e) {
+    state.saving = false;
+    dns.say("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437.");
+    draw();
+    return;
+  }
+  state.started = true;
+  draw();
+  const wantsServers = routing.rules().some((rule) => rule.enabled && rule.mode === "servers");
+  const until = Date.now() + START_BUDGET_MS;
+  while (Date.now() < until) {
+    await new Promise((resolve) => setTimeout(resolve, START_POLL_MS));
+    try {
+      const status = await PodkopShellMethods.getStatus();
+      if (!status.success || !status.data?.running) continue;
+      if (!wantsServers) break;
+      const sections = await CustomPodkopMethods.getDashboardSections();
+      if (sections.success && sections.data.some((g) => g.outbounds?.length)) {
+        break;
+      }
+    } catch (_e) {
+    }
+  }
+  window.location.reload();
+}
+var routing = createRouting({
+  h,
+  icon,
+  draw: () => draw(),
+  sources: () => state.sources,
+  kindIcon: KIND_ICON,
+  back: () => {
+    state.step = 1;
+    draw();
+  }
+});
+function draw() {
+  if (!root) return;
+  const close = h(
+    "button",
+    {
+      class: "pdk-wizard__close",
+      type: "button",
+      title: "\u0417\u0430\u043A\u0440\u044B\u0442\u044C",
+      "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C"
+    },
+    [icon("x", 18)]
+  );
+  close.addEventListener("click", closeWizard);
+  const form = state.manual;
+  const next = h("button", { class: "pdk-wizard__next", type: "button" }, [
+    form ? manualAction(form) : state.step === 3 ? state.started ? "Podkop \u0437\u0430\u043F\u0443\u0441\u043A\u0430\u0435\u0442\u0441\u044F\u2026" : state.saving ? "\u0421\u043E\u0445\u0440\u0430\u043D\u044F\u0435\u0442\u0441\u044F\u2026" : "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0438 \u0437\u0430\u043F\u0443\u0441\u0442\u0438\u0442\u044C" : "\u0414\u0430\u043B\u0435\u0435"
+  ]);
+  const routed = !form && state.step === 2;
+  const named = !form && state.step === 3;
+  if (routed) next.disabled = false;
+  if (form) {
+    next.disabled = form.busy;
+    next.addEventListener("click", submitManual);
+  } else if (routed) {
+    next.addEventListener("click", () => {
+      state.step = 3;
+      dns.say("");
+      draw();
+    });
+  } else if (named) {
+    next.disabled = state.saving;
+    next.addEventListener("click", save);
+  } else {
+    next.disabled = !state.sources.length || state.busy;
+    next.addEventListener("click", () => {
+      state.step = 2;
+      state.outcome = null;
+      routing.say("");
+      draw();
+    });
+  }
+  const body = form ? renderManual(form) : routed ? routing.render() : named ? dns.render() : h("div", { class: "pdk-wizard__body" }, [
+    h("div", { class: "pdk-wizard__intro" }, [
+      h("div", { class: "pdk-wizard__heading" }, [
+        "\u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0443 \u0438\u043B\u0438 \u0441\u0435\u0440\u0432\u0435\u0440\u044B"
+      ]),
+      h("div", { class: "pdk-wizard__lead" }, [
+        "\u0412\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0443 \u0438\u043B\u0438 \u0441\u0441\u044B\u043B\u043A\u0438 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u044B \u2014 \u043E\u0442 \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u0430 \u0438\u043B\u0438 \u0441\u0432\u043E\u0438. \u041E\u043D\u0438 \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u0443\u044E\u0442\u0441\u044F \u0441\u0430\u043C\u0438. \u0412\u0441\u0442\u0430\u0432\u043B\u044F\u0442\u044C \u043C\u043E\u0436\u043D\u043E \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0440\u0430\u0437: \u0432\u0441\u0451 \u043F\u043E\u043F\u0430\u0434\u0451\u0442 \u0432 \u0441\u043F\u0438\u0441\u043E\u043A \u043D\u0438\u0436\u0435."
+      ])
+    ]),
+    renderField(),
+    renderOutcome(),
+    renderList()
+  ]);
+  const window2 = h(
+    "div",
+    {
+      class: "pdk-wizard__window",
+      role: "dialog",
+      "aria-modal": "true",
+      "aria-label": "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430 Podkop"
+    },
+    [
+      h("div", { class: "pdk-wizard__head" }, [
+        h("div", { class: "pdk-wizard__title" }, ["\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430 Podkop"]),
+        close
+      ]),
+      renderSteps(),
+      body,
+      h("div", { class: "pdk-wizard__foot" }, [next])
+    ]
+  );
+  root.replaceChildren(window2);
+  if (routed) {
+    next.disabled = !routing.ready();
+    routing.afterDraw(root);
+  }
+  if (!state.busy && !state.manual && state.step === 1) {
+    root.querySelector(".pdk-wizard__input")?.focus();
+  }
+}
+function onKey(event) {
+  if (event.key !== "Escape") return;
+  if (state.manual) closeManual();
+  else if (state.step === 2 && routing.escape()) return;
+  else closeWizard();
+}
+function openWizard() {
+  if (root) return;
+  root = h("div", { class: "pdk-wizard", id: "pdk-wizard" });
+  root.addEventListener("mousedown", (event) => {
+    if (event.target === root) closeWizard();
+  });
+  document.body.append(root);
+  document.body.classList.add("pdk-wizard-open");
+  document.addEventListener("keydown", onKey);
+  draw();
+}
+function closeWizard() {
+  if (!root) return;
+  document.removeEventListener("keydown", onKey);
+  document.body.classList.remove("pdk-wizard-open");
+  root.remove();
+  root = null;
+}
+
 // src/podkop/tabs/dashboard/render.ts
+function isSetUp() {
+  return uci.sections("podkop", "source").some(
+    (item) => sourceFilled(item)
+  );
+}
+function renderEmpty() {
+  return E("div", { id: "dashboard-empty", class: "pdk-dashboard-empty" }, [
+    E("div", { class: "pdk-dashboard-empty__title" }, [
+      "Podkop \u0435\u0449\u0451 \u043D\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D"
+    ]),
+    E("div", { class: "pdk-dashboard-empty__text" }, [
+      "\u0420\u043E\u0443\u0442\u0435\u0440 \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u043A\u0430\u043A \u043E\u0431\u044B\u0447\u043D\u043E: podkop \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u043C\u0435\u043D\u044F\u0435\u0442, \u043F\u043E\u043A\u0430 \u0432\u044B \u0435\u0433\u043E \u043D\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0438\u0442\u0435. \u041F\u043E\u043D\u0430\u0434\u043E\u0431\u0438\u0442\u0441\u044F \u0441\u0441\u044B\u043B\u043A\u0430 \u043D\u0430 \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0443 \u0438\u043B\u0438 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440 \u2014 \u043E\u0442 \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u0430 \u0438\u043B\u0438 \u0441\u0432\u043E\u044F."
+    ]),
+    E(
+      "button",
+      {
+        class: "btn cbi-button cbi-button-action important",
+        click: (event) => {
+          event.preventDefault();
+          openWizard();
+        }
+      },
+      ["\u041D\u0430\u0447\u0430\u0442\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0443"]
+    )
+  ]);
+}
 function render() {
+  if (!isSetUp()) return renderEmpty();
   return E(
     "div",
     {
@@ -4122,31 +7693,31 @@ function bitTorrentTable(report) {
       )
     };
   }
-  const rows = (report.rows || []).map((row) => ({
-    kind: bitTorrentKindName(row.kind),
-    way: bitTorrentWayName(row.way, report.rule),
-    open: String(row.open),
-    connections: String(row.connections),
-    received: report.counted ? prettyBytes(row.received.bytes) : "\u2014",
-    sent: report.counted ? prettyBytes(row.sent.bytes) : "\u2014",
+  const rows = (report.rows || []).map((row2) => ({
+    kind: bitTorrentKindName(row2.kind),
+    way: bitTorrentWayName(row2.way, report.rule),
+    open: String(row2.open),
+    connections: String(row2.connections),
+    received: report.counted ? prettyBytes(row2.received.bytes) : "\u2014",
+    sent: report.counted ? prettyBytes(row2.sent.bytes) : "\u2014",
     packets: _("Packets: sent %d, received %d").format(
-      row.sent.packets,
-      row.received.packets
+      row2.sent.packets,
+      row2.received.packets
     )
   }));
   let total;
   if (rows.length > 1) {
-    const sum = (pick) => (report.rows || []).reduce((all, row) => all + pick(row), 0);
+    const sum = (pick) => (report.rows || []).reduce((all, row2) => all + pick(row2), 0);
     total = {
       kind: _("In all"),
       way: "",
-      open: String(sum((row) => row.open)),
-      connections: String(sum((row) => row.connections)),
-      received: report.counted ? prettyBytes(sum((row) => row.received.bytes)) : "\u2014",
-      sent: report.counted ? prettyBytes(sum((row) => row.sent.bytes)) : "\u2014",
+      open: String(sum((row2) => row2.open)),
+      connections: String(sum((row2) => row2.connections)),
+      received: report.counted ? prettyBytes(sum((row2) => row2.received.bytes)) : "\u2014",
+      sent: report.counted ? prettyBytes(sum((row2) => row2.sent.bytes)) : "\u2014",
       packets: _("Packets: sent %d, received %d").format(
-        sum((row) => row.sent.packets),
-        sum((row) => row.received.packets)
+        sum((row2) => row2.sent.packets),
+        sum((row2) => row2.received.packets)
       )
     };
   }
@@ -4375,6 +7946,10 @@ function showToast(message, type, duration = 3e3) {
 }
 
 // src/podkop/tabs/dashboard/initController.ts
+var SECTIONS_RETRY_MS = 3e3;
+var SECTIONS_TRIES = 40;
+var sectionsRetry;
+var sectionsTries = 0;
 async function fetchDashboardSections() {
   const prev = store.get().sectionsWidget;
   store.set({
@@ -4395,6 +7970,14 @@ async function fetchDashboardSections() {
       data
     }
   });
+  clearTimeout(sectionsRetry);
+  const waiting = !success || !data.some((group) => group.outbounds?.length);
+  if (!waiting) {
+    sectionsTries = 0;
+  } else if (sectionsTries < SECTIONS_TRIES) {
+    sectionsTries++;
+    sectionsRetry = setTimeout(fetchDashboardSections, SECTIONS_RETRY_MS);
+  }
 }
 var STATS_MS = 2e3;
 var statsTimers = [];
@@ -4917,7 +8500,7 @@ function handleShowVerdict(outbound) {
   const verdict = detect.verdicts[outbound.code];
   const known = verdictAges[outbound.code];
   const checking = isChecking(outbound.code, detect);
-  const lines = [
+  const lines2 = [
     ...detect.probing === outbound.code ? [_("Checking now\u2026")] : [],
     ...checking && detect.probing !== outbound.code ? [_("Waiting for its turn.")] : [],
     ...verdict ? verdictLines(verdict) : [],
@@ -4927,7 +8510,7 @@ function handleShowVerdict(outbound) {
   ui.showModal(
     [outbound.displayName],
     [
-      ...lines.map((line) => E("p", {}, [line])),
+      ...lines2.map((line) => E("p", {}, [line])),
       ...treatment.body,
       E("div", { class: "right" }, [
         E(
@@ -5279,6 +8862,7 @@ function isCurrent() {
   return store.get().tabService.current === "dashboard";
 }
 async function initController() {
+  if (!isSetUp()) return;
   if (started) {
     if (mounted && !remounting) {
       remounting = true;
@@ -5312,7 +8896,7 @@ async function initController() {
 }
 
 // src/podkop/tabs/dashboard/styles.ts
-var styles = `
+var styles2 = `
 /* The field that holds the dashboard takes the whole width of its option's row, whatever its
    content asks, and no more. LuCI puts the field in an <output> in the row (.cbi-value), and most
    themes (bootstrap, openwrt2020, argon, aurora) lay the row out as a flex line, where an item is
@@ -5869,7 +9453,7 @@ button.pdk_dashboard-page__outbound-grid__item__block--neutral {
 var DashboardTab = {
   render,
   initController,
-  styles
+  styles: styles2
 };
 
 // src/podkop/tabs/diagnostic/renderDiagnostic.ts
@@ -5984,13 +9568,13 @@ async function runDnsCheck() {
   ];
   const allGood = Boolean(data.dns_on_router) && Boolean(data.dhcp_config_status) && Boolean(data.bootstrap_dns_status) && servers.every((server) => Boolean(server.status));
   const atLeastOneGood = Boolean(data.dns_on_router) || Boolean(data.dhcp_config_status) || Boolean(data.bootstrap_dns_status) || Boolean(data.dns_status);
-  const { state, description } = getMeta({ atLeastOneGood, allGood });
+  const { state: state2, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
     code,
     title,
     description,
-    state,
+    state: state2,
     items: [
       ...insertIf(
         servers.some(
@@ -6050,13 +9634,13 @@ async function runSingBoxCheck() {
   const listening = Boolean(data.sing_box_ports_listening);
   const allGood = running && listening;
   const atLeastOneGood = running || listening;
-  const { state, description } = getMeta({ atLeastOneGood, allGood });
+  const { state: state2, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
     code,
     title,
     description,
-    state,
+    state: state2,
     items: [
       {
         state: running ? "success" : "error",
@@ -6103,13 +9687,13 @@ async function runNftCheck(label) {
   const data = nftablesChecks.data;
   const allGood = Boolean(data.table_exist) && Boolean(data.rules_mangle_exist) && Boolean(data.rules_mangle_counters) && Boolean(data.rules_mangle_output_exist) && Boolean(data.rules_mangle_output_counters) && Boolean(data.rules_proxy_exist) && Boolean(data.rules_proxy_counters) && !data.rules_other_mark_exist;
   const atLeastOneGood = Boolean(data.table_exist) || Boolean(data.rules_mangle_exist) || Boolean(data.rules_mangle_counters) || Boolean(data.rules_mangle_output_exist) || Boolean(data.rules_mangle_output_counters) || Boolean(data.rules_proxy_exist) || Boolean(data.rules_proxy_counters) || !data.rules_other_mark_exist;
-  const { state, description } = getMeta({ atLeastOneGood, allGood });
+  const { state: state2, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
     code,
     title,
     description,
-    state,
+    state: state2,
     items: [
       {
         state: data.table_exist ? "success" : "error",
@@ -6180,13 +9764,13 @@ async function runFakeIPCheck(label) {
   };
   const allGood = checks.router && checks.browserDNS && checks.browserFakeIP;
   const atLeastOneGood = checks.router || checks.browserDNS || checks.browserFakeIP;
-  const { state, description } = getMeta({ atLeastOneGood, allGood });
+  const { state: state2, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
     code,
     title,
     description,
-    state,
+    state: state2,
     items: [
       {
         state: checks.router ? "success" : "warning",
@@ -6208,7 +9792,7 @@ async function runFakeIPCheck(label) {
 }
 
 // src/partials/button/styles.ts
-var styles2 = `
+var styles3 = `
 .pdk-partial-button {
     text-align: center;
 }
@@ -6242,7 +9826,7 @@ var styles2 = `
 `;
 
 // src/partials/modal/styles.ts
-var styles3 = `
+var styles4 = `
 
 .pdk-partial-modal__body {}
 
@@ -6786,9 +10370,9 @@ function renderButton({
   loading,
   onClick,
   text,
-  icon
+  icon: icon2
 }) {
-  const hasIcon = !!loading || !!icon;
+  const hasIcon = !!loading || !!icon2;
   function getWrappedIcon() {
     const iconWrap = E("span", {
       class: "pdk-partial-button__icon"
@@ -6797,8 +10381,8 @@ function renderButton({
       iconWrap.appendChild(renderLoaderCircleIcon24());
       return iconWrap;
     }
-    if (icon) {
-      iconWrap.appendChild(icon());
+    if (icon2) {
+      iconWrap.appendChild(icon2());
       return iconWrap;
     }
     return iconWrap;
@@ -6874,8 +10458,8 @@ function renderModal(text, name) {
 
 // src/partials/index.ts
 var PartialStyles = `
-${styles2}
 ${styles3}
+${styles4}
 `;
 
 // src/podkop/tabs/diagnostic/partials/renderAvailableActions.ts
@@ -7249,7 +10833,7 @@ function responded(answer) {
   const delay = Number(answer.data.delay);
   return Number.isFinite(delay) && delay > 0 ? delay : 0;
 }
-function hostOf2(link) {
+function hostOf3(link) {
   try {
     return new URL(link).host || link;
   } catch (_e) {
@@ -7267,7 +10851,7 @@ function directRow(answer) {
   return {
     state: "warning",
     key,
-    value: `${delay} ms \u2014 ${_("no answer from %s").format(silent.map(hostOf2).join(", "))}`
+    value: `${delay} ms \u2014 ${_("no answer from %s").format(silent.map(hostOf3).join(", "))}`
   };
 }
 function oncePerTag() {
@@ -7366,13 +10950,13 @@ async function runSectionsCheck() {
   items.push(directRow(await direct));
   const allGood = items.every((item) => item.state === "success");
   const atLeastOneGood = items.some((item) => item.state !== "error");
-  const { state, description } = getMeta({ atLeastOneGood, allGood });
+  const { state: state2, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
     code,
     title,
     description,
-    state,
+    state: state2,
     items
   });
   if (!atLeastOneGood) {
@@ -7471,7 +11055,7 @@ function readCachedRelease(now, raw, page) {
   }
   return void 0;
 }
-function keep(tag, page) {
+function keep2(tag, page) {
   try {
     const cached = { tag, at: Date.now(), page };
     localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
@@ -7505,7 +11089,7 @@ async function getLatestRelease(page) {
   const cached = readCachedRelease(Date.now(), stored, page);
   if (cached !== void 0) return cached;
   const tag = await ask();
-  keep(tag, page);
+  keep2(tag, page);
   return tag;
 }
 
@@ -7992,7 +11576,7 @@ async function initController2() {
 }
 
 // src/podkop/tabs/diagnostic/styles.ts
-var styles4 = `
+var styles5 = `
 
 /* (the field takes the whole row of its option: see the dashboard's styles) */
 #cbi-podkop-diagnostic-_mount_node > output,
@@ -8225,7 +11809,7 @@ var styles4 = `
 var DiagnosticTab = {
   render: render2,
   initController: initController2,
-  styles: styles4
+  styles: styles5
 };
 
 // src/podkop/linkCheck.ts
@@ -8385,8 +11969,8 @@ function countChanges(changes) {
 function tellsResult(status) {
   return !!status && typeof status === "object" && typeof status.backend === "boolean";
 }
-function newRecord(fresh, known, now) {
-  const status = tellsResult(fresh) ? fresh : tellsResult(known) ? known : null;
+function newRecord(fresh2, known, now) {
+  const status = tellsResult(fresh2) ? fresh2 : tellsResult(known) ? known : null;
   if (!status) return null;
   return {
     started: now,
@@ -8427,22 +12011,22 @@ function clockOf(at) {
   const two = (n) => String(n).padStart(2, "0");
   return two(date.getHours()) + ":" + two(date.getMinutes());
 }
-function barView(state) {
-  if (state.waiting) {
+function barView(state2) {
+  if (state2.waiting) {
     return { kind: "waiting", text: _("Applying the settings\u2026"), buttons: [] };
   }
-  if (state.changes.podkop > 0) {
+  if (state2.changes.podkop > 0) {
     let text = _("Changes saved but not applied: %d").format(
-      state.changes.podkop
+      state2.changes.podkop
     );
-    if (state.changes.other > 0) {
+    if (state2.changes.other > 0) {
       text += " " + _("(and %d on other pages: the buttons take them too)").format(
-        state.changes.other
+        state2.changes.other
       );
     }
     return { kind: "pending", text, buttons: ["apply", "show", "revert"] };
   }
-  const result = state.result;
+  const result = state2.result;
   if (!result) return { kind: "none", text: "", buttons: [] };
   switch (result.kind) {
     case "applied":
@@ -8538,7 +12122,7 @@ function createApplyBar(options) {
     "aria-live": "polite",
     style: "display: none"
   });
-  const state = {
+  const state2 = {
     changes: { podkop: 0, other: 0 },
     waiting: false
   };
@@ -8581,13 +12165,13 @@ function createApplyBar(options) {
       () => luciChanges()?.revert()
     ),
     dismiss: () => button(luciText("Dismiss"), "cbi-button-neutral", () => {
-      state.result = void 0;
+      state2.result = void 0;
       writeRecord(null);
       render3();
     })
   };
   const render3 = () => {
-    const view = barView(state);
+    const view = barView(state2);
     bar.className = ["alert-message", BAR_CLASSES[view.kind]].join(" ").trim();
     bar.setAttribute("data-kind", view.kind);
     bar.style.display = view.kind === "none" ? "none" : "";
@@ -8610,13 +12194,13 @@ function createApplyBar(options) {
     const asked = ++changesAsked;
     Promise.resolve(uci.changes()).then((changes) => {
       if (asked !== changesAsked) return;
-      state.changes = countChanges(changes);
+      state2.changes = countChanges(changes);
       render3();
     }).catch((err) => logger.warn("[APPLY]", "uci changes:", err));
   };
   const show = (record2, result) => {
-    state.waiting = false;
-    state.result = result;
+    state2.waiting = false;
+    state2.result = result;
     writeRecord(applying ? { ...record2, result } : null);
     render3();
     refreshChanges();
@@ -8650,9 +12234,9 @@ function createApplyBar(options) {
       E("p", {}, [luciText("Starting configuration apply\u2026")])
     );
     let changes = null;
-    let fresh = null;
+    let fresh2 = null;
     try {
-      [changes, fresh] = await withTimeout(
+      [changes, fresh2] = await withTimeout(
         Promise.all([
           Promise.resolve(uci.changes()).catch(() => null),
           readStatus().catch(() => null)
@@ -8664,12 +12248,12 @@ function createApplyBar(options) {
       logger.warn("[APPLY]", err);
     }
     if (changes && countChanges(changes).podkop === 0) return;
-    const record2 = newRecord(fresh, known, Date.now());
+    const record2 = newRecord(fresh2, known, Date.now());
     if (!record2) return;
     applying = true;
     writeRecord(record2);
-    state.waiting = true;
-    state.result = void 0;
+    state2.waiting = true;
+    state2.result = void 0;
     render3();
     follow(record2);
   };
@@ -8681,7 +12265,7 @@ function createApplyBar(options) {
   if (record?.result) {
     show(record, record.result);
   } else if (record) {
-    state.waiting = true;
+    state2.waiting = true;
     render3();
     follow(record);
   }
@@ -8779,6 +12363,7 @@ var GlobalStyles = `
 ${DashboardTab.styles}
 ${DiagnosticTab.styles}
 ${PartialStyles}
+${styles}
 
 
 /* A row of the provider's DNS has no address: no title of the hidden cell on a phone. LuCI
@@ -9179,6 +12764,7 @@ return baseclass.extend({
   checkLinksBeforeSave,
   choosesProtocols,
   clockOf,
+  closeWizard,
   coreService,
   countChanges,
   createApplyBar,
@@ -9217,6 +12803,7 @@ return baseclass.extend({
   narrower,
   newRecord,
   onMount,
+  openWizard,
   parseQueryString,
   parseRecord,
   parseRequest,
@@ -9238,6 +12825,7 @@ return baseclass.extend({
   ruleRowProblems,
   sameRequest,
   serverDisplayName,
+  setWizardEnv,
   showLinkProblems,
   showSaveProblems,
   sourceAutoLabel,
@@ -9250,6 +12838,7 @@ return baseclass.extend({
   splitProxyString,
   stagedChange,
   store,
+  styles,
   subnetContains,
   svgEl,
   takesProtocol,

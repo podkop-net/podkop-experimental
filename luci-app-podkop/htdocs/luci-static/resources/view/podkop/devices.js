@@ -163,6 +163,23 @@ function forRole(option, role) {
   return option;
 }
 
+// listForRole gives the devices a field of the role offers, as they are now: for a form that is
+// not one of LuCI's (the setup wizard)
+function listForRole(role) {
+  return Promise.all([
+    firewall.getZones(),
+    network.flushCache().then(() => network.getDevices()),
+  ]).then(([zones, found]) => {
+    const wanNetworks = zones
+      .filter((zone) => zone.isMasquerade())
+      .flatMap((zone) => zone.getNetworks());
+    return found
+      .filter((device) => ACCEPTS[role](device, wanNetworks))
+      .map((device) => ({ name: device.getName(), ipv4: hasIPv4(device) }));
+  });
+}
+
 return baseclass.extend({
   forRole,
+  listForRole,
 });

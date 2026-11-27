@@ -225,6 +225,22 @@ const EntryPoint = {
     // Enable tab views
     podkopMap.tabbed = true;
 
+    // Dashboard tab: the first one, it meets the user
+    const dashboardSection = podkopMap.section(
+      form.TypedSection,
+      "dashboard",
+      _("Dashboard"),
+    );
+    dashboardSection.hidetitle = true;
+    dashboardSection.anonymous = true;
+    dashboardSection.addremove = false;
+    dashboardSection.cfgsections = function () {
+      return ["dashboard"];
+    };
+
+    // Render dashboard content
+    dashboard.createDashboardContent(dashboardSection);
+
     // Servers tab: subscriptions, links of servers, outbound JSON, interfaces
     const sourcesSection = podkopMap.section(
       form.GridSection,
@@ -301,22 +317,6 @@ const EntryPoint = {
 
     // Render diagnostic content
     diagnostic.createDiagnosticContent(diagnosticSection);
-
-    // Dashboard tab
-    const dashboardSection = podkopMap.section(
-      form.TypedSection,
-      "dashboard",
-      _("Dashboard"),
-    );
-    dashboardSection.hidetitle = true;
-    dashboardSection.anonymous = true;
-    dashboardSection.addremove = false;
-    dashboardSection.cfgsections = function () {
-      return ["dashboard"];
-    };
-
-    // Render dashboard content
-    dashboard.createDashboardContent(dashboardSection);
 
     // The window of a source or a rule, from its tab
     const openWindow = (tab, grid, name) => {

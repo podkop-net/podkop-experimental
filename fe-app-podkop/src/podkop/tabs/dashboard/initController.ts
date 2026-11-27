@@ -36,8 +36,14 @@ import {
 } from './helpers/verdictText';
 import { showToast } from '../../../helpers/showToast';
 import type { Podkop } from '../../types';
+import { isSetUp } from './render';
 
 // Fetchers
+
+const SECTIONS_RETRY_MS = 3000;
+const SECTIONS_TRIES = 40;
+let sectionsRetry: ReturnType<typeof setTimeout> | undefined;
+let sectionsTries = 0;
 
 async function fetchDashboardSections() {
   const prev = store.get().sectionsWidget;
@@ -63,6 +69,18 @@ async function fetchDashboardSections() {
       data,
     },
   });
+
+  // The grid comes by itself when the backend is still starting, or its subscriptions are not
+  // loaded yet (after the setup wizard, after a restart): it is asked again until a rule has
+  // servers, for two minutes at most. A config of rules without servers stops at that.
+  clearTimeout(sectionsRetry);
+  const waiting = !success || !data.some((group) => group.outbounds?.length);
+  if (!waiting) {
+    sectionsTries = 0;
+  } else if (sectionsTries < SECTIONS_TRIES) {
+    sectionsTries++;
+    sectionsRetry = setTimeout(fetchDashboardSections, SECTIONS_RETRY_MS);
+  }
 }
 
 // The numbers of the dashboard come from the running backend: the method stats of its
@@ -1202,6 +1220,8 @@ function isCurrent() {
 }
 
 export async function initController(): Promise<void> {
+  // a router that is not set up has no dashboard to feed: the tab shows the way to set it up
+  if (!isSetUp()) return;
   if (started) {
     if (mounted && !remounting) {
       remounting = true;

@@ -1,11 +1,13 @@
 // language=CSS
 import { DashboardTab, DiagnosticTab } from './podkop';
 import { PartialStyles } from './partials';
+import { styles as WizardStyles } from './podkop/wizard/styles';
 
 export const GlobalStyles = `
 ${DashboardTab.styles}
 ${DiagnosticTab.styles}
 ${PartialStyles}
+${WizardStyles}
 
 
 /* A row of the provider's DNS has no address: no title of the hidden cell on a phone. LuCI

@@ -6,3 +6,4 @@ export * from './sources';
 export * from './devices';
 export * from './applyBar';
 export * from './versionBar';
+export * from './wizard';
