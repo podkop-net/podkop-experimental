@@ -215,6 +215,9 @@ const (
 type DNSUpstream struct {
 	Type   string // udp, dot, doh, provider
 	Server string // host[:port][/path]; "" for provider
+	// Via is the rule or the source the DNS server goes through ("via" of the row, or
+	// "dns_detour_section" of the settings for the one server without a list); "" is direct
+	Via string
 }
 
 // Settings is the section "settings".
@@ -493,11 +496,11 @@ func Load(parsed *uci.Package) (*Config, error) {
 			continue
 		}
 		config.Settings.DNSUpstreams = append(config.Settings.DNSUpstreams, DNSUpstream{
-			Type: get(row, "type", "doh"), Server: server,
+			Type: get(row, "type", "doh"), Server: server, Via: strings.TrimSpace(row.Get("via")),
 		})
 	}
 	if len(config.Settings.DNSUpstreams) == 0 {
-		config.Settings.DNSUpstreams = []DNSUpstream{{Type: config.Settings.DNSType, Server: config.Settings.DNSServer}}
+		config.Settings.DNSUpstreams = []DNSUpstream{{Type: config.Settings.DNSType, Server: config.Settings.DNSServer, Via: settings.Get("dns_detour_section")}}
 	}
 	for _, member := range parsed.SectionsOfType("member") {
 		rule := config.Section(member.Get("section"))

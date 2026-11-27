@@ -445,6 +445,10 @@ type builder struct {
 	// detouring: a detour cure is being applied (exits.go applyDetour), so a server it reaches
 	// does not take one of its own, which could close a loop
 	detouring bool
+	// dnsServerDetoured tells that the single "dns-server" goes through a detour
+	// (dns_detour_section or the "via" of a lone row): sing-box's own lookups then take the
+	// bootstrap server instead, or they would loop through that detour (buildRoute)
+	dnsServerDetoured bool
 	// devicesOf are the devices of each rule and those it routes whole, by its name (devices.go)
 	devicesOf map[string]model.RuleDevices
 
@@ -800,8 +804,9 @@ func splitServer(server string) (host string, port string, path string) {
 
 // upstreamServer makes the DNS server of a row of the list: the servers of the internet
 // provider (podkop-engine's "provider", the servers netifd knows), or a server of its own,
-// whose name the bootstrap server resolves.
-func upstreamServer(upstream model.DNSUpstream, tag string) (*object, error) {
+// whose name the bootstrap server resolves. detour is the outbound the server goes through
+// ("" directly).
+func upstreamServer(upstream model.DNSUpstream, tag string, detour string) (*object, error) {
 	if upstream.Type == model.DNSTypeProvider {
 		return newObject("type", "provider", "tag", tag), nil
 	}
@@ -813,7 +818,24 @@ func upstreamServer(upstream model.DNSUpstream, tag string) (*object, error) {
 	if !model.IsIP(host) {
 		resolver = tagBootstrapDNSServer
 	}
-	return dnsServer(upstream.Type, tag, upstream.Server, resolver, "")
+	return dnsServer(upstream.Type, tag, upstream.Server, resolver, detour)
+}
+
+// dnsDetour is the outbound a DNS server goes through: the selector of a rule its "via"
+// names, or the outbound of a source named by it. "" for a server that goes directly. A name
+// that is no rule and no source is left as a warning, and the server goes directly.
+func (b *builder) dnsDetour(via string) (string, error) {
+	if via == "" {
+		return "", nil
+	}
+	if b.config.Section(via) != nil {
+		return b.ruleOutbound(via), nil
+	}
+	if b.config.Source(via) != nil {
+		return b.viaTag("", via, "")
+	}
+	b.warnOnce("the DNS server goes through ", via, ", which is no rule and no source: it goes directly")
+	return "", nil
 }
 
 // buildDNSServers puts in the DNS servers of the list under the tag every rule goes to: the one
@@ -833,7 +855,12 @@ func (b *builder) buildDNSServers() error {
 		upstreams = append(upstreams, upstream)
 	}
 	if len(upstreams) == 1 {
-		server, err := upstreamServer(upstreams[0], tagDNSServer)
+		detour, err := b.dnsDetour(upstreams[0].Via)
+		if err != nil {
+			return err
+		}
+		b.dnsServerDetoured = detour != ""
+		server, err := upstreamServer(upstreams[0], tagDNSServer, detour)
 		if err != nil {
 			return err
 		}
@@ -847,7 +874,11 @@ func (b *builder) buildDNSServers() error {
 	var members []string
 	for index, upstream := range upstreams {
 		tag := tagDNSServer + "-" + strconv.Itoa(index+1)
-		server, err := upstreamServer(upstream, tag)
+		detour, err := b.dnsDetour(upstream.Via)
+		if err != nil {
+			return E.Cause(err, "DNS server ", index+1)
+		}
+		server, err := upstreamServer(upstream, tag, detour)
 		if err != nil {
 			return E.Cause(err, "DNS server ", index+1)
 		}
@@ -944,8 +975,15 @@ func (b *builder) buildRoute() (*object, error) {
 	// What sing-box opens goes where the routing of the router sends it (mwan3, a route
 	// of a host, a tunnel's included), with the mark that keeps it out of the proxy
 	// (ledger item 11). The interface of the settings binds it.
+	// The names sing-box itself looks up (the addresses of the servers, of the downloaded
+	// lists) must resolve directly: when the single "dns-server" goes through a detour, taking
+	// it here would close a loop through that detour, so the bootstrap server is used.
+	resolver := tagDNSServer
+	if b.dnsServerDetoured {
+		resolver = tagBootstrapDNSServer
+	}
 	route := newObject("rules", nil, "rule_set", nil, "final", tagDirectOutbound,
-		"default_mark", dataplane.OutboundMark, "default_domain_resolver", tagDNSServer)
+		"default_mark", dataplane.OutboundMark, "default_domain_resolver", resolver)
 	if settings.OutputNetworkInterface != "" {
 		route.set("default_interface", b.device(settings.OutputNetworkInterface))
 	}

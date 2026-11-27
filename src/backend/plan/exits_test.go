@@ -382,7 +382,8 @@ type exitConfig struct {
 	} `json:"dns"`
 	Outbounds []exitOutbound `json:"outbounds"`
 	Route     struct {
-		Rules []map[string]any `json:"rules"`
+		Rules                 []map[string]any `json:"rules"`
+		DefaultDomainResolver string           `json:"default_domain_resolver"`
 	} `json:"route"`
 }
 

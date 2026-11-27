@@ -1967,6 +1967,9 @@ msgstr "Правило «%s», выбранное для BitTorrent в наст�
 msgid "The rule for BitTorrent"
 msgstr "Правило для BitTorrent"
 
+msgid "The rule or the source %s is deleted: choose another one"
+msgstr "Правило или источник %s удалён: выберите другой"
+
 msgid "The rule takes the traffic of these devices only: IPv4 or IPv6 addresses and subnets. The other devices go on to the rules below, and directly when none takes them. The DNS answers stay the same for all. Give a device a fixed address (a static DHCP lease). IPv6 addresses matter only with IPv6 traffic: Through podkop. Does not limit the mixed proxy."
 msgstr "Правило берёт трафик только этих устройств: адреса и подсети IPv4 или IPv6. Остальные устройства идут дальше, к правилам ниже, а если ни одно их не берёт — напрямую. Ответы DNS для всех одинаковы. Закрепите за устройством постоянный адрес (статическая аренда DHCP). Адреса IPv6 важны только при «Трафик IPv6: Через podkop». На смешанный прокси не действует."
 
