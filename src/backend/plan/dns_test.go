@@ -135,3 +135,24 @@ func TestDNSOfServerVia(t *testing.T) {
 	servers, _ = dnsServersOf(t, base+fmt.Sprintf(via, "nope"))
 	require.Nil(t, servers["dns-server"]["detour"])
 }
+
+// TestDNSOfServerViaResolver: the names sing-box looks up itself (the addresses of the servers)
+// must resolve directly. When the single DNS server goes through a detour, the default domain
+// resolver takes the bootstrap server instead, or the lookup would loop through that detour.
+func TestDNSOfServerViaResolver(t *testing.T) {
+	t.Parallel()
+	base := "\nconfig source 'own'\n\toption type 'links'\n\tlist link 'vless://u@own.example:443?security=reality#Own'\n" +
+		ruleText("main", row("server", "own"))
+	via := "\nconfig dns_server\n\toption type 'udp'\n\toption server '77.88.8.8'\n\toption via '%s'\n"
+
+	result, err := buildRules(t, base+fmt.Sprintf(via, "main"), nil)
+	require.NoError(t, err)
+	config, _ := outboundsOf(t, result)
+	require.Equal(t, "bootstrap-dns-server", config.Route.DefaultDomainResolver)
+
+	// without a detour the single server itself resolves, as before
+	result, err = buildRules(t, base+"\nconfig dns_server\n\toption type 'udp'\n\toption server '77.88.8.8'\n", nil)
+	require.NoError(t, err)
+	config, _ = outboundsOf(t, result)
+	require.Equal(t, "dns-server", config.Route.DefaultDomainResolver)
+}

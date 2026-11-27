@@ -445,6 +445,10 @@ type builder struct {
 	// detouring: a detour cure is being applied (exits.go applyDetour), so a server it reaches
 	// does not take one of its own, which could close a loop
 	detouring bool
+	// dnsServerDetoured tells that the single "dns-server" goes through a detour
+	// (dns_detour_section or the "via" of a lone row): sing-box's own lookups then take the
+	// bootstrap server instead, or they would loop through that detour (buildRoute)
+	dnsServerDetoured bool
 	// devicesOf are the devices of each rule and those it routes whole, by its name (devices.go)
 	devicesOf map[string]model.RuleDevices
 
@@ -855,6 +859,7 @@ func (b *builder) buildDNSServers() error {
 		if err != nil {
 			return err
 		}
+		b.dnsServerDetoured = detour != ""
 		server, err := upstreamServer(upstreams[0], tagDNSServer, detour)
 		if err != nil {
 			return err
@@ -970,8 +975,15 @@ func (b *builder) buildRoute() (*object, error) {
 	// What sing-box opens goes where the routing of the router sends it (mwan3, a route
 	// of a host, a tunnel's included), with the mark that keeps it out of the proxy
 	// (ledger item 11). The interface of the settings binds it.
+	// The names sing-box itself looks up (the addresses of the servers, of the downloaded
+	// lists) must resolve directly: when the single "dns-server" goes through a detour, taking
+	// it here would close a loop through that detour, so the bootstrap server is used.
+	resolver := tagDNSServer
+	if b.dnsServerDetoured {
+		resolver = tagBootstrapDNSServer
+	}
 	route := newObject("rules", nil, "rule_set", nil, "final", tagDirectOutbound,
-		"default_mark", dataplane.OutboundMark, "default_domain_resolver", tagDNSServer)
+		"default_mark", dataplane.OutboundMark, "default_domain_resolver", resolver)
 	if settings.OutputNetworkInterface != "" {
 		route.set("default_interface", b.device(settings.OutputNetworkInterface))
 	}
