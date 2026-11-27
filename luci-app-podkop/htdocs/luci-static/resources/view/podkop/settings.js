@@ -79,6 +79,12 @@ function dnsServersTable(section) {
         "server",
         uci.get("podkop", "settings", "dns_server") || "1.1.1.1",
       );
+      // the detour of the one server of the options (podkop 0.7's dns_detour_section) becomes
+      // the row's via, or it would be lost once the list is written
+      const detour = uci.get("podkop", "settings", "dns_detour_section");
+      if (detour) {
+        uci.set("podkop", row, "via", detour);
+      }
     }
     return Promise.all([
       form.TableSection.prototype.load.apply(this, arguments),
@@ -158,6 +164,65 @@ function dnsServersTable(section) {
     }
 
     return validation.message;
+  };
+
+  // The rule or the source the DNS server goes through ("via" of the row, as the backend reads
+  // it): the servers of the rule, or the source directly. The provider's row has no detour: its
+  // servers are the internet provider's, reached the way they are.
+  column = table.option(form.ListValue, "via", _("Through"));
+  column.renderWidget = function (section_id, option_index, cfgvalue) {
+    this.keylist = [];
+    this.vallist = [];
+    this.value("", _("directly"));
+    uci.sections("podkop", "section").forEach((rule) => {
+      const label = String(rule.label || "").trim() || rule[".name"];
+      this.value(
+        rule[".name"],
+        rule.enabled === "0" ? _("%s (off)").format(label) : label,
+      );
+    });
+    uci.sections("podkop", "source").forEach((item) => {
+      if (main.sourceFilled(item) && main.sourceKind(item)) {
+        this.value(item[".name"], main.sourceLabel(item));
+      }
+    });
+    if (cfgvalue && !this.keylist.includes(cfgvalue)) {
+      this.value(cfgvalue, _("%s (deleted)").format(cfgvalue));
+    }
+    return form.ListValue.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue,
+    );
+  };
+  // the provider's row is reached the way it is: no detour for it
+  ["doh", "dot", "udp"].forEach((type) => column.depends("type", type));
+  column.rmempty = true;
+  column.validate = function (section_id, value) {
+    if (!value) {
+      return true;
+    }
+    const rule = uci
+      .sections("podkop", "section")
+      .find((item) => item[".name"] === value);
+    if (rule) {
+      return true;
+    }
+    const item = uci
+      .sections("podkop", "source")
+      .find((candidate) => candidate[".name"] === value);
+    if (!item) {
+      return _(
+        "The rule or the source %s is deleted: choose another one",
+      ).format(value);
+    }
+    if (!main.sourceFilled(item)) {
+      return _("The source %s is not filled yet").format(
+        main.sourceLabel(item),
+      );
+    }
+    return true;
   };
 }
 

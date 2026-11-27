@@ -2763,6 +2763,10 @@ msgstr ""
 msgid "The rule for BitTorrent"
 msgstr ""
 
+#: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/settings.js:216
+msgid "The rule or the source %s is deleted: choose another one"
+msgstr ""
+
 #: ../luci-app-podkop/htdocs/luci-static/resources/view/podkop/rules.js:1180
 msgid "The rule takes the traffic of these devices only: IPv4 or IPv6 addresses and subnets. The other devices go on to the rules below, and directly when none takes them. The DNS answers stay the same for all. Give a device a fixed address (a static DHCP lease). IPv6 addresses matter only with IPv6 traffic: Through podkop. Does not limit the mixed proxy."
 msgstr ""
